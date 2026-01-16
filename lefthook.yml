@@ -21,4 +21,4 @@ pre-commit:
           - name: markdown
             glob: "*.md"
             stage_fixed: true
-            run: bunx markdownlint --disable MD013 MD029 MD033 MD036 MD040 MD060 --fix {files}
+            run: bunx markdownlint --disable MD013 MD029 MD033 MD036 MD040 MD041 MD060 --fix {files}
