@@ -38,3 +38,4 @@ jobs:
         with:
           version: v2.1.2
           install-mode: goinstall
+          args: ./cmd/... ./internal/... ./tools/...

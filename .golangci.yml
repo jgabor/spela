@@ -7,9 +7,6 @@ linters:
     - staticcheck
     - unused
     - ineffassign
-  exclusions:
-    paths:
-      - gui
 
 formatters:
   enable:
@@ -19,6 +16,3 @@ formatters:
     goimports:
       local-prefixes:
         - github.com/jgabor/spela
-  exclusions:
-    paths:
-      - gui
