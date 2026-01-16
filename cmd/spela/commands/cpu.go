@@ -3,8 +3,9 @@ package commands
 import (
 	"fmt"
 
-	"github.com/jgabor/spela/internal/cpu"
 	"github.com/spf13/cobra"
+
+	"github.com/jgabor/spela/internal/cpu"
 )
 
 var CPUCmd = &cobra.Command{

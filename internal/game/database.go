@@ -6,8 +6,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/jgabor/spela/internal/xdg"
 	"gopkg.in/yaml.v3"
+
+	"github.com/jgabor/spela/internal/xdg"
 )
 
 type Database struct {

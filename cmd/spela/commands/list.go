@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/jgabor/spela/internal/game"
 	"github.com/spf13/cobra"
+
+	"github.com/jgabor/spela/internal/game"
 )
 
 var (

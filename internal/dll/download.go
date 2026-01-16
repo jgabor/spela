@@ -33,7 +33,7 @@ func DownloadDLL(dll *DLL, dllName string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to download DLL: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("failed to download DLL: HTTP %d", resp.StatusCode)
@@ -49,20 +49,20 @@ func DownloadDLL(dll *DLL, dllName string) (string, error) {
 	writer := io.MultiWriter(out, hasher)
 
 	_, err = io.Copy(writer, resp.Body)
-	out.Close()
+	_ = out.Close()
 	if err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return "", fmt.Errorf("failed to write DLL: %w", err)
 	}
 
 	actualHash := hex.EncodeToString(hasher.Sum(nil))
 	if dll.SHA256 != "" && actualHash != dll.SHA256 {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return "", fmt.Errorf("checksum mismatch: expected %s, got %s", dll.SHA256, actualHash)
 	}
 
 	if err := os.Rename(tmpPath, cachePath); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return "", fmt.Errorf("failed to move DLL to cache: %w", err)
 	}
 

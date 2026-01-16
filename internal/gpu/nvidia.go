@@ -66,8 +66,8 @@ func SetPowerLimit(watts int) error {
 }
 
 func ResetClocks() error {
-	runNvidiaSMI("-rgc")
-	runNvidiaSMI("-rmc")
+	_, _ = runNvidiaSMI("-rgc")
+	_, _ = runNvidiaSMI("-rmc")
 	return nil
 }
 

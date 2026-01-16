@@ -3,9 +3,10 @@ package commands
 import (
 	"fmt"
 
-	"github.com/jgabor/spela/internal/config"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
+
+	"github.com/jgabor/spela/internal/config"
 )
 
 var ConfigCmd = &cobra.Command{

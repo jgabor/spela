@@ -20,7 +20,7 @@ func main() {
 	appMenu := menu.NewMenu()
 	fileMenu := appMenu.AddSubmenu("File")
 	fileMenu.AddText("Scan games", keys.CmdOrCtrl("r"), func(cd *menu.CallbackData) {
-		app.ScanGames()
+		_ = app.ScanGames()
 	})
 	fileMenu.AddSeparator()
 	fileMenu.AddText("Quit", keys.CmdOrCtrl("q"), func(cd *menu.CallbackData) {

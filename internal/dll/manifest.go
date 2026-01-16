@@ -78,7 +78,7 @@ func FetchManifest(repositoryURL string) (*Manifest, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch manifest: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to fetch manifest: HTTP %d", resp.StatusCode)

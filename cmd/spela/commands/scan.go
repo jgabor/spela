@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/jgabor/spela/internal/steam"
 	"github.com/spf13/cobra"
+
+	"github.com/jgabor/spela/internal/steam"
 )
 
 var scanJSON bool

@@ -39,7 +39,7 @@ func (e *Environment) All() map[string]string {
 
 func (e *Environment) Apply() {
 	for k, v := range e.vars {
-		os.Setenv(k, v)
+		_ = os.Setenv(k, v)
 	}
 }
 

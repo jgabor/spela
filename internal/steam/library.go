@@ -37,7 +37,7 @@ func GetLibraries(steamPath string) ([]Library, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	node, err := ParseVDF(f)
 	if err != nil {

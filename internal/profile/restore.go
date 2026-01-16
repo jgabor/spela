@@ -40,9 +40,9 @@ func (r *RestorePoint) Restore() {
 
 	for key, value := range r.envVars {
 		if value == "" {
-			os.Unsetenv(key)
+			_ = os.Unsetenv(key)
 		} else {
-			os.Setenv(key, value)
+			_ = os.Setenv(key, value)
 		}
 	}
 

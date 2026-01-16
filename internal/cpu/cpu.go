@@ -167,7 +167,7 @@ func GetCPUMetrics() (*CPUMetrics, error) {
 			continue
 		}
 		freq := 0
-		fmt.Sscanf(strings.TrimSpace(string(data)), "%d", &freq)
+		_, _ = fmt.Sscanf(strings.TrimSpace(string(data)), "%d", &freq)
 		metrics.Frequencies = append(metrics.Frequencies, freq/1000)
 		total += freq / 1000
 	}
@@ -184,11 +184,11 @@ func GetCPUMetrics() (*CPUMetrics, error) {
 		lines := strings.Split(string(memData), "\n")
 		for _, line := range lines {
 			if strings.HasPrefix(line, "MemTotal:") {
-				fmt.Sscanf(line, "MemTotal: %d kB", &metrics.RAMTotalMB)
+				_, _ = fmt.Sscanf(line, "MemTotal: %d kB", &metrics.RAMTotalMB)
 				metrics.RAMTotalMB /= 1024
 			} else if strings.HasPrefix(line, "MemAvailable:") {
 				var available int
-				fmt.Sscanf(line, "MemAvailable: %d kB", &available)
+				_, _ = fmt.Sscanf(line, "MemAvailable: %d kB", &available)
 				metrics.RAMUsedMB = metrics.RAMTotalMB - (available / 1024)
 			}
 		}
@@ -218,10 +218,10 @@ func getCPUUtilization() float64 {
 	}
 
 	var user, nice, system, idle int
-	fmt.Sscanf(fields[1], "%d", &user)
-	fmt.Sscanf(fields[2], "%d", &nice)
-	fmt.Sscanf(fields[3], "%d", &system)
-	fmt.Sscanf(fields[4], "%d", &idle)
+	_, _ = fmt.Sscanf(fields[1], "%d", &user)
+	_, _ = fmt.Sscanf(fields[2], "%d", &nice)
+	_, _ = fmt.Sscanf(fields[3], "%d", &system)
+	_, _ = fmt.Sscanf(fields[4], "%d", &idle)
 
 	total := user + nice + system + idle
 	if total == 0 {
@@ -232,7 +232,7 @@ func getCPUUtilization() float64 {
 	// Use load average instead for a better approximation
 	if loadData, err := os.ReadFile("/proc/loadavg"); err == nil {
 		var load1 float64
-		fmt.Sscanf(string(loadData), "%f", &load1)
+		_, _ = fmt.Sscanf(string(loadData), "%f", &load1)
 		// Normalize by CPU count for percentage approximation
 		cpuCount := float64(GetCPUCount())
 		util := (load1 / cpuCount) * 100

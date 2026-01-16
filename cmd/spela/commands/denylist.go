@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/spf13/cobra"
+
 	"github.com/jgabor/spela/internal/denylist"
 	"github.com/jgabor/spela/internal/game"
-	"github.com/spf13/cobra"
 )
 
 var DenylistCmd = &cobra.Command{

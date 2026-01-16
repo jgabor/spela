@@ -51,7 +51,7 @@ func FindDLLsInPrefix(prefix *ProtonPrefix, dllNames []string) map[string][]stri
 
 	results := make(map[string][]string)
 
-	filepath.WalkDir(prefix.DriveC, func(path string, d os.DirEntry, err error) error {
+	_ = filepath.WalkDir(prefix.DriveC, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
 		}

@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/profile"
 )

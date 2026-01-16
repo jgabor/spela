@@ -4,19 +4,21 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/jgabor/spela/cmd/spela/commands"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/launcher"
-	"github.com/spf13/cobra"
 )
 
 var version = "dev"
 
 var rootCmd = &cobra.Command{
-	Use:   "spela [command]",
-	Short: "Linux gaming optimization tool",
-	Long:  "Spela is a Linux gaming optimization tool that combines DLSS/DLL management with comprehensive gaming environment setup.",
-	RunE:  runRoot,
+	Use:     "spela [command]",
+	Short:   "Linux gaming optimization tool",
+	Long:    "Spela is a Linux gaming optimization tool that combines DLSS/DLL management with comprehensive gaming environment setup.",
+	Version: version,
+	RunE:    runRoot,
 }
 
 func init() {

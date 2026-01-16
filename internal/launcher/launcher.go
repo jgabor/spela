@@ -60,7 +60,7 @@ func (l *Launcher) Launch(args []string) error {
 	select {
 	case sig := <-sigChan:
 		if cmd.Process != nil {
-			cmd.Process.Signal(sig)
+			_ = cmd.Process.Signal(sig)
 		}
 		err = <-done
 	case err = <-done:

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/profile"

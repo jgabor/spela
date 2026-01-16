@@ -3,8 +3,9 @@ package commands
 import (
 	"fmt"
 
-	"github.com/jgabor/spela/internal/gpu"
 	"github.com/spf13/cobra"
+
+	"github.com/jgabor/spela/internal/gpu"
 )
 
 var GPUCmd = &cobra.Command{

@@ -5,8 +5,9 @@ import (
 	"io/fs"
 	"os"
 
-	"github.com/jgabor/spela/internal/xdg"
 	"gopkg.in/yaml.v3"
+
+	"github.com/jgabor/spela/internal/xdg"
 )
 
 type LogLevel string

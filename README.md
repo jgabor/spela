@@ -1,19 +1,21 @@
 ![Spela](assets/spela.png)
 
-<p align="center>"
-  *Linux gaming optimization tool*
+<p align="center">
+  <i>Linux gaming optimization tool</i>
 </p>
 
-<a href="#features">Features</a> •
-<a href="#installation">Installation</a> •
-<a href="#usage">Usage</a> •
-<a href="#configuration">Configuration</a>
+<p align="center">
+  <a href="#features">Features</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#usage">Usage</a> •
+  <a href="#configuration">Configuration</a>
+</p>
 
 ---
 
 **Spela** (Swedish for "play") is a Linux gaming optimization tool that combines DLSS/DLL management with comprehensive per-game configuration. It solves the pain of maintaining game-specific settings and manually updating DLSS DLLs.
 
-## ✨ Features
+## Features
 
 ### 📦 DLL management
 
@@ -41,7 +43,7 @@
 - **TUI:** Interactive terminal UI with real-time monitoring
 - **GUI:** Native desktop application (Wails + Svelte)
 
-## 📥 Installation
+## Installation
 
 ### AUR (Arch Linux)
 
@@ -72,7 +74,7 @@ sudo make install
 
 _AMD and Intel support planned._
 
-## 🚀 Usage
+## Usage
 
 ### Scan for games
 
@@ -120,7 +122,7 @@ spela launch "Cyberpunk 2077"
 spela tui
 ```
 
-## ⚙️ Configuration
+## Configuration
 
 Configuration files are stored following XDG Base Directory specification:
 

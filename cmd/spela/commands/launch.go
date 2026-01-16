@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/spf13/cobra"
+
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/env"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/launcher"
 	"github.com/jgabor/spela/internal/profile"
-	"github.com/spf13/cobra"
 )
 
 var launchGameID uint64

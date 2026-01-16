@@ -7,8 +7,9 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/jgabor/spela/internal/xdg"
 	"gopkg.in/yaml.v3"
+
+	"github.com/jgabor/spela/internal/xdg"
 )
 
 func profilesDir() string {

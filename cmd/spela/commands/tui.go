@@ -3,9 +3,10 @@ package commands
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/tui"
-	"github.com/spf13/cobra"
 )
 
 var TUICmd = &cobra.Command{

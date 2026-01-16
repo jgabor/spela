@@ -43,7 +43,7 @@ func CheckForUpdate(currentVersion string) (*UpdateInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to check for updates: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to check for updates: HTTP %d", resp.StatusCode)
@@ -113,7 +113,7 @@ func CheckAndNotify(currentVersion string) (*UpdateInfo, error) {
 	state := &UpdateState{
 		LastCheck: time.Now(),
 	}
-	SaveUpdateState(state)
+	_ = SaveUpdateState(state)
 
 	if !info.Available {
 		return nil, nil
