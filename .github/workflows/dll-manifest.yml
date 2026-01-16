@@ -99,21 +99,26 @@ jobs:
           SIZE="${{ steps.sha.outputs.size }}"
           SOURCE="${{ steps.check.outputs.source }}"
 
-          # Create tag
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "DLSS $VERSION"
-          git push origin "$TAG"
 
-          # Create release with the DLL
-          cp dist/dlss.dll dist/nvngx_dlss.dll
-          gh release create "$TAG" dist/nvngx_dlss.dll \
-            --title "DLSS v$VERSION" \
-            --notes "DLSS $VERSION
+          # Create tag if it doesn't exist
+          if ! git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
+            git tag -a "$TAG" -m "DLSS $VERSION"
+            git push origin "$TAG"
+          fi
+
+          # Create release if it doesn't exist
+          if ! gh release view "$TAG" &>/dev/null; then
+            cp dist/dlss.dll dist/nvngx_dlss.dll
+            gh release create "$TAG" dist/nvngx_dlss.dll \
+              --title "DLSS v$VERSION" \
+              --notes "DLSS $VERSION
 
           **Source:** $SOURCE
           **SHA256:** \`$SHA256\`
           **Size:** $SIZE bytes"
+          fi
 
           # Update manifest
           python3 << EOF
@@ -149,5 +154,9 @@ jobs:
         run: |
           VERSION="${{ steps.check.outputs.version }}"
           git add data/manifest.json
-          git commit -m "chore: add DLSS $VERSION to manifest"
-          git push origin main
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: add DLSS $VERSION to manifest"
+            git push origin main
+          fi
