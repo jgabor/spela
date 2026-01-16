@@ -22,12 +22,14 @@ var dlssShowCmd = &cobra.Command{
 	RunE:  runDLSSShow,
 }
 
-var dlssSetSRMode string
-var dlssSetSRPreset string
-var dlssSetRRMode string
-var dlssSetFGEnabled string
-var dlssSetMultiFrame int
-var dlssSetIndicator bool
+var (
+	dlssSetSRMode     string
+	dlssSetSRPreset   string
+	dlssSetRRMode     string
+	dlssSetFGEnabled  string
+	dlssSetMultiFrame int
+	dlssSetIndicator  bool
+)
 
 var dlssSetCmd = &cobra.Command{
 	Use:   "set <game>",

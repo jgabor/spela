@@ -27,12 +27,12 @@ func (a *App) shutdown(ctx context.Context) {
 }
 
 type GameInfo struct {
-	AppID      uint64   `json:"appId"`
-	Name       string   `json:"name"`
-	InstallDir string   `json:"installDir"`
-	PrefixPath string   `json:"prefixPath"`
+	AppID      uint64    `json:"appId"`
+	Name       string    `json:"name"`
+	InstallDir string    `json:"installDir"`
+	PrefixPath string    `json:"prefixPath"`
 	DLLs       []DLLInfo `json:"dlls"`
-	HasProfile bool     `json:"hasProfile"`
+	HasProfile bool      `json:"hasProfile"`
 }
 
 type DLLInfo struct {
@@ -100,13 +100,13 @@ func (a *App) GetGame(appID uint64) *GameInfo {
 }
 
 type ProfileInfo struct {
-	Preset          string `json:"preset"`
-	SRMode          string `json:"srMode"`
-	SROverride      bool   `json:"srOverride"`
-	FGEnabled       bool   `json:"fgEnabled"`
-	EnableHDR       bool   `json:"enableHdr"`
-	EnableWayland   bool   `json:"enableWayland"`
-	EnableNGXUpdater bool  `json:"enableNgxUpdater"`
+	Preset           string `json:"preset"`
+	SRMode           string `json:"srMode"`
+	SROverride       bool   `json:"srOverride"`
+	FGEnabled        bool   `json:"fgEnabled"`
+	EnableHDR        bool   `json:"enableHdr"`
+	EnableWayland    bool   `json:"enableWayland"`
+	EnableNGXUpdater bool   `json:"enableNgxUpdater"`
 }
 
 func (a *App) GetProfile(appID uint64) *ProfileInfo {
@@ -116,12 +116,12 @@ func (a *App) GetProfile(appID uint64) *ProfileInfo {
 	}
 
 	return &ProfileInfo{
-		Preset:          string(p.Preset),
-		SRMode:          string(p.DLSS.SRMode),
-		SROverride:      p.DLSS.SROverride,
-		FGEnabled:       p.DLSS.FGEnabled,
-		EnableHDR:       p.Proton.EnableHDR,
-		EnableWayland:   p.Proton.EnableWayland,
+		Preset:           string(p.Preset),
+		SRMode:           string(p.DLSS.SRMode),
+		SROverride:       p.DLSS.SROverride,
+		FGEnabled:        p.DLSS.FGEnabled,
+		EnableHDR:        p.Proton.EnableHDR,
+		EnableWayland:    p.Proton.EnableWayland,
 		EnableNGXUpdater: p.Proton.EnableNGXUpdater,
 	}
 }
@@ -147,15 +147,15 @@ func (a *App) SaveProfile(appID uint64, info ProfileInfo) error {
 }
 
 type GPUInfo struct {
-	Name        string  `json:"name"`
-	Temperature int     `json:"temperature"`
-	PowerDraw   float64 `json:"powerDraw"`
-	PowerLimit  float64 `json:"powerLimit"`
-	Utilization int     `json:"utilization"`
-	MemoryUsed  int     `json:"memoryUsed"`
-	MemoryTotal int     `json:"memoryTotal"`
-	GraphicsClock int   `json:"graphicsClock"`
-	MemoryClock   int   `json:"memoryClock"`
+	Name          string  `json:"name"`
+	Temperature   int     `json:"temperature"`
+	PowerDraw     float64 `json:"powerDraw"`
+	PowerLimit    float64 `json:"powerLimit"`
+	Utilization   int     `json:"utilization"`
+	MemoryUsed    int     `json:"memoryUsed"`
+	MemoryTotal   int     `json:"memoryTotal"`
+	GraphicsClock int     `json:"graphicsClock"`
+	MemoryClock   int     `json:"memoryClock"`
 }
 
 func (a *App) GetGPUInfo() *GPUInfo {

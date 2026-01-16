@@ -15,9 +15,9 @@ type NVIDIASettings struct {
 }
 
 type NVIDIASMISettings struct {
-	TargetTemp        int
+	TargetTemp          int
 	GraphicsClockOffset int
-	MemoryClockOffset  int
+	MemoryClockOffset   int
 }
 
 func GetNVIDIASettings() (*NVIDIASettings, error) {
@@ -92,14 +92,14 @@ func GetGPUInfo() (map[string]string, error) {
 }
 
 type GPUMetrics struct {
-	Temperature    int
-	PowerDraw      float64
-	PowerLimit     float64
-	Utilization    int
-	MemoryUsed     int
-	MemoryTotal    int
-	GraphicsClock  int
-	MemoryClock    int
+	Temperature   int
+	PowerDraw     float64
+	PowerLimit    float64
+	Utilization   int
+	MemoryUsed    int
+	MemoryTotal   int
+	GraphicsClock int
+	MemoryClock   int
 }
 
 func GetGPUMetrics() (*GPUMetrics, error) {

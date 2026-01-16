@@ -35,13 +35,15 @@ var denylistAllowCmd = &cobra.Command{
 	RunE:  runDenylistAllow,
 }
 
-var denylistDenyReason string
-var denylistDenyCmd = &cobra.Command{
-	Use:   "deny <game>",
-	Short: "Add a game to the deny list",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runDenylistDeny,
-}
+var (
+	denylistDenyReason string
+	denylistDenyCmd    = &cobra.Command{
+		Use:   "deny <game>",
+		Short: "Add a game to the deny list",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runDenylistDeny,
+	}
+)
 
 func init() {
 	denylistDenyCmd.Flags().StringVar(&denylistDenyReason, "reason", "", "Reason for denying")

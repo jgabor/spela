@@ -31,10 +31,10 @@ type Asset struct {
 }
 
 type UpdateInfo struct {
-	Available   bool
-	Current     string
-	Latest      string
-	ReleaseURL  string
+	Available    bool
+	Current      string
+	Latest       string
+	ReleaseURL   string
 	ReleaseNotes string
 }
 

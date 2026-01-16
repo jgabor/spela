@@ -9,8 +9,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var listWithDLLs bool
-var listJSON bool
+var (
+	listWithDLLs bool
+	listJSON     bool
+)
 
 var ListCmd = &cobra.Command{
 	Use:   "list",

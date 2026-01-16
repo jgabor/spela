@@ -48,7 +48,6 @@ func main() {
 		},
 		HideWindowOnClose: true,
 	})
-
 	if err != nil {
 		println("Error:", err.Error())
 	}

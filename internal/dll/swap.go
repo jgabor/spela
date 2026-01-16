@@ -14,11 +14,11 @@ import (
 )
 
 type Backup struct {
-	AppID      uint64            `json:"app_id"`
-	GameName   string            `json:"game_name"`
-	CreatedAt  time.Time         `json:"created_at"`
-	BackupPath string            `json:"backup_path"`
-	Files      []BackedUpFile    `json:"files"`
+	AppID      uint64         `json:"app_id"`
+	GameName   string         `json:"game_name"`
+	CreatedAt  time.Time      `json:"created_at"`
+	BackupPath string         `json:"backup_path"`
+	Files      []BackedUpFile `json:"files"`
 }
 
 type BackedUpFile struct {
@@ -56,7 +56,7 @@ func LoadBackup(appID uint64) (*Backup, error) {
 
 func SaveBackup(backup *Backup) error {
 	dir := GetBackupDir(backup.AppID)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 
@@ -65,7 +65,7 @@ func SaveBackup(backup *Backup) error {
 		return err
 	}
 
-	return os.WriteFile(GetBackupMetadataPath(backup.AppID), data, 0644)
+	return os.WriteFile(GetBackupMetadataPath(backup.AppID), data, 0o644)
 }
 
 func BackupExists(appID uint64) bool {
@@ -85,7 +85,7 @@ func CreateBackup(appID uint64, gameName string, dlls []GameDLL) (*Backup, error
 	}
 
 	backupDir := GetBackupDir(appID)
-	if err := os.MkdirAll(backupDir, 0755); err != nil {
+	if err := os.MkdirAll(backupDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create backup directory: %w", err)
 	}
 

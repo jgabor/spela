@@ -25,7 +25,7 @@ func IsCached(name, version string) bool {
 func DownloadDLL(dll *DLL, dllName string) (string, error) {
 	cachePath := GetDLLCachePath(dllName, dll.Version)
 
-	if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(cachePath), 0o755); err != nil {
 		return "", fmt.Errorf("failed to create cache directory: %w", err)
 	}
 

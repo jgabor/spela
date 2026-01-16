@@ -22,13 +22,15 @@ var profileListCmd = &cobra.Command{
 	RunE:  runProfileList,
 }
 
-var profileCreatePreset string
-var profileCreateCmd = &cobra.Command{
-	Use:   "create <game>",
-	Short: "Create a profile for a game",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runProfileCreate,
-}
+var (
+	profileCreatePreset string
+	profileCreateCmd    = &cobra.Command{
+		Use:   "create <game>",
+		Short: "Create a profile for a game",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runProfileCreate,
+	}
+)
 
 var profileShowCmd = &cobra.Command{
 	Use:   "show <game>",

@@ -63,5 +63,5 @@ func (c *Config) Save() error {
 	}
 
 	path := xdg.ConfigPath("config.yaml")
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0o644)
 }

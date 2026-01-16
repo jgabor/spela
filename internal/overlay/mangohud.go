@@ -25,7 +25,7 @@ type MangoHudConfig struct {
 	ShowClock      bool
 	Frametime      bool
 	Histogram      bool
-	ToggleKey     string
+	ToggleKey      string
 	LoggingEnabled bool
 	LogDuration    int
 }
@@ -46,7 +46,7 @@ func DefaultConfig() *MangoHudConfig {
 		ShowClock:     true,
 		Frametime:     true,
 		Histogram:     false,
-		ToggleKey:    "F12",
+		ToggleKey:     "F12",
 	}
 }
 
@@ -129,14 +129,14 @@ func (c *MangoHudConfig) ToConfigString() string {
 
 func (c *MangoHudConfig) WriteConfig(appID uint64) (string, error) {
 	configDir := xdg.ConfigPath("mangohud")
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		return "", err
 	}
 
 	configPath := filepath.Join(configDir, fmt.Sprintf("%d.conf", appID))
 	content := c.ToConfigString()
 
-	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
 		return "", err
 	}
 

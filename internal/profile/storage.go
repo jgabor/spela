@@ -20,7 +20,7 @@ func profilePath(appID uint64) string {
 }
 
 func EnsureProfilesDir() error {
-	return os.MkdirAll(profilesDir(), 0755)
+	return os.MkdirAll(profilesDir(), 0o755)
 }
 
 func Load(appID uint64) (*Profile, error) {
@@ -62,7 +62,7 @@ func Save(appID uint64, p *Profile) error {
 		return err
 	}
 
-	return os.WriteFile(profilePath(appID), data, 0644)
+	return os.WriteFile(profilePath(appID), data, 0o644)
 }
 
 func Delete(appID uint64) error {

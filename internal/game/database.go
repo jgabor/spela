@@ -50,7 +50,7 @@ func (db *Database) Save() error {
 	}
 
 	path := xdg.DataPath("games.yaml")
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0o644)
 }
 
 func (db *Database) AddGame(game *Game) {

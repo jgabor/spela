@@ -30,17 +30,17 @@ func CacheHome() string {
 
 func EnsureConfigHome() (string, error) {
 	dir := ConfigHome()
-	return dir, os.MkdirAll(dir, 0755)
+	return dir, os.MkdirAll(dir, 0o755)
 }
 
 func EnsureDataHome() (string, error) {
 	dir := DataHome()
-	return dir, os.MkdirAll(dir, 0755)
+	return dir, os.MkdirAll(dir, 0o755)
 }
 
 func EnsureCacheHome() (string, error) {
 	dir := CacheHome()
-	return dir, os.MkdirAll(dir, 0755)
+	return dir, os.MkdirAll(dir, 0o755)
 }
 
 func ConfigPath(elem ...string) string {
@@ -61,8 +61,8 @@ func ReadFile(path string) ([]byte, error) {
 
 func WriteFile(path string, data []byte) error {
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0o644)
 }

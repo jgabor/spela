@@ -57,7 +57,7 @@ func LoadManifest() (*Manifest, error) {
 
 func SaveManifest(manifest *Manifest) error {
 	cachePath := xdg.CachePath(ManifestCacheFile)
-	if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(cachePath), 0o755); err != nil {
 		return err
 	}
 
@@ -66,7 +66,7 @@ func SaveManifest(manifest *Manifest) error {
 		return err
 	}
 
-	return os.WriteFile(cachePath, data, 0644)
+	return os.WriteFile(cachePath, data, 0o644)
 }
 
 func FetchManifest(repositoryURL string) (*Manifest, error) {

@@ -157,4 +157,3 @@ func ScanAllLibraries() (*game.Database, error) {
 
 	return db, nil
 }
-

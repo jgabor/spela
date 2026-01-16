@@ -9,26 +9,26 @@ import (
 )
 
 type SaveInfo struct {
-	Name      string   `json:"name"`
-	Paths     []string `json:"paths"`
-	Registry  []string `json:"registry,omitempty"`
-	Size      int64    `json:"size"`
-	Backups   int      `json:"backups"`
+	Name     string   `json:"name"`
+	Paths    []string `json:"paths"`
+	Registry []string `json:"registry,omitempty"`
+	Size     int64    `json:"size"`
+	Backups  int      `json:"backups"`
 }
 
 type BackupResult struct {
 	Overall struct {
-		TotalGames    int `json:"totalGames"`
-		TotalBytes    int64 `json:"totalBytes"`
-		ProcessedGames int `json:"processedGames"`
+		TotalGames     int   `json:"totalGames"`
+		TotalBytes     int64 `json:"totalBytes"`
+		ProcessedGames int   `json:"processedGames"`
 		ProcessedBytes int64 `json:"processedBytes"`
 	} `json:"overall"`
 	Games map[string]GameBackupResult `json:"games"`
 }
 
 type GameBackupResult struct {
-	Decision string `json:"decision"`
-	Change   string `json:"change"`
+	Decision string                      `json:"decision"`
+	Change   string                      `json:"change"`
 	Files    map[string]FileBackupResult `json:"files"`
 }
 

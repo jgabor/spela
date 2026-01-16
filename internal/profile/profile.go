@@ -12,12 +12,12 @@ const (
 type DLSSMode string
 
 const (
-	DLSSModeOff             DLSSMode = "off"
+	DLSSModeOff              DLSSMode = "off"
 	DLSSModeUltraPerformance DLSSMode = "ultra_performance"
-	DLSSModePerformance     DLSSMode = "performance"
-	DLSSModeBalanced        DLSSMode = "balanced"
-	DLSSModeQuality         DLSSMode = "quality"
-	DLSSModeDLAA            DLSSMode = "dlaa"
+	DLSSModePerformance      DLSSMode = "performance"
+	DLSSModeBalanced         DLSSMode = "balanced"
+	DLSSModeQuality          DLSSMode = "quality"
+	DLSSModeDLAA             DLSSMode = "dlaa"
 )
 
 type DLSSPreset string
@@ -74,12 +74,12 @@ type DLSSSettings struct {
 }
 
 type GPUSettings struct {
-	ShaderCache         bool   `yaml:"shader_cache,omitempty"`
-	ShaderCachePath     string `yaml:"shader_cache_path,omitempty"`
+	ShaderCache          bool   `yaml:"shader_cache,omitempty"`
+	ShaderCachePath      string `yaml:"shader_cache_path,omitempty"`
 	ThreadedOptimization bool   `yaml:"threaded_optimization,omitempty"`
-	ClockOffset         int    `yaml:"clock_offset,omitempty"`
-	MemoryOffset        int    `yaml:"memory_offset,omitempty"`
-	PowerMizer          string `yaml:"power_mizer,omitempty"`
+	ClockOffset          int    `yaml:"clock_offset,omitempty"`
+	MemoryOffset         int    `yaml:"memory_offset,omitempty"`
+	PowerMizer           string `yaml:"power_mizer,omitempty"`
 }
 
 type CPUSettings struct {
@@ -107,7 +107,7 @@ func DefaultPresets() map[Preset]*Profile {
 				MultiFrame: 2,
 			},
 			GPU: GPUSettings{
-				ShaderCache:         true,
+				ShaderCache:          true,
 				ThreadedOptimization: true,
 			},
 			Proton: ProtonSettings{
@@ -125,7 +125,7 @@ func DefaultPresets() map[Preset]*Profile {
 				MultiFrame: 1,
 			},
 			GPU: GPUSettings{
-				ShaderCache:         true,
+				ShaderCache:          true,
 				ThreadedOptimization: true,
 			},
 			Proton: ProtonSettings{
@@ -141,7 +141,7 @@ func DefaultPresets() map[Preset]*Profile {
 				FGEnabled:  false,
 			},
 			GPU: GPUSettings{
-				ShaderCache:         true,
+				ShaderCache:          true,
 				ThreadedOptimization: true,
 			},
 			Proton: ProtonSettings{

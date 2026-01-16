@@ -52,7 +52,7 @@ func overridesPath() string {
 }
 
 func EnsureListsDir() error {
-	return os.MkdirAll(listsDir(), 0755)
+	return os.MkdirAll(listsDir(), 0o755)
 }
 
 func LoadDenyList() (*DenyList, error) {
@@ -101,7 +101,7 @@ func SaveOverrides(o *Overrides) error {
 		return err
 	}
 
-	return os.WriteFile(overridesPath(), data, 0644)
+	return os.WriteFile(overridesPath(), data, 0o644)
 }
 
 func IsDenied(appID uint64) (bool, string) {

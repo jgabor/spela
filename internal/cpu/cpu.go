@@ -12,9 +12,9 @@ import (
 type Governor string
 
 const (
-	GovernorPerformance Governor = "performance"
-	GovernorPowersave   Governor = "powersave"
-	GovernorOndemand    Governor = "ondemand"
+	GovernorPerformance  Governor = "performance"
+	GovernorPowersave    Governor = "powersave"
+	GovernorOndemand     Governor = "ondemand"
 	GovernorConservative Governor = "conservative"
 )
 
@@ -47,7 +47,7 @@ func SetGovernor(gov Governor) error {
 	cpuCount := GetCPUCount()
 	for i := 0; i < cpuCount; i++ {
 		path := fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/scaling_governor", i)
-		if err := os.WriteFile(path, []byte(gov), 0644); err != nil {
+		if err := os.WriteFile(path, []byte(gov), 0o644); err != nil {
 			return fmt.Errorf("failed to set governor for cpu%d: %w", i, err)
 		}
 	}
@@ -67,7 +67,7 @@ func SetSMT(enabled bool) error {
 	if enabled {
 		value = "on"
 	}
-	return os.WriteFile("/sys/devices/system/cpu/smt/control", []byte(value), 0644)
+	return os.WriteFile("/sys/devices/system/cpu/smt/control", []byte(value), 0o644)
 }
 
 func LaunchWithAffinity(affinity string, args []string) *exec.Cmd {
@@ -146,10 +146,10 @@ func GetSchedulers() ([]string, error) {
 }
 
 type CPUMetrics struct {
-	Frequencies []int
+	Frequencies      []int
 	AverageFrequency int
-	Governor    Governor
-	SMTEnabled  bool
+	Governor         Governor
+	SMTEnabled       bool
 }
 
 func GetCPUMetrics() (*CPUMetrics, error) {
