@@ -7,12 +7,11 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"regexp"
 	"strings"
 )
 
 const (
-	techPowerUpURL = "https://www.techpowerup.com/download/nvidia-dlss-dll/"
+	nvidiaReleaseAPI = "https://api.github.com/repos/NVIDIA/DLSS/releases/latest"
 )
 
 type Manifest struct {
@@ -25,10 +24,21 @@ type DLL struct {
 	Version string `json:"version"`
 }
 
+type GitHubRelease struct {
+	TagName string        `json:"tag_name"`
+	Assets  []GitHubAsset `json:"assets"`
+}
+
+type GitHubAsset struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
+}
+
 type LatestVersion struct {
 	Version     string `json:"version"`
 	DownloadURL string `json:"download_url"`
 	IsNew       bool   `json:"is_new"`
+	Source      string `json:"source"`
 }
 
 func main() {
@@ -57,6 +67,7 @@ func main() {
 		if latest.IsNew {
 			fmt.Printf("New DLSS version available: %s\n", latest.Version)
 			fmt.Printf("Download URL: %s\n", latest.DownloadURL)
+			fmt.Printf("Source: %s\n", latest.Source)
 			if current != "" {
 				fmt.Printf("Current version: %s\n", current)
 			}
@@ -73,7 +84,41 @@ func main() {
 }
 
 func fetchLatestVersion() (*LatestVersion, error) {
-	resp, err := http.Get(techPowerUpURL)
+	release, err := fetchGitHubRelease(nvidiaReleaseAPI)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch NVIDIA release: %w", err)
+	}
+
+	version := strings.TrimPrefix(release.TagName, "v")
+
+	var downloadURL string
+	for _, asset := range release.Assets {
+		if strings.Contains(asset.Name, "windows") && strings.HasSuffix(asset.Name, ".zip") {
+			downloadURL = asset.BrowserDownloadURL
+			break
+		}
+	}
+
+	if downloadURL == "" {
+		return nil, fmt.Errorf("no Windows demo zip found in release")
+	}
+
+	return &LatestVersion{
+		Version:     version,
+		DownloadURL: downloadURL,
+		Source:      "github.com/NVIDIA/DLSS",
+	}, nil
+}
+
+func fetchGitHubRelease(apiURL string) (*GitHubRelease, error) {
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -84,34 +129,12 @@ func fetchLatestVersion() (*LatestVersion, error) {
 		return nil, err
 	}
 
-	html := string(body)
-
-	versionRegex := regexp.MustCompile(`/download/nvidia-dlss-dll/file\?id=(\d+)[^"]*"[^>]*>[\s\S]*?Version[:\s]+(\d+\.\d+\.\d+)`)
-	matches := versionRegex.FindStringSubmatch(html)
-
-	if len(matches) < 3 {
-		altRegex := regexp.MustCompile(`<a[^>]+href="([^"]+dlss[^"]+)"[^>]*>[\s\S]{0,200}?(\d+\.\d+\.\d+)`)
-		matches = altRegex.FindStringSubmatch(html)
-		if len(matches) < 3 {
-			altRegex2 := regexp.MustCompile(`(\d+\.\d+\.\d+)[\s\S]{0,50}?<a[^>]+href="/download/nvidia-dlss-dll/\?id=(\d+)"`)
-			matches = altRegex2.FindStringSubmatch(html)
-			if len(matches) >= 3 {
-				return &LatestVersion{
-					Version:     matches[1],
-					DownloadURL: fmt.Sprintf("https://www.techpowerup.com/download/nvidia-dlss-dll/?id=%s", matches[2]),
-				}, nil
-			}
-			return nil, fmt.Errorf("could not find version info in page")
-		}
+	var release GitHubRelease
+	if err := json.Unmarshal(body, &release); err != nil {
+		return nil, fmt.Errorf("failed to parse release JSON: %w", err)
 	}
 
-	fileID := matches[1]
-	version := matches[2]
-
-	return &LatestVersion{
-		Version:     version,
-		DownloadURL: fmt.Sprintf("https://www.techpowerup.com/download/nvidia-dlss-dll/?id=%s", fileID),
-	}, nil
+	return &release, nil
 }
 
 func getCurrentVersion(manifestPath string) (string, error) {

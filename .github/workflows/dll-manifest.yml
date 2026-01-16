@@ -45,16 +45,16 @@ jobs:
             echo "has_update=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Download new DLSS version
+      - name: Download DLSS SDK
         if: steps.check.outputs.has_update == 'true'
         run: |
           mkdir -p dist
-          # TechPowerUp requires following redirects and may need a cookie
-          curl -L -o dist/dlss.zip "${{ steps.check.outputs.download_url }}"
+          curl -L -o dist/dlss_sdk.zip "${{ steps.check.outputs.download_url }}"
           cd dist
-          unzip dlss.zip
-          # Find the DLL in the extracted files
-          find . -name "nvngx_dlss.dll" -exec mv {} dlss.dll \;
+          unzip dlss_sdk.zip
+          # Extract the DLL from the SDK demo
+          find . -name "nvngx_dlss.dll" -exec cp {} dlss.dll \;
+          ls -la dlss.dll
 
       - name: Calculate checksums
         if: steps.check.outputs.has_update == 'true'
@@ -81,11 +81,13 @@ jobs:
           git tag -a "$TAG" -m "DLSS $VERSION"
           git push origin "$TAG"
 
-          # Create release
-          gh release create "$TAG" dist/dlss.dll \
+          # Create release with the DLL renamed to nvngx_dlss.dll
+          cp dist/dlss.dll dist/nvngx_dlss.dll
+          gh release create "$TAG" dist/nvngx_dlss.dll \
             --title "DLSS v$VERSION" \
-            --notes "Automated release of DLSS $VERSION
+            --notes "DLSS $VERSION from official NVIDIA SDK
 
+          **Source:** [NVIDIA/DLSS](https://github.com/NVIDIA/DLSS/releases/tag/v$VERSION)
           **SHA256:** \`$SHA256\`
           **Size:** $SIZE bytes"
 
@@ -100,11 +102,11 @@ jobs:
           new_dll = {
               'version': '$VERSION',
               'filename': 'nvngx_dlss.dll',
-              'url': 'https://github.com/${{ github.repository }}/releases/download/$TAG/dlss.dll',
+              'url': 'https://github.com/${{ github.repository }}/releases/download/$TAG/nvngx_dlss.dll',
               'sha256': '$SHA256',
               'size': int('$SIZE'),
               'release_date': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-              'notes': 'Automated release from TechPowerUp'
+              'notes': 'From official NVIDIA SDK'
           }
 
           if 'dlss' not in manifest['dlls']:
@@ -135,9 +137,9 @@ jobs:
             --title "chore: add DLSS $VERSION to manifest" \
             --body "Automated PR to add DLSS $VERSION to the DLL manifest.
 
-          The GitHub Release has been created with the DLL asset.
+          **Source:** [NVIDIA/DLSS](https://github.com/NVIDIA/DLSS/releases/tag/v$VERSION)
+          **SHA256:** \`${{ steps.sha.outputs.sha256 }}\`
 
-          **Version:** $VERSION
-          **SHA256:** \`${{ steps.sha.outputs.sha256 }}\`" \
+          The GitHub Release has been created with the DLL asset." \
             --base main \
             --head "$BRANCH"
