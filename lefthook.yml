@@ -1,0 +1,24 @@
+pre-commit:
+  files: git ls-files -m
+  jobs:
+    - group:
+        parallel: true
+        jobs:
+          - name: test
+            run: go test ./...
+          - name: lint
+            run: golangci-lint run
+          - name: vet
+            glob: "*.go"
+            run: go vet {files}
+    - group:
+        parallel: true
+        jobs:
+          - name: format
+            stage_fixed: true
+            glob: "*.go"
+            run: gofumpt -w . {files}
+          - name: markdown
+            glob: "*.md"
+            stage_fixed: true
+            run: bunx markdownlint --disable MD013 MD029 MD033 MD036 MD040 MD060 --fix {files}
