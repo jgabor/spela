@@ -1,0 +1,10 @@
+/spela
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.txt
+dist/
+docs/

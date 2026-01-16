@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>Spela</vendor>
+  <vendor_url>https://github.com/jgabor/spela</vendor_url>
+
+  <action id="io.github.spela.gpu-clock">
+    <description>Set GPU clock offsets</description>
+    <message>Authentication is required to modify GPU clock settings</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/nvidia-smi</annotate>
+  </action>
+
+  <action id="io.github.spela.gpu-power">
+    <description>Set GPU power limit</description>
+    <message>Authentication is required to modify GPU power settings</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/nvidia-smi</annotate>
+  </action>
+
+  <action id="io.github.spela.cpu-governor">
+    <description>Set CPU governor</description>
+    <message>Authentication is required to modify CPU governor</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="io.github.spela.cpu-smt">
+    <description>Control SMT (Simultaneous Multithreading)</description>
+    <message>Authentication is required to modify SMT settings</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+</policyconfig>
