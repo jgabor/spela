@@ -27,33 +27,54 @@ jobs:
         id: check
         run: |
           set +e
-          OUTPUT=$(./dlss-updater -json -manifest data/manifest.json)
+          OUTPUT=$(./dlss-updater -json -manifest data/manifest.json 2>&1)
           EXIT_CODE=$?
           set -e
 
+          # Extract just the JSON (last line with curly braces)
+          JSON_OUTPUT=$(echo "$OUTPUT" | grep -E '^\{' | head -1)
+          if [ -z "$JSON_OUTPUT" ]; then
+            JSON_OUTPUT="$OUTPUT"
+          fi
+
           echo "output<<EOF" >> $GITHUB_OUTPUT
-          echo "$OUTPUT" >> $GITHUB_OUTPUT
+          echo "$JSON_OUTPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
           if [ $EXIT_CODE -eq 0 ]; then
             echo "has_update=true" >> $GITHUB_OUTPUT
-            VERSION=$(echo "$OUTPUT" | jq -r '.version')
-            DOWNLOAD_URL=$(echo "$OUTPUT" | jq -r '.download_url')
+            VERSION=$(echo "$JSON_OUTPUT" | jq -r '.version')
+            DOWNLOAD_URL=$(echo "$JSON_OUTPUT" | jq -r '.download_url')
+            SOURCE=$(echo "$JSON_OUTPUT" | jq -r '.source')
             echo "version=$VERSION" >> $GITHUB_OUTPUT
             echo "download_url=$DOWNLOAD_URL" >> $GITHUB_OUTPUT
+            echo "source=$SOURCE" >> $GITHUB_OUTPUT
           else
             echo "has_update=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Download DLSS SDK
+      - name: Download DLSS
         if: steps.check.outputs.has_update == 'true'
         run: |
           mkdir -p dist
-          curl -L -o dist/dlss_sdk.zip "${{ steps.check.outputs.download_url }}"
+          SOURCE="${{ steps.check.outputs.source }}"
+
+          curl -L -A "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0" \
+            -o dist/dlss_download.zip "${{ steps.check.outputs.download_url }}"
+
           cd dist
-          unzip dlss_sdk.zip
-          # Extract the DLL from the SDK demo
+          unzip dlss_download.zip
+
+          # Find the DLL - location differs by source
+          # TechPowerUp: nvngx_dlss.dll directly in zip
+          # GitHub: inside DLSS_Sample_App/bin/ngx_dlss_demo/
           find . -name "nvngx_dlss.dll" -exec cp {} dlss.dll \;
+
+          if [ ! -f dlss.dll ]; then
+            echo "ERROR: Could not find nvngx_dlss.dll in downloaded archive"
+            exit 1
+          fi
+
           ls -la dlss.dll
 
       - name: Calculate checksums
@@ -74,6 +95,7 @@ jobs:
           TAG="dll-dlss-v$VERSION"
           SHA256="${{ steps.sha.outputs.sha256 }}"
           SIZE="${{ steps.sha.outputs.size }}"
+          SOURCE="${{ steps.check.outputs.source }}"
 
           # Create tag
           git config user.name "github-actions[bot]"
@@ -81,13 +103,13 @@ jobs:
           git tag -a "$TAG" -m "DLSS $VERSION"
           git push origin "$TAG"
 
-          # Create release with the DLL renamed to nvngx_dlss.dll
+          # Create release with the DLL
           cp dist/dlss.dll dist/nvngx_dlss.dll
           gh release create "$TAG" dist/nvngx_dlss.dll \
             --title "DLSS v$VERSION" \
-            --notes "DLSS $VERSION from official NVIDIA SDK
+            --notes "DLSS $VERSION
 
-          **Source:** [NVIDIA/DLSS](https://github.com/NVIDIA/DLSS/releases/tag/v$VERSION)
+          **Source:** $SOURCE
           **SHA256:** \`$SHA256\`
           **Size:** $SIZE bytes"
 
@@ -106,7 +128,7 @@ jobs:
               'sha256': '$SHA256',
               'size': int('$SIZE'),
               'release_date': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-              'notes': 'From official NVIDIA SDK'
+              'notes': 'From $SOURCE'
           }
 
           if 'dlss' not in manifest['dlls']:
@@ -127,6 +149,7 @@ jobs:
         run: |
           VERSION="${{ steps.check.outputs.version }}"
           BRANCH="dlss-update-$VERSION"
+          SOURCE="${{ steps.check.outputs.source }}"
 
           git checkout -b "$BRANCH"
           git add data/manifest.json
@@ -137,7 +160,7 @@ jobs:
             --title "chore: add DLSS $VERSION to manifest" \
             --body "Automated PR to add DLSS $VERSION to the DLL manifest.
 
-          **Source:** [NVIDIA/DLSS](https://github.com/NVIDIA/DLSS/releases/tag/v$VERSION)
+          **Source:** $SOURCE
           **SHA256:** \`${{ steps.sha.outputs.sha256 }}\`
 
           The GitHub Release has been created with the DLL asset." \
