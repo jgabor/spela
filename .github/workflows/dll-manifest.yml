@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   check-updates:
@@ -145,27 +144,10 @@ jobs:
               json.dump(manifest, f, indent=2)
           EOF
 
-      - name: Create pull request
+      - name: Commit manifest update
         if: steps.check.outputs.has_update == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.check.outputs.version }}"
-          BRANCH="dlss-update-$VERSION"
-          SOURCE="${{ steps.check.outputs.source }}"
-
-          git checkout -b "$BRANCH"
           git add data/manifest.json
           git commit -m "chore: add DLSS $VERSION to manifest"
-          git push origin "$BRANCH"
-
-          gh pr create \
-            --title "chore: add DLSS $VERSION to manifest" \
-            --body "Automated PR to add DLSS $VERSION to the DLL manifest.
-
-          **Source:** $SOURCE
-          **SHA256:** \`${{ steps.sha.outputs.sha256 }}\`
-
-          The GitHub Release has been created with the DLL asset." \
-            --base main \
-            --head "$BRANCH"
+          git push origin main
