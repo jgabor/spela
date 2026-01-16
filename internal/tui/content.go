@@ -144,20 +144,31 @@ func (m ContentModel) updateDLLs() tea.Cmd {
 			})
 		}
 
+		updatedCount := 0
 		for _, d := range m.game.DLLs {
-			latest := manifest.GetLatestDLL(d.Name)
+			dllType := strings.ToLower(string(d.Type))
+			latest := manifest.GetLatestDLL(dllType)
 			if latest == nil {
 				continue
 			}
 
-			cachePath, err := dll.DownloadDLL(latest, d.Name)
+			if d.Version != "" && !dll.IsNewer(d.Version, latest.Version) {
+				continue
+			}
+
+			cachePath, err := dll.DownloadDLL(latest, dllType)
 			if err != nil {
-				return dllUpdateMsg{err: fmt.Errorf("download failed: %w", err)}
+				return dllUpdateMsg{err: fmt.Errorf("download %s failed: %w", dllType, err)}
 			}
 
 			if err := dll.SwapDLL(m.game.AppID, m.game.Name, gameDLLs, d.Name, cachePath); err != nil {
-				return dllUpdateMsg{err: fmt.Errorf("swap failed: %w", err)}
+				return dllUpdateMsg{err: fmt.Errorf("swap %s failed: %w", dllType, err)}
 			}
+			updatedCount++
+		}
+
+		if updatedCount == 0 {
+			return dllUpdateMsg{err: fmt.Errorf("no updates available")}
 		}
 
 		return dllUpdateMsg{success: true}
