@@ -19,10 +19,11 @@ type ProfileEditorModel struct {
 }
 
 type profileField struct {
-	label   string
-	key     string
-	value   string
-	options []string
+	label       string
+	key         string
+	value       string
+	options     []string
+	description string
 }
 
 func NewProfileEditor(g *game.Game, p *profile.Profile) ProfileEditorModel {
@@ -32,13 +33,55 @@ func NewProfileEditor(g *game.Game, p *profile.Profile) ProfileEditorModel {
 	}
 
 	fields := []profileField{
-		{label: "Preset", key: "preset", value: string(p.Preset), options: []string{"performance", "balanced", "quality", "custom"}},
-		{label: "DLSS-SR Mode", key: "sr_mode", value: string(p.DLSS.SRMode), options: []string{"off", "ultra_performance", "performance", "balanced", "quality", "dlaa"}},
-		{label: "DLSS-SR Override", key: "sr_override", value: boolStr(p.DLSS.SROverride), options: []string{"true", "false"}},
-		{label: "Frame Gen", key: "fg_enabled", value: boolStr(p.DLSS.FGEnabled), options: []string{"true", "false"}},
-		{label: "HDR", key: "hdr", value: boolStr(p.Proton.EnableHDR), options: []string{"true", "false"}},
-		{label: "Wayland", key: "wayland", value: boolStr(p.Proton.EnableWayland), options: []string{"true", "false"}},
-		{label: "NGX Updater", key: "ngx_updater", value: boolStr(p.Proton.EnableNGXUpdater), options: []string{"true", "false"}},
+		{
+			label:       "Preset",
+			key:         "preset",
+			value:       string(p.Preset),
+			options:     []string{"performance", "balanced", "quality", "custom"},
+			description: "Quick preset: performance (max FPS), balanced (good mix), quality (best visuals)",
+		},
+		{
+			label:       "DLSS-SR Mode",
+			key:         "sr_mode",
+			value:       string(p.DLSS.SRMode),
+			options:     []string{"off", "ultra_performance", "performance", "balanced", "quality", "dlaa"},
+			description: "Super resolution quality. Higher = sharper but slower. DLAA is native res anti-aliasing",
+		},
+		{
+			label:       "DLSS-SR Override",
+			key:         "sr_override",
+			value:       boolStr(p.DLSS.SROverride),
+			options:     []string{"true", "false"},
+			description: "Force DLSS super resolution even if game doesn't natively support it",
+		},
+		{
+			label:       "Frame Gen",
+			key:         "fg_enabled",
+			value:       boolStr(p.DLSS.FGEnabled),
+			options:     []string{"true", "false"},
+			description: "Generate extra frames using AI. Increases FPS but adds slight latency",
+		},
+		{
+			label:       "HDR",
+			key:         "hdr",
+			value:       boolStr(p.Proton.EnableHDR),
+			options:     []string{"true", "false"},
+			description: "Enable high dynamic range output for compatible displays",
+		},
+		{
+			label:       "Wayland",
+			key:         "wayland",
+			value:       boolStr(p.Proton.EnableWayland),
+			options:     []string{"true", "false"},
+			description: "Use native Wayland instead of XWayland. May improve latency",
+		},
+		{
+			label:       "NGX Updater",
+			key:         "ngx_updater",
+			value:       boolStr(p.Proton.EnableNGXUpdater),
+			options:     []string{"true", "false"},
+			description: "Let Proton automatically update DLSS DLLs to latest version",
+		},
 	}
 
 	return ProfileEditorModel{
@@ -99,7 +142,36 @@ func (m *ProfileEditorModel) cycleValue(direction int) {
 	newIndex := (currentIndex + direction + len(field.options)) % len(field.options)
 	field.value = field.options[newIndex]
 	m.modified = true
-	m.applyToProfile()
+
+	if field.key == "preset" && field.value != "custom" {
+		m.applyPreset(profile.Preset(field.value))
+	} else {
+		m.applyToProfile()
+	}
+}
+
+func (m *ProfileEditorModel) applyPreset(preset profile.Preset) {
+	p := profile.FromPreset(preset)
+	m.profile = p
+
+	for i := range m.fields {
+		switch m.fields[i].key {
+		case "preset":
+			m.fields[i].value = string(p.Preset)
+		case "sr_mode":
+			m.fields[i].value = string(p.DLSS.SRMode)
+		case "sr_override":
+			m.fields[i].value = boolStr(p.DLSS.SROverride)
+		case "fg_enabled":
+			m.fields[i].value = boolStr(p.DLSS.FGEnabled)
+		case "hdr":
+			m.fields[i].value = boolStr(p.Proton.EnableHDR)
+		case "wayland":
+			m.fields[i].value = boolStr(p.Proton.EnableWayland)
+		case "ngx_updater":
+			m.fields[i].value = boolStr(p.Proton.EnableNGXUpdater)
+		}
+	}
 }
 
 func (m *ProfileEditorModel) applyToProfile() {

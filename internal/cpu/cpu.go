@@ -148,8 +148,11 @@ func GetSchedulers() ([]string, error) {
 type CPUMetrics struct {
 	Frequencies      []int
 	AverageFrequency int
+	Utilization      float64
 	Governor         Governor
 	SMTEnabled       bool
+	RAMUsedMB        int
+	RAMTotalMB       int
 }
 
 func GetCPUMetrics() (*CPUMetrics, error) {
@@ -176,5 +179,68 @@ func GetCPUMetrics() (*CPUMetrics, error) {
 	metrics.Governor, _ = GetCurrentGovernor()
 	metrics.SMTEnabled, _ = GetSMTStatus()
 
+	// Get RAM info from /proc/meminfo
+	if memData, err := os.ReadFile("/proc/meminfo"); err == nil {
+		lines := strings.Split(string(memData), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "MemTotal:") {
+				fmt.Sscanf(line, "MemTotal: %d kB", &metrics.RAMTotalMB)
+				metrics.RAMTotalMB /= 1024
+			} else if strings.HasPrefix(line, "MemAvailable:") {
+				var available int
+				fmt.Sscanf(line, "MemAvailable: %d kB", &available)
+				metrics.RAMUsedMB = metrics.RAMTotalMB - (available / 1024)
+			}
+		}
+	}
+
+	// Get CPU utilization from /proc/stat (simplified: use instant calculation)
+	metrics.Utilization = getCPUUtilization()
+
 	return metrics, nil
+}
+
+func getCPUUtilization() float64 {
+	data, err := os.ReadFile("/proc/stat")
+	if err != nil {
+		return 0
+	}
+
+	lines := strings.Split(string(data), "\n")
+	if len(lines) == 0 {
+		return 0
+	}
+
+	// Parse first line: cpu user nice system idle iowait irq softirq
+	fields := strings.Fields(lines[0])
+	if len(fields) < 5 {
+		return 0
+	}
+
+	var user, nice, system, idle int
+	fmt.Sscanf(fields[1], "%d", &user)
+	fmt.Sscanf(fields[2], "%d", &nice)
+	fmt.Sscanf(fields[3], "%d", &system)
+	fmt.Sscanf(fields[4], "%d", &idle)
+
+	total := user + nice + system + idle
+	if total == 0 {
+		return 0
+	}
+
+	// This is cumulative since boot, so not very useful for instant reading
+	// Use load average instead for a better approximation
+	if loadData, err := os.ReadFile("/proc/loadavg"); err == nil {
+		var load1 float64
+		fmt.Sscanf(string(loadData), "%f", &load1)
+		// Normalize by CPU count for percentage approximation
+		cpuCount := float64(GetCPUCount())
+		util := (load1 / cpuCount) * 100
+		if util > 100 {
+			util = 100
+		}
+		return util
+	}
+
+	return 0
 }
