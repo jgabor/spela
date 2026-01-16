@@ -2,8 +2,16 @@ package game
 
 import (
 	"time"
+)
 
-	"github.com/jgabor/spela/internal/dll"
+type DLLType string
+
+const (
+	DLLTypeDLSS  DLLType = "dlss"
+	DLLTypeDLSSG DLLType = "dlssg"
+	DLLTypeDLSSD DLLType = "dlssd"
+	DLLTypeXeSS  DLLType = "xess"
+	DLLTypeFSR   DLLType = "fsr"
 )
 
 type Game struct {
@@ -17,15 +25,15 @@ type Game struct {
 }
 
 type DetectedDLL struct {
-	Path    string      `yaml:"path"`
-	Name    string      `yaml:"name"`
-	Type    dll.DLLType `yaml:"type"`
-	Version string      `yaml:"version,omitempty"`
+	Path    string  `yaml:"path"`
+	Name    string  `yaml:"name"`
+	Type    DLLType `yaml:"type"`
+	Version string  `yaml:"version,omitempty"`
 }
 
 func (g *Game) HasDLSS() bool {
 	for _, d := range g.DLLs {
-		if d.Type == dll.DLLTypeDLSS {
+		if d.Type == DLLTypeDLSS {
 			return true
 		}
 	}
@@ -34,7 +42,7 @@ func (g *Game) HasDLSS() bool {
 
 func (g *Game) HasDLSSG() bool {
 	for _, d := range g.DLLs {
-		if d.Type == dll.DLLTypeDLSSG {
+		if d.Type == DLLTypeDLSSG {
 			return true
 		}
 	}
@@ -43,14 +51,14 @@ func (g *Game) HasDLSSG() bool {
 
 func (g *Game) HasDLSSD() bool {
 	for _, d := range g.DLLs {
-		if d.Type == dll.DLLTypeDLSSD {
+		if d.Type == DLLTypeDLSSD {
 			return true
 		}
 	}
 	return false
 }
 
-func (g *Game) GetDLL(dllType dll.DLLType) *DetectedDLL {
+func (g *Game) GetDLL(dllType DLLType) *DetectedDLL {
 	for i := range g.DLLs {
 		if g.DLLs[i].Type == dllType {
 			return &g.DLLs[i]

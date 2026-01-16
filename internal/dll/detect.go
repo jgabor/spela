@@ -7,36 +7,21 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/jgabor/spela/internal/game"
 )
 
-type DLLType string
-
-const (
-	DLLTypeDLSS  DLLType = "dlss"
-	DLLTypeDLSSG DLLType = "dlssg"
-	DLLTypeDLSSD DLLType = "dlssd"
-	DLLTypeXeSS  DLLType = "xess"
-	DLLTypeFSR   DLLType = "fsr"
-)
-
-type DetectedDLL struct {
-	Path    string
-	Name    string
-	Type    DLLType
-	Version string
+var knownDLLs = map[string]game.DLLType{
+	"nvngx_dlss.dll":          game.DLLTypeDLSS,
+	"nvngx_dlssg.dll":         game.DLLTypeDLSSG,
+	"nvngx_dlssd.dll":         game.DLLTypeDLSSD,
+	"libxess.dll":             game.DLLTypeXeSS,
+	"amd_fidelityfx_vk.dll":   game.DLLTypeFSR,
+	"amd_fidelityfx_dx12.dll": game.DLLTypeFSR,
 }
 
-var knownDLLs = map[string]DLLType{
-	"nvngx_dlss.dll":  DLLTypeDLSS,
-	"nvngx_dlssg.dll": DLLTypeDLSSG,
-	"nvngx_dlssd.dll": DLLTypeDLSSD,
-	"libxess.dll":     DLLTypeXeSS,
-	"amd_fidelityfx_vk.dll": DLLTypeFSR,
-	"amd_fidelityfx_dx12.dll": DLLTypeFSR,
-}
-
-func ScanDirectory(dir string) ([]DetectedDLL, error) {
-	var results []DetectedDLL
+func ScanDirectory(dir string) ([]game.DetectedDLL, error) {
+	var results []game.DetectedDLL
 
 	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
@@ -46,7 +31,7 @@ func ScanDirectory(dir string) ([]DetectedDLL, error) {
 		name := strings.ToLower(d.Name())
 		if dllType, ok := knownDLLs[name]; ok {
 			version, _ := GetDLLVersion(path)
-			results = append(results, DetectedDLL{
+			results = append(results, game.DetectedDLL{
 				Path:    path,
 				Name:    d.Name(),
 				Type:    dllType,
