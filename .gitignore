@@ -1,4 +1,5 @@
 /spela
+/spela-gui
 *.exe
 *.dll
 *.so
@@ -8,3 +9,7 @@
 coverage.txt
 dist/
 docs/
+
+# GUI frontend
+gui/frontend/node_modules/
+gui/frontend/dist/
