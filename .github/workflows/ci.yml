@@ -21,7 +21,7 @@ jobs:
         run: go build -v ./cmd/spela
 
       - name: Test
-        run: go test -v $(go list ./... | grep -v /gui)
+        run: go test -v ./cmd/... ./internal/... ./tools/...
 
   lint:
     runs-on: ubuntu-latest
@@ -38,4 +38,3 @@ jobs:
         with:
           version: v2.1.2
           install-mode: goinstall
-          args: --exclude-dirs=gui
