@@ -49,6 +49,13 @@ func NewProfileEditor(g *game.Game, p *profile.Profile) ProfileEditorModel {
 			description: "Super resolution quality. Higher = sharper but slower. DLAA is native res anti-aliasing",
 		},
 		{
+			label:       "DLSS Model",
+			key:         "sr_model_preset",
+			value:       modelPresetValue(p.DLSS.SRModelPreset),
+			options:     []string{"auto", "k", "l", "m"},
+			description: "AI model: auto selects best for mode. K=general, L=4K ultra perf, M=perf. RTX 20/30 may prefer K",
+		},
+		{
 			label:       "DLSS-SR Override",
 			key:         "sr_override",
 			value:       boolStr(p.DLSS.SROverride),
@@ -97,6 +104,13 @@ func boolStr(b bool) string {
 		return "true"
 	}
 	return "false"
+}
+
+func modelPresetValue(p profile.DLSSModelPreset) string {
+	if p == "" {
+		return "auto"
+	}
+	return string(p)
 }
 
 func (m ProfileEditorModel) Init() tea.Cmd {
@@ -161,6 +175,8 @@ func (m *ProfileEditorModel) applyPreset(preset profile.Preset) {
 			m.fields[i].value = string(p.Preset)
 		case "sr_mode":
 			m.fields[i].value = string(p.DLSS.SRMode)
+		case "sr_model_preset":
+			m.fields[i].value = modelPresetValue(p.DLSS.SRModelPreset)
 		case "sr_override":
 			m.fields[i].value = boolStr(p.DLSS.SROverride)
 		case "fg_enabled":
@@ -182,6 +198,8 @@ func (m *ProfileEditorModel) applyToProfile() {
 			m.profile.Preset = profile.Preset(f.value)
 		case "sr_mode":
 			m.profile.DLSS.SRMode = profile.DLSSMode(f.value)
+		case "sr_model_preset":
+			m.profile.DLSS.SRModelPreset = profile.DLSSModelPreset(f.value)
 		case "sr_override":
 			m.profile.DLSS.SROverride = f.value == "true"
 		case "fg_enabled":

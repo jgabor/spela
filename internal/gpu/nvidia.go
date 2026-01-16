@@ -159,3 +159,56 @@ func parseNvidiaSettingsValue(output string) string {
 	}
 	return ""
 }
+
+type GPUGeneration int
+
+const (
+	GPUGenerationUnknown GPUGeneration = iota
+	GPUGenerationTuring
+	GPUGenerationAmpere
+	GPUGenerationAdaLovelace
+	GPUGenerationBlackwell
+)
+
+func (g GPUGeneration) SupportsFP8() bool {
+	return g >= GPUGenerationAdaLovelace
+}
+
+func (g GPUGeneration) String() string {
+	switch g {
+	case GPUGenerationTuring:
+		return "Turing (RTX 20)"
+	case GPUGenerationAmpere:
+		return "Ampere (RTX 30)"
+	case GPUGenerationAdaLovelace:
+		return "Ada Lovelace (RTX 40)"
+	case GPUGenerationBlackwell:
+		return "Blackwell (RTX 50)"
+	default:
+		return "Unknown"
+	}
+}
+
+func GetGPUGeneration() (GPUGeneration, error) {
+	info, err := GetGPUInfo()
+	if err != nil {
+		return GPUGenerationUnknown, err
+	}
+	return parseGPUGeneration(info["name"]), nil
+}
+
+func parseGPUGeneration(name string) GPUGeneration {
+	name = strings.ToLower(name)
+	switch {
+	case strings.Contains(name, "rtx 20"), strings.Contains(name, "rtx20"):
+		return GPUGenerationTuring
+	case strings.Contains(name, "rtx 30"), strings.Contains(name, "rtx30"):
+		return GPUGenerationAmpere
+	case strings.Contains(name, "rtx 40"), strings.Contains(name, "rtx40"):
+		return GPUGenerationAdaLovelace
+	case strings.Contains(name, "rtx 50"), strings.Contains(name, "rtx50"):
+		return GPUGenerationBlackwell
+	default:
+		return GPUGenerationUnknown
+	}
+}

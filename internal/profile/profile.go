@@ -31,6 +31,15 @@ const (
 	DLSSPresetLatest  DLSSPreset = "latest"
 )
 
+type DLSSModelPreset string
+
+const (
+	DLSSModelPresetAuto DLSSModelPreset = "auto"
+	DLSSModelPresetK    DLSSModelPreset = "k"
+	DLSSModelPresetL    DLSSModelPreset = "l"
+	DLSSModelPresetM    DLSSModelPreset = "m"
+)
+
 type Profile struct {
 	Name   string `yaml:"name,omitempty"`
 	Preset Preset `yaml:"preset"`
@@ -60,17 +69,18 @@ type OverlaySettings struct {
 }
 
 type DLSSSettings struct {
-	SRMode      DLSSMode   `yaml:"sr_mode,omitempty"`
-	SRPreset    DLSSPreset `yaml:"sr_preset,omitempty"`
-	SROverride  bool       `yaml:"sr_override,omitempty"`
-	RRMode      DLSSMode   `yaml:"rr_mode,omitempty"`
-	RRPreset    DLSSPreset `yaml:"rr_preset,omitempty"`
-	RROverride  bool       `yaml:"rr_override,omitempty"`
-	FGEnabled   bool       `yaml:"fg_enabled,omitempty"`
-	FGOverride  bool       `yaml:"fg_override,omitempty"`
-	MultiFrame  int        `yaml:"multi_frame,omitempty"`
-	Indicator   bool       `yaml:"indicator,omitempty"`
-	FGIndicator bool       `yaml:"fg_indicator,omitempty"`
+	SRMode        DLSSMode        `yaml:"sr_mode,omitempty"`
+	SRPreset      DLSSPreset      `yaml:"sr_preset,omitempty"`
+	SRModelPreset DLSSModelPreset `yaml:"sr_model_preset,omitempty"`
+	SROverride    bool            `yaml:"sr_override,omitempty"`
+	RRMode        DLSSMode        `yaml:"rr_mode,omitempty"`
+	RRPreset      DLSSPreset      `yaml:"rr_preset,omitempty"`
+	RROverride    bool            `yaml:"rr_override,omitempty"`
+	FGEnabled     bool            `yaml:"fg_enabled,omitempty"`
+	FGOverride    bool            `yaml:"fg_override,omitempty"`
+	MultiFrame    int             `yaml:"multi_frame,omitempty"`
+	Indicator     bool            `yaml:"indicator,omitempty"`
+	FGIndicator   bool            `yaml:"fg_indicator,omitempty"`
 }
 
 type GPUSettings struct {
@@ -99,12 +109,13 @@ func DefaultPresets() map[Preset]*Profile {
 		PresetPerformance: {
 			Preset: PresetPerformance,
 			DLSS: DLSSSettings{
-				SRMode:     DLSSModeUltraPerformance,
-				SRPreset:   DLSSPresetLatest,
-				SROverride: true,
-				FGEnabled:  true,
-				FGOverride: true,
-				MultiFrame: 2,
+				SRMode:        DLSSModeUltraPerformance,
+				SRPreset:      DLSSPresetLatest,
+				SRModelPreset: DLSSModelPresetAuto,
+				SROverride:    true,
+				FGEnabled:     true,
+				FGOverride:    true,
+				MultiFrame:    2,
 			},
 			GPU: GPUSettings{
 				ShaderCache:          true,
@@ -117,12 +128,13 @@ func DefaultPresets() map[Preset]*Profile {
 		PresetBalanced: {
 			Preset: PresetBalanced,
 			DLSS: DLSSSettings{
-				SRMode:     DLSSModeBalanced,
-				SRPreset:   DLSSPresetLatest,
-				SROverride: true,
-				FGEnabled:  true,
-				FGOverride: true,
-				MultiFrame: 1,
+				SRMode:        DLSSModeBalanced,
+				SRPreset:      DLSSPresetLatest,
+				SRModelPreset: DLSSModelPresetAuto,
+				SROverride:    true,
+				FGEnabled:     true,
+				FGOverride:    true,
+				MultiFrame:    1,
 			},
 			GPU: GPUSettings{
 				ShaderCache:          true,
@@ -135,10 +147,11 @@ func DefaultPresets() map[Preset]*Profile {
 		PresetQuality: {
 			Preset: PresetQuality,
 			DLSS: DLSSSettings{
-				SRMode:     DLSSModeDLAA,
-				SRPreset:   DLSSPresetLatest,
-				SROverride: true,
-				FGEnabled:  false,
+				SRMode:        DLSSModeDLAA,
+				SRPreset:      DLSSPresetLatest,
+				SRModelPreset: DLSSModelPresetAuto,
+				SROverride:    true,
+				FGEnabled:     false,
 			},
 			GPU: GPUSettings{
 				ShaderCache:          true,

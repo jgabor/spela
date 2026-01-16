@@ -37,7 +37,10 @@ func (p *Profile) applyDLSS(e *env.Environment) []func() {
 		if p.DLSS.SRMode != "" {
 			e.Set("DXVK_NVAPI_DRS_NGX_DLSS_SR_MODE", dlssModeToEnv(p.DLSS.SRMode))
 		}
-		if p.DLSS.SRPreset != "" {
+		if p.DLSS.SRModelPreset != "" {
+			preset := resolveModelPreset(p.DLSS.SRModelPreset, p.DLSS.SRMode)
+			e.Set("DXVK_NVAPI_DRS_NGX_DLSS_SR_OVERRIDE_RENDER_PRESET_SELECTION", dlssModelPresetToEnv(preset))
+		} else if p.DLSS.SRPreset != "" {
 			e.Set("DXVK_NVAPI_DRS_NGX_DLSS_SR_OVERRIDE_RENDER_PRESET_SELECTION", dlssPresetToEnv(p.DLSS.SRPreset))
 		}
 	}
@@ -112,5 +115,32 @@ func dlssPresetToEnv(preset DLSSPreset) string {
 		return "render_preset_" + strings.ToLower(string(preset))
 	default:
 		return "render_preset_default"
+	}
+}
+
+func resolveModelPreset(modelPreset DLSSModelPreset, srMode DLSSMode) DLSSModelPreset {
+	if modelPreset != DLSSModelPresetAuto {
+		return modelPreset
+	}
+	switch srMode {
+	case DLSSModeUltraPerformance:
+		return DLSSModelPresetL
+	case DLSSModePerformance:
+		return DLSSModelPresetM
+	default:
+		return DLSSModelPresetK
+	}
+}
+
+func dlssModelPresetToEnv(preset DLSSModelPreset) string {
+	switch preset {
+	case DLSSModelPresetK:
+		return "render_preset_k"
+	case DLSSModelPresetL:
+		return "render_preset_l"
+	case DLSSModelPresetM:
+		return "render_preset_m"
+	default:
+		return "render_preset_k"
 	}
 }
