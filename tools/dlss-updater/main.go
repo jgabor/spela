@@ -65,7 +65,6 @@ func main() {
 
 	if *outputJSON {
 		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
 		_ = enc.Encode(latest)
 	} else {
 		if latest.IsNew {
