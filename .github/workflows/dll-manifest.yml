@@ -1,41 +1,143 @@
-name: Update DLL Manifest
+name: Check DLSS Updates
 
 on:
   schedule:
     - cron: '0 6 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
-  update-manifest:
+  check-updates:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          repository: jgabor/spela-dlls
-          token: ${{ secrets.DLL_REPO_TOKEN }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
 
-      - name: Check NVIDIA releases
+      - name: Build checker tool
+        run: go build -o dlss-updater ./tools/dlss-updater
+
+      - name: Check for DLSS updates
         id: check
         run: |
-          # Placeholder for DLL version checking script
-          # This would check NVIDIA's release pages for new DLSS versions
-          echo "checked=true" >> $GITHUB_OUTPUT
+          set +e
+          OUTPUT=$(./dlss-updater -json -manifest data/manifest.json)
+          EXIT_CODE=$?
+          set -e
 
-      - name: Update manifest
-        if: steps.check.outputs.checked == 'true'
-        run: |
-          # Update manifest.json with new versions
-          echo "Manifest update would happen here"
+          echo "output<<EOF" >> $GITHUB_OUTPUT
+          echo "$OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Commit changes
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "has_update=true" >> $GITHUB_OUTPUT
+            VERSION=$(echo "$OUTPUT" | jq -r '.version')
+            DOWNLOAD_URL=$(echo "$OUTPUT" | jq -r '.download_url')
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "download_url=$DOWNLOAD_URL" >> $GITHUB_OUTPUT
+          else
+            echo "has_update=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download new DLSS version
+        if: steps.check.outputs.has_update == 'true'
         run: |
+          mkdir -p dist
+          # TechPowerUp requires following redirects and may need a cookie
+          curl -L -o dist/dlss.zip "${{ steps.check.outputs.download_url }}"
+          cd dist
+          unzip dlss.zip
+          # Find the DLL in the extracted files
+          find . -name "nvngx_dlss.dll" -exec mv {} dlss.dll \;
+
+      - name: Calculate checksums
+        if: steps.check.outputs.has_update == 'true'
+        id: sha
+        run: |
+          SHA256=$(sha256sum dist/dlss.dll | cut -d' ' -f1)
+          SIZE=$(stat -c%s dist/dlss.dll)
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "size=$SIZE" >> $GITHUB_OUTPUT
+
+      - name: Create release and update manifest
+        if: steps.check.outputs.has_update == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.check.outputs.version }}"
+          TAG="dll-dlss-v$VERSION"
+          SHA256="${{ steps.sha.outputs.sha256 }}"
+          SIZE="${{ steps.sha.outputs.size }}"
+
+          # Create tag
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add manifest.json
-          git diff --staged --quiet || git commit -m "chore: update DLL manifest"
-          git push
+          git tag -a "$TAG" -m "DLSS $VERSION"
+          git push origin "$TAG"
+
+          # Create release
+          gh release create "$TAG" dist/dlss.dll \
+            --title "DLSS v$VERSION" \
+            --notes "Automated release of DLSS $VERSION
+
+          **SHA256:** \`$SHA256\`
+          **Size:** $SIZE bytes"
+
+          # Update manifest
+          python3 << EOF
+          import json
+          from datetime import datetime, timezone
+
+          with open('data/manifest.json', 'r') as f:
+              manifest = json.load(f)
+
+          new_dll = {
+              'version': '$VERSION',
+              'filename': 'nvngx_dlss.dll',
+              'url': 'https://github.com/${{ github.repository }}/releases/download/$TAG/dlss.dll',
+              'sha256': '$SHA256',
+              'size': int('$SIZE'),
+              'release_date': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+              'notes': 'Automated release from TechPowerUp'
+          }
+
+          if 'dlss' not in manifest['dlls']:
+              manifest['dlls']['dlss'] = []
+
+          manifest['dlls']['dlss'] = [d for d in manifest['dlls']['dlss'] if d['version'] != '$VERSION']
+          manifest['dlls']['dlss'].insert(0, new_dll)
+          manifest['updated_at'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+          with open('data/manifest.json', 'w') as f:
+              json.dump(manifest, f, indent=2)
+          EOF
+
+      - name: Create pull request
+        if: steps.check.outputs.has_update == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.check.outputs.version }}"
+          BRANCH="dlss-update-$VERSION"
+
+          git checkout -b "$BRANCH"
+          git add data/manifest.json
+          git commit -m "chore: add DLSS $VERSION to manifest"
+          git push origin "$BRANCH"
+
+          gh pr create \
+            --title "chore: add DLSS $VERSION to manifest" \
+            --body "Automated PR to add DLSS $VERSION to the DLL manifest.
+
+          The GitHub Release has been created with the DLL asset.
+
+          **Version:** $VERSION
+          **SHA256:** \`${{ steps.sha.outputs.sha256 }}\`" \
+            --base main \
+            --head "$BRANCH"

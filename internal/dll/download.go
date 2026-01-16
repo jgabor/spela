@@ -12,6 +12,10 @@ import (
 	"github.com/jgabor/spela/internal/xdg"
 )
 
+// ProgressCallback is called during download with bytes downloaded and total size.
+// If total is -1, the total size is unknown.
+type ProgressCallback func(downloaded, total int64)
+
 func GetDLLCachePath(name, version string) string {
 	return xdg.CachePath(filepath.Join("dlls", name, version+".dll"))
 }
@@ -23,6 +27,10 @@ func IsCached(name, version string) bool {
 }
 
 func DownloadDLL(dll *DLL, dllName string) (string, error) {
+	return DownloadDLLWithProgress(dll, dllName, nil)
+}
+
+func DownloadDLLWithProgress(dll *DLL, dllName string, progress ProgressCallback) (string, error) {
 	cachePath := GetDLLCachePath(dllName, dll.Version)
 
 	if err := os.MkdirAll(filepath.Dir(cachePath), 0o755); err != nil {
@@ -46,7 +54,16 @@ func DownloadDLL(dll *DLL, dllName string) (string, error) {
 	}
 
 	hasher := sha256.New()
-	writer := io.MultiWriter(out, hasher)
+	writer := io.Writer(io.MultiWriter(out, hasher))
+
+	total := resp.ContentLength
+	if progress != nil {
+		writer = &progressWriter{
+			writer:   writer,
+			total:    total,
+			progress: progress,
+		}
+	}
 
 	_, err = io.Copy(writer, resp.Body)
 	_ = out.Close()
@@ -67,6 +84,20 @@ func DownloadDLL(dll *DLL, dllName string) (string, error) {
 	}
 
 	return cachePath, nil
+}
+
+type progressWriter struct {
+	writer     io.Writer
+	total      int64
+	downloaded int64
+	progress   ProgressCallback
+}
+
+func (pw *progressWriter) Write(p []byte) (int, error) {
+	n, err := pw.writer.Write(p)
+	pw.downloaded += int64(n)
+	pw.progress(pw.downloaded, pw.total)
+	return n, err
 }
 
 func GetOrDownloadDLL(manifest *Manifest, dllName, version string) (string, error) {

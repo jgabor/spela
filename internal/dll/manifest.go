@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	DefaultRepositoryURL = "https://raw.githubusercontent.com/jgabor/spela-dlls/main/manifest.json"
-	ManifestCacheFile    = "manifest.json"
-	ManifestMaxAge       = 24 * time.Hour
+	DefaultManifestURL = "https://raw.githubusercontent.com/jgabor/spela/main/data/manifest.json"
+	ManifestCacheFile  = "manifest.json"
+	ManifestMaxAge     = 24 * time.Hour
 )
 
 type Manifest struct {
@@ -69,12 +69,12 @@ func SaveManifest(manifest *Manifest) error {
 	return os.WriteFile(cachePath, data, 0o644)
 }
 
-func FetchManifest(repositoryURL string) (*Manifest, error) {
-	if repositoryURL == "" {
-		repositoryURL = DefaultRepositoryURL
+func FetchManifest(manifestURL string) (*Manifest, error) {
+	if manifestURL == "" {
+		manifestURL = DefaultManifestURL
 	}
 
-	resp, err := http.Get(repositoryURL)
+	resp, err := http.Get(manifestURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch manifest: %w", err)
 	}
@@ -97,8 +97,8 @@ func FetchManifest(repositoryURL string) (*Manifest, error) {
 	return &manifest, nil
 }
 
-func UpdateManifest(repositoryURL string) (*Manifest, error) {
-	manifest, err := FetchManifest(repositoryURL)
+func UpdateManifest(manifestURL string) (*Manifest, error) {
+	manifest, err := FetchManifest(manifestURL)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func UpdateManifest(repositoryURL string) (*Manifest, error) {
 	return manifest, nil
 }
 
-func GetManifest(forceUpdate bool, repositoryURL string) (*Manifest, error) {
+func GetManifest(forceUpdate bool, manifestURL string) (*Manifest, error) {
 	if !forceUpdate {
 		manifest, err := LoadManifest()
 		if err == nil && manifest != nil {
@@ -120,7 +120,7 @@ func GetManifest(forceUpdate bool, repositoryURL string) (*Manifest, error) {
 		}
 	}
 
-	return UpdateManifest(repositoryURL)
+	return UpdateManifest(manifestURL)
 }
 
 func (m *Manifest) GetLatestDLL(name string) *DLL {

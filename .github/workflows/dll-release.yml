@@ -1,0 +1,127 @@
+name: DLL Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      dll_type:
+        description: 'DLL type (dlss, dlssg, dlssd, xess, fsr)'
+        required: true
+        type: choice
+        options:
+          - dlss
+          - dlssg
+          - dlssd
+          - xess
+          - fsr
+      version:
+        description: 'Version (e.g., 3.7.20)'
+        required: true
+        type: string
+      dll_url:
+        description: 'URL to download the DLL from'
+        required: true
+        type: string
+      notes:
+        description: 'Release notes (optional)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release-dll:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate inputs
+        run: |
+          if ! [[ "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "Invalid version format. Expected X.Y or X.Y.Z"
+            exit 1
+          fi
+
+      - name: Download DLL
+        run: |
+          mkdir -p dist
+          curl -L "${{ inputs.dll_url }}" -o dist/${{ inputs.dll_type }}.dll
+
+      - name: Calculate SHA256
+        id: sha
+        run: |
+          SHA256=$(sha256sum dist/${{ inputs.dll_type }}.dll | cut -d' ' -f1)
+          SIZE=$(stat -c%s dist/${{ inputs.dll_type }}.dll)
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "size=$SIZE" >> $GITHUB_OUTPUT
+
+      - name: Create release tag
+        run: |
+          TAG="dll-${{ inputs.dll_type }}-v${{ inputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release ${{ inputs.dll_type }} v${{ inputs.version }}"
+          git push origin "$TAG"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: dll-${{ inputs.dll_type }}-v${{ inputs.version }}
+          name: ${{ inputs.dll_type }} v${{ inputs.version }}
+          body: |
+            ## ${{ inputs.dll_type }} v${{ inputs.version }}
+
+            ${{ inputs.notes }}
+
+            **SHA256:** `${{ steps.sha.outputs.sha256 }}`
+            **Size:** ${{ steps.sha.outputs.size }} bytes
+          files: |
+            dist/${{ inputs.dll_type }}.dll
+
+      - name: Update manifest
+        run: |
+          # Create a Python script to update the manifest
+          python3 << 'EOF'
+          import json
+          from datetime import datetime, timezone
+
+          with open('data/manifest.json', 'r') as f:
+              manifest = json.load(f)
+
+          dll_type = '${{ inputs.dll_type }}'
+          version = '${{ inputs.version }}'
+          sha256 = '${{ steps.sha.outputs.sha256 }}'
+          size = int('${{ steps.sha.outputs.size }}')
+          notes = '${{ inputs.notes }}'
+
+          new_dll = {
+              'version': version,
+              'filename': f'{dll_type}.dll',
+              'url': f'https://github.com/${{ github.repository }}/releases/download/dll-{dll_type}-v{version}/{dll_type}.dll',
+              'sha256': sha256,
+              'size': size,
+              'release_date': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+              'notes': notes
+          }
+
+          if dll_type not in manifest['dlls']:
+              manifest['dlls'][dll_type] = []
+
+          # Remove existing entry with same version if present
+          manifest['dlls'][dll_type] = [d for d in manifest['dlls'][dll_type] if d['version'] != version]
+
+          # Add new entry at the beginning (latest first)
+          manifest['dlls'][dll_type].insert(0, new_dll)
+
+          # Update manifest timestamp
+          manifest['updated_at'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+          with open('data/manifest.json', 'w') as f:
+              json.dump(manifest, f, indent=2)
+          EOF
+
+      - name: Commit manifest update
+        run: |
+          git add data/manifest.json
+          git commit -m "chore: add ${{ inputs.dll_type }} v${{ inputs.version }} to manifest"
+          git push
