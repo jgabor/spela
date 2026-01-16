@@ -1,0 +1,29 @@
+# Maintainer: Your Name <your.email@example.com>
+pkgname=spela
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Linux gaming optimization tool for NVIDIA GPUs with DLSS/DLL management"
+arch=('x86_64' 'aarch64')
+url="https://github.com/jgabor/spela"
+license=('MIT')
+depends=('nvidia-utils')
+makedepends=('go>=1.22')
+optdepends=(
+    'nvidia-settings: GPU settings control'
+    'polkit: Privileged operations support'
+    'ludusavi: Game save backup integration'
+)
+source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+    cd "$pkgname-$pkgver"
+    export CGO_ENABLED=0
+    go build -ldflags="-s -w -X main.version=$pkgver" -o spela ./cmd/spela
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+    install -Dm755 spela "$pkgdir/usr/bin/spela"
+    install -Dm644 pkg/polkit/com.github.jgabor.spela.policy "$pkgdir/usr/share/polkit-1/actions/com.github.jgabor.spela.policy"
+}

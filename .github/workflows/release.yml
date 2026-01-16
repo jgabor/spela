@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build CLI
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o spela-linux-amd64 ./cmd/spela
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o spela-linux-arm64 ./cmd/spela
+
+      - name: Upload CLI artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-binaries
+          path: spela-linux-*
+
+  build-gui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
+
+      - name: Build frontend
+        working-directory: gui/frontend
+        run: |
+          npm install
+          npm run build
+
+      - name: Build GUI
+        working-directory: gui
+        run: |
+          wails build -ldflags="-X main.version=${{ github.ref_name }}"
+          mv build/bin/spela-gui ../spela-gui-linux-amd64
+
+      - name: Upload GUI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gui-binary
+          path: spela-gui-linux-amd64
+
+  release:
+    needs: [build-cli, build-gui]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download CLI artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-binaries
+
+      - name: Download GUI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: gui-binary
+
+      - name: Create checksums
+        run: |
+          sha256sum spela-linux-amd64 spela-linux-arm64 spela-gui-linux-amd64 > checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            spela-linux-amd64
+            spela-linux-arm64
+            spela-gui-linux-amd64
+            checksums.txt
+          generate_release_notes: true

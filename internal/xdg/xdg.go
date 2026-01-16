@@ -54,3 +54,15 @@ func DataPath(elem ...string) string {
 func CachePath(elem ...string) string {
 	return filepath.Join(append([]string{CacheHome()}, elem...)...)
 }
+
+func ReadFile(path string) ([]byte, error) {
+	return os.ReadFile(path)
+}
+
+func WriteFile(path string, data []byte) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
+}

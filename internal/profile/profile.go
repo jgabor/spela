@@ -35,10 +35,28 @@ type Profile struct {
 	Name   string `yaml:"name,omitempty"`
 	Preset Preset `yaml:"preset"`
 
-	DLSS   DLSSSettings   `yaml:"dlss,omitempty"`
-	GPU    GPUSettings    `yaml:"gpu,omitempty"`
-	CPU    CPUSettings    `yaml:"cpu,omitempty"`
-	Proton ProtonSettings `yaml:"proton,omitempty"`
+	DLSS     DLSSSettings     `yaml:"dlss,omitempty"`
+	GPU      GPUSettings      `yaml:"gpu,omitempty"`
+	CPU      CPUSettings      `yaml:"cpu,omitempty"`
+	Proton   ProtonSettings   `yaml:"proton,omitempty"`
+	Ludusavi LudusaviSettings `yaml:"ludusavi,omitempty"`
+	Overlay  OverlaySettings  `yaml:"overlay,omitempty"`
+}
+
+type LudusaviSettings struct {
+	BackupOnLaunch  bool `yaml:"backup_on_launch,omitempty"`
+	RestoreOnLaunch bool `yaml:"restore_on_launch,omitempty"`
+}
+
+type OverlaySettings struct {
+	Enabled       bool   `yaml:"enabled,omitempty"`
+	Position      string `yaml:"position,omitempty"`
+	ShowFPS       bool   `yaml:"show_fps,omitempty"`
+	ShowFrametime bool   `yaml:"show_frametime,omitempty"`
+	ShowCPU       bool   `yaml:"show_cpu,omitempty"`
+	ShowGPU       bool   `yaml:"show_gpu,omitempty"`
+	ShowVRAM      bool   `yaml:"show_vram,omitempty"`
+	ToggleKey     string `yaml:"toggle_key,omitempty"`
 }
 
 type DLSSSettings struct {

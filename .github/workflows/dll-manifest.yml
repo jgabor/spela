@@ -1,0 +1,41 @@
+name: Update DLL Manifest
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  update-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: jgabor/spela-dlls
+          token: ${{ secrets.DLL_REPO_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Check NVIDIA releases
+        id: check
+        run: |
+          # Placeholder for DLL version checking script
+          # This would check NVIDIA's release pages for new DLSS versions
+          echo "checked=true" >> $GITHUB_OUTPUT
+
+      - name: Update manifest
+        if: steps.check.outputs.checked == 'true'
+        run: |
+          # Update manifest.json with new versions
+          echo "Manifest update would happen here"
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git diff --staged --quiet || git commit -m "chore: update DLL manifest"
+          git push

@@ -1,6 +1,7 @@
 package launcher
 
 import (
+	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -11,10 +12,13 @@ import (
 
 	"github.com/jgabor/spela/internal/env"
 	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/ludusavi"
+	"github.com/jgabor/spela/internal/profile"
 )
 
 type Launcher struct {
 	Game        *game.Game
+	Profile     *profile.Profile
 	Environment *env.Environment
 	Command     []string
 	cleanup     []func()
@@ -35,6 +39,8 @@ func (l *Launcher) Launch(args []string) error {
 	if len(args) == 0 {
 		return nil
 	}
+
+	l.runPreLaunchHooks()
 
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Stdin = os.Stdin
@@ -62,6 +68,19 @@ func (l *Launcher) Launch(args []string) error {
 
 	l.runCleanup()
 	return err
+}
+
+func (l *Launcher) runPreLaunchHooks() {
+	if l.Profile == nil || l.Game == nil {
+		return
+	}
+
+	if l.Profile.Ludusavi.BackupOnLaunch && ludusavi.IsInstalled() {
+		log.Printf("Backing up saves for %s...", l.Game.Name)
+		if _, err := ludusavi.BackupGame(l.Game.Name); err != nil {
+			log.Printf("Warning: failed to backup saves: %v", err)
+		}
+	}
 }
 
 func (l *Launcher) runCleanup() {
