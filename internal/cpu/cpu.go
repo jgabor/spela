@@ -144,3 +144,37 @@ func GetSchedulers() ([]string, error) {
 	}
 	return schedulers, nil
 }
+
+type CPUMetrics struct {
+	Frequencies []int
+	AverageFrequency int
+	Governor    Governor
+	SMTEnabled  bool
+}
+
+func GetCPUMetrics() (*CPUMetrics, error) {
+	metrics := &CPUMetrics{}
+	cpuCount := GetCPUCount()
+
+	var total int
+	for i := 0; i < cpuCount; i++ {
+		path := fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", i)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		freq := 0
+		fmt.Sscanf(strings.TrimSpace(string(data)), "%d", &freq)
+		metrics.Frequencies = append(metrics.Frequencies, freq/1000)
+		total += freq / 1000
+	}
+
+	if len(metrics.Frequencies) > 0 {
+		metrics.AverageFrequency = total / len(metrics.Frequencies)
+	}
+
+	metrics.Governor, _ = GetCurrentGovernor()
+	metrics.SMTEnabled, _ = GetSMTStatus()
+
+	return metrics, nil
+}

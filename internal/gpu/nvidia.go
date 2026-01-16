@@ -91,6 +91,44 @@ func GetGPUInfo() (map[string]string, error) {
 	}, nil
 }
 
+type GPUMetrics struct {
+	Temperature    int
+	PowerDraw      float64
+	PowerLimit     float64
+	Utilization    int
+	MemoryUsed     int
+	MemoryTotal    int
+	GraphicsClock  int
+	MemoryClock    int
+}
+
+func GetGPUMetrics() (*GPUMetrics, error) {
+	out, err := runNvidiaSMI(
+		"--query-gpu=temperature.gpu,power.draw,power.limit,utilization.gpu,memory.used,memory.total,clocks.gr,clocks.mem",
+		"--format=csv,noheader,nounits",
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	parts := strings.Split(strings.TrimSpace(out), ", ")
+	if len(parts) < 8 {
+		return nil, fmt.Errorf("unexpected nvidia-smi output: got %d fields", len(parts))
+	}
+
+	metrics := &GPUMetrics{}
+	metrics.Temperature, _ = strconv.Atoi(strings.TrimSpace(parts[0]))
+	metrics.PowerDraw, _ = strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
+	metrics.PowerLimit, _ = strconv.ParseFloat(strings.TrimSpace(parts[2]), 64)
+	metrics.Utilization, _ = strconv.Atoi(strings.TrimSpace(parts[3]))
+	metrics.MemoryUsed, _ = strconv.Atoi(strings.TrimSpace(parts[4]))
+	metrics.MemoryTotal, _ = strconv.Atoi(strings.TrimSpace(parts[5]))
+	metrics.GraphicsClock, _ = strconv.Atoi(strings.TrimSpace(parts[6]))
+	metrics.MemoryClock, _ = strconv.Atoi(strings.TrimSpace(parts[7]))
+
+	return metrics, nil
+}
+
 func runNvidiaSettings(args ...string) (string, error) {
 	cmd := exec.Command("nvidia-settings", args...)
 	var out bytes.Buffer
