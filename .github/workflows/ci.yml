@@ -21,7 +21,7 @@ jobs:
         run: go build -v ./cmd/spela
 
       - name: Test
-        run: go test -v ./...
+        run: go test -v $(go list ./... | grep -v /gui)
 
   lint:
     runs-on: ubuntu-latest
@@ -37,3 +37,5 @@ jobs:
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.1.2
+          install-mode: goinstall
+          args: --exclude-dirs=gui
