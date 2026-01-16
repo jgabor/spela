@@ -1,9 +1,19 @@
 {
   "version": "1",
-  "updated_at": "2026-01-16T00:00:00Z",
+  "updated_at": "2026-01-16T21:19:21Z",
   "repository": "jgabor/spela",
   "dlls": {
-    "dlss": [],
+    "dlss": [
+      {
+        "version": "310.5.0",
+        "filename": "nvngx_dlss.dll",
+        "url": "https://github.com/jgabor/spela/releases/download/dll-dlss-v310.5.0/nvngx_dlss.dll",
+        "sha256": "22c4660249da5b352cde0ce4d95178c3761223dd6ac096d0b88e5c03d7a5cdd1",
+        "size": 54778992,
+        "release_date": "2026-01-16T21:19:21Z",
+        "notes": "From techpowerup.com"
+      }
+    ],
     "dlssg": [],
     "dlssd": [],
     "xess": [],
