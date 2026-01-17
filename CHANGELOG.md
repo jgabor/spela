@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.0] - 2026-01-17
 
 ### Added
 
@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhance build system with frontend compilation and dev mode
 - Add TUI enhancements
 - Add DLSS-G and DLSS-D DLL support
+- Add release automation and preparation for v0.1.0
 
 ### Changed
 
@@ -43,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add testing and CI enhancements for unified binary
 - Add DLSS Frame Generation 310.5.0 to manifest
 - Add DLSS Ray Reconstruction 310.5.0 to manifest
+- Move DLL releases to separate spela-dlls repository
 
 ### Documentation
 
@@ -66,5 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Create stub frontend/dist directory for CI linting
 - Add explicit permissions to CI workflow
 - Show reason when GUI falls back to TUI
+- Find git-cliff in common install locations
 
+[0.1.0]: https://github.com/jgabor/spela/tree/v0.1.0
 
