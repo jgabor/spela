@@ -24,6 +24,7 @@ type Config struct {
 	DefaultPreset string   `yaml:"default_preset"`
 	ShaderCache   string   `yaml:"shader_cache"`
 	CheckUpdates  bool     `yaml:"check_updates"`
+	ShowHints     bool     `yaml:"show_hints"`
 }
 
 func Default() *Config {
@@ -32,6 +33,7 @@ func Default() *Config {
 		DefaultPreset: "balanced",
 		ShaderCache:   xdg.CachePath("nvidia"),
 		CheckUpdates:  true,
+		ShowHints:     true,
 	}
 }
 

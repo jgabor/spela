@@ -54,6 +54,7 @@ func NewHelp() HelpModel {
 					{"←/h", "Decrease value"},
 					{"→/l", "Increase value"},
 					{"s", "Save profile"},
+					{"i", "Install DLL"},
 					{"u", "Update DLLs"},
 					{"R", "Restore DLLs"},
 				},
@@ -124,6 +125,10 @@ func (m HelpModel) View() string {
 }
 
 func ContextHelp(focus Focus, searchFocused bool) string {
+	if !ShowHints() {
+		return "?:help • q:quit"
+	}
+
 	var hints []string
 
 	if searchFocused {
@@ -131,7 +136,7 @@ func ContextHelp(focus Focus, searchFocused bool) string {
 	} else if focus == FocusSidebar {
 		hints = []string{"↑↓:navigate", "/:search", "d:DLLs", "p:profile", "s:sort", "enter:select"}
 	} else {
-		hints = []string{"↑↓:navigate", "←→:change", "s:save", "u:update", "R:restore", "tab:sidebar"}
+		hints = []string{"↑↓:navigate", "←→:change", "s:save", "i:install", "u:update", "R:restore", "tab:sidebar"}
 	}
 
 	hints = append(hints, "?:help", "q:quit")

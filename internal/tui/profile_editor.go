@@ -53,7 +53,7 @@ func NewProfileEditor(g *game.Game, p *profile.Profile) ProfileEditorModel {
 			key:         "sr_model_preset",
 			value:       modelPresetValue(p.DLSS.SRModelPreset),
 			options:     []string{"auto", "k", "l", "m"},
-			description: "AI model: auto selects best for mode. K=general, L=4K ultra perf, M=perf. RTX 20/30 may prefer K",
+			description: "AI model: auto selects best for mode. K=general, L=4K ultra perf, M=perf",
 		},
 		{
 			label:       "DLSS-SR Override",
@@ -68,6 +68,41 @@ func NewProfileEditor(g *game.Game, p *profile.Profile) ProfileEditorModel {
 			value:       boolStr(p.DLSS.FGEnabled),
 			options:     []string{"true", "false"},
 			description: "Generate extra frames using AI. Increases FPS but adds slight latency",
+		},
+		{
+			label:       "Multi-Frame",
+			key:         "multi_frame",
+			value:       intStr(p.DLSS.MultiFrame),
+			options:     []string{"0", "1", "2", "3", "4"},
+			description: "Number of extra frames to generate (0=disabled, 1-4=frame multiplier)",
+		},
+		{
+			label:       "DLSS Indicator",
+			key:         "indicator",
+			value:       boolStr(p.DLSS.Indicator),
+			options:     []string{"true", "false"},
+			description: "Show on-screen indicator when DLSS is active",
+		},
+		{
+			label:       "Shader Cache",
+			key:         "shader_cache",
+			value:       boolStr(p.GPU.ShaderCache),
+			options:     []string{"true", "false"},
+			description: "Enable GPU shader caching for faster load times after first run",
+		},
+		{
+			label:       "Threaded Opt",
+			key:         "threaded_opt",
+			value:       boolStr(p.GPU.ThreadedOptimization),
+			options:     []string{"true", "false"},
+			description: "Enable NVIDIA threaded optimization for multi-core performance",
+		},
+		{
+			label:       "Power Mode",
+			key:         "power_mizer",
+			value:       powerMizerValue(p.GPU.PowerMizer),
+			options:     []string{"auto", "adaptive", "max"},
+			description: "GPU power mode: auto (driver decides), adaptive, max performance",
 		},
 		{
 			label:       "HDR",
@@ -90,6 +125,13 @@ func NewProfileEditor(g *game.Game, p *profile.Profile) ProfileEditorModel {
 			options:     []string{"true", "false"},
 			description: "Let Proton automatically update DLSS DLLs to latest version",
 		},
+		{
+			label:       "Save Backup",
+			key:         "backup_on_launch",
+			value:       boolStr(p.Ludusavi.BackupOnLaunch),
+			options:     []string{"true", "false"},
+			description: "Automatically backup save games when launching via Ludusavi",
+		},
 	}
 
 	return ProfileEditorModel{
@@ -111,6 +153,17 @@ func modelPresetValue(p profile.DLSSModelPreset) string {
 		return "auto"
 	}
 	return string(p)
+}
+
+func intStr(i int) string {
+	return fmt.Sprintf("%d", i)
+}
+
+func powerMizerValue(p string) string {
+	if p == "" {
+		return "auto"
+	}
+	return p
 }
 
 func (m ProfileEditorModel) Init() tea.Cmd {
@@ -181,12 +234,24 @@ func (m *ProfileEditorModel) applyPreset(preset profile.Preset) {
 			m.fields[i].value = boolStr(p.DLSS.SROverride)
 		case "fg_enabled":
 			m.fields[i].value = boolStr(p.DLSS.FGEnabled)
+		case "multi_frame":
+			m.fields[i].value = intStr(p.DLSS.MultiFrame)
+		case "indicator":
+			m.fields[i].value = boolStr(p.DLSS.Indicator)
+		case "shader_cache":
+			m.fields[i].value = boolStr(p.GPU.ShaderCache)
+		case "threaded_opt":
+			m.fields[i].value = boolStr(p.GPU.ThreadedOptimization)
+		case "power_mizer":
+			m.fields[i].value = powerMizerValue(p.GPU.PowerMizer)
 		case "hdr":
 			m.fields[i].value = boolStr(p.Proton.EnableHDR)
 		case "wayland":
 			m.fields[i].value = boolStr(p.Proton.EnableWayland)
 		case "ngx_updater":
 			m.fields[i].value = boolStr(p.Proton.EnableNGXUpdater)
+		case "backup_on_launch":
+			m.fields[i].value = boolStr(p.Ludusavi.BackupOnLaunch)
 		}
 	}
 }
@@ -205,12 +270,30 @@ func (m *ProfileEditorModel) applyToProfile() {
 		case "fg_enabled":
 			m.profile.DLSS.FGEnabled = f.value == "true"
 			m.profile.DLSS.FGOverride = true
+		case "multi_frame":
+			var v int
+			fmt.Sscanf(f.value, "%d", &v)
+			m.profile.DLSS.MultiFrame = v
+		case "indicator":
+			m.profile.DLSS.Indicator = f.value == "true"
+		case "shader_cache":
+			m.profile.GPU.ShaderCache = f.value == "true"
+		case "threaded_opt":
+			m.profile.GPU.ThreadedOptimization = f.value == "true"
+		case "power_mizer":
+			if f.value == "auto" {
+				m.profile.GPU.PowerMizer = ""
+			} else {
+				m.profile.GPU.PowerMizer = f.value
+			}
 		case "hdr":
 			m.profile.Proton.EnableHDR = f.value == "true"
 		case "wayland":
 			m.profile.Proton.EnableWayland = f.value == "true"
 		case "ngx_updater":
 			m.profile.Proton.EnableNGXUpdater = f.value == "true"
+		case "backup_on_launch":
+			m.profile.Ludusavi.BackupOnLaunch = f.value == "true"
 		}
 	}
 }

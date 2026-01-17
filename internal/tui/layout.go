@@ -7,6 +7,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/jgabor/spela/internal/config"
+	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/profile"
 )
@@ -44,6 +46,11 @@ type LayoutModel struct {
 }
 
 func NewLayout(db *game.Database) LayoutModel {
+	cfg, _ := config.Load()
+	if cfg != nil {
+		SetShowHints(cfg.ShowHints)
+	}
+
 	games := db.List()
 	return LayoutModel{
 		header:    NewHeader(),
@@ -241,6 +248,7 @@ type batchCompleteMsg struct {
 }
 
 var batchActions = []string{
+	"Update all DLLs",
 	"Apply Performance preset",
 	"Apply Balanced preset",
 	"Apply Quality preset",
@@ -251,13 +259,17 @@ func (m LayoutModel) executeBatchAction() tea.Cmd {
 	action := m.batchCursor
 
 	return func() tea.Msg {
+		if action == 0 {
+			return executeBatchDLLUpdate(games)
+		}
+
 		var preset profile.Preset
 		switch action {
-		case 0:
-			preset = profile.PresetPerformance
 		case 1:
-			preset = profile.PresetBalanced
+			preset = profile.PresetPerformance
 		case 2:
+			preset = profile.PresetBalanced
+		case 3:
 			preset = profile.PresetQuality
 		}
 
@@ -273,6 +285,69 @@ func (m LayoutModel) executeBatchAction() tea.Cmd {
 		return batchCompleteMsg{
 			message: fmt.Sprintf("Applied %s preset to %d/%d games", preset, succeeded, len(games)),
 		}
+	}
+}
+
+func executeBatchDLLUpdate(games []*game.Game) batchCompleteMsg {
+	manifest, err := dll.GetManifest(false, "")
+	if err != nil {
+		return batchCompleteMsg{message: fmt.Sprintf("Failed to load manifest: %v", err)}
+	}
+
+	succeeded := 0
+	failed := 0
+
+	for _, g := range games {
+		if len(g.DLLs) == 0 {
+			continue
+		}
+
+		var gameDLLs []dll.GameDLL
+		for _, d := range g.DLLs {
+			gameDLLs = append(gameDLLs, dll.GameDLL{
+				Name:    d.Name,
+				Path:    d.Path,
+				Version: d.Version,
+			})
+		}
+
+		gameUpdated := false
+		for _, d := range g.DLLs {
+			dllType := strings.ToLower(string(d.Type))
+			latest := manifest.GetLatestDLL(dllType)
+			if latest == nil {
+				continue
+			}
+
+			if d.Version != "" && !dll.IsNewer(d.Version, latest.Version) {
+				continue
+			}
+
+			cachePath, err := dll.DownloadDLL(latest, dllType)
+			if err != nil {
+				failed++
+				continue
+			}
+
+			if err := dll.SwapDLL(g.AppID, g.Name, gameDLLs, d.Name, cachePath); err != nil {
+				failed++
+				continue
+			}
+			gameUpdated = true
+		}
+
+		if gameUpdated {
+			succeeded++
+		}
+	}
+
+	if failed > 0 {
+		return batchCompleteMsg{
+			message: fmt.Sprintf("Updated %d games, %d failed", succeeded, failed),
+		}
+	}
+	return batchCompleteMsg{
+		message: fmt.Sprintf("Updated DLLs for %d/%d games", succeeded, len(games)),
 	}
 }
 
@@ -313,7 +388,9 @@ func (m LayoutModel) renderBatchMenu() string {
 		b.WriteString("\n")
 	}
 
-	b.WriteString(helpStyle.Render("\n\n↑/↓ select • enter execute • esc cancel"))
+	if hint := RenderHint("\n\n↑/↓ select • enter execute • esc cancel"); hint != "" {
+		b.WriteString(hint)
+	}
 
 	return b.String()
 }

@@ -11,6 +11,15 @@ import (
 	"github.com/jgabor/spela/internal/profile"
 )
 
+type DLLInstallState int
+
+const (
+	DLLInstallNone DLLInstallState = iota
+	DLLInstallSelectType
+	DLLInstallSelectVersion
+	DLLInstallDownloading
+)
+
 type ContentModel struct {
 	game          *game.Game
 	profile       *profile.Profile
@@ -21,6 +30,13 @@ type ContentModel struct {
 	dllOperating  bool
 	hasBackup     bool
 	scrollOffset  int
+
+	dllInstallState   DLLInstallState
+	dllTypes          []string
+	dllTypeCursor     int
+	dllVersions       []dll.DLL
+	dllVersionCursor  int
+	selectedDLLType   string
 }
 
 type dllUpdateMsg struct {
@@ -31,6 +47,15 @@ type dllUpdateMsg struct {
 type dllRestoreMsg struct {
 	success bool
 	err     error
+}
+
+type dllInstallMsg struct {
+	success bool
+	err     error
+}
+
+type dllTypesLoadedMsg struct {
+	types []string
 }
 
 func NewContent() ContentModel {
@@ -61,9 +86,20 @@ func (m *ContentModel) SetSize(width, height int) {
 func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	var cmds []tea.Cmd
 
+	if m.dllInstallState != DLLInstallNone {
+		return m.updateDLLInstall(msg)
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
+		case "i":
+			if m.game != nil && !m.dllOperating {
+				m.dllInstallState = DLLInstallSelectType
+				m.dllTypeCursor = 0
+				m.message = "Loading DLL types..."
+				return m, m.loadDLLTypes()
+			}
 		case "u":
 			if m.game != nil && len(m.game.DLLs) > 0 && !m.dllOperating {
 				m.dllOperating = true
@@ -194,6 +230,10 @@ func (m ContentModel) View() string {
 		return dimStyle.Render("Select a game from the sidebar")
 	}
 
+	if m.dllInstallState != DLLInstallNone {
+		return m.renderDLLInstallDialog()
+	}
+
 	var b strings.Builder
 
 	b.WriteString(m.renderGameInfo())
@@ -204,13 +244,73 @@ func (m ContentModel) View() string {
 
 	if m.message != "" {
 		b.WriteString("\n")
-		if strings.HasPrefix(m.message, "Error") || strings.HasPrefix(m.message, "Update failed") || strings.HasPrefix(m.message, "Restore failed") {
+		if strings.HasPrefix(m.message, "Error") || strings.HasPrefix(m.message, "Update failed") || strings.HasPrefix(m.message, "Restore failed") || strings.HasPrefix(m.message, "Install failed") {
 			b.WriteString(errorStyle.Render(m.message))
 		} else if m.dllOperating {
 			b.WriteString(dimStyle.Render(m.message))
 		} else {
 			b.WriteString(successStyle.Render(m.message))
 		}
+	}
+
+	return b.String()
+}
+
+func (m ContentModel) renderDLLInstallDialog() string {
+	var b strings.Builder
+
+	b.WriteString(titleStyle.Render("Install DLL"))
+	b.WriteString("\n\n")
+
+	switch m.dllInstallState {
+	case DLLInstallSelectType:
+		b.WriteString(dimStyle.Render("Select DLL type:"))
+		b.WriteString("\n\n")
+
+		if len(m.dllTypes) == 0 {
+			b.WriteString(dimStyle.Render("Loading..."))
+		} else {
+			for i, t := range m.dllTypes {
+				cursor := "  "
+				style := normalStyle
+				if i == m.dllTypeCursor {
+					cursor = "> "
+					style = selectedStyle
+				}
+				b.WriteString(style.Render(fmt.Sprintf("%s%s", cursor, strings.ToUpper(t))))
+				b.WriteString("\n")
+			}
+		}
+
+	case DLLInstallSelectVersion:
+		b.WriteString(dimStyle.Render(fmt.Sprintf("Select %s version:", strings.ToUpper(m.selectedDLLType))))
+		b.WriteString("\n\n")
+
+		if len(m.dllVersions) == 0 {
+			b.WriteString(dimStyle.Render("Loading..."))
+		} else {
+			for i, v := range m.dllVersions {
+				cursor := "  "
+				style := normalStyle
+				if i == m.dllVersionCursor {
+					cursor = "> "
+					style = selectedStyle
+				}
+				label := v.Version
+				if i == 0 {
+					label += " (latest)"
+				}
+				b.WriteString(style.Render(fmt.Sprintf("%s%s", cursor, label)))
+				b.WriteString("\n")
+			}
+		}
+
+	case DLLInstallDownloading:
+		b.WriteString(dimStyle.Render("Installing DLL..."))
+	}
+
+	if hint := RenderHint("\n\n↑/↓ select • enter confirm • esc cancel"); hint != "" {
+		b.WriteString(hint)
 	}
 
 	return b.String()
@@ -255,20 +355,22 @@ func (m ContentModel) renderDLLs() string {
 		b.WriteString(fmt.Sprintf("  %s: %s\n", d.Name, version))
 	}
 
-	var actions []string
-	if len(m.game.DLLs) > 0 && !m.dllOperating {
-		actions = append(actions, "u:update")
-	}
-	if m.hasBackup && !m.dllOperating {
-		actions = append(actions, "R:restore")
-	}
-	if m.hasBackup {
-		actions = append(actions, dimStyle.Render("(backup exists)"))
-	}
+	if ShowHints() {
+		var actions []string
+		if len(m.game.DLLs) > 0 && !m.dllOperating {
+			actions = append(actions, "u:update")
+		}
+		if m.hasBackup && !m.dllOperating {
+			actions = append(actions, "R:restore")
+		}
+		if m.hasBackup {
+			actions = append(actions, "(backup exists)")
+		}
 
-	if len(actions) > 0 {
-		b.WriteString(dimStyle.Render("  " + strings.Join(actions, " • ")))
-		b.WriteString("\n")
+		if len(actions) > 0 {
+			b.WriteString(RenderHint("  " + strings.Join(actions, " • ")))
+			b.WriteString("\n")
+		}
 	}
 
 	return b.String()
@@ -303,13 +405,128 @@ func (m ContentModel) renderProfile() string {
 	}
 
 	if m.profileEditor.Modified() {
-		b.WriteString(dimStyle.Render("  (modified) "))
-		b.WriteString(dimStyle.Render("s:save"))
+		b.WriteString(RenderHint("  (modified) s:save"))
+		if ShowHints() {
+			b.WriteString("\n")
+		}
+	}
+
+	if hint := RenderHint("  ↑↓:navigate • ←→:change"); hint != "" {
+		b.WriteString(hint)
 		b.WriteString("\n")
 	}
 
-	b.WriteString(dimStyle.Render("  ↑↓:navigate • ←→:change"))
-	b.WriteString("\n")
-
 	return b.String()
+}
+
+func (m ContentModel) loadDLLTypes() tea.Cmd {
+	return func() tea.Msg {
+		manifest, err := dll.GetManifest(false, "")
+		if err != nil {
+			return dllInstallMsg{err: err}
+		}
+		return dllTypesLoadedMsg{types: manifest.ListDLLNames()}
+	}
+}
+
+func (m ContentModel) updateDLLInstall(msg tea.Msg) (ContentModel, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc", "q":
+			m.dllInstallState = DLLInstallNone
+			m.message = ""
+			return m, nil
+		case "up", "k":
+			if m.dllInstallState == DLLInstallSelectType && m.dllTypeCursor > 0 {
+				m.dllTypeCursor--
+			} else if m.dllInstallState == DLLInstallSelectVersion && m.dllVersionCursor > 0 {
+				m.dllVersionCursor--
+			}
+		case "down", "j":
+			if m.dllInstallState == DLLInstallSelectType && m.dllTypeCursor < len(m.dllTypes)-1 {
+				m.dllTypeCursor++
+			} else if m.dllInstallState == DLLInstallSelectVersion && m.dllVersionCursor < len(m.dllVersions)-1 {
+				m.dllVersionCursor++
+			}
+		case "enter":
+			if m.dllInstallState == DLLInstallSelectType && len(m.dllTypes) > 0 {
+				m.selectedDLLType = m.dllTypes[m.dllTypeCursor]
+				m.dllInstallState = DLLInstallSelectVersion
+				m.dllVersionCursor = 0
+				return m, m.loadDLLVersions()
+			} else if m.dllInstallState == DLLInstallSelectVersion && len(m.dllVersions) > 0 {
+				m.dllInstallState = DLLInstallDownloading
+				m.message = "Installing DLL..."
+				return m, m.installSelectedDLL()
+			}
+		}
+
+	case dllTypesLoadedMsg:
+		m.dllTypes = msg.types
+		m.message = ""
+		return m, nil
+
+	case dllInstallMsg:
+		m.dllInstallState = DLLInstallNone
+		m.dllOperating = false
+		if msg.success {
+			m.message = "DLL installed successfully!"
+			m.hasBackup = m.game != nil && dll.BackupExists(m.game.AppID)
+		} else if msg.err != nil {
+			m.message = fmt.Sprintf("Install failed: %v", msg.err)
+		}
+		return m, nil
+
+	case dllVersionsLoadedMsg:
+		m.dllVersions = msg.versions
+		return m, nil
+	}
+
+	return m, nil
+}
+
+func (m ContentModel) loadDLLVersions() tea.Cmd {
+	dllType := m.selectedDLLType
+	return func() tea.Msg {
+		manifest, err := dll.GetManifest(false, "")
+		if err != nil {
+			return dllInstallMsg{err: err}
+		}
+		versions := manifest.DLLs[dllType]
+		return dllVersionsLoadedMsg{versions: versions}
+	}
+}
+
+type dllVersionsLoadedMsg struct {
+	versions []dll.DLL
+}
+
+func (m ContentModel) installSelectedDLL() tea.Cmd {
+	dllType := m.selectedDLLType
+	dllInfo := m.dllVersions[m.dllVersionCursor]
+	g := m.game
+
+	return func() tea.Msg {
+		cachePath, err := dll.DownloadDLL(&dllInfo, dllType)
+		if err != nil {
+			return dllInstallMsg{err: err}
+		}
+
+		var gameDLLs []dll.GameDLL
+		for _, d := range g.DLLs {
+			gameDLLs = append(gameDLLs, dll.GameDLL{
+				Name:    d.Name,
+				Path:    d.Path,
+				Version: d.Version,
+			})
+		}
+
+		targetName := dllInfo.Filename
+		if err := dll.SwapDLL(g.AppID, g.Name, gameDLLs, targetName, cachePath); err != nil {
+			return dllInstallMsg{err: err}
+		}
+
+		return dllInstallMsg{success: true}
+	}
 }

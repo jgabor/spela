@@ -63,6 +63,7 @@ var DarkTheme = Theme{
 }
 
 var activeTheme = DefaultTheme
+var showHints = true
 
 func SetTheme(t Theme) {
 	activeTheme = t
@@ -71,6 +72,21 @@ func SetTheme(t Theme) {
 
 func GetTheme() Theme {
 	return activeTheme
+}
+
+func SetShowHints(show bool) {
+	showHints = show
+}
+
+func ShowHints() bool {
+	return showHints
+}
+
+func RenderHint(text string) string {
+	if !showHints {
+		return ""
+	}
+	return dimStyle.Render(text)
 }
 
 var (
