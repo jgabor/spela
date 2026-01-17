@@ -9,7 +9,7 @@ ifndef BUN
 $(error bun is required but not installed. Install it from https://bun.sh)
 endif
 
-.PHONY: build test lint install clean frontend-build dev dev-stop
+.PHONY: build test test-frontend lint install clean frontend-build dev dev-stop
 
 frontend-build:
 	cd $(FRONTEND_DIR) && bun install && bun run build
@@ -34,6 +34,9 @@ dev-stop:
 
 test:
 	go test -v ./...
+
+test-frontend:
+	cd $(FRONTEND_DIR) && bun run test
 
 lint:
 	golangci-lint run

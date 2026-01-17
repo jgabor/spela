@@ -17,11 +17,24 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Build CLI
-        run: go build -v ./cmd/spela
+      - name: Set up bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
-      - name: Test
+      - name: Install webview dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
+
+      - name: Build
+        run: make build
+
+      - name: Test Go
         run: go test -v ./cmd/... ./internal/... ./tools/...
+
+      - name: Test frontend
+        run: make test-frontend
 
   lint:
     runs-on: ubuntu-latest
@@ -32,6 +45,11 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+
+      - name: Install webview dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v7
