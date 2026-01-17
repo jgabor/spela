@@ -1,8 +1,6 @@
 package gui
 
 import (
-	"embed"
-
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/menu/keys"
@@ -10,9 +8,6 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
-
-//go:embed all:frontend/dist
-var assets embed.FS
 
 func Run() error {
 	app := NewApp()
@@ -32,13 +27,16 @@ func Run() error {
 		runtime.WindowToggleMaximise(app.ctx)
 	})
 
+	assetOpts := &assetserver.Options{
+		Assets:  getAssets(),
+		Handler: getDevHandler(),
+	}
+
 	return wails.Run(&options.App{
-		Title:  "Spela",
-		Width:  1024,
-		Height: 768,
-		AssetServer: &assetserver.Options{
-			Assets: assets,
-		},
+		Title:            "Spela",
+		Width:            1024,
+		Height:           768,
+		AssetServer:      assetOpts,
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		OnStartup:        app.startup,
 		OnShutdown:       app.shutdown,
