@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "updated_at": "2026-01-16T21:19:21Z",
+  "updated_at": "2026-01-17T13:56:33Z",
   "repository": "jgabor/spela",
   "dlls": {
     "dlss": [
@@ -14,7 +14,17 @@
         "notes": "From techpowerup.com"
       }
     ],
-    "dlssg": [],
+    "dlssg": [
+      {
+        "version": "310.5.0",
+        "filename": "nvngx_dlssg.dll",
+        "url": "https://github.com/jgabor/spela/releases/download/dll-dlssg-v310.5.0/nvngx_dlssg.dll",
+        "sha256": "5685c065e6c048f673d70f5dda5b23570c8570642e4e284216f59c2e85583016",
+        "size": 7518320,
+        "release_date": "2026-01-17T13:56:33Z",
+        "notes": "From techpowerup.com"
+      }
+    ],
     "dlssd": [],
     "xess": [],
     "fsr": []
