@@ -1,9 +1,5 @@
 version: "2"
 
-run:
-  exclude-dirs:
-    - internal/gui
-
 linters:
   enable:
     - errcheck
@@ -11,6 +7,9 @@ linters:
     - staticcheck
     - unused
     - ineffassign
+  exclusions:
+    paths:
+      - internal/gui
 
 formatters:
   enable:
