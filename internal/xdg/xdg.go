@@ -28,6 +28,17 @@ func CacheHome() string {
 	return filepath.Join(os.Getenv("HOME"), ".cache", appName)
 }
 
+func RuntimeDir() string {
+	if dir := os.Getenv("XDG_RUNTIME_DIR"); dir != "" {
+		return filepath.Join(dir, appName)
+	}
+	user := os.Getenv("USER")
+	if user == "" {
+		user = "unknown"
+	}
+	return filepath.Join("/tmp", "runtime-"+user, appName)
+}
+
 func EnsureConfigHome() (string, error) {
 	dir := ConfigHome()
 	return dir, os.MkdirAll(dir, 0o755)

@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/lock"
 	"github.com/jgabor/spela/internal/tui"
 )
 
@@ -17,6 +18,11 @@ var TUICmd = &cobra.Command{
 }
 
 func runTUI(cmd *cobra.Command, args []string) error {
+	if err := lock.Acquire(); err != nil {
+		return err
+	}
+	defer func() { _ = lock.Release() }()
+
 	db, err := game.LoadDatabase()
 	if err != nil {
 		return fmt.Errorf("failed to load game database: %w", err)

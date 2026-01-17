@@ -13,3 +13,4 @@ docs/
 # GUI frontend
 gui/frontend/node_modules/
 gui/frontend/dist/
+internal/gui/frontend/node_modules/
