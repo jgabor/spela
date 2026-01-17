@@ -1,0 +1,73 @@
+# git-cliff ~ configuration file
+# https://git-cliff.org/docs/configuration
+
+[changelog]
+header = """
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+"""
+body = """
+{% if version -%}
+    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else -%}
+    ## [Unreleased]
+{% endif -%}
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | upper_first }}
+    {% for commit in commits %}
+        - {{ commit.message | split(pat="\n") | first | upper_first | trim }}\
+    {% endfor %}
+{% endfor %}\n
+"""
+footer = """
+{% for release in releases -%}
+    {% if release.version -%}
+        {% if release.previous and release.previous.version -%}
+            [{{ release.version | trim_start_matches(pat="v") }}]: \
+                https://github.com/jgabor/spela\
+                    /compare/{{ release.previous.version }}..{{ release.version }}
+        {% else -%}
+            [{{ release.version | trim_start_matches(pat="v") }}]: \
+                https://github.com/jgabor/spela\
+                    /tree/{{ release.version }}
+        {% endif -%}
+    {% else -%}
+        {% if release.previous and release.previous.version -%}
+            [unreleased]: https://github.com/jgabor/spela\
+                /compare/{{ release.previous.version }}..HEAD
+        {% endif -%}
+    {% endif -%}
+{% endfor %}
+"""
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+commit_parsers = [
+    { message = "^feat", group = "Added" },
+    { message = "^fix", group = "Fixed" },
+    { message = "^doc", group = "Documentation" },
+    { message = "^perf", group = "Changed" },
+    { message = "^refactor", group = "Changed" },
+    { message = "^style", group = "Changed" },
+    { message = "^test", group = "Changed" },
+    { message = "^chore\\(release\\)", skip = true },
+    { message = "^chore", group = "Changed" },
+    { message = "^ci", group = "Changed" },
+    { message = "^build", group = "Changed" },
+    { message = "^revert", group = "Reverted" },
+    { body = ".*security", group = "Security" },
+    { message = "^.*: add", group = "Added" },
+    { message = "^.*: remove", group = "Removed" },
+    { message = "^.*: delete", group = "Removed" },
+    { message = "^.*", group = "Changed" },
+]
+filter_commits = false
+topo_order = false
+sort_commits = "oldest"

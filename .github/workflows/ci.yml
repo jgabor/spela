@@ -24,19 +24,22 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Install mage
+        run: go install github.com/magefile/mage@latest
+
       - name: Install webview dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
 
       - name: Build
-        run: make build
+        run: mage build
 
       - name: Test Go
-        run: go test -v ./cmd/... ./internal/... ./tools/...
+        run: mage test
 
       - name: Test frontend
-        run: make test-frontend
+        run: mage testFrontend
 
   lint:
     runs-on: ubuntu-latest

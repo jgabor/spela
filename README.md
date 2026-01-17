@@ -5,6 +5,12 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/jgabor/spela/actions/workflows/ci.yml"><img src="https://github.com/jgabor/spela/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/jgabor/spela/releases/latest"><img src="https://img.shields.io/github/v/release/jgabor/spela?filter=v*" alt="Latest Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/jgabor/spela" alt="License"></a>
+</p>
+
+<p align="center">
   <a href="#features">Features</a> •
   <a href="#installation">Installation</a> •
   <a href="#usage">Usage</a> •
@@ -45,6 +51,16 @@
 
 ## Installation
 
+### Binary download
+
+Download the latest release from [GitHub Releases](https://github.com/jgabor/spela/releases/latest):
+
+```bash
+curl -L https://github.com/jgabor/spela/releases/latest/download/spela-linux-amd64 -o spela
+chmod +x spela
+sudo mv spela /usr/local/bin/
+```
+
 ### AUR (Arch Linux)
 
 ```bash
@@ -59,11 +75,13 @@ go install github.com/jgabor/spela/cmd/spela@latest
 
 ### From source
 
+Requires Go 1.22+, bun, and mage:
+
 ```bash
 git clone https://github.com/jgabor/spela.git
 cd spela
-make build
-sudo make install
+mage build
+mage install
 ```
 
 ### Requirements
