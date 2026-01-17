@@ -31,12 +31,13 @@ type ContentModel struct {
 	hasBackup     bool
 	scrollOffset  int
 
-	dllInstallState  DLLInstallState
-	dllTypes         []string
-	dllTypeCursor    int
-	dllVersions      []dll.DLL
-	dllVersionCursor int
-	selectedDLLType  string
+	dllInstallState   DLLInstallState
+	dllTypes          []string
+	dllTypeCursor     int
+	dllVersions       []dll.DLL
+	dllVersionCursor  int
+	dllVersionsLoaded bool
+	selectedDLLType   string
 }
 
 type dllUpdateMsg struct {
@@ -287,7 +288,11 @@ func (m ContentModel) renderDLLInstallDialog() string {
 		b.WriteString("\n\n")
 
 		if len(m.dllVersions) == 0 {
-			b.WriteString(dimStyle.Render("Loading..."))
+			if m.dllVersionsLoaded {
+				b.WriteString(errorStyle.Render("No versions available"))
+			} else {
+				b.WriteString(dimStyle.Render("Loading..."))
+			}
 		} else {
 			for i, v := range m.dllVersions {
 				cursor := "  "
@@ -472,6 +477,7 @@ func (m ContentModel) updateDLLInstall(msg tea.Msg) (ContentModel, tea.Cmd) {
 				m.selectedDLLType = m.dllTypes[m.dllTypeCursor]
 				m.dllInstallState = DLLInstallSelectVersion
 				m.dllVersionCursor = 0
+				m.dllVersionsLoaded = false
 				return m, m.loadDLLVersions()
 			} else if m.dllInstallState == DLLInstallSelectVersion && len(m.dllVersions) > 0 {
 				m.dllInstallState = DLLInstallDownloading
@@ -498,6 +504,7 @@ func (m ContentModel) updateDLLInstall(msg tea.Msg) (ContentModel, tea.Cmd) {
 
 	case dllVersionsLoadedMsg:
 		m.dllVersions = msg.versions
+		m.dllVersionsLoaded = true
 		return m, nil
 	}
 
