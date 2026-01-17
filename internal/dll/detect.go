@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf16"
 
 	"github.com/jgabor/spela/internal/game"
 )
@@ -68,34 +69,49 @@ func GetDLLVersion(path string) (string, error) {
 }
 
 func extractVersionFromResource(data []byte) string {
-	vsVersionInfo := []byte("VS_VERSION_INFO")
-	idx := findBytes(data, vsVersionInfo)
-	if idx == -1 {
+	// VS_VERSION_INFO is stored as UTF-16LE in Windows PE files
+	vsVersionInfoUTF16 := utf16.Encode([]rune("VS_VERSION_INFO"))
+	vsBytes := make([]byte, len(vsVersionInfoUTF16)*2)
+	for i, r := range vsVersionInfoUTF16 {
+		binary.LittleEndian.PutUint16(vsBytes[i*2:], r)
+	}
+
+	vsIndex := findBytes(data, vsBytes)
+	if vsIndex == -1 {
 		return ""
 	}
 
-	fixedFileInfo := []byte{0xBD, 0x04, 0xEF, 0xFE}
-	idx = findBytes(data[idx:], fixedFileInfo)
-	if idx == -1 {
+	// VS_FIXEDFILEINFO signature: 0xFEEF04BD
+	fixedFileInfoSignature := []byte{0xBD, 0x04, 0xEF, 0xFE}
+	relativeIndex := findBytes(data[vsIndex:], fixedFileInfoSignature)
+	if relativeIndex == -1 {
 		return ""
 	}
 
-	start := idx + 4
-	if start+8 > len(data) {
+	// VS_FIXEDFILEINFO structure layout:
+	// offset 0:  dwSignature (4 bytes) - 0xFEEF04BD
+	// offset 4:  dwStrucVersion (4 bytes)
+	// offset 8:  dwFileVersionMS (4 bytes) - (major << 16) | minor
+	// offset 12: dwFileVersionLS (4 bytes) - (build << 16) | revision
+	signatureOffset := vsIndex + relativeIndex
+	versionOffset := signatureOffset + 8
+	if versionOffset+8 > len(data) {
 		return ""
 	}
 
-	chunk := data[start : start+8]
-	minor := binary.LittleEndian.Uint16(chunk[0:2])
-	major := binary.LittleEndian.Uint16(chunk[2:4])
-	build := binary.LittleEndian.Uint16(chunk[4:6])
-	rev := binary.LittleEndian.Uint16(chunk[6:8])
+	fileVersionMS := binary.LittleEndian.Uint32(data[versionOffset : versionOffset+4])
+	fileVersionLS := binary.LittleEndian.Uint32(data[versionOffset+4 : versionOffset+8])
+
+	major := uint16(fileVersionMS >> 16)
+	minor := uint16(fileVersionMS & 0xFFFF)
+	build := uint16(fileVersionLS >> 16)
+	revision := uint16(fileVersionLS & 0xFFFF)
 
 	if major == 0 && minor == 0 {
 		return ""
 	}
 
-	return formatVersion(major, minor, build, rev)
+	return formatVersion(major, minor, build, revision)
 }
 
 func findBytes(data, pattern []byte) int {
