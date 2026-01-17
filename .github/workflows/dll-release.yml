@@ -55,32 +55,26 @@ jobs:
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
           echo "size=$SIZE" >> $GITHUB_OUTPUT
 
-      - name: Create release tag
+      - name: Create release in spela-dlls
+        env:
+          GH_TOKEN: ${{ secrets.DLLS_REPO_TOKEN }}
         run: |
           TAG="dll-${{ inputs.dll_type }}-v${{ inputs.version }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "Release ${{ inputs.dll_type }} v${{ inputs.version }}"
-          git push origin "$TAG"
+          NOTES="## ${{ inputs.dll_type }} v${{ inputs.version }}
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: dll-${{ inputs.dll_type }}-v${{ inputs.version }}
-          name: ${{ inputs.dll_type }} v${{ inputs.version }}
-          body: |
-            ## ${{ inputs.dll_type }} v${{ inputs.version }}
+          ${{ inputs.notes }}
 
-            ${{ inputs.notes }}
+          **SHA256:** \`${{ steps.sha.outputs.sha256 }}\`
+          **Size:** ${{ steps.sha.outputs.size }} bytes"
 
-            **SHA256:** `${{ steps.sha.outputs.sha256 }}`
-            **Size:** ${{ steps.sha.outputs.size }} bytes
-          files: |
+          gh release create "$TAG" \
+            --repo jgabor/spela-dlls \
+            --title "${{ inputs.dll_type }} v${{ inputs.version }}" \
+            --notes "$NOTES" \
             dist/${{ inputs.dll_type }}.dll
 
       - name: Update manifest
         run: |
-          # Create a Python script to update the manifest
           python3 << 'EOF'
           import json
           from datetime import datetime, timezone
@@ -97,7 +91,7 @@ jobs:
           new_dll = {
               'version': version,
               'filename': f'{dll_type}.dll',
-              'url': f'https://github.com/${{ github.repository }}/releases/download/dll-{dll_type}-v{version}/{dll_type}.dll',
+              'url': f'https://github.com/jgabor/spela-dlls/releases/download/dll-{dll_type}-v{version}/{dll_type}.dll',
               'sha256': sha256,
               'size': size,
               'release_date': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
@@ -122,6 +116,8 @@ jobs:
 
       - name: Commit manifest update
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/manifest.json
           git commit -m "chore: add ${{ inputs.dll_type }} v${{ inputs.version }} to manifest"
           git push

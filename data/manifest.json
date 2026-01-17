@@ -1,13 +1,13 @@
 {
   "version": "1",
   "updated_at": "2026-01-17T13:58:02Z",
-  "repository": "jgabor/spela",
+  "repository": "jgabor/spela-dlls",
   "dlls": {
     "dlss": [
       {
         "version": "310.5.0",
         "filename": "nvngx_dlss.dll",
-        "url": "https://github.com/jgabor/spela/releases/download/dll-dlss-v310.5.0/nvngx_dlss.dll",
+        "url": "https://github.com/jgabor/spela-dlls/releases/download/dll-dlss-v310.5.0/nvngx_dlss.dll",
         "sha256": "22c4660249da5b352cde0ce4d95178c3761223dd6ac096d0b88e5c03d7a5cdd1",
         "size": 54778992,
         "release_date": "2026-01-16T21:19:21Z",
@@ -18,7 +18,7 @@
       {
         "version": "310.5.0",
         "filename": "nvngx_dlssg.dll",
-        "url": "https://github.com/jgabor/spela/releases/download/dll-dlssg-v310.5.0/nvngx_dlssg.dll",
+        "url": "https://github.com/jgabor/spela-dlls/releases/download/dll-dlssg-v310.5.0/nvngx_dlssg.dll",
         "sha256": "5685c065e6c048f673d70f5dda5b23570c8570642e4e284216f59c2e85583016",
         "size": 7518320,
         "release_date": "2026-01-17T13:56:33Z",
@@ -29,7 +29,7 @@
       {
         "version": "310.5.0",
         "filename": "nvngx_dlssd.dll",
-        "url": "https://github.com/jgabor/spela/releases/download/dll-dlssd-v310.5.0/nvngx_dlssd.dll",
+        "url": "https://github.com/jgabor/spela-dlls/releases/download/dll-dlssd-v310.5.0/nvngx_dlssd.dll",
         "sha256": "4d53f6114edc61bd41fc293008aa818ab092bb8286830e61c98453da92d936d0",
         "size": 28590704,
         "release_date": "2026-01-17T13:58:02Z",
