@@ -24,6 +24,31 @@ const (
 
 var Default = Build
 
+func findGitCliff() (string, error) {
+	if path, err := exec.LookPath("git-cliff"); err == nil {
+		return path, nil
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("git-cliff not found in PATH and cannot determine home directory")
+	}
+
+	candidates := []string{
+		filepath.Join(home, ".cargo", "bin", "git-cliff"),
+		filepath.Join(home, ".local", "bin", "git-cliff"),
+		"/usr/local/bin/git-cliff",
+	}
+
+	for _, path := range candidates {
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+
+	return "", fmt.Errorf("git-cliff not found. Install with: cargo install git-cliff")
+}
+
 func version() (string, error) {
 	out, err := sh.Output("git", "describe", "--tags", "--always", "--dirty")
 	if err != nil || out == "" {
@@ -267,7 +292,11 @@ func computeNextVersion() (string, error) {
 		return v, nil
 	}
 
-	out, err := sh.Output("git-cliff", "--bumped-version")
+	gitCliff, err := findGitCliff()
+	if err != nil {
+		return "", err
+	}
+	out, err := sh.Output(gitCliff, "--bumped-version")
 	if err != nil {
 		return "", fmt.Errorf("git-cliff --bumped-version failed: %w", err)
 	}
@@ -275,7 +304,11 @@ func computeNextVersion() (string, error) {
 }
 
 func generateChangelog(version string) (string, error) {
-	out, err := sh.Output("git-cliff", "--unreleased", "--tag", version)
+	gitCliff, err := findGitCliff()
+	if err != nil {
+		return "", err
+	}
+	out, err := sh.Output(gitCliff, "--unreleased", "--tag", version)
 	if err != nil {
 		return "", err
 	}
@@ -290,7 +323,7 @@ Changelog:
 
 Summary:`, changelog)
 
-	cmd := exec.Command("opencode", "-p", prompt)
+	cmd := exec.Command("opencode", "run", "-m", "opencode/minimax-m2.1-free", prompt)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -345,7 +378,11 @@ func showPreviewAndConfirm(version, changelog, summary string) error {
 }
 
 func updateChangelogFile(version string) error {
-	return sh.RunV("git-cliff", "--tag", version, "-o", "CHANGELOG.md")
+	gitCliff, err := findGitCliff()
+	if err != nil {
+		return err
+	}
+	return sh.RunV(gitCliff, "--tag", version, "-o", "CHANGELOG.md")
 }
 
 func commitTagPush(version string) error {

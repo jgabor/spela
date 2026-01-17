@@ -62,8 +62,10 @@ var DarkTheme = Theme{
 	SelectionBg: lipgloss.Color("141"),
 }
 
-var activeTheme = DefaultTheme
-var showHints = true
+var (
+	activeTheme = DefaultTheme
+	showHints   = true
+)
 
 func SetTheme(t Theme) {
 	activeTheme = t
