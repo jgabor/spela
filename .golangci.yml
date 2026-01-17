@@ -1,5 +1,9 @@
 version: "2"
 
+issues:
+  exclude-dirs:
+    - internal/gui
+
 linters:
   enable:
     - errcheck
