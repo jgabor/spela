@@ -7,9 +7,6 @@ linters:
     - staticcheck
     - unused
     - ineffassign
-  exclusions:
-    paths:
-      - internal/gui
 
 formatters:
   enable:

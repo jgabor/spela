@@ -51,6 +51,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
 
+      - name: Create frontend dist stub for embed
+        run: mkdir -p internal/gui/frontend/dist && touch internal/gui/frontend/dist/.gitkeep
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
