@@ -272,7 +272,7 @@ func (m *ProfileEditorModel) applyToProfile() {
 			m.profile.DLSS.FGOverride = true
 		case "multi_frame":
 			var v int
-			fmt.Sscanf(f.value, "%d", &v)
+			_, _ = fmt.Sscanf(f.value, "%d", &v)
 			m.profile.DLSS.MultiFrame = v
 		case "indicator":
 			m.profile.DLSS.Indicator = f.value == "true"
