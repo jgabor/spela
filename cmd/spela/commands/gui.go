@@ -13,11 +13,17 @@ import (
 	"github.com/jgabor/spela/internal/tui"
 )
 
+var noFallback bool
+
 var GUICmd = &cobra.Command{
 	Use:   "gui",
 	Short: "Launch graphical user interface",
 	Long:  "Launch the graphical user interface for browsing games and managing profiles.",
 	RunE:  runGUI,
+}
+
+func init() {
+	GUICmd.Flags().BoolVar(&noFallback, "no-fallback", false, "fail with error instead of falling back to TUI")
 }
 
 func runGUI(cmd *cobra.Command, args []string) error {
@@ -41,6 +47,11 @@ func hasDisplay() bool {
 }
 
 func fallbackToTUI(reason string) error {
+	if noFallback {
+		return fmt.Errorf("GUI unavailable: %s", reason)
+	}
+
+	fmt.Printf("GUI unavailable (%s), falling back to TUI\n", reason)
 	slog.Debug("GUI unavailable, falling back to TUI", "reason", reason)
 
 	db, err := game.LoadDatabase()
