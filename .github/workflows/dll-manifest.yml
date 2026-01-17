@@ -14,6 +14,19 @@ permissions:
 jobs:
   check-updates:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dll_type: [dlss, dlssg, dlssd]
+        include:
+          - dll_type: dlss
+            filename: nvngx_dlss.dll
+            name: DLSS
+          - dll_type: dlssg
+            filename: nvngx_dlssg.dll
+            name: DLSS Frame Generation
+          - dll_type: dlssd
+            filename: nvngx_dlssd.dll
+            name: DLSS Ray Reconstruction
     steps:
       - uses: actions/checkout@v4
 
@@ -26,15 +39,14 @@ jobs:
       - name: Build checker tool
         run: go build -o dlss-updater ./tools/dlss-updater
 
-      - name: Check for DLSS updates
+      - name: Check for ${{ matrix.name }} updates
         id: check
         run: |
           set +e
-          OUTPUT=$(./dlss-updater -json -manifest data/manifest.json 2>&1)
+          OUTPUT=$(./dlss-updater -json -type ${{ matrix.dll_type }} -manifest data/manifest.json 2>&1)
           EXIT_CODE=$?
           set -e
 
-          # Extract just the JSON (last line with curly braces)
           JSON_OUTPUT=$(echo "$OUTPUT" | grep -E '^\{' | head -1)
           if [ -z "$JSON_OUTPUT" ]; then
             JSON_OUTPUT="$OUTPUT"
@@ -48,44 +60,43 @@ jobs:
             echo "has_update=true" >> $GITHUB_OUTPUT
             VERSION=$(echo "$JSON_OUTPUT" | jq -r '.version')
             DOWNLOAD_URL=$(echo "$JSON_OUTPUT" | jq -r '.download_url')
+            FILENAME=$(echo "$JSON_OUTPUT" | jq -r '.filename')
             SOURCE=$(echo "$JSON_OUTPUT" | jq -r '.source')
             echo "version=$VERSION" >> $GITHUB_OUTPUT
             echo "download_url=$DOWNLOAD_URL" >> $GITHUB_OUTPUT
+            echo "filename=$FILENAME" >> $GITHUB_OUTPUT
             echo "source=$SOURCE" >> $GITHUB_OUTPUT
           else
             echo "has_update=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Download DLSS
+      - name: Download ${{ matrix.name }}
         if: steps.check.outputs.has_update == 'true'
         run: |
           mkdir -p dist
-          SOURCE="${{ steps.check.outputs.source }}"
 
           curl -L -A "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0" \
-            -o dist/dlss_download.zip "${{ steps.check.outputs.download_url }}"
+            -o dist/dll_download.zip "${{ steps.check.outputs.download_url }}"
 
           cd dist
-          unzip dlss_download.zip
+          unzip dll_download.zip
 
-          # Find the DLL - location differs by source
-          # TechPowerUp: nvngx_dlss.dll directly in zip
-          # GitHub: inside DLSS_Sample_App/bin/ngx_dlss_demo/
-          find . -name "nvngx_dlss.dll" -exec cp {} dlss.dll \;
+          FILENAME="${{ steps.check.outputs.filename }}"
+          find . -name "$FILENAME" -exec cp {} downloaded.dll \;
 
-          if [ ! -f dlss.dll ]; then
-            echo "ERROR: Could not find nvngx_dlss.dll in downloaded archive"
+          if [ ! -f downloaded.dll ]; then
+            echo "ERROR: Could not find $FILENAME in downloaded archive"
             exit 1
           fi
 
-          ls -la dlss.dll
+          ls -la downloaded.dll
 
       - name: Calculate checksums
         if: steps.check.outputs.has_update == 'true'
         id: sha
         run: |
-          SHA256=$(sha256sum dist/dlss.dll | cut -d' ' -f1)
-          SIZE=$(stat -c%s dist/dlss.dll)
+          SHA256=$(sha256sum dist/downloaded.dll | cut -d' ' -f1)
+          SIZE=$(stat -c%s dist/downloaded.dll)
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
           echo "size=$SIZE" >> $GITHUB_OUTPUT
 
@@ -95,26 +106,32 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.check.outputs.version }}"
-          TAG="dll-dlss-v$VERSION"
+          DLL_TYPE="${{ matrix.dll_type }}"
+          FILENAME="${{ matrix.filename }}"
+          TAG="dll-${DLL_TYPE}-v${VERSION}"
           SHA256="${{ steps.sha.outputs.sha256 }}"
           SIZE="${{ steps.sha.outputs.size }}"
           SOURCE="${{ steps.check.outputs.source }}"
+          NAME="${{ matrix.name }}"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Pull latest to avoid conflicts with parallel jobs
+          git pull --rebase origin main || true
+
           # Create tag if it doesn't exist
           if ! git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
-            git tag -a "$TAG" -m "DLSS $VERSION"
+            git tag -a "$TAG" -m "$NAME $VERSION"
             git push origin "$TAG"
           fi
 
           # Create release if it doesn't exist
           if ! gh release view "$TAG" &>/dev/null; then
-            cp dist/dlss.dll dist/nvngx_dlss.dll
-            gh release create "$TAG" dist/nvngx_dlss.dll \
-              --title "DLSS v$VERSION" \
-              --notes "DLSS $VERSION
+            cp dist/downloaded.dll "dist/$FILENAME"
+            gh release create "$TAG" "dist/$FILENAME" \
+              --title "$NAME v$VERSION" \
+              --notes "$NAME $VERSION
 
           **Source:** $SOURCE
           **SHA256:** \`$SHA256\`
@@ -131,19 +148,19 @@ jobs:
 
           new_dll = {
               'version': '$VERSION',
-              'filename': 'nvngx_dlss.dll',
-              'url': 'https://github.com/${{ github.repository }}/releases/download/$TAG/nvngx_dlss.dll',
+              'filename': '$FILENAME',
+              'url': 'https://github.com/${{ github.repository }}/releases/download/$TAG/$FILENAME',
               'sha256': '$SHA256',
               'size': int('$SIZE'),
               'release_date': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
               'notes': 'From $SOURCE'
           }
 
-          if 'dlss' not in manifest['dlls']:
-              manifest['dlls']['dlss'] = []
+          if '$DLL_TYPE' not in manifest['dlls']:
+              manifest['dlls']['$DLL_TYPE'] = []
 
-          manifest['dlls']['dlss'] = [d for d in manifest['dlls']['dlss'] if d['version'] != '$VERSION']
-          manifest['dlls']['dlss'].insert(0, new_dll)
+          manifest['dlls']['$DLL_TYPE'] = [d for d in manifest['dlls']['$DLL_TYPE'] if d['version'] != '$VERSION']
+          manifest['dlls']['$DLL_TYPE'].insert(0, new_dll)
           manifest['updated_at'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
           with open('data/manifest.json', 'w') as f:
@@ -154,10 +171,14 @@ jobs:
         if: steps.check.outputs.has_update == 'true'
         run: |
           VERSION="${{ steps.check.outputs.version }}"
+          DLL_TYPE="${{ matrix.dll_type }}"
+          NAME="${{ matrix.name }}"
+
+          git pull --rebase origin main || true
           git add data/manifest.json
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: add DLSS $VERSION to manifest"
+            git commit -m "chore: add $NAME $VERSION to manifest"
             git push origin main
           fi

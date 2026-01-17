@@ -31,12 +31,12 @@ type ContentModel struct {
 	hasBackup     bool
 	scrollOffset  int
 
-	dllInstallState   DLLInstallState
-	dllTypes          []string
-	dllTypeCursor     int
-	dllVersions       []dll.DLL
-	dllVersionCursor  int
-	selectedDLLType   string
+	dllInstallState  DLLInstallState
+	dllTypes         []string
+	dllTypeCursor    int
+	dllVersions      []dll.DLL
+	dllVersionCursor int
+	selectedDLLType  string
 }
 
 type dllUpdateMsg struct {
@@ -420,12 +420,30 @@ func (m ContentModel) renderProfile() string {
 }
 
 func (m ContentModel) loadDLLTypes() tea.Cmd {
+	gameDLLTypes := make(map[string]bool)
+	for _, d := range m.game.DLLs {
+		gameDLLTypes[strings.ToLower(string(d.Type))] = true
+	}
+
 	return func() tea.Msg {
 		manifest, err := dll.GetManifest(false, "")
 		if err != nil {
 			return dllInstallMsg{err: err}
 		}
-		return dllTypesLoadedMsg{types: manifest.ListDLLNames()}
+
+		allTypes := manifest.ListDLLNames()
+		var filteredTypes []string
+		for _, t := range allTypes {
+			if gameDLLTypes[t] {
+				filteredTypes = append(filteredTypes, t)
+			}
+		}
+
+		if len(filteredTypes) == 0 {
+			return dllInstallMsg{err: fmt.Errorf("no supported DLL types detected in game")}
+		}
+
+		return dllTypesLoadedMsg{types: filteredTypes}
 	}
 }
 
