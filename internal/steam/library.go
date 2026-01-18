@@ -102,6 +102,10 @@ func ScanLibrary(lib Library) ([]*game.Game, error) {
 			continue
 		}
 
+		if IsTool(manifest.AppID, manifest.Name, manifest.FullInstallDir) {
+			continue
+		}
+
 		g := &game.Game{
 			AppID:       manifest.AppID,
 			Name:        manifest.Name,

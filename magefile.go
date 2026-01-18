@@ -414,7 +414,7 @@ func updateChangelogFile(version, summary string) error {
 	summaryBlock := "\n" + summary + "\n"
 	newContent := string(content[:headerEnd]) + summaryBlock + string(content[headerEnd:])
 
-	if err := os.WriteFile("CHANGELOG.md", []byte(newContent), 0644); err != nil {
+	if err := os.WriteFile("CHANGELOG.md", []byte(newContent), 0o644); err != nil {
 		return fmt.Errorf("failed to write CHANGELOG.md: %w", err)
 	}
 
@@ -518,7 +518,7 @@ func (Aur) Srcinfo() error {
 			return fmt.Errorf("failed to generate .SRCINFO for %s: %w", pkgbuild, err)
 		}
 
-		if err := os.WriteFile(filepath.Join(dir, srcinfo), []byte(out), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, srcinfo), []byte(out), 0o644); err != nil {
 			return fmt.Errorf("failed to write %s: %w", srcinfo, err)
 		}
 		fmt.Printf("Generated %s/%s\n", dir, srcinfo)
@@ -578,7 +578,7 @@ func (Aur) UpdateVersion(version string) error {
 	sha256Re := regexp.MustCompile(`(?m)^sha256sums=\('.*'\)$`)
 	content = sha256Re.ReplaceAll(content, []byte(fmt.Sprintf("sha256sums=('%s')", checksum)))
 
-	if err := os.WriteFile(pkgbuild, content, 0644); err != nil {
+	if err := os.WriteFile(pkgbuild, content, 0o644); err != nil {
 		return fmt.Errorf("failed to write PKGBUILD: %w", err)
 	}
 
@@ -617,7 +617,7 @@ func (Aur) Publish(packageName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read PKGBUILD: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "PKGBUILD"), pkgbuildContent, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "PKGBUILD"), pkgbuildContent, 0o644); err != nil {
 		return fmt.Errorf("failed to write PKGBUILD: %w", err)
 	}
 
@@ -625,7 +625,7 @@ func (Aur) Publish(packageName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read .SRCINFO: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(tmpDir, ".SRCINFO"), srcinfoContent, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, ".SRCINFO"), srcinfoContent, 0o644); err != nil {
 		return fmt.Errorf("failed to write .SRCINFO: %w", err)
 	}
 

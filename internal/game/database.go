@@ -4,12 +4,33 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"regexp"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/jgabor/spela/internal/xdg"
 )
+
+// Tool name patterns for filtering non-game entries from the database.
+var toolNamePatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)^proton(\s|$)`),
+	regexp.MustCompile(`(?i)^steam\s+linux\s+runtime`),
+	regexp.MustCompile(`(?i)^steamworks`),
+	regexp.MustCompile(`(?i)redistributable`),
+	regexp.MustCompile(`(?i)^steam\s+controller`),
+}
+
+func isToolName(name string) bool {
+	name = strings.TrimSpace(name)
+	for _, pattern := range toolNamePatterns {
+		if pattern.MatchString(name) {
+			return true
+		}
+	}
+	return false
+}
 
 type Database struct {
 	Games     map[uint64]*Game `yaml:"games"`
@@ -74,6 +95,9 @@ func (db *Database) GetGameByName(name string) *Game {
 func (db *Database) List() []*Game {
 	games := make([]*Game, 0, len(db.Games))
 	for _, g := range db.Games {
+		if isToolName(g.Name) {
+			continue
+		}
 		games = append(games, g)
 	}
 	return games
@@ -82,6 +106,9 @@ func (db *Database) List() []*Game {
 func (db *Database) GamesWithDLSS() []*Game {
 	var games []*Game
 	for _, g := range db.Games {
+		if isToolName(g.Name) {
+			continue
+		}
 		if g.HasDLSS() || g.HasDLSSG() || g.HasDLSSD() {
 			games = append(games, g)
 		}

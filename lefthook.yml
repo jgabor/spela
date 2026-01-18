@@ -3,16 +3,16 @@ pre-commit:
     - group:
         parallel: true
         jobs:
-          - name: test
+          - name: go test
             run: go test ./...
           - name: lint
             run: golangci-lint run
-          - name: vet
+          - name: go vet
             run: go vet ./...
     - group:
         parallel: true
         jobs:
-          - name: format
+          - name: gofumpt
             stage_fixed: true
             glob: "*.go"
             run: gofumpt -w {staged_files}
