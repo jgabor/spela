@@ -22,26 +22,27 @@
     { value: 'profile-first', label: 'Profile first' }
   ]
 
-  $: filteredGames = sortGames(filterGames(games))
+  $: filteredGames = applyFiltersAndSort(games, search, filterDLLs, filterProfile, sortMode)
 
-  function filterGames(list) {
-    return list.filter(g => {
-      if (search && !g.name.toLowerCase().includes(search.toLowerCase())) {
+  function applyFiltersAndSort(list, searchQuery, dllFilter, profileFilter, sort) {
+    let filtered = list.filter(g => {
+      if (searchQuery && !g.name.toLowerCase().includes(searchQuery.toLowerCase())) {
         return false
       }
-      if (filterDLLs && (!g.dlls || g.dlls.length === 0)) {
+      if (dllFilter && (!g.dlls || g.dlls.length === 0)) {
         return false
       }
-      if (filterProfile && !g.hasProfile) {
+      if (profileFilter && !g.hasProfile) {
         return false
       }
       return true
     })
+    return sortGames(filtered, sort)
   }
 
-  function sortGames(list) {
+  function sortGames(list, sort) {
     const sorted = [...list]
-    switch (sortMode) {
+    switch (sort) {
       case 'name-asc':
         sorted.sort((a, b) => a.name.localeCompare(b.name))
         break
@@ -445,11 +446,18 @@
     background-color: var(--bg-secondary);
     color: var(--text-primary);
     font-size: 0.8rem;
+    cursor: pointer;
   }
 
   .sort select:focus {
     outline: none;
     border-color: var(--border-focus);
+  }
+
+  .sort select option {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 0.5rem;
   }
 
   .clear-btn {

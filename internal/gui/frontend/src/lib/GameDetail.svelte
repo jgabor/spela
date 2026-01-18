@@ -451,11 +451,17 @@
     border-radius: 4px;
     background-color: var(--bg-primary);
     color: var(--text-primary);
+    cursor: pointer;
   }
 
   .field select:focus {
     outline: none;
     border-color: var(--border-focus);
+  }
+
+  .field select option {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
   }
 
   .field.checkbox {
