@@ -1,5 +1,4 @@
 pre-commit:
-  files: git ls-files -m
   jobs:
     - group:
         parallel: true
@@ -9,16 +8,15 @@ pre-commit:
           - name: lint
             run: golangci-lint run
           - name: vet
-            glob: "*.go"
-            run: go vet {files}
+            run: go vet ./...
     - group:
         parallel: true
         jobs:
           - name: format
             stage_fixed: true
             glob: "*.go"
-            run: gofumpt -w . {files}
+            run: gofumpt -w {staged_files}
           - name: markdown
             glob: "*.md"
             stage_fixed: true
-            run: bunx markdownlint --disable MD013 MD029 MD033 MD036 MD040 MD041 MD060 --fix {files}
+            run: bunx markdownlint --disable MD013 MD029 MD033 MD036 MD040 MD041 MD060 --fix {staged_files}
