@@ -1,6 +1,7 @@
 <script>
   import { createEventDispatcher, onMount } from 'svelte'
   import { GetProfile, SaveProfile, CheckDLLUpdates, UpdateDLLs, RestoreDLLs, HasDLLBackup, LaunchGame } from '../../wailsjs/go/main/App'
+  import Dropdown from './Dropdown.svelte'
 
   export let game
 
@@ -15,10 +16,40 @@
   let restoringDLLs = false
   let launching = false
 
-  const srModeOptions = ['', 'off', 'ultra_performance', 'performance', 'balanced', 'quality', 'dlaa']
-  const srPresetOptions = ['', 'A', 'B', 'C', 'D', 'E', 'F', 'J', 'K', 'L', 'M']
-  const multiFrameOptions = [0, 1, 2, 3, 4]
-  const powerMizerOptions = ['', 'adaptive', 'max']
+  const srModeOptions = [
+    { value: '', label: '(default)' },
+    { value: 'off', label: 'Off' },
+    { value: 'ultra_performance', label: 'Ultra performance' },
+    { value: 'performance', label: 'Performance' },
+    { value: 'balanced', label: 'Balanced' },
+    { value: 'quality', label: 'Quality' },
+    { value: 'dlaa', label: 'DLAA' }
+  ]
+  const srPresetOptions = [
+    { value: '', label: '(default)' },
+    { value: 'A', label: 'A' },
+    { value: 'B', label: 'B' },
+    { value: 'C', label: 'C' },
+    { value: 'D', label: 'D' },
+    { value: 'E', label: 'E' },
+    { value: 'F', label: 'F' },
+    { value: 'J', label: 'J' },
+    { value: 'K', label: 'K' },
+    { value: 'L', label: 'L' },
+    { value: 'M', label: 'M' }
+  ]
+  const multiFrameOptions = [
+    { value: 0, label: '(default)' },
+    { value: 1, label: '1' },
+    { value: 2, label: '2' },
+    { value: 3, label: '3' },
+    { value: 4, label: '4' }
+  ]
+  const powerMizerOptions = [
+    { value: '', label: '(default)' },
+    { value: 'adaptive', label: 'Adaptive' },
+    { value: 'max', label: 'Max performance' }
+  ]
 
   onMount(async () => {
     await Promise.all([loadProfile(), checkDLLUpdates()])
@@ -175,20 +206,18 @@
       <div class="form">
         <div class="field">
           <label for="srMode">Quality mode</label>
-          <select id="srMode" bind:value={profile.srMode}>
-            {#each srModeOptions as opt}
-              <option value={opt}>{opt || '(default)'}</option>
-            {/each}
-          </select>
+          <Dropdown
+            bind:value={profile.srMode}
+            options={srModeOptions}
+          />
         </div>
 
         <div class="field">
           <label for="srPreset">DLSS preset</label>
-          <select id="srPreset" bind:value={profile.srPreset}>
-            {#each srPresetOptions as opt}
-              <option value={opt}>{opt || '(default)'}</option>
-            {/each}
-          </select>
+          <Dropdown
+            bind:value={profile.srPreset}
+            options={srPresetOptions}
+          />
           <span class="hint">A-F: CNN (DLSS 2/3), J-M: Transformer (DLSS 4/4.5)</span>
         </div>
 
@@ -209,11 +238,10 @@
 
         <div class="field">
           <label for="multiFrame">Multi-frame generation</label>
-          <select id="multiFrame" bind:value={profile.multiFrame}>
-            {#each multiFrameOptions as opt}
-              <option value={opt}>{opt === 0 ? '(default)' : opt}</option>
-            {/each}
-          </select>
+          <Dropdown
+            bind:value={profile.multiFrame}
+            options={multiFrameOptions}
+          />
           <span class="hint">Extra frames to generate (0=off)</span>
         </div>
       </div>
@@ -235,11 +263,10 @@
 
         <div class="field">
           <label for="powerMizer">Power mode</label>
-          <select id="powerMizer" bind:value={profile.powerMizer}>
-            {#each powerMizerOptions as opt}
-              <option value={opt}>{opt || '(default)'}</option>
-            {/each}
-          </select>
+          <Dropdown
+            bind:value={profile.powerMizer}
+            options={powerMizerOptions}
+          />
         </div>
       </div>
     </div>
@@ -442,26 +469,6 @@
     color: var(--text-dim);
     margin-bottom: 0.25rem;
     font-size: 0.9rem;
-  }
-
-  .field select {
-    width: 100%;
-    padding: 0.5rem;
-    border: 1px solid var(--border-default);
-    border-radius: 4px;
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
-    cursor: pointer;
-  }
-
-  .field select:focus {
-    outline: none;
-    border-color: var(--border-focus);
-  }
-
-  .field select option {
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
   }
 
   .field.checkbox {
