@@ -112,18 +112,18 @@ func (m SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
 			m.applyFiltersAndSort()
 		case "C":
 			m.clearFilters()
-		case "v":
-			m.selectMode = !m.selectMode
-			if !m.selectMode {
-				m.selected = make(map[uint64]bool)
-			}
 		case " ":
-			if m.selectMode && m.cursor < len(m.filtered) {
+			if m.cursor < len(m.filtered) {
 				g := m.filtered[m.cursor]
-				if m.selected[g.AppID] {
-					delete(m.selected, g.AppID)
-				} else {
+				if !m.selectMode {
+					m.selectMode = true
 					m.selected[g.AppID] = true
+				} else {
+					if m.selected[g.AppID] {
+						delete(m.selected, g.AppID)
+					} else {
+						m.selected[g.AppID] = true
+					}
 				}
 			}
 		case "a":
@@ -154,7 +154,7 @@ func (m SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
 			}
 			if selected := m.Selected(); selected != nil {
 				return m, func() tea.Msg {
-					return gameSelectedMsg{game: selected}
+					return gameConfirmedMsg{game: selected}
 				}
 			}
 		}
@@ -263,7 +263,9 @@ func (m SidebarModel) View() string {
 		headerLines++
 	}
 
-	visibleCount := max(m.height-headerLines-2, 3)
+	// Footer takes 3 lines: optional scroll info, legend, and multi-select hint
+	footerLines := 3
+	visibleCount := max(m.height-headerLines-footerLines, 3)
 
 	start := 0
 	if m.cursor >= visibleCount {
@@ -275,33 +277,33 @@ func (m SidebarModel) View() string {
 
 	for i := start; i < end; i++ {
 		g := m.filtered[i]
-		cursor := "  "
+		prefix := "  "
 		style := normalStyle
 
-		if i == m.cursor {
-			cursor = "> "
-			style = selectedStyle
-		}
-
-		checkbox := ""
 		if m.selectMode {
+			// In select mode: checkmark for selected, cursor for current unselected
 			if m.selected[g.AppID] {
-				checkbox = "[✓] "
-			} else {
-				checkbox = "[ ] "
+				prefix = "✓ "
+			} else if i == m.cursor {
+				prefix = "> "
+			}
+			if i == m.cursor {
+				style = selectedStyle
+			}
+		} else {
+			// Normal mode: cursor for current item
+			if i == m.cursor {
+				prefix = "> "
+				style = selectedStyle
 			}
 		}
 
 		name := g.Name
-		effectiveMaxWidth := maxNameWidth
-		if m.selectMode {
-			effectiveMaxWidth -= 4
-		}
-		if len(name) > effectiveMaxWidth {
-			name = name[:effectiveMaxWidth-3] + "..."
+		if len(name) > maxNameWidth {
+			name = name[:maxNameWidth-3] + "..."
 		}
 
-		line := fmt.Sprintf("%s%s%s", cursor, checkbox, name)
+		line := fmt.Sprintf("%s%s", prefix, name)
 
 		indicators := ""
 		if len(g.DLLs) > 0 {
@@ -321,6 +323,15 @@ func (m SidebarModel) View() string {
 	if len(m.filtered) > visibleCount {
 		scrollInfo := fmt.Sprintf(" %d/%d", m.cursor+1, len(m.filtered))
 		b.WriteString(dimStyle.Render(scrollInfo))
+		b.WriteString("\n")
+	}
+
+	// Legend for status icons
+	legend := dlssStyle.Render("●") + dimStyle.Render(" DLLs  ") + dlssStyle.Render("◆") + dimStyle.Render(" profile")
+	b.WriteString(legend)
+	b.WriteString("\n")
+	if !m.selectMode && ShowHints() {
+		b.WriteString(dimStyle.Render("space:multi-select"))
 	}
 
 	return b.String()
@@ -362,4 +373,9 @@ func (m SidebarModel) InSelectMode() bool {
 
 type batchActionRequestMsg struct {
 	selected []*game.Game
+}
+
+func (m SidebarModel) FocusSearch() (SidebarModel, tea.Cmd) {
+	m.search.Focus()
+	return m, textinput.Blink
 }

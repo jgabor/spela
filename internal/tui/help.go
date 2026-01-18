@@ -39,7 +39,7 @@ func NewHelp() HelpModel {
 			{
 				Title: "Sidebar filters",
 				Bindings: []HelpBinding{
-					{"/", "Search games"},
+					{"/, Ctrl+F", "Search games"},
 					{"d", "Toggle DLLs filter"},
 					{"p", "Toggle profile filter"},
 					{"s", "Cycle sort mode"},
@@ -57,6 +57,23 @@ func NewHelp() HelpModel {
 					{"i", "Install DLL"},
 					{"u", "Update DLLs"},
 					{"R", "Restore DLLs"},
+				},
+			},
+			{
+				Title: "Batch operations",
+				Bindings: []HelpBinding{
+					{"Space", "Enter multi-select / toggle selection"},
+					{"a", "Select all visible"},
+					{"A", "Deselect all"},
+					{"Esc", "Exit multi-select"},
+					{"Enter", "Execute batch action"},
+				},
+			},
+			{
+				Title: "Indicators",
+				Bindings: []HelpBinding{
+					{"●", "Game has DLLs"},
+					{"◆", "Game has profile"},
 				},
 			},
 			{
@@ -124,7 +141,7 @@ func (m HelpModel) View() string {
 	return b.String()
 }
 
-func ContextHelp(focus Focus, searchFocused bool) string {
+func ContextHelp(focus Focus, searchFocused, selectMode bool) string {
 	if !ShowHints() {
 		return "?:help • q:quit"
 	}
@@ -133,6 +150,8 @@ func ContextHelp(focus Focus, searchFocused bool) string {
 
 	if searchFocused {
 		hints = []string{"type:filter", "enter/esc:done"}
+	} else if selectMode {
+		hints = []string{"↑↓:navigate", "space:toggle", "a:all", "A:none", "enter:batch", "esc:exit"}
 	} else if focus == FocusSidebar {
 		hints = []string{"↑↓:navigate", "/:search", "d:DLLs", "p:profile", "s:sort", "enter:select"}
 	} else {

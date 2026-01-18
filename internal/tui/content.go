@@ -20,13 +20,20 @@ const (
 	DLLInstallDownloading
 )
 
+// Fixed heights for content sections to prevent layout shifts.
+const (
+	headerSectionHeight = 5 // name + app ID + install + prefix + blank
+	dllSectionHeight    = 5 // title + DLL columns (2 rows) + hint + blank
+)
+
 type ContentModel struct {
 	game          *game.Game
 	profile       *profile.Profile
-	profileEditor ProfileEditorModel
+	profileWidget ProfileWidgetModel
+	presetModal   PresetModalModel
 	width         int
 	height        int
-	message       string
+	profileHeight int
 	dllOperating  bool
 	hasBackup     bool
 	scrollOffset  int
@@ -60,19 +67,20 @@ type dllTypesLoadedMsg struct {
 }
 
 func NewContent() ContentModel {
-	return ContentModel{}
+	return ContentModel{
+		presetModal: NewPresetModal(),
+	}
 }
 
 func (m ContentModel) SetGame(g *game.Game) ContentModel {
 	m.game = g
-	m.message = ""
 	m.dllOperating = false
 	m.scrollOffset = 0
 
 	if g != nil {
 		p, _ := profile.Load(g.AppID)
 		m.profile = p
-		m.profileEditor = NewProfileEditor(g, p)
+		m.profileWidget = NewProfileWidget(g, p)
 		m.hasBackup = dll.BackupExists(g.AppID)
 	}
 
@@ -82,74 +90,80 @@ func (m ContentModel) SetGame(g *game.Game) ContentModel {
 func (m *ContentModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
+	m.profileHeight = max(height-headerSectionHeight-dllSectionHeight-2, 5)
 }
 
 func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	var cmds []tea.Cmd
+
+	if m.presetModal.Visible() {
+		var cmd tea.Cmd
+		m.presetModal, cmd = m.presetModal.Update(msg)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		return m, tea.Batch(cmds...)
+	}
 
 	if m.dllInstallState != DLLInstallNone {
 		return m.updateDLLInstall(msg)
 	}
 
 	switch msg := msg.(type) {
+	case openPresetModalMsg:
+		m.presetModal.SetSize(m.width, m.height)
+		m.presetModal.Open(msg.currentPreset)
+		return m, nil
+
+	case presetSelectedMsg:
+		m.profileWidget.ApplyPreset(msg.preset)
+		return m, nil
+
+	case presetCancelledMsg:
+		return m, nil
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "i":
 			if m.game != nil && !m.dllOperating {
 				m.dllInstallState = DLLInstallSelectType
 				m.dllTypeCursor = 0
-				m.message = "Loading DLL types..."
 				return m, m.loadDLLTypes()
 			}
 		case "u":
 			if m.game != nil && len(m.game.DLLs) > 0 && !m.dllOperating {
 				m.dllOperating = true
-				m.message = "Updating DLLs..."
 				return m, m.updateDLLs()
 			}
 		case "R":
 			if m.game != nil && m.hasBackup && !m.dllOperating {
 				m.dllOperating = true
-				m.message = "Restoring original DLLs..."
 				return m, m.restoreDLLs()
 			}
 		}
 
 	case profileSaveMsg:
-		if msg.success {
-			m.message = "Profile saved!"
-			if m.game != nil {
-				p, _ := profile.Load(m.game.AppID)
-				m.profile = p
-			}
-		} else if msg.err != nil {
-			m.message = fmt.Sprintf("Error: %v", msg.err)
+		if msg.success && m.game != nil {
+			p, _ := profile.Load(m.game.AppID)
+			m.profile = p
 		}
 		return m, nil
 
 	case dllUpdateMsg:
 		m.dllOperating = false
-		if msg.success {
-			m.message = "DLLs updated successfully!"
-		} else if msg.err != nil {
-			m.message = fmt.Sprintf("Update failed: %v", msg.err)
-		}
 		m.hasBackup = m.game != nil && dll.BackupExists(m.game.AppID)
 		return m, nil
 
 	case dllRestoreMsg:
 		m.dllOperating = false
 		if msg.success {
-			m.message = "Original DLLs restored!"
 			m.hasBackup = false
-		} else if msg.err != nil {
-			m.message = fmt.Sprintf("Restore failed: %v", msg.err)
 		}
 		return m, nil
 	}
 
 	var cmd tea.Cmd
-	m.profileEditor, cmd = m.profileEditor.Update(msg)
+	m.profileWidget, cmd = m.profileWidget.Update(msg)
 	cmds = append(cmds, cmd)
 
 	return m, tea.Batch(cmds...)
@@ -231,6 +245,10 @@ func (m ContentModel) View() string {
 		return dimStyle.Render("Select a game from the sidebar")
 	}
 
+	if m.presetModal.Visible() {
+		return m.presetModal.View()
+	}
+
 	if m.dllInstallState != DLLInstallNone {
 		return m.renderDLLInstallDialog()
 	}
@@ -242,17 +260,6 @@ func (m ContentModel) View() string {
 	b.WriteString(m.renderDLLs())
 	b.WriteString("\n")
 	b.WriteString(m.renderProfile())
-
-	if m.message != "" {
-		b.WriteString("\n")
-		if strings.HasPrefix(m.message, "Error") || strings.HasPrefix(m.message, "Update failed") || strings.HasPrefix(m.message, "Restore failed") || strings.HasPrefix(m.message, "Install failed") {
-			b.WriteString(errorStyle.Render(m.message))
-		} else if m.dllOperating {
-			b.WriteString(dimStyle.Render(m.message))
-		} else {
-			b.WriteString(successStyle.Render(m.message))
-		}
-	}
 
 	return b.String()
 }
@@ -327,11 +334,21 @@ func (m ContentModel) renderGameInfo() string {
 	b.WriteString(titleStyle.Render(m.game.Name))
 	b.WriteString("\n\n")
 
-	b.WriteString(fmt.Sprintf("App ID:      %d\n", m.game.AppID))
-	b.WriteString(fmt.Sprintf("Install Dir: %s\n", m.game.InstallDir))
+	lines := 2 // title + blank line
+	fmt.Fprintf(&b, "App ID:      %d\n", m.game.AppID)
+	lines++
+	fmt.Fprintf(&b, "Install Dir: %s\n", m.game.InstallDir)
+	lines++
 
 	if m.game.PrefixPath != "" {
-		b.WriteString(fmt.Sprintf("Prefix:      %s\n", m.game.PrefixPath))
+		fmt.Fprintf(&b, "Prefix:      %s\n", m.game.PrefixPath)
+		lines++
+	}
+
+	// Pad to fixed height
+	for lines < headerSectionHeight {
+		b.WriteString("\n")
+		lines++
 	}
 
 	return b.String()
@@ -343,85 +360,82 @@ func (m ContentModel) renderDLLs() string {
 	t := GetTheme()
 	sectionStyle := titleStyle.Foreground(t.Secondary)
 
-	b.WriteString(sectionStyle.Render("DLLs"))
+	b.WriteString(sectionStyle.Render("DLL versions"))
 	b.WriteString("\n")
+	lines := 1 // section title
 
 	if len(m.game.DLLs) == 0 {
-		b.WriteString(dimStyle.Render("  No DLSS DLLs detected"))
+		b.WriteString(dimStyle.Render("  No DLLs detected"))
 		b.WriteString("\n")
-		return b.String()
+		lines++
+	} else {
+		// Build DLL type -> version mapping
+		dllVersions := make(map[string]string)
+		for _, d := range m.game.DLLs {
+			version := d.Version
+			if version == "" {
+				version = "?"
+			}
+			dllType := strings.ToUpper(string(d.Type))
+			dllVersions[dllType] = version
+		}
+
+		// Column layout: type headers then versions
+		columnWidth := 12
+		dllTypes := []string{"DLSS", "DLSS-G", "XESS", "FSR"}
+
+		// Header row
+		b.WriteString("  ")
+		for _, dllType := range dllTypes {
+			b.WriteString(dimStyle.Render(fmt.Sprintf("%-*s", columnWidth, dllType)))
+		}
+		b.WriteString("\n")
+		lines++
+
+		// Version row
+		b.WriteString("  ")
+		for _, dllType := range dllTypes {
+			version := dllVersions[dllType]
+			if version == "" {
+				version = "-"
+			}
+			b.WriteString(dlssStyle.Render(fmt.Sprintf("%-*s", columnWidth, version)))
+		}
+		b.WriteString("\n")
+		lines++
+
+		if ShowHints() {
+			var actions []string
+			if !m.dllOperating {
+				actions = append(actions, "u:update")
+			}
+			if m.hasBackup && !m.dllOperating {
+				actions = append(actions, "R:restore")
+			}
+			if m.hasBackup {
+				actions = append(actions, "(backup exists)")
+			}
+
+			if len(actions) > 0 {
+				b.WriteString(RenderHint("  " + strings.Join(actions, " • ")))
+				b.WriteString("\n")
+				lines++
+			}
+		}
 	}
 
-	for _, d := range m.game.DLLs {
-		version := d.Version
-		if version == "" {
-			version = "unknown"
-		}
-		b.WriteString(fmt.Sprintf("  %s: %s\n", d.Name, version))
-	}
-
-	if ShowHints() {
-		var actions []string
-		if len(m.game.DLLs) > 0 && !m.dllOperating {
-			actions = append(actions, "u:update")
-		}
-		if m.hasBackup && !m.dllOperating {
-			actions = append(actions, "R:restore")
-		}
-		if m.hasBackup {
-			actions = append(actions, "(backup exists)")
-		}
-
-		if len(actions) > 0 {
-			b.WriteString(RenderHint("  " + strings.Join(actions, " • ")))
-			b.WriteString("\n")
-		}
+	// Pad to fixed height
+	for lines < dllSectionHeight {
+		b.WriteString("\n")
+		lines++
 	}
 
 	return b.String()
 }
 
 func (m ContentModel) renderProfile() string {
-	var b strings.Builder
-
-	t := GetTheme()
-	sectionStyle := titleStyle.Foreground(t.Secondary)
-
-	b.WriteString(sectionStyle.Render("Profile"))
-	b.WriteString("\n")
-
-	for i, field := range m.profileEditor.fields {
-		cursor := "  "
-		style := normalStyle
-		if i == m.profileEditor.cursor {
-			cursor = "> "
-			style = selectedStyle
-		}
-
-		line := fmt.Sprintf("%s%-16s: ", cursor, field.label)
-		b.WriteString(style.Render(line))
-		b.WriteString(dlssStyle.Render(field.value))
-		b.WriteString("\n")
-
-		if i == m.profileEditor.cursor && field.description != "" {
-			b.WriteString(dimStyle.Render("    " + field.description))
-			b.WriteString("\n")
-		}
-	}
-
-	if m.profileEditor.Modified() {
-		b.WriteString(RenderHint("  (modified) s:save"))
-		if ShowHints() {
-			b.WriteString("\n")
-		}
-	}
-
-	if hint := RenderHint("  ↑↓:navigate • ←→:change"); hint != "" {
-		b.WriteString(hint)
-		b.WriteString("\n")
-	}
-
-	return b.String()
+	m.profileWidget.SetSize(m.width, m.profileHeight)
+	return m.profileWidget.View()
 }
 
 func (m ContentModel) loadDLLTypes() tea.Cmd {
@@ -458,7 +472,6 @@ func (m ContentModel) updateDLLInstall(msg tea.Msg) (ContentModel, tea.Cmd) {
 		switch msg.String() {
 		case "esc", "q":
 			m.dllInstallState = DLLInstallNone
-			m.message = ""
 			return m, nil
 		case "up", "k":
 			if m.dllInstallState == DLLInstallSelectType && m.dllTypeCursor > 0 {
@@ -481,24 +494,19 @@ func (m ContentModel) updateDLLInstall(msg tea.Msg) (ContentModel, tea.Cmd) {
 				return m, m.loadDLLVersions()
 			} else if m.dllInstallState == DLLInstallSelectVersion && len(m.dllVersions) > 0 {
 				m.dllInstallState = DLLInstallDownloading
-				m.message = "Installing DLL..."
 				return m, m.installSelectedDLL()
 			}
 		}
 
 	case dllTypesLoadedMsg:
 		m.dllTypes = msg.types
-		m.message = ""
 		return m, nil
 
 	case dllInstallMsg:
 		m.dllInstallState = DLLInstallNone
 		m.dllOperating = false
 		if msg.success {
-			m.message = "DLL installed successfully!"
 			m.hasBackup = m.game != nil && dll.BackupExists(m.game.AppID)
-		} else if msg.err != nil {
-			m.message = fmt.Sprintf("Install failed: %v", msg.err)
 		}
 		return m, nil
 

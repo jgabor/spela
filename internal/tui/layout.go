@@ -21,11 +21,12 @@ const (
 )
 
 const (
-	minSidebarWidth = 25
-	maxSidebarWidth = 50
-	sidebarRatio    = 0.30
-	statusBarHeight = 1
-	headerHeight    = 7 // 6 lines for logo + 1 for bottom border
+	minSidebarWidth  = 25
+	maxSidebarWidth  = 50
+	sidebarRatio     = 0.30
+	statusBarHeight  = 1
+	messageBarHeight = 1
+	headerHeight     = 7 // 6 lines for logo + 1 for bottom border
 )
 
 type LayoutModel struct {
@@ -33,6 +34,7 @@ type LayoutModel struct {
 	sidebar       SidebarModel
 	content       ContentModel
 	statusBar     StatusBarModel
+	messageBar    MessageBarModel
 	help          HelpModel
 	showHelp      bool
 	showBatchMenu bool
@@ -53,12 +55,13 @@ func NewLayout(db *game.Database) LayoutModel {
 
 	games := db.List()
 	return LayoutModel{
-		header:    NewHeader(),
-		sidebar:   NewSidebar(games),
-		content:   NewContent(),
-		statusBar: NewStatusBar(),
-		help:      NewHelp(),
-		focus:     FocusSidebar,
+		header:     NewHeader(),
+		sidebar:    NewSidebar(games),
+		content:    NewContent(),
+		statusBar:  NewStatusBar(),
+		messageBar: NewMessageBar(),
+		help:       NewHelp(),
+		focus:      FocusSidebar,
 	}
 }
 
@@ -117,10 +120,20 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "?":
 			m.showHelp = true
 			return m, nil
+		case "ctrl+f":
+			m.focus = FocusSidebar
+			var cmd tea.Cmd
+			m.sidebar, cmd = m.sidebar.FocusSearch()
+			return m, cmd
 		case "q":
 			if m.focus == FocusSidebar && !m.sidebar.search.Focused() {
 				return m, tea.Quit
 			} else if m.focus == FocusContent {
+				m.focus = FocusSidebar
+				return m, nil
+			}
+		case "esc":
+			if m.focus == FocusContent {
 				m.focus = FocusSidebar
 				return m, nil
 			}
@@ -139,6 +152,11 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.content = m.content.SetGame(msg.game)
 		return m, nil
 
+	case gameConfirmedMsg:
+		m.content = m.content.SetGame(msg.game)
+		m.focus = FocusContent
+		return m, nil
+
 	case batchActionRequestMsg:
 		m.showBatchMenu = true
 		m.batchGames = msg.selected
@@ -148,7 +166,68 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case batchCompleteMsg:
 		m.batchMessage = msg.message
+		cmd := m.messageBar.SetMessage(msg.message, MessageSuccess)
+		return m, cmd
+
+	case messageClearMsg:
+		m.messageBar, _ = m.messageBar.Update(msg)
 		return m, nil
+
+	case dllUpdateMsg:
+		var msgType MessageType
+		var message string
+		if msg.success {
+			message = "DLLs updated successfully!"
+			msgType = MessageSuccess
+		} else if msg.err != nil {
+			message = fmt.Sprintf("Update failed: %v", msg.err)
+			msgType = MessageError
+		}
+		cmd := m.messageBar.SetMessage(message, msgType)
+		m.content, _ = m.content.Update(msg)
+		return m, cmd
+
+	case dllRestoreMsg:
+		var msgType MessageType
+		var message string
+		if msg.success {
+			message = "Original DLLs restored!"
+			msgType = MessageSuccess
+		} else if msg.err != nil {
+			message = fmt.Sprintf("Restore failed: %v", msg.err)
+			msgType = MessageError
+		}
+		cmd := m.messageBar.SetMessage(message, msgType)
+		m.content, _ = m.content.Update(msg)
+		return m, cmd
+
+	case dllInstallMsg:
+		var msgType MessageType
+		var message string
+		if msg.success {
+			message = "DLL installed successfully!"
+			msgType = MessageSuccess
+		} else if msg.err != nil {
+			message = fmt.Sprintf("Install failed: %v", msg.err)
+			msgType = MessageError
+		}
+		cmd := m.messageBar.SetMessage(message, msgType)
+		m.content, _ = m.content.Update(msg)
+		return m, cmd
+
+	case profileSaveMsg:
+		var msgType MessageType
+		var message string
+		if msg.success {
+			message = "Profile saved!"
+			msgType = MessageSuccess
+		} else if msg.err != nil {
+			message = fmt.Sprintf("Error: %v", msg.err)
+			msgType = MessageError
+		}
+		cmd := m.messageBar.SetMessage(message, msgType)
+		m.content, _ = m.content.Update(msg)
+		return m, cmd
 	}
 
 	if m.focus == FocusSidebar {
@@ -173,13 +252,18 @@ func (m *LayoutModel) calculateDimensions() {
 	m.sidebarWidth = max(m.sidebarWidth, minSidebarWidth)
 	m.sidebarWidth = min(m.sidebarWidth, maxSidebarWidth)
 
-	// Total height minus header, status bar, and borders (2 for sidebar/content top+bottom)
-	contentHeight := max(m.height-statusBarHeight-headerHeight-2, 5)
+	// Panel height: total minus header, status bar, message bar, and borders (2 for top+bottom)
+	panelHeight := max(m.height-statusBarHeight-messageBarHeight-headerHeight-2, 5)
+
+	// Inner dimensions account for border (2) and padding
+	sidebarInnerWidth := m.sidebarWidth - 4 // -2 for borders, -2 for padding
+	contentInnerWidth := m.width - m.sidebarWidth - 4
 
 	m.header.SetWidth(m.width)
-	m.sidebar.SetSize(m.sidebarWidth-3, contentHeight) // -3 for left+right borders and padding
-	m.content.SetSize(m.width-m.sidebarWidth-4, contentHeight)
+	m.sidebar.SetSize(sidebarInnerWidth, panelHeight)
+	m.content.SetSize(contentInnerWidth, panelHeight)
 	m.statusBar.SetWidth(m.width)
+	m.messageBar.SetWidth(m.width)
 }
 
 func (m LayoutModel) View() string {
@@ -197,31 +281,48 @@ func (m LayoutModel) View() string {
 
 	header := m.header.View()
 
-	// Height accounts for header, status bar, and own top+bottom borders
-	panelHeight := m.height - statusBarHeight - headerHeight - 2
+	// Calculate panel height: total height minus header, status bar, message bar, and borders (2 for top+bottom)
+	panelHeight := max(m.height-statusBarHeight-messageBarHeight-headerHeight-2, 5)
+
+	// Inner height is panel height minus the border lines
+	innerHeight := panelHeight
+
+	// Truncate sidebar and content views to fit within available height
+	sidebarView := truncateHeight(m.sidebar.View(), innerHeight)
+	contentView := truncateHeight(m.content.View(), innerHeight)
 
 	sidebarStyle := lipgloss.NewStyle().
-		Width(m.sidebarWidth - 1).
-		Height(panelHeight)
+		Width(m.sidebarWidth - 2).
+		Height(innerHeight).
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(BorderColor(m.focus == FocusSidebar))
 
 	contentStyle := lipgloss.NewStyle().
 		Width(m.width - m.sidebarWidth - 2).
-		Height(panelHeight)
-
-	sidebarStyle = sidebarStyle.BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(BorderColor(m.focus == FocusSidebar))
-	contentStyle = contentStyle.BorderStyle(lipgloss.RoundedBorder()).
+		Height(innerHeight).
+		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(BorderColor(m.focus == FocusContent))
 
-	sidebar := sidebarStyle.Render(m.sidebar.View())
-	content := contentStyle.Render(m.content.View())
+	sidebar := sidebarStyle.Render(sidebarView)
+	content := contentStyle.Render(contentView)
 
 	mainArea := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
 
-	contextHelp := ContextHelp(m.focus, m.sidebar.search.Focused())
+	messageBar := m.messageBar.View()
+
+	contextHelp := ContextHelp(m.focus, m.sidebar.search.Focused(), m.sidebar.InSelectMode())
 	statusBar := m.statusBar.ViewWithHelp(contextHelp)
 
-	return lipgloss.JoinVertical(lipgloss.Left, header, mainArea, statusBar)
+	return lipgloss.JoinVertical(lipgloss.Left, header, mainArea, messageBar, statusBar)
+}
+
+// truncateHeight limits content to a maximum number of lines.
+func truncateHeight(content string, maxLines int) string {
+	lines := strings.Split(content, "\n")
+	if len(lines) <= maxLines {
+		return content
+	}
+	return strings.Join(lines[:maxLines], "\n")
 }
 
 func (m LayoutModel) renderHelpOverlay() string {
@@ -234,6 +335,10 @@ func (m LayoutModel) renderHelpOverlay() string {
 }
 
 type gameSelectedMsg struct {
+	game *game.Game
+}
+
+type gameConfirmedMsg struct {
 	game *game.Game
 }
 
