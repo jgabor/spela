@@ -74,7 +74,7 @@ func Build() error {
 	if err != nil {
 		return err
 	}
-	return sh.RunV("go", "build", "-tags", "production", "-ldflags", ldf, "-o", binaryName, "./cmd/spela")
+	return sh.RunV("go", "build", "-tags", "production,webkit2_41", "-ldflags", ldf, "-o", binaryName, "./cmd/spela")
 }
 
 // FrontendBuild builds the Svelte frontend
@@ -121,7 +121,7 @@ func Install() error {
 	if err != nil {
 		return err
 	}
-	return sh.RunV("go", "install", "-tags", "production", "-ldflags", ldf, "./cmd/spela")
+	return sh.RunV("go", "install", "-tags", "production,webkit2_41", "-ldflags", ldf, "./cmd/spela")
 }
 
 // Clean removes build artifacts
