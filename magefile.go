@@ -102,6 +102,11 @@ func TestFrontend() error {
 	return runInDir(frontendDir, "bun", "run", "test")
 }
 
+// TestE2E runs Playwright e2e tests
+func TestE2E() error {
+	return runInDir(frontendDir, "bun", "run", "test:e2e")
+}
+
 // Lint runs golangci-lint
 func Lint() error {
 	return sh.RunV("golangci-lint", "run")

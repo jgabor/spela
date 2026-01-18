@@ -67,3 +67,35 @@ jobs:
           version: v2.1.2
           install-mode: goinstall
           args: ./cmd/... ./internal/... ./tools/...
+
+  e2e:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: internal/gui/frontend
+        run: bun install
+
+      - name: Install Playwright browsers
+        working-directory: internal/gui/frontend
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run e2e tests
+        working-directory: internal/gui/frontend
+        run: bun run test:e2e
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: internal/gui/frontend/playwright-report/
+          retention-days: 30
