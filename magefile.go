@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
@@ -495,5 +496,172 @@ func ExtractReleaseNotes(version string) error {
 
 	notes := strings.TrimSpace(string(matches[1]))
 	fmt.Println(notes)
+	return nil
+}
+
+type Aur mg.Namespace
+
+// Srcinfo generates .SRCINFO files from PKGBUILDs
+func (Aur) Srcinfo() error {
+	packages := []string{"pkg/aur/PKGBUILD", "pkg/aur/PKGBUILD-git"}
+	for _, pkgbuild := range packages {
+		dir := filepath.Dir(pkgbuild)
+		base := filepath.Base(pkgbuild)
+
+		srcinfo := ".SRCINFO"
+		if base == "PKGBUILD-git" {
+			srcinfo = ".SRCINFO-git"
+		}
+
+		out, err := sh.Output("bash", "-c", fmt.Sprintf("cd %s && makepkg --printsrcinfo -p %s", dir, base))
+		if err != nil {
+			return fmt.Errorf("failed to generate .SRCINFO for %s: %w", pkgbuild, err)
+		}
+
+		if err := os.WriteFile(filepath.Join(dir, srcinfo), []byte(out), 0644); err != nil {
+			return fmt.Errorf("failed to write %s: %w", srcinfo, err)
+		}
+		fmt.Printf("Generated %s/%s\n", dir, srcinfo)
+	}
+	return nil
+}
+
+// UpdateVersion updates PKGBUILD version and SHA256 checksum
+func (Aur) UpdateVersion(version string) error {
+	if version == "" {
+		return fmt.Errorf("version argument required")
+	}
+	version = strings.TrimPrefix(version, "v")
+
+	pkgbuild := "pkg/aur/PKGBUILD"
+	content, err := os.ReadFile(pkgbuild)
+	if err != nil {
+		return fmt.Errorf("failed to read PKGBUILD: %w", err)
+	}
+
+	pkgverRe := regexp.MustCompile(`(?m)^pkgver=.*$`)
+	content = pkgverRe.ReplaceAll(content, []byte(fmt.Sprintf("pkgver=%s", version)))
+
+	tarballURL := fmt.Sprintf("https://github.com/jgabor/spela/archive/v%s.tar.gz", version)
+	fmt.Printf("Fetching tarball checksum from %s...\n", tarballURL)
+
+	tmpFile, err := os.CreateTemp("", "spela-*.tar.gz")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	tmpFile.Close()
+
+	maxRetries := 5
+	var downloadErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		downloadErr = sh.Run("curl", "-sfL", "-o", tmpFile.Name(), tarballURL)
+		if downloadErr == nil {
+			break
+		}
+		if attempt < maxRetries {
+			delay := time.Duration(attempt*attempt) * time.Second
+			fmt.Printf("Download failed (attempt %d/%d), retrying in %v...\n", attempt, maxRetries, delay)
+			time.Sleep(delay)
+		}
+	}
+	if downloadErr != nil {
+		return fmt.Errorf("failed to download tarball after %d attempts: %w", maxRetries, downloadErr)
+	}
+
+	checksumOut, err := sh.Output("sha256sum", tmpFile.Name())
+	if err != nil {
+		return fmt.Errorf("failed to compute checksum: %w", err)
+	}
+	checksum := strings.Fields(checksumOut)[0]
+
+	sha256Re := regexp.MustCompile(`(?m)^sha256sums=\('.*'\)$`)
+	content = sha256Re.ReplaceAll(content, []byte(fmt.Sprintf("sha256sums=('%s')", checksum)))
+
+	if err := os.WriteFile(pkgbuild, content, 0644); err != nil {
+		return fmt.Errorf("failed to write PKGBUILD: %w", err)
+	}
+
+	fmt.Printf("Updated PKGBUILD: pkgver=%s, sha256=%s\n", version, checksum)
+	return nil
+}
+
+// Publish clones AUR repo, copies files, commits and pushes
+func (Aur) Publish(packageName string) error {
+	if packageName != "spela" && packageName != "spela-git" {
+		return fmt.Errorf("package must be 'spela' or 'spela-git'")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "aur-publish-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	aurURL := fmt.Sprintf("ssh://aur@aur.archlinux.org/%s.git", packageName)
+	fmt.Printf("Cloning %s...\n", aurURL)
+	if err := sh.Run("git", "clone", aurURL, tmpDir); err != nil {
+		return fmt.Errorf("failed to clone AUR repo: %w", err)
+	}
+
+	var pkgbuildSrc, srcinfoSrc string
+	if packageName == "spela" {
+		pkgbuildSrc = "pkg/aur/PKGBUILD"
+		srcinfoSrc = "pkg/aur/.SRCINFO"
+	} else {
+		pkgbuildSrc = "pkg/aur/PKGBUILD-git"
+		srcinfoSrc = "pkg/aur/.SRCINFO-git"
+	}
+
+	pkgbuildContent, err := os.ReadFile(pkgbuildSrc)
+	if err != nil {
+		return fmt.Errorf("failed to read PKGBUILD: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "PKGBUILD"), pkgbuildContent, 0644); err != nil {
+		return fmt.Errorf("failed to write PKGBUILD: %w", err)
+	}
+
+	srcinfoContent, err := os.ReadFile(srcinfoSrc)
+	if err != nil {
+		return fmt.Errorf("failed to read .SRCINFO: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, ".SRCINFO"), srcinfoContent, 0644); err != nil {
+		return fmt.Errorf("failed to write .SRCINFO: %w", err)
+	}
+
+	pkgverRe := regexp.MustCompile(`(?m)^pkgver=(.*)$`)
+	matches := pkgverRe.FindSubmatch(pkgbuildContent)
+	pkgver := "unknown"
+	if matches != nil {
+		pkgver = string(matches[1])
+	}
+
+	gitCmd := func(args ...string) error {
+		c := exec.Command("git", args...)
+		c.Dir = tmpDir
+		c.Stdout = os.Stdout
+		c.Stderr = os.Stderr
+		return c.Run()
+	}
+
+	if err := gitCmd("add", "PKGBUILD", ".SRCINFO"); err != nil {
+		return fmt.Errorf("failed to stage files: %w", err)
+	}
+
+	status, _ := sh.Output("git", "-C", tmpDir, "status", "--porcelain")
+	if len(status) == 0 {
+		fmt.Println("No changes to commit")
+		return nil
+	}
+
+	if err := gitCmd("commit", "-m", fmt.Sprintf("Update to %s", pkgver)); err != nil {
+		return fmt.Errorf("failed to commit: %w", err)
+	}
+
+	if err := gitCmd("push"); err != nil {
+		return fmt.Errorf("failed to push: %w", err)
+	}
+
+	fmt.Printf("Published %s version %s to AUR\n", packageName, pkgver)
 	return nil
 }
