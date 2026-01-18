@@ -80,6 +80,7 @@ func NewHelp() HelpModel {
 				Title: "General",
 				Bindings: []HelpBinding{
 					{"?", "Toggle help"},
+					{"o", "Options"},
 					{"q", "Quit"},
 					{"Ctrl+C", "Force quit"},
 				},
@@ -158,6 +159,6 @@ func ContextHelp(focus Focus, searchFocused, selectMode bool) string {
 		hints = []string{"↑↓:navigate", "←→:change", "s:save", "i:install", "u:update", "R:restore", "tab:sidebar"}
 	}
 
-	hints = append(hints, "?:help", "q:quit")
+	hints = append(hints, "?:help", "o:options", "q:quit")
 	return strings.Join(hints, " • ")
 }

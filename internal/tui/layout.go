@@ -36,6 +36,8 @@ type LayoutModel struct {
 	statusBar     StatusBarModel
 	messageBar    MessageBarModel
 	help          HelpModel
+	optionsModal  OptionsModalModel
+	config        *config.Config
 	showHelp      bool
 	showBatchMenu bool
 	batchGames    []*game.Game
@@ -49,19 +51,25 @@ type LayoutModel struct {
 
 func NewLayout(db *game.Database) LayoutModel {
 	cfg, _ := config.Load()
-	if cfg != nil {
-		SetShowHints(cfg.ShowHints)
+	if cfg == nil {
+		cfg = config.Default()
+	}
+	SetShowHints(cfg.ShowHints)
+	if cfg.Theme == "dark" {
+		SetTheme(DarkTheme)
 	}
 
 	games := db.List()
 	return LayoutModel{
-		header:     NewHeader(),
-		sidebar:    NewSidebar(games),
-		content:    NewContent(),
-		statusBar:  NewStatusBar(),
-		messageBar: NewMessageBar(),
-		help:       NewHelp(),
-		focus:      FocusSidebar,
+		header:       NewHeader(),
+		sidebar:      NewSidebar(games),
+		content:      NewContent(),
+		statusBar:    NewStatusBar(),
+		messageBar:   NewMessageBar(),
+		help:         NewHelp(),
+		optionsModal: NewOptionsModal(),
+		config:       cfg,
+		focus:        FocusSidebar,
 	}
 }
 
@@ -85,6 +93,12 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.calculateDimensions()
 
 	case tea.KeyMsg:
+		if m.optionsModal.Visible() {
+			var cmd tea.Cmd
+			m.optionsModal, cmd = m.optionsModal.Update(msg)
+			return m, cmd
+		}
+
 		if m.showBatchMenu {
 			switch msg.String() {
 			case "esc", "q":
@@ -120,6 +134,12 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "?":
 			m.showHelp = true
 			return m, nil
+		case "o":
+			if m.focus == FocusSidebar && !m.sidebar.search.Focused() {
+				m.optionsModal.SetSize(m.width, m.height)
+				m.optionsModal.Open(m.config)
+				return m, nil
+			}
 		case "ctrl+f":
 			m.focus = FocusSidebar
 			var cmd tea.Cmd
@@ -228,6 +248,14 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd := m.messageBar.SetMessage(message, msgType)
 		m.content, _ = m.content.Update(msg)
 		return m, cmd
+
+	case optionsSavedMsg:
+		m.config = msg.config
+		cmd := m.messageBar.SetMessage("Options saved!", MessageSuccess)
+		return m, cmd
+
+	case optionsCancelledMsg:
+		return m, nil
 	}
 
 	if m.focus == FocusSidebar {
@@ -277,6 +305,10 @@ func (m LayoutModel) View() string {
 
 	if m.showHelp {
 		return m.renderHelpOverlay()
+	}
+
+	if m.optionsModal.Visible() {
+		return m.renderOptionsOverlay()
 	}
 
 	header := m.header.View()
@@ -332,6 +364,10 @@ func (m LayoutModel) renderHelpOverlay() string {
 		Padding(2, 4)
 
 	return overlayStyle.Render(m.help.View())
+}
+
+func (m LayoutModel) renderOptionsOverlay() string {
+	return m.optionsModal.View()
 }
 
 type gameSelectedMsg struct {

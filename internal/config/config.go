@@ -25,6 +25,27 @@ type Config struct {
 	ShaderCache   string   `yaml:"shader_cache"`
 	CheckUpdates  bool     `yaml:"check_updates"`
 	ShowHints     bool     `yaml:"show_hints"`
+
+	// Startup behavior
+	RescanOnStartup bool `yaml:"rescan_on_startup"`
+	AutoUpdateDLLs  bool `yaml:"auto_update_dlls"`
+
+	// Paths
+	SteamPath              string   `yaml:"steam_path,omitempty"`
+	AdditionalLibraryPaths []string `yaml:"additional_library_paths,omitempty"`
+	DLLCachePath           string   `yaml:"dll_cache_path,omitempty"`
+	BackupPath             string   `yaml:"backup_path,omitempty"`
+
+	// DLL management
+	DLLManifestURL       string `yaml:"dll_manifest_url,omitempty"`
+	AutoRefreshManifest  bool   `yaml:"auto_refresh_manifest"`
+	ManifestRefreshHours int    `yaml:"manifest_refresh_hours"`
+	PreferredDLLSource   string `yaml:"preferred_dll_source,omitempty"`
+
+	// Display
+	Theme              string `yaml:"theme,omitempty"`
+	CompactMode        bool   `yaml:"compact_mode"`
+	ConfirmDestructive bool   `yaml:"confirm_destructive"`
 }
 
 func Default() *Config {
@@ -34,6 +55,17 @@ func Default() *Config {
 		ShaderCache:   xdg.CachePath("nvidia"),
 		CheckUpdates:  true,
 		ShowHints:     true,
+
+		RescanOnStartup: true,
+		AutoUpdateDLLs:  false,
+
+		AutoRefreshManifest:  true,
+		ManifestRefreshHours: 24,
+		PreferredDLLSource:   "techpowerup",
+
+		Theme:              "default",
+		CompactMode:        false,
+		ConfirmDestructive: true,
 	}
 }
 
@@ -67,4 +99,13 @@ func (c *Config) Save() error {
 
 	path := xdg.ConfigPath("config.yaml")
 	return os.WriteFile(path, data, 0o644)
+}
+
+func (c *Config) Clone() *Config {
+	clone := *c
+	if c.AdditionalLibraryPaths != nil {
+		clone.AdditionalLibraryPaths = make([]string, len(c.AdditionalLibraryPaths))
+		copy(clone.AdditionalLibraryPaths, c.AdditionalLibraryPaths)
+	}
+	return &clone
 }
