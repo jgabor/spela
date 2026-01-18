@@ -20,11 +20,10 @@ const (
 )
 
 type Config struct {
-	LogLevel      LogLevel `yaml:"log_level"`
-	DefaultPreset string   `yaml:"default_preset"`
-	ShaderCache   string   `yaml:"shader_cache"`
-	CheckUpdates  bool     `yaml:"check_updates"`
-	ShowHints     bool     `yaml:"show_hints"`
+	LogLevel     LogLevel `yaml:"log_level"`
+	ShaderCache  string   `yaml:"shader_cache"`
+	CheckUpdates bool     `yaml:"check_updates"`
+	ShowHints    bool     `yaml:"show_hints"`
 
 	// Startup behavior
 	RescanOnStartup bool `yaml:"rescan_on_startup"`
@@ -50,11 +49,10 @@ type Config struct {
 
 func Default() *Config {
 	return &Config{
-		LogLevel:      LogLevelInfo,
-		DefaultPreset: "balanced",
-		ShaderCache:   xdg.CachePath("nvidia"),
-		CheckUpdates:  true,
-		ShowHints:     true,
+		LogLevel:     LogLevelInfo,
+		ShaderCache:  xdg.CachePath("nvidia"),
+		CheckUpdates: true,
+		ShowHints:    true,
 
 		RescanOnStartup: true,
 		AutoUpdateDLLs:  false,

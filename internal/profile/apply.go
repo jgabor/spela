@@ -109,9 +109,7 @@ func dlssModeToEnv(mode DLSSMode) string {
 
 func dlssPresetToEnv(preset DLSSPreset) string {
 	switch preset {
-	case DLSSPresetLatest:
-		return "render_preset_latest"
-	case DLSSPresetA, DLSSPresetB, DLSSPresetC, DLSSPresetD:
+	case DLSSPresetA, DLSSPresetB, DLSSPresetC, DLSSPresetD, DLSSPresetE, DLSSPresetF, DLSSPresetJ, DLSSPresetK, DLSSPresetL, DLSSPresetM:
 		return "render_preset_" + strings.ToLower(string(preset))
 	default:
 		return "render_preset_default"

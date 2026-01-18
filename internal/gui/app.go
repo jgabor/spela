@@ -114,8 +114,8 @@ func (a *App) GetGame(appID uint64) *GameInfo {
 }
 
 type ProfileInfo struct {
-	Preset           string `json:"preset"`
 	SRMode           string `json:"srMode"`
+	SRPreset         string `json:"srPreset"`
 	SROverride       bool   `json:"srOverride"`
 	FGEnabled        bool   `json:"fgEnabled"`
 	EnableHDR        bool   `json:"enableHdr"`
@@ -130,8 +130,8 @@ func (a *App) GetProfile(appID uint64) *ProfileInfo {
 	}
 
 	return &ProfileInfo{
-		Preset:           string(p.Preset),
 		SRMode:           string(p.DLSS.SRMode),
+		SRPreset:         string(p.DLSS.SRPreset),
 		SROverride:       p.DLSS.SROverride,
 		FGEnabled:        p.DLSS.FGEnabled,
 		EnableHDR:        p.Proton.EnableHDR,
@@ -142,10 +142,9 @@ func (a *App) GetProfile(appID uint64) *ProfileInfo {
 
 func (a *App) SaveProfile(appID uint64, info ProfileInfo) error {
 	p := &profile.Profile{
-		Name:   "",
-		Preset: profile.Preset(info.Preset),
 		DLSS: profile.DLSSSettings{
 			SRMode:     profile.DLSSMode(info.SRMode),
+			SRPreset:   profile.DLSSPreset(info.SRPreset),
 			SROverride: info.SROverride,
 			FGEnabled:  info.FGEnabled,
 			FGOverride: true,

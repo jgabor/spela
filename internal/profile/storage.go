@@ -42,17 +42,6 @@ func Load(appID uint64) (*Profile, error) {
 	return &p, nil
 }
 
-func LoadOrDefault(appID uint64, preset Preset) (*Profile, error) {
-	p, err := Load(appID)
-	if err != nil {
-		return nil, err
-	}
-	if p != nil {
-		return p, nil
-	}
-	return FromPreset(preset), nil
-}
-
 func Save(appID uint64, p *Profile) error {
 	if err := EnsureProfilesDir(); err != nil {
 		return err

@@ -17,6 +17,7 @@ type WidgetField struct {
 	value       string
 	options     []string
 	description string
+	usesModal   bool
 }
 
 type WidgetGroup struct {
@@ -36,10 +37,34 @@ type ProfileWidgetModel struct {
 	height       int
 }
 
+func displayValue(v string) string {
+	if v == "" || v == "default" || v == "auto" {
+		return "(default)"
+	}
+	return v
+}
+
+func displayBool(b bool) string {
+	if !b {
+		return "(default)"
+	}
+	return "true"
+}
+
+func displayInt(i int) string {
+	if i == 0 {
+		return "(default)"
+	}
+	return fmt.Sprintf("%d", i)
+}
+
+type openDLSSPresetModalMsg struct {
+	currentPreset profile.DLSSPreset
+}
+
 func NewProfileWidget(g *game.Game, p *profile.Profile) ProfileWidgetModel {
 	if p == nil {
-		p = profile.FromPreset(profile.PresetBalanced)
-		p.Name = g.Name
+		p = &profile.Profile{Name: g.Name}
 	}
 
 	groups := []WidgetGroup{
@@ -47,52 +72,53 @@ func NewProfileWidget(g *game.Game, p *profile.Profile) ProfileWidgetModel {
 			title: "DLSS settings",
 			fields: []WidgetField{
 				{
-					label:       "Preset",
-					key:         "preset",
-					value:       string(p.Preset),
-					options:     []string{"performance", "balanced", "quality", "custom"},
-					description: "Quick preset: performance, balanced, or quality",
+					label:       "Quality mode",
+					key:         "sr_mode",
+					value:       displayValue(string(p.DLSS.SRMode)),
+					options:     []string{"(default)", "off", "ultra_performance", "performance", "balanced", "quality", "dlaa"},
+					description: "Super resolution quality mode",
 				},
 				{
-					label:       "SR mode",
-					key:         "sr_mode",
-					value:       string(p.DLSS.SRMode),
-					options:     []string{"off", "ultra_performance", "performance", "balanced", "quality", "dlaa"},
-					description: "Super resolution quality mode",
+					label:       "DLSS preset",
+					key:         "sr_preset",
+					value:       displayValue(srPresetValue(p.DLSS.SRPreset)),
+					options:     []string{"(default)", "A", "B", "C", "D", "E", "F", "J", "K", "L", "M"},
+					description: "Neural network preset (A-F: CNN, J-M: Transformer)",
+					usesModal:   true,
 				},
 				{
 					label:       "Model",
 					key:         "sr_model_preset",
-					value:       modelPresetValue(p.DLSS.SRModelPreset),
-					options:     []string{"auto", "k", "l", "m"},
+					value:       displayValue(modelPresetValue(p.DLSS.SRModelPreset)),
+					options:     []string{"(default)", "k", "l", "m"},
 					description: "AI model: K=general, L=4K, M=perf",
 				},
 				{
 					label:       "Override",
 					key:         "sr_override",
-					value:       boolStr(p.DLSS.SROverride),
-					options:     []string{"true", "false"},
+					value:       displayBool(p.DLSS.SROverride),
+					options:     []string{"(default)", "true", "false"},
 					description: "Force DLSS even if unsupported",
 				},
 				{
 					label:       "Indicator",
 					key:         "indicator",
-					value:       boolStr(p.DLSS.Indicator),
-					options:     []string{"true", "false"},
+					value:       displayBool(p.DLSS.Indicator),
+					options:     []string{"(default)", "true", "false"},
 					description: "Show on-screen DLSS indicator",
 				},
 				{
 					label:       "Frame gen",
 					key:         "fg_enabled",
-					value:       boolStr(p.DLSS.FGEnabled),
-					options:     []string{"true", "false"},
+					value:       displayBool(p.DLSS.FGEnabled),
+					options:     []string{"(default)", "true", "false"},
 					description: "Enable AI frame generation",
 				},
 				{
 					label:       "Multi-frame",
 					key:         "multi_frame",
-					value:       intStr(p.DLSS.MultiFrame),
-					options:     []string{"0", "1", "2", "3", "4"},
+					value:       displayInt(p.DLSS.MultiFrame),
+					options:     []string{"(default)", "1", "2", "3", "4"},
 					description: "Extra frames to generate (0=off)",
 				},
 			},
@@ -103,22 +129,22 @@ func NewProfileWidget(g *game.Game, p *profile.Profile) ProfileWidgetModel {
 				{
 					label:       "Shader cache",
 					key:         "shader_cache",
-					value:       boolStr(p.GPU.ShaderCache),
-					options:     []string{"true", "false"},
+					value:       displayBool(p.GPU.ShaderCache),
+					options:     []string{"(default)", "true", "false"},
 					description: "Enable GPU shader caching",
 				},
 				{
 					label:       "Threaded opt",
 					key:         "threaded_opt",
-					value:       boolStr(p.GPU.ThreadedOptimization),
-					options:     []string{"true", "false"},
+					value:       displayBool(p.GPU.ThreadedOptimization),
+					options:     []string{"(default)", "true", "false"},
 					description: "Enable threaded optimization",
 				},
 				{
 					label:       "Power mode",
 					key:         "power_mizer",
-					value:       powerMizerValue(p.GPU.PowerMizer),
-					options:     []string{"auto", "adaptive", "max"},
+					value:       displayValue(powerMizerValue(p.GPU.PowerMizer)),
+					options:     []string{"(default)", "adaptive", "max"},
 					description: "GPU power mode",
 				},
 			},
@@ -129,22 +155,22 @@ func NewProfileWidget(g *game.Game, p *profile.Profile) ProfileWidgetModel {
 				{
 					label:       "HDR",
 					key:         "hdr",
-					value:       boolStr(p.Proton.EnableHDR),
-					options:     []string{"true", "false"},
+					value:       displayBool(p.Proton.EnableHDR),
+					options:     []string{"(default)", "true", "false"},
 					description: "Enable high dynamic range",
 				},
 				{
 					label:       "Wayland",
 					key:         "wayland",
-					value:       boolStr(p.Proton.EnableWayland),
-					options:     []string{"true", "false"},
+					value:       displayBool(p.Proton.EnableWayland),
+					options:     []string{"(default)", "true", "false"},
 					description: "Use native Wayland",
 				},
 				{
 					label:       "NGX updater",
 					key:         "ngx_updater",
-					value:       boolStr(p.Proton.EnableNGXUpdater),
-					options:     []string{"true", "false"},
+					value:       displayBool(p.Proton.EnableNGXUpdater),
+					options:     []string{"(default)", "true", "false"},
 					description: "Auto-update DLSS DLLs",
 				},
 			},
@@ -155,8 +181,8 @@ func NewProfileWidget(g *game.Game, p *profile.Profile) ProfileWidgetModel {
 				{
 					label:       "Save backup",
 					key:         "backup_on_launch",
-					value:       boolStr(p.Ludusavi.BackupOnLaunch),
-					options:     []string{"true", "false"},
+					value:       displayBool(p.Ludusavi.BackupOnLaunch),
+					options:     []string{"(default)", "true", "false"},
 					description: "Backup saves on launch",
 				},
 			},
@@ -176,10 +202,6 @@ func NewProfileWidget(g *game.Game, p *profile.Profile) ProfileWidgetModel {
 func (m *ProfileWidgetModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
-}
-
-type openPresetModalMsg struct {
-	currentPreset profile.Preset
 }
 
 func (m ProfileWidgetModel) Update(msg tea.Msg) (ProfileWidgetModel, tea.Cmd) {
@@ -234,14 +256,21 @@ func (m ProfileWidgetModel) updateEditing(msg tea.KeyMsg) (ProfileWidgetModel, t
 			m.focusedField++
 		}
 	case "left", "h":
-		m.cycleFieldValue(-1)
+		field := group.fields[m.focusedField]
+		if !field.usesModal {
+			m.cycleFieldValue(-1)
+		}
 	case "right", "l":
-		m.cycleFieldValue(1)
+		field := group.fields[m.focusedField]
+		if !field.usesModal {
+			m.cycleFieldValue(1)
+		}
 	case "enter":
 		field := group.fields[m.focusedField]
-		if field.key == "preset" {
+		if field.usesModal && field.key == "sr_preset" {
+			currentPreset := profile.DLSSPreset(m.profile.DLSS.SRPreset)
 			return m, func() tea.Msg {
-				return openPresetModalMsg{currentPreset: profile.Preset(field.value)}
+				return openDLSSPresetModalMsg{currentPreset: currentPreset}
 			}
 		}
 	case "esc", "q":
@@ -272,94 +301,87 @@ func (m *ProfileWidgetModel) cycleFieldValue(direction int) {
 	newIndex := (currentIndex + direction + len(field.options)) % len(field.options)
 	field.value = field.options[newIndex]
 	m.modified = true
-
-	if field.key == "preset" && field.value != "custom" {
-		m.applyPreset(profile.Preset(field.value))
-	} else {
-		m.applyToProfile()
-	}
-}
-
-func (m *ProfileWidgetModel) applyPreset(preset profile.Preset) {
-	p := profile.FromPreset(preset)
-	m.profile = p
-
-	for gi := range m.groups {
-		for fi := range m.groups[gi].fields {
-			field := &m.groups[gi].fields[fi]
-			switch field.key {
-			case "preset":
-				field.value = string(p.Preset)
-			case "sr_mode":
-				field.value = string(p.DLSS.SRMode)
-			case "sr_model_preset":
-				field.value = modelPresetValue(p.DLSS.SRModelPreset)
-			case "sr_override":
-				field.value = boolStr(p.DLSS.SROverride)
-			case "fg_enabled":
-				field.value = boolStr(p.DLSS.FGEnabled)
-			case "multi_frame":
-				field.value = intStr(p.DLSS.MultiFrame)
-			case "indicator":
-				field.value = boolStr(p.DLSS.Indicator)
-			case "shader_cache":
-				field.value = boolStr(p.GPU.ShaderCache)
-			case "threaded_opt":
-				field.value = boolStr(p.GPU.ThreadedOptimization)
-			case "power_mizer":
-				field.value = powerMizerValue(p.GPU.PowerMizer)
-			case "hdr":
-				field.value = boolStr(p.Proton.EnableHDR)
-			case "wayland":
-				field.value = boolStr(p.Proton.EnableWayland)
-			case "ngx_updater":
-				field.value = boolStr(p.Proton.EnableNGXUpdater)
-			case "backup_on_launch":
-				field.value = boolStr(p.Ludusavi.BackupOnLaunch)
-			}
-		}
-	}
+	m.applyToProfile()
 }
 
 func (m *ProfileWidgetModel) applyToProfile() {
 	for _, group := range m.groups {
 		for _, field := range group.fields {
+			value := field.value
+			isDefault := value == "(default)"
+
 			switch field.key {
-			case "preset":
-				m.profile.Preset = profile.Preset(field.value)
 			case "sr_mode":
-				m.profile.DLSS.SRMode = profile.DLSSMode(field.value)
+				if isDefault {
+					m.profile.DLSS.SRMode = ""
+				} else {
+					m.profile.DLSS.SRMode = profile.DLSSMode(value)
+				}
+			case "sr_preset":
+				if isDefault {
+					m.profile.DLSS.SRPreset = ""
+				} else {
+					m.profile.DLSS.SRPreset = profile.DLSSPreset(value)
+				}
 			case "sr_model_preset":
-				m.profile.DLSS.SRModelPreset = profile.DLSSModelPreset(field.value)
+				if isDefault {
+					m.profile.DLSS.SRModelPreset = ""
+				} else {
+					m.profile.DLSS.SRModelPreset = profile.DLSSModelPreset(value)
+				}
 			case "sr_override":
-				m.profile.DLSS.SROverride = field.value == "true"
+				m.profile.DLSS.SROverride = value == "true"
 			case "fg_enabled":
-				m.profile.DLSS.FGEnabled = field.value == "true"
-				m.profile.DLSS.FGOverride = true
+				m.profile.DLSS.FGEnabled = value == "true"
+				if !isDefault {
+					m.profile.DLSS.FGOverride = true
+				}
 			case "multi_frame":
-				var v int
-				_, _ = fmt.Sscanf(field.value, "%d", &v)
-				m.profile.DLSS.MultiFrame = v
+				if isDefault {
+					m.profile.DLSS.MultiFrame = 0
+				} else {
+					var v int
+					_, _ = fmt.Sscanf(value, "%d", &v)
+					m.profile.DLSS.MultiFrame = v
+				}
 			case "indicator":
-				m.profile.DLSS.Indicator = field.value == "true"
+				m.profile.DLSS.Indicator = value == "true"
 			case "shader_cache":
-				m.profile.GPU.ShaderCache = field.value == "true"
+				m.profile.GPU.ShaderCache = value == "true"
 			case "threaded_opt":
-				m.profile.GPU.ThreadedOptimization = field.value == "true"
+				m.profile.GPU.ThreadedOptimization = value == "true"
 			case "power_mizer":
-				if field.value == "auto" {
+				if isDefault {
 					m.profile.GPU.PowerMizer = ""
 				} else {
-					m.profile.GPU.PowerMizer = field.value
+					m.profile.GPU.PowerMizer = value
 				}
 			case "hdr":
-				m.profile.Proton.EnableHDR = field.value == "true"
+				m.profile.Proton.EnableHDR = value == "true"
 			case "wayland":
-				m.profile.Proton.EnableWayland = field.value == "true"
+				m.profile.Proton.EnableWayland = value == "true"
 			case "ngx_updater":
-				m.profile.Proton.EnableNGXUpdater = field.value == "true"
+				m.profile.Proton.EnableNGXUpdater = value == "true"
 			case "backup_on_launch":
-				m.profile.Ludusavi.BackupOnLaunch = field.value == "true"
+				m.profile.Ludusavi.BackupOnLaunch = value == "true"
+			}
+		}
+	}
+}
+
+func (m *ProfileWidgetModel) SetDLSSPreset(preset profile.DLSSPreset) {
+	m.profile.DLSS.SRPreset = preset
+	m.modified = true
+
+	for gi := range m.groups {
+		for fi := range m.groups[gi].fields {
+			if m.groups[gi].fields[fi].key == "sr_preset" {
+				if preset == "" || preset == profile.DLSSPresetDefault {
+					m.groups[gi].fields[fi].value = "(default)"
+				} else {
+					m.groups[gi].fields[fi].value = string(preset)
+				}
+				return
 			}
 		}
 	}
@@ -376,11 +398,6 @@ func (m ProfileWidgetModel) save() tea.Cmd {
 
 func (m ProfileWidgetModel) Modified() bool {
 	return m.modified
-}
-
-func (m *ProfileWidgetModel) ApplyPreset(preset profile.Preset) {
-	m.applyPreset(preset)
-	m.modified = true
 }
 
 func (m ProfileWidgetModel) Editing() bool {
@@ -536,5 +553,17 @@ func (m ProfileWidgetModel) renderFieldToString(field WidgetField, isFieldFocuse
 	}
 
 	line := fmt.Sprintf("%s%-14s: ", prefix, field.label)
-	return style.Render(line) + valueStyle.Render(field.value)
+	result := style.Render(line) + valueStyle.Render(field.value)
+
+	if isFieldFocused {
+		var hint string
+		if field.usesModal {
+			hint = " enter:open"
+		} else {
+			hint = " ←→:change"
+		}
+		result += dimStyle.Render(hint)
+	}
+
+	return result
 }

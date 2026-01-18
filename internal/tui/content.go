@@ -27,16 +27,16 @@ const (
 )
 
 type ContentModel struct {
-	game          *game.Game
-	profile       *profile.Profile
-	profileWidget ProfileWidgetModel
-	presetModal   PresetModalModel
-	width         int
-	height        int
-	profileHeight int
-	dllOperating  bool
-	hasBackup     bool
-	scrollOffset  int
+	game            *game.Game
+	profile         *profile.Profile
+	profileWidget   ProfileWidgetModel
+	dlssPresetModal DLSSPresetModalModel
+	width           int
+	height          int
+	profileHeight   int
+	dllOperating    bool
+	hasBackup       bool
+	scrollOffset    int
 
 	dllInstallState   DLLInstallState
 	dllTypes          []string
@@ -68,7 +68,7 @@ type dllTypesLoadedMsg struct {
 
 func NewContent() ContentModel {
 	return ContentModel{
-		presetModal: NewPresetModal(),
+		dlssPresetModal: NewDLSSPresetModal(),
 	}
 }
 
@@ -96,9 +96,9 @@ func (m *ContentModel) SetSize(width, height int) {
 func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	var cmds []tea.Cmd
 
-	if m.presetModal.Visible() {
+	if m.dlssPresetModal.Visible() {
 		var cmd tea.Cmd
-		m.presetModal, cmd = m.presetModal.Update(msg)
+		m.dlssPresetModal, cmd = m.dlssPresetModal.Update(msg)
 		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}
@@ -110,16 +110,16 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
-	case openPresetModalMsg:
-		m.presetModal.SetSize(m.width, m.height)
-		m.presetModal.Open(msg.currentPreset)
+	case openDLSSPresetModalMsg:
+		m.dlssPresetModal.SetSize(m.width, m.height)
+		m.dlssPresetModal.Open(msg.currentPreset)
 		return m, nil
 
-	case presetSelectedMsg:
-		m.profileWidget.ApplyPreset(msg.preset)
+	case dlssPresetSelectedMsg:
+		m.profileWidget.SetDLSSPreset(msg.preset)
 		return m, nil
 
-	case presetCancelledMsg:
+	case dlssPresetCancelledMsg:
 		return m, nil
 
 	case tea.KeyMsg:
@@ -240,13 +240,17 @@ func (m ContentModel) restoreDLLs() tea.Cmd {
 	}
 }
 
+func (m ContentModel) HasModalOpen() bool {
+	return m.dlssPresetModal.Visible() || m.dllInstallState != DLLInstallNone || m.profileWidget.Editing()
+}
+
 func (m ContentModel) View() string {
 	if m.game == nil {
 		return dimStyle.Render("Select a game from the sidebar")
 	}
 
-	if m.presetModal.Visible() {
-		return m.presetModal.View()
+	if m.dlssPresetModal.Visible() {
+		return m.dlssPresetModal.View()
 	}
 
 	if m.dllInstallState != DLLInstallNone {

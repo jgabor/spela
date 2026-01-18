@@ -41,7 +41,7 @@ var dlssSetCmd = &cobra.Command{
 
 func init() {
 	dlssSetCmd.Flags().StringVar(&dlssSetSRMode, "sr-mode", "", "DLSS-SR mode (off, ultra_performance, performance, balanced, quality, dlaa)")
-	dlssSetCmd.Flags().StringVar(&dlssSetSRPreset, "sr-preset", "", "DLSS-SR preset (default, A, B, C, D, latest)")
+	dlssSetCmd.Flags().StringVar(&dlssSetSRPreset, "sr-preset", "", "DLSS-SR preset (default, A, B, C, D, E, F, J, K, L, M)")
 	dlssSetCmd.Flags().StringVar(&dlssSetRRMode, "rr-mode", "", "DLSS-RR mode")
 	dlssSetCmd.Flags().StringVar(&dlssSetFGEnabled, "fg", "", "Frame generation (true/false)")
 	dlssSetCmd.Flags().IntVar(&dlssSetMultiFrame, "multi-frame", -1, "Multi-frame count (0-3)")
@@ -73,8 +73,8 @@ func runDLSSShow(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if p == nil {
-		fmt.Printf("No profile for %s, using defaults\n", g.Name)
-		p = profile.FromPreset(profile.PresetBalanced)
+		fmt.Printf("No profile for %s\n", g.Name)
+		p = &profile.Profile{}
 	}
 
 	fmt.Printf("DLSS configuration for %s:\n\n", g.Name)
@@ -122,8 +122,7 @@ func runDLSSSet(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if p == nil {
-		p = profile.FromPreset(profile.PresetBalanced)
-		p.Name = g.Name
+		p = &profile.Profile{Name: g.Name}
 	}
 
 	changed := false

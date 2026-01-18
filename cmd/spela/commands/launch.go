@@ -6,7 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/env"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/launcher"
@@ -33,11 +32,6 @@ func runLaunch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load game database: %w", err)
 	}
 
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
 	var g *game.Game
 
 	if launchGameID != 0 {
@@ -52,7 +46,7 @@ func runLaunch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("game not found")
 	}
 
-	p, err := profile.LoadOrDefault(g.AppID, profile.Preset(cfg.DefaultPreset))
+	p, err := profile.Load(g.AppID)
 	if err != nil {
 		return fmt.Errorf("failed to load profile: %w", err)
 	}
@@ -61,7 +55,11 @@ func runLaunch(cmd *cobra.Command, args []string) error {
 	restore.SaveAllProfileEnvVars()
 
 	e := env.New()
-	cleanups := p.Apply(e)
+
+	var cleanups []func()
+	if p != nil {
+		cleanups = p.Apply(e)
+	}
 
 	l := launcher.New(g)
 	l.Environment = e
@@ -76,6 +74,10 @@ func runLaunch(cmd *cobra.Command, args []string) error {
 		launchArgs = []string{"steam", fmt.Sprintf("steam://rungameid/%d", g.AppID)}
 	}
 
-	fmt.Printf("Launching %s with %s profile...\n", g.Name, p.Preset)
+	if p != nil {
+		fmt.Printf("Launching %s with profile...\n", g.Name)
+	} else {
+		fmt.Printf("Launching %s (no profile)...\n", g.Name)
+	}
 	return l.Launch(launchArgs)
 }

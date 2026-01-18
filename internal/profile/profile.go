@@ -1,14 +1,5 @@
 package profile
 
-type Preset string
-
-const (
-	PresetPerformance Preset = "performance"
-	PresetBalanced    Preset = "balanced"
-	PresetQuality     Preset = "quality"
-	PresetCustom      Preset = "custom"
-)
-
 type DLSSMode string
 
 const (
@@ -28,8 +19,32 @@ const (
 	DLSSPresetB       DLSSPreset = "B"
 	DLSSPresetC       DLSSPreset = "C"
 	DLSSPresetD       DLSSPreset = "D"
-	DLSSPresetLatest  DLSSPreset = "latest"
+	DLSSPresetE       DLSSPreset = "E"
+	DLSSPresetF       DLSSPreset = "F"
+	DLSSPresetJ       DLSSPreset = "J"
+	DLSSPresetK       DLSSPreset = "K"
+	DLSSPresetL       DLSSPreset = "L"
+	DLSSPresetM       DLSSPreset = "M"
 )
+
+type DLSSPresetInfoEntry struct {
+	Version     string
+	Technology  string
+	Description string
+}
+
+var DLSSPresetInfo = map[DLSSPreset]DLSSPresetInfoEntry{
+	DLSSPresetA: {"DLSS 2/3", "CNN", "Basic preset for Performance/Balanced/Quality, for games without all native DLSS inputs"},
+	DLSSPresetB: {"DLSS 2/3", "CNN", "Variant of A, improves Ultra Performance at high resolutions (4K+)"},
+	DLSSPresetC: {"DLSS 2/3", "CNN", "Variant of A for fast-paced games, less temporal stability but less ghosting"},
+	DLSSPresetD: {"DLSS 2/3", "CNN", "Variant of A for slower-paced games, more temporal stability but more ghosting"},
+	DLSSPresetE: {"DLSS 2/3", "CNN", "Improved version of D, should be used over D in most cases"},
+	DLSSPresetF: {"DLSS 2/3", "CNN", "Optimized for 4K+ in Ultra Performance/DLAA quality tiers"},
+	DLSSPresetJ: {"DLSS 4", "Transformer", "Baseline transformer preset, sharper but less temporally stable than K"},
+	DLSSPresetK: {"DLSS 4", "Transformer", "Variant of J, blurrier but more temporally stable"},
+	DLSSPresetL: {"DLSS 4.5", "Transformer 2", "Optimized for 4K+ in Ultra Performance/DLAA quality tiers"},
+	DLSSPresetM: {"DLSS 4.5", "Transformer 2", "Optimized for lower resolutions in Performance/Balanced/Quality tiers"},
+}
 
 type DLSSModelPreset string
 
@@ -41,8 +56,7 @@ const (
 )
 
 type Profile struct {
-	Name   string `yaml:"name,omitempty"`
-	Preset Preset `yaml:"preset"`
+	Name string `yaml:"name,omitempty"`
 
 	DLSS     DLSSSettings     `yaml:"dlss,omitempty"`
 	GPU      GPUSettings      `yaml:"gpu,omitempty"`
@@ -102,82 +116,4 @@ type ProtonSettings struct {
 	EnableWayland    bool `yaml:"enable_wayland,omitempty"`
 	EnableHDR        bool `yaml:"enable_hdr,omitempty"`
 	EnableNGXUpdater bool `yaml:"enable_ngx_updater,omitempty"`
-}
-
-func DefaultPresets() map[Preset]*Profile {
-	return map[Preset]*Profile{
-		PresetPerformance: {
-			Preset: PresetPerformance,
-			DLSS: DLSSSettings{
-				SRMode:        DLSSModeUltraPerformance,
-				SRPreset:      DLSSPresetLatest,
-				SRModelPreset: DLSSModelPresetAuto,
-				SROverride:    true,
-				FGEnabled:     true,
-				FGOverride:    true,
-				MultiFrame:    2,
-			},
-			GPU: GPUSettings{
-				ShaderCache:          true,
-				ThreadedOptimization: true,
-			},
-			Proton: ProtonSettings{
-				EnableWayland: true,
-			},
-		},
-		PresetBalanced: {
-			Preset: PresetBalanced,
-			DLSS: DLSSSettings{
-				SRMode:        DLSSModeBalanced,
-				SRPreset:      DLSSPresetLatest,
-				SRModelPreset: DLSSModelPresetAuto,
-				SROverride:    true,
-				FGEnabled:     true,
-				FGOverride:    true,
-				MultiFrame:    1,
-			},
-			GPU: GPUSettings{
-				ShaderCache:          true,
-				ThreadedOptimization: true,
-			},
-			Proton: ProtonSettings{
-				EnableWayland: true,
-			},
-		},
-		PresetQuality: {
-			Preset: PresetQuality,
-			DLSS: DLSSSettings{
-				SRMode:        DLSSModeDLAA,
-				SRPreset:      DLSSPresetLatest,
-				SRModelPreset: DLSSModelPresetAuto,
-				SROverride:    true,
-				FGEnabled:     false,
-			},
-			GPU: GPUSettings{
-				ShaderCache:          true,
-				ThreadedOptimization: true,
-			},
-			Proton: ProtonSettings{
-				EnableWayland: true,
-			},
-		},
-		PresetCustom: {
-			Preset: PresetCustom,
-			GPU: GPUSettings{
-				ShaderCache: true,
-			},
-			Proton: ProtonSettings{
-				EnableWayland: true,
-			},
-		},
-	}
-}
-
-func FromPreset(preset Preset) *Profile {
-	presets := DefaultPresets()
-	if p, ok := presets[preset]; ok {
-		copy := *p
-		return &copy
-	}
-	return DefaultPresets()[PresetBalanced]
 }

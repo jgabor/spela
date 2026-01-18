@@ -29,24 +29,23 @@ type profileField struct {
 
 func NewProfileEditor(g *game.Game, p *profile.Profile) ProfileEditorModel {
 	if p == nil {
-		p = profile.FromPreset(profile.PresetBalanced)
-		p.Name = g.Name
+		p = &profile.Profile{Name: g.Name}
 	}
 
 	fields := []profileField{
 		{
-			label:       "Preset",
-			key:         "preset",
-			value:       string(p.Preset),
-			options:     []string{"performance", "balanced", "quality", "custom"},
-			description: "Quick preset: performance (max FPS), balanced (good mix), quality (best visuals)",
-		},
-		{
-			label:       "DLSS-SR Mode",
+			label:       "Quality mode",
 			key:         "sr_mode",
 			value:       string(p.DLSS.SRMode),
 			options:     []string{"off", "ultra_performance", "performance", "balanced", "quality", "dlaa"},
 			description: "Super resolution quality. Higher = sharper but slower. DLAA is native res anti-aliasing",
+		},
+		{
+			label:       "DLSS preset",
+			key:         "sr_preset",
+			value:       srPresetValue(p.DLSS.SRPreset),
+			options:     []string{"default", "A", "B", "C", "D", "E", "F", "J", "K", "L", "M"},
+			description: "Neural network preset (A-F: CNN, J-M: Transformer)",
 		},
 		{
 			label:       "DLSS Model",
@@ -155,6 +154,13 @@ func modelPresetValue(p profile.DLSSModelPreset) string {
 	return string(p)
 }
 
+func srPresetValue(p profile.DLSSPreset) string {
+	if p == "" {
+		return "default"
+	}
+	return string(p)
+}
+
 func intStr(i int) string {
 	return fmt.Sprintf("%d", i)
 }
@@ -210,59 +216,16 @@ func (m *ProfileEditorModel) cycleValue(direction int) {
 	newIndex := (currentIndex + direction + len(field.options)) % len(field.options)
 	field.value = field.options[newIndex]
 	m.modified = true
-
-	if field.key == "preset" && field.value != "custom" {
-		m.applyPreset(profile.Preset(field.value))
-	} else {
-		m.applyToProfile()
-	}
-}
-
-func (m *ProfileEditorModel) applyPreset(preset profile.Preset) {
-	p := profile.FromPreset(preset)
-	m.profile = p
-
-	for i := range m.fields {
-		switch m.fields[i].key {
-		case "preset":
-			m.fields[i].value = string(p.Preset)
-		case "sr_mode":
-			m.fields[i].value = string(p.DLSS.SRMode)
-		case "sr_model_preset":
-			m.fields[i].value = modelPresetValue(p.DLSS.SRModelPreset)
-		case "sr_override":
-			m.fields[i].value = boolStr(p.DLSS.SROverride)
-		case "fg_enabled":
-			m.fields[i].value = boolStr(p.DLSS.FGEnabled)
-		case "multi_frame":
-			m.fields[i].value = intStr(p.DLSS.MultiFrame)
-		case "indicator":
-			m.fields[i].value = boolStr(p.DLSS.Indicator)
-		case "shader_cache":
-			m.fields[i].value = boolStr(p.GPU.ShaderCache)
-		case "threaded_opt":
-			m.fields[i].value = boolStr(p.GPU.ThreadedOptimization)
-		case "power_mizer":
-			m.fields[i].value = powerMizerValue(p.GPU.PowerMizer)
-		case "hdr":
-			m.fields[i].value = boolStr(p.Proton.EnableHDR)
-		case "wayland":
-			m.fields[i].value = boolStr(p.Proton.EnableWayland)
-		case "ngx_updater":
-			m.fields[i].value = boolStr(p.Proton.EnableNGXUpdater)
-		case "backup_on_launch":
-			m.fields[i].value = boolStr(p.Ludusavi.BackupOnLaunch)
-		}
-	}
+	m.applyToProfile()
 }
 
 func (m *ProfileEditorModel) applyToProfile() {
 	for _, f := range m.fields {
 		switch f.key {
-		case "preset":
-			m.profile.Preset = profile.Preset(f.value)
 		case "sr_mode":
 			m.profile.DLSS.SRMode = profile.DLSSMode(f.value)
+		case "sr_preset":
+			m.profile.DLSS.SRPreset = profile.DLSSPreset(f.value)
 		case "sr_model_preset":
 			m.profile.DLSS.SRModelPreset = profile.DLSSModelPreset(f.value)
 		case "sr_override":

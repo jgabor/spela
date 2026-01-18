@@ -59,8 +59,6 @@ func runConfigSet(cmd *cobra.Command, args []string) error {
 	switch key {
 	case "log_level":
 		cfg.LogLevel = config.LogLevel(value)
-	case "default_preset":
-		cfg.DefaultPreset = value
 	case "shader_cache":
 		cfg.ShaderCache = value
 	case "check_updates":
