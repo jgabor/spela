@@ -510,17 +510,14 @@ func (m ProfileWidgetModel) renderWidgetBox(group WidgetGroup, isWidgetFocused b
 	var content strings.Builder
 
 	// Widget title
-	groupTitleStyle := dimStyle
-	if isWidgetFocused {
-		groupTitleStyle = titleStyle.Foreground(t.Secondary).MarginBottom(0)
-	}
+	groupTitleStyle := titleStyle.Foreground(t.Secondary).MarginBottom(0)
 	content.WriteString(groupTitleStyle.Render(group.title))
 	content.WriteString("\n")
 
 	// Fields
 	for fi, field := range group.fields {
 		isFieldFocused := isWidgetFocused && m.editing && fi == m.focusedField
-		line := m.renderFieldToString(field, isFieldFocused, isWidgetFocused)
+		line := m.renderFieldToString(field, isFieldFocused)
 		content.WriteString(line)
 		content.WriteString("\n")
 	}
@@ -528,15 +525,10 @@ func (m ProfileWidgetModel) renderWidgetBox(group WidgetGroup, isWidgetFocused b
 	return boxStyle.Render(strings.TrimSuffix(content.String(), "\n"))
 }
 
-func (m ProfileWidgetModel) renderFieldToString(field WidgetField, isFieldFocused, isWidgetFocused bool) string {
+func (m ProfileWidgetModel) renderFieldToString(field WidgetField, isFieldFocused bool) string {
 	prefix := "  "
-	style := dimStyle
-	valueStyle := dimStyle
-
-	if isWidgetFocused {
-		style = normalStyle
-		valueStyle = dlssStyle
-	}
+	style := normalStyle
+	valueStyle := dlssStyle
 
 	if isFieldFocused {
 		prefix = "> "
