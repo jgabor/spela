@@ -1,6 +1,7 @@
 <script>
   import { onMount, createEventDispatcher } from 'svelte'
   import { GetGames, ScanGames, UpdateDLLs } from '../../wailsjs/go/main/App'
+  import Dropdown from './Dropdown.svelte'
 
   const dispatch = createEventDispatcher()
 
@@ -206,11 +207,10 @@
         </label>
       </div>
       <div class="sort">
-        <select bind:value={sortMode}>
-          {#each sortModes as mode}
-            <option value={mode.value}>{mode.label}</option>
-          {/each}
-        </select>
+        <Dropdown
+          bind:value={sortMode}
+          options={sortModes}
+        />
         {#if hasActiveFilters}
           <button class="clear-btn" on:click={clearFilters} title="Clear filters">✕</button>
         {/if}
@@ -437,27 +437,6 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-  }
-
-  .sort select {
-    padding: 0.25rem 0.5rem;
-    border: 1px solid var(--border-default);
-    border-radius: 4px;
-    background-color: var(--bg-secondary);
-    color: var(--text-primary);
-    font-size: 0.8rem;
-    cursor: pointer;
-  }
-
-  .sort select:focus {
-    outline: none;
-    border-color: var(--border-focus);
-  }
-
-  .sort select option {
-    background-color: var(--bg-secondary);
-    color: var(--text-primary);
-    padding: 0.5rem;
   }
 
   .clear-btn {
