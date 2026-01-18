@@ -1,13 +1,15 @@
-![Spela](assets/spela.png)
-
-<p align="center">
-  <i>Linux gaming optimization tool</i>
-</p>
+<h1 align="center">
+  Spela
+</h1>
 
 <p align="center">
   <a href="https://github.com/jgabor/spela/actions/workflows/ci.yml"><img src="https://github.com/jgabor/spela/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/jgabor/spela/releases/latest"><img src="https://img.shields.io/github/v/release/jgabor/spela?filter=v*" alt="Latest Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/jgabor/spela" alt="License"></a>
+</p>
+
+<p align="center">
+  <img src="assets/screenshot.png" alt="Spela screenshot" width="800">
 </p>
 
 <p align="center">
@@ -19,7 +21,7 @@
 
 ---
 
-**Spela** (Swedish for "play") is a Linux gaming optimization tool that combines DLSS/DLL management with comprehensive per-game configuration. It solves the pain of maintaining game-specific settings and manually updating DLSS DLLs.
+**Spela** is a Linux gaming optimization tool that combines DLSS/DLL management with comprehensive per-game configuration. It solves the pain of maintaining game-specific settings and manually updating DLSS DLLs.
 
 ## Features
 
