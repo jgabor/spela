@@ -9,6 +9,7 @@ import (
 
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/profile"
+	"github.com/jgabor/spela/internal/tui"
 )
 
 var ProfileCmd = &cobra.Command{
@@ -23,15 +24,12 @@ var profileListCmd = &cobra.Command{
 	RunE:  runProfileList,
 }
 
-var (
-	profileCreatePreset string
-	profileCreateCmd    = &cobra.Command{
-		Use:   "create <game>",
-		Short: "Create a profile for a game",
-		Args:  cobra.ExactArgs(1),
-		RunE:  runProfileCreate,
-	}
-)
+var profileCreateCmd = &cobra.Command{
+	Use:   "create <game>",
+	Short: "Create a profile for a game",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runProfileCreate,
+}
 
 var profileShowCmd = &cobra.Command{
 	Use:   "show <game>",
@@ -48,8 +46,6 @@ var profileDeleteCmd = &cobra.Command{
 }
 
 func init() {
-	profileCreateCmd.Flags().StringVar(&profileCreatePreset, "preset", "balanced", "Preset to use (performance, balanced, quality, custom)")
-
 	ProfileCmd.AddCommand(profileListCmd)
 	ProfileCmd.AddCommand(profileCreateCmd)
 	ProfileCmd.AddCommand(profileShowCmd)
@@ -76,7 +72,11 @@ func runProfileList(cmd *cobra.Command, args []string) error {
 				name = g.Name
 			}
 		}
-		fmt.Printf("%s (%d): %s\n", name, appID, p.Preset)
+		profileName := p.Name
+		if profileName == "" {
+			profileName = "custom"
+		}
+		fmt.Printf("%s %s: %s\n", tui.CLIPrimary(name), tui.CLIDim(fmt.Sprintf("(%d)", appID)), tui.CLISecondary(profileName))
 	}
 
 	return nil
@@ -103,14 +103,13 @@ func runProfileCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("profile already exists for %s", g.Name)
 	}
 
-	p := profile.FromPreset(profile.Preset(profileCreatePreset))
-	p.Name = g.Name
+	p := &profile.Profile{Name: g.Name}
 
 	if err := profile.Save(g.AppID, p); err != nil {
 		return fmt.Errorf("failed to save profile: %w", err)
 	}
 
-	fmt.Printf("Created %s profile for %s\n", p.Preset, g.Name)
+	fmt.Printf("%s %s\n", tui.CLISuccess("Created profile for"), tui.CLIPrimary(g.Name))
 	return nil
 }
 
@@ -168,6 +167,6 @@ func runProfileDelete(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Deleted profile for %s\n", g.Name)
+	fmt.Printf("%s %s\n", tui.CLISuccess("Deleted profile for"), tui.CLIPrimary(g.Name))
 	return nil
 }

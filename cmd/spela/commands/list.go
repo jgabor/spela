@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/tui"
 )
 
 var (
@@ -54,16 +55,16 @@ func runList(cmd *cobra.Command, args []string) error {
 
 	for _, g := range games {
 		if listWithDLLs && len(g.DLLs) > 0 {
-			fmt.Printf("%s (%d)\n", g.Name, g.AppID)
+			fmt.Printf("%s %s\n", tui.CLIPrimary(g.Name), tui.CLIDim(fmt.Sprintf("(%d)", g.AppID)))
 			for _, d := range g.DLLs {
 				version := d.Version
 				if version == "" {
 					version = "unknown"
 				}
-				fmt.Printf("  %s: %s\n", d.Name, version)
+				fmt.Printf("  %s: %s\n", tui.CLISecondary(d.Name), tui.CLIAccent(version))
 			}
 		} else {
-			fmt.Printf("%s (%d)\n", g.Name, g.AppID)
+			fmt.Printf("%s %s\n", tui.CLIPrimary(g.Name), tui.CLIDim(fmt.Sprintf("(%d)", g.AppID)))
 		}
 	}
 

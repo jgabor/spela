@@ -93,18 +93,19 @@
   }
 
   .card {
-    background-color: #232f3e;
+    background-color: var(--bg-secondary);
     border-radius: 8px;
     padding: 1.5rem;
+    border: 1px solid var(--border-default);
   }
 
   h2 {
-    color: #76b900;
+    color: var(--accent-primary);
     margin-bottom: 0.5rem;
   }
 
   .name {
-    color: #8899a6;
+    color: var(--text-dim);
     font-size: 0.9rem;
     margin-bottom: 1rem;
   }
@@ -121,19 +122,19 @@
   }
 
   .metric .label {
-    color: #8899a6;
+    color: var(--text-dim);
     font-size: 0.8rem;
     margin-bottom: 0.25rem;
   }
 
   .metric .value {
-    color: #e0e0e0;
+    color: var(--text-primary);
     font-size: 1.1rem;
     font-weight: 500;
   }
 
   .unavailable {
-    color: #8899a6;
+    color: var(--text-dim);
     font-style: italic;
   }
 </style>

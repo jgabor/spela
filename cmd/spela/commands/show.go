@@ -9,6 +9,7 @@ import (
 
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/profile"
+	"github.com/jgabor/spela/internal/tui"
 )
 
 var showJSON bool
@@ -54,27 +55,31 @@ func runShow(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Printf("Name:        %s\n", g.Name)
-	fmt.Printf("App ID:      %d\n", g.AppID)
-	fmt.Printf("Install Dir: %s\n", g.InstallDir)
+	fmt.Printf("%s  %s\n", tui.CLIDim("Name:"), tui.CLIPrimary(g.Name))
+	fmt.Printf("%s %d\n", tui.CLIDim("App ID:"), g.AppID)
+	fmt.Printf("%s  %s\n", tui.CLIDim("Install:"), g.InstallDir)
 	if g.PrefixPath != "" {
-		fmt.Printf("Prefix:      %s\n", g.PrefixPath)
+		fmt.Printf("%s  %s\n", tui.CLIDim("Prefix:"), g.PrefixPath)
 	}
 
 	if len(g.DLLs) > 0 {
-		fmt.Println("\nDetected DLLs:")
+		fmt.Println("\n" + tui.CLISecondary("Detected DLLs:"))
 		for _, d := range g.DLLs {
 			version := d.Version
 			if version == "" {
 				version = "unknown"
 			}
-			fmt.Printf("  %s: %s\n", d.Name, version)
-			fmt.Printf("    Path: %s\n", d.Path)
+			fmt.Printf("  %s: %s\n", tui.CLIPrimary(d.Name), tui.CLIAccent(version))
+			fmt.Printf("    %s\n", tui.CLIDim(d.Path))
 		}
 	}
 
 	hasProfile := profile.Exists(g.AppID)
-	fmt.Printf("\nProfile:     %v\n", hasProfile)
+	profileStatus := tui.CLIDim("no")
+	if hasProfile {
+		profileStatus = tui.CLISuccess("yes")
+	}
+	fmt.Printf("\n%s %s\n", tui.CLIDim("Profile:"), profileStatus)
 
 	return nil
 }

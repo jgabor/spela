@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jgabor/spela/internal/gpu"
+	"github.com/jgabor/spela/internal/tui"
 )
 
 var GPUCmd = &cobra.Command{
@@ -37,11 +38,11 @@ func runGPUInfo(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get GPU info: %w", err)
 	}
 
-	fmt.Printf("GPU:         %s\n", info["name"])
-	fmt.Printf("Driver:      %s\n", info["driver"])
-	fmt.Printf("VRAM:        %s\n", info["memory"])
-	fmt.Printf("Temperature: %s\n", info["temperature"])
-	fmt.Printf("Power:       %s\n", info["power"])
+	fmt.Printf("%s  %s\n", tui.CLIDim("GPU:"), tui.CLIPrimary(info["name"]))
+	fmt.Printf("%s  %s\n", tui.CLIDim("Driver:"), info["driver"])
+	fmt.Printf("%s  %s\n", tui.CLIDim("VRAM:"), tui.CLIAccent(info["memory"]))
+	fmt.Printf("%s  %s\n", tui.CLIDim("Temp:"), tui.CLIAccent(info["temperature"]))
+	fmt.Printf("%s  %s\n", tui.CLIDim("Power:"), tui.CLIAccent(info["power"]))
 
 	return nil
 }
@@ -50,6 +51,6 @@ func runGPUReset(cmd *cobra.Command, args []string) error {
 	if err := gpu.ResetClocks(); err != nil {
 		return fmt.Errorf("failed to reset clocks: %w", err)
 	}
-	fmt.Println("GPU clocks reset to default")
+	fmt.Println(tui.CLISuccess("GPU clocks reset to default"))
 	return nil
 }

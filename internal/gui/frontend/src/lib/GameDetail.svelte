@@ -213,29 +213,30 @@
     border: none;
     border-radius: 4px;
     background-color: transparent;
-    color: #3d8bff;
+    color: var(--accent-secondary);
     cursor: pointer;
     font-size: 0.9rem;
     margin-bottom: 1rem;
   }
 
   .back:hover {
-    background-color: #232f3e;
+    background-color: var(--bg-secondary);
   }
 
   h1 {
     font-size: 1.5rem;
     margin-bottom: 1rem;
+    color: var(--text-primary);
   }
 
   h2 {
     font-size: 1.1rem;
-    color: #76b900;
+    color: var(--accent-primary);
     margin-bottom: 0.75rem;
   }
 
   .info {
-    background-color: #232f3e;
+    background-color: var(--bg-secondary);
     border-radius: 4px;
     padding: 1rem;
     margin-bottom: 1.5rem;
@@ -252,11 +253,11 @@
 
   .label {
     width: 100px;
-    color: #8899a6;
+    color: var(--text-dim);
   }
 
   .value {
-    color: #e0e0e0;
+    color: var(--text-primary);
     word-break: break-all;
   }
 
@@ -265,7 +266,7 @@
   }
 
   .dll-list {
-    background-color: #232f3e;
+    background-color: var(--bg-secondary);
     border-radius: 4px;
     padding: 0.5rem;
   }
@@ -277,15 +278,15 @@
   }
 
   .dll-name {
-    color: #e0e0e0;
+    color: var(--text-primary);
   }
 
   .dll-version {
-    color: #76b900;
+    color: var(--success);
   }
 
   .update-badge {
-    color: #ffcc00;
+    color: var(--warning);
     margin-left: 0.5rem;
   }
 
@@ -304,21 +305,21 @@
   }
 
   .update-btn {
-    background-color: #76b900;
+    background-color: var(--success);
     color: black;
   }
 
   .update-btn:hover:not(:disabled) {
-    background-color: #8dcf00;
+    filter: brightness(1.1);
   }
 
   .restore-btn {
-    background-color: #3d4f5f;
-    color: #e0e0e0;
+    background-color: var(--border-default);
+    color: var(--text-primary);
   }
 
   .restore-btn:hover:not(:disabled) {
-    background-color: #4d5f6f;
+    filter: brightness(1.1);
   }
 
   .update-btn:disabled, .restore-btn:disabled {
@@ -327,7 +328,7 @@
   }
 
   .form {
-    background-color: #232f3e;
+    background-color: var(--bg-secondary);
     border-radius: 4px;
     padding: 1rem;
   }
@@ -338,7 +339,7 @@
 
   .field label {
     display: block;
-    color: #8899a6;
+    color: var(--text-dim);
     margin-bottom: 0.25rem;
     font-size: 0.9rem;
   }
@@ -346,10 +347,15 @@
   .field select {
     width: 100%;
     padding: 0.5rem;
-    border: 1px solid #3d4f5f;
+    border: 1px solid var(--border-default);
     border-radius: 4px;
-    background-color: #1b2636;
-    color: #e0e0e0;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+  }
+
+  .field select:focus {
+    outline: none;
+    border-color: var(--border-focus);
   }
 
   .field.checkbox {
@@ -365,6 +371,7 @@
   .field.checkbox input {
     width: 18px;
     height: 18px;
+    accent-color: var(--accent-primary);
   }
 
   .save {
@@ -372,15 +379,15 @@
     padding: 0.75rem;
     border: none;
     border-radius: 4px;
-    background-color: #3d8bff;
-    color: white;
+    background-color: var(--accent-primary);
+    color: var(--color-ghost-white, #F5F5FD);
     cursor: pointer;
     font-size: 1rem;
     margin-top: 0.5rem;
   }
 
   .save:hover:not(:disabled) {
-    background-color: #2d7bef;
+    filter: brightness(1.1);
   }
 
   .save:disabled {
@@ -391,7 +398,7 @@
   .message {
     margin-top: 0.75rem;
     padding: 0.5rem;
-    background-color: #76b900;
+    background-color: var(--success);
     color: black;
     border-radius: 4px;
     text-align: center;

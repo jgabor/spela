@@ -93,28 +93,37 @@
   .header input {
     flex: 1;
     padding: 0.5rem 1rem;
-    border: 1px solid #3d4f5f;
+    border: 1px solid var(--border-default);
     border-radius: 4px;
-    background-color: #232f3e;
-    color: #e0e0e0;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
     font-size: 0.9rem;
   }
 
+  .header input:focus {
+    outline: none;
+    border-color: var(--border-focus);
+  }
+
   .header input::placeholder {
-    color: #8899a6;
+    color: var(--text-dim);
   }
 
   .header button {
     padding: 0.5rem 1rem;
     border: none;
     border-radius: 4px;
-    background-color: #3d8bff;
-    color: white;
+    background-color: var(--accent-primary);
+    color: var(--color-ghost-white, #F5F5FD);
     cursor: pointer;
   }
 
+  .header button:hover {
+    filter: brightness(1.1);
+  }
+
   .loading, .empty {
-    color: #8899a6;
+    color: var(--text-dim);
     text-align: center;
     padding: 2rem;
   }
@@ -131,18 +140,18 @@
     justify-content: space-between;
     align-items: center;
     padding: 0.75rem 1rem;
-    border: 1px solid #3d4f5f;
+    border: 1px solid var(--border-default);
     border-radius: 4px;
-    background-color: #232f3e;
-    color: #e0e0e0;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
     cursor: pointer;
     text-align: left;
     transition: all 0.2s;
   }
 
   .game-item:hover {
-    background-color: #2d3f4f;
-    border-color: #3d8bff;
+    background-color: var(--bg-elevated);
+    border-color: var(--accent-primary);
   }
 
   .name {
@@ -162,12 +171,12 @@
   }
 
   .badge.dlss {
-    background-color: #76b900;
+    background-color: var(--success);
     color: black;
   }
 
   .badge.profile {
-    background-color: #3d8bff;
-    color: white;
+    background-color: var(--accent-secondary);
+    color: var(--color-ghost-white, #F5F5FD);
   }
 </style>

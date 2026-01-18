@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jgabor/spela/internal/steam"
+	"github.com/jgabor/spela/internal/tui"
 )
 
 var scanJSON bool
@@ -46,18 +47,18 @@ func runScan(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Printf("Found %d games\n", len(db.Games))
+	fmt.Printf("Found %s games\n", tui.CLIPrimary(fmt.Sprintf("%d", len(db.Games))))
 	gamesWithDLSS := db.GamesWithDLSS()
 	if len(gamesWithDLSS) > 0 {
-		fmt.Printf("Games with DLSS/FSR/XeSS: %d\n", len(gamesWithDLSS))
+		fmt.Printf("Games with DLSS/FSR/XeSS: %s\n", tui.CLIAccent(fmt.Sprintf("%d", len(gamesWithDLSS))))
 		for _, g := range gamesWithDLSS {
-			fmt.Printf("  - %s (%d)\n", g.Name, g.AppID)
+			fmt.Printf("  - %s %s\n", tui.CLIPrimary(g.Name), tui.CLIDim(fmt.Sprintf("(%d)", g.AppID)))
 			for _, d := range g.DLLs {
 				version := d.Version
 				if version == "" {
 					version = "unknown"
 				}
-				fmt.Printf("      %s: %s\n", d.Name, version)
+				fmt.Printf("      %s: %s\n", tui.CLISecondary(d.Name), tui.CLIAccent(version))
 			}
 		}
 	}

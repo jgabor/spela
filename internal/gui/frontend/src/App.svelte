@@ -6,6 +6,21 @@
 
   let currentView = 'games'
   let selectedGame = null
+  let theme = 'dark'
+
+  onMount(() => {
+    const stored = localStorage.getItem('spela-theme')
+    if (stored) {
+      theme = stored
+      document.documentElement.setAttribute('data-theme', theme)
+    }
+  })
+
+  function toggleTheme() {
+    theme = theme === 'dark' ? 'light' : 'dark'
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('spela-theme', theme)
+  }
 
   function selectGame(game) {
     selectedGame = game
@@ -22,11 +37,16 @@
 
 <main>
   <nav>
-    <button class:active={currentView === 'games'} on:click={() => currentView = 'games'}>
-      Games
-    </button>
-    <button class:active={currentView === 'monitor'} on:click={() => currentView = 'monitor'}>
-      Monitor
+    <div class="nav-left">
+      <button class:active={currentView === 'games'} on:click={() => currentView = 'games'}>
+        Games
+      </button>
+      <button class:active={currentView === 'monitor'} on:click={() => currentView = 'monitor'}>
+        Monitor
+      </button>
+    </div>
+    <button class="theme-toggle" on:click={toggleTheme} title="Toggle theme">
+      {theme === 'dark' ? '☀️' : '🌙'}
     </button>
   </nav>
 
@@ -50,10 +70,16 @@
 
   nav {
     display: flex;
-    gap: 0.5rem;
+    justify-content: space-between;
+    align-items: center;
     padding: 1rem;
-    background-color: #232f3e;
-    border-bottom: 1px solid #3d4f5f;
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-default);
+  }
+
+  .nav-left {
+    display: flex;
+    gap: 0.5rem;
   }
 
   nav button {
@@ -61,20 +87,25 @@
     border: none;
     border-radius: 4px;
     background-color: transparent;
-    color: #8899a6;
+    color: var(--text-dim);
     cursor: pointer;
     font-size: 0.9rem;
     transition: all 0.2s;
   }
 
   nav button:hover {
-    background-color: #3d4f5f;
-    color: #e0e0e0;
+    background-color: var(--border-default);
+    color: var(--text-primary);
   }
 
   nav button.active {
-    background-color: #3d8bff;
-    color: white;
+    background-color: var(--accent-primary);
+    color: var(--color-ghost-white, #F5F5FD);
+  }
+
+  .theme-toggle {
+    font-size: 1.2rem;
+    padding: 0.5rem;
   }
 
   .content {

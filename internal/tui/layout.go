@@ -10,7 +10,6 @@ import (
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
-	"github.com/jgabor/spela/internal/profile"
 )
 
 type Focus int
@@ -55,7 +54,10 @@ func NewLayout(db *game.Database) LayoutModel {
 		cfg = config.Default()
 	}
 	SetShowHints(cfg.ShowHints)
-	if cfg.Theme == "dark" {
+	switch cfg.Theme {
+	case "light":
+		SetTheme(LightTheme)
+	case "dark":
 		SetTheme(DarkTheme)
 	}
 
@@ -148,12 +150,12 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q":
 			if m.focus == FocusSidebar && !m.sidebar.search.Focused() {
 				return m, tea.Quit
-			} else if m.focus == FocusContent {
+			} else if m.focus == FocusContent && !m.content.HasModalOpen() {
 				m.focus = FocusSidebar
 				return m, nil
 			}
 		case "esc":
-			if m.focus == FocusContent {
+			if m.focus == FocusContent && !m.content.HasModalOpen() {
 				m.focus = FocusSidebar
 				return m, nil
 			}
@@ -390,42 +392,13 @@ type batchCompleteMsg struct {
 
 var batchActions = []string{
 	"Update all DLLs",
-	"Apply Performance preset",
-	"Apply Balanced preset",
-	"Apply Quality preset",
 }
 
 func (m LayoutModel) executeBatchAction() tea.Cmd {
 	games := m.batchGames
-	action := m.batchCursor
 
 	return func() tea.Msg {
-		if action == 0 {
-			return executeBatchDLLUpdate(games)
-		}
-
-		var preset profile.Preset
-		switch action {
-		case 1:
-			preset = profile.PresetPerformance
-		case 2:
-			preset = profile.PresetBalanced
-		case 3:
-			preset = profile.PresetQuality
-		}
-
-		succeeded := 0
-		for _, g := range games {
-			p := profile.FromPreset(preset)
-			p.Name = g.Name
-			if err := profile.Save(g.AppID, p); err == nil {
-				succeeded++
-			}
-		}
-
-		return batchCompleteMsg{
-			message: fmt.Sprintf("Applied %s preset to %d/%d games", preset, succeeded, len(games)),
-		}
+		return executeBatchDLLUpdate(games)
 	}
 }
 

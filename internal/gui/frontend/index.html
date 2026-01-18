@@ -5,6 +5,48 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spela</title>
     <style>
+      :root {
+        /* Spela dark theme (default) */
+        --color-midnight-black: #000000;
+        --color-dark-amethyst: #200748;
+        --color-velvet-orchid: #64297D;
+        --color-amethyst: #9C41AA;
+        --color-pink-carnation: #FA76C2;
+        --color-dusk-blue: #3D58A1;
+        --color-royal-blue: #566EDC;
+        --color-ghost-white: #F5F5FD;
+
+        --bg-primary: var(--color-midnight-black);
+        --bg-secondary: var(--color-dark-amethyst);
+        --bg-elevated: #1a0a2e;
+        --text-primary: var(--color-ghost-white);
+        --text-dim: #a090b8;
+        --accent-primary: var(--color-amethyst);
+        --accent-secondary: var(--color-royal-blue);
+        --accent-highlight: var(--color-pink-carnation);
+        --border-default: var(--color-velvet-orchid);
+        --border-focus: var(--color-amethyst);
+        --success: #76b900;
+        --error: #ff6b6b;
+        --warning: #ffa500;
+      }
+
+      [data-theme="light"] {
+        --bg-primary: var(--color-ghost-white);
+        --bg-secondary: #e8e0f0;
+        --bg-elevated: #ffffff;
+        --text-primary: var(--color-dark-amethyst);
+        --text-dim: var(--color-velvet-orchid);
+        --accent-primary: var(--color-amethyst);
+        --accent-secondary: var(--color-dusk-blue);
+        --accent-highlight: var(--color-pink-carnation);
+        --border-default: #c0b0d0;
+        --border-focus: var(--color-amethyst);
+        --success: #4a9000;
+        --error: #d32f2f;
+        --warning: #e67700;
+      }
+
       * {
         margin: 0;
         padding: 0;
@@ -13,8 +55,8 @@
 
       body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-        background-color: #1b2636;
-        color: #e0e0e0;
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
         min-height: 100vh;
       }
     </style>
