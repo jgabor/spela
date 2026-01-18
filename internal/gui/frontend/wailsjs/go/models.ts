@@ -1,16 +1,16 @@
 export namespace main {
-	
+
 	export class CPUInfo {
 	    model: string;
 	    cores: number;
 	    averageFrequency: number;
 	    governor: string;
 	    smtEnabled: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new CPUInfo(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.model = source["model"];
@@ -18,6 +18,24 @@ export namespace main {
 	        this.averageFrequency = source["averageFrequency"];
 	        this.governor = source["governor"];
 	        this.smtEnabled = source["smtEnabled"];
+	    }
+	}
+	export class DLLUpdateInfo {
+	    name: string;
+	    currentVersion: string;
+	    latestVersion: string;
+	    hasUpdate: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new DLLUpdateInfo(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.currentVersion = source["currentVersion"];
+	        this.latestVersion = source["latestVersion"];
+	        this.hasUpdate = source["hasUpdate"];
 	    }
 	}
 	export class DLLInfo {
@@ -105,24 +123,34 @@ export namespace main {
 		}
 	}
 	export class ProfileInfo {
-	    preset: string;
 	    srMode: string;
+	    srPreset: string;
 	    srOverride: boolean;
 	    fgEnabled: boolean;
+	    multiFrame: number;
+	    indicator: boolean;
+	    shaderCache: boolean;
+	    threadedOptimization: boolean;
+	    powerMizer: string;
 	    enableHdr: boolean;
 	    enableWayland: boolean;
 	    enableNgxUpdater: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ProfileInfo(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.preset = source["preset"];
 	        this.srMode = source["srMode"];
+	        this.srPreset = source["srPreset"];
 	        this.srOverride = source["srOverride"];
 	        this.fgEnabled = source["fgEnabled"];
+	        this.multiFrame = source["multiFrame"];
+	        this.indicator = source["indicator"];
+	        this.shaderCache = source["shaderCache"];
+	        this.threadedOptimization = source["threadedOptimization"];
+	        this.powerMizer = source["powerMizer"];
 	        this.enableHdr = source["enableHdr"];
 	        this.enableWayland = source["enableWayland"];
 	        this.enableNgxUpdater = source["enableNgxUpdater"];

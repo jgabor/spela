@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os/exec"
 
 	"github.com/jgabor/spela/internal/cpu"
 	"github.com/jgabor/spela/internal/dll"
+	"github.com/jgabor/spela/internal/env"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/gpu"
 	"github.com/jgabor/spela/internal/profile"
@@ -114,13 +116,18 @@ func (a *App) GetGame(appID uint64) *GameInfo {
 }
 
 type ProfileInfo struct {
-	SRMode           string `json:"srMode"`
-	SRPreset         string `json:"srPreset"`
-	SROverride       bool   `json:"srOverride"`
-	FGEnabled        bool   `json:"fgEnabled"`
-	EnableHDR        bool   `json:"enableHdr"`
-	EnableWayland    bool   `json:"enableWayland"`
-	EnableNGXUpdater bool   `json:"enableNgxUpdater"`
+	SRMode               string `json:"srMode"`
+	SRPreset             string `json:"srPreset"`
+	SROverride           bool   `json:"srOverride"`
+	FGEnabled            bool   `json:"fgEnabled"`
+	MultiFrame           int    `json:"multiFrame"`
+	Indicator            bool   `json:"indicator"`
+	ShaderCache          bool   `json:"shaderCache"`
+	ThreadedOptimization bool   `json:"threadedOptimization"`
+	PowerMizer           string `json:"powerMizer"`
+	EnableHDR            bool   `json:"enableHdr"`
+	EnableWayland        bool   `json:"enableWayland"`
+	EnableNGXUpdater     bool   `json:"enableNgxUpdater"`
 }
 
 func (a *App) GetProfile(appID uint64) *ProfileInfo {
@@ -130,13 +137,18 @@ func (a *App) GetProfile(appID uint64) *ProfileInfo {
 	}
 
 	return &ProfileInfo{
-		SRMode:           string(p.DLSS.SRMode),
-		SRPreset:         string(p.DLSS.SRPreset),
-		SROverride:       p.DLSS.SROverride,
-		FGEnabled:        p.DLSS.FGEnabled,
-		EnableHDR:        p.Proton.EnableHDR,
-		EnableWayland:    p.Proton.EnableWayland,
-		EnableNGXUpdater: p.Proton.EnableNGXUpdater,
+		SRMode:               string(p.DLSS.SRMode),
+		SRPreset:             string(p.DLSS.SRPreset),
+		SROverride:           p.DLSS.SROverride,
+		FGEnabled:            p.DLSS.FGEnabled,
+		MultiFrame:           p.DLSS.MultiFrame,
+		Indicator:            p.DLSS.Indicator,
+		ShaderCache:          p.GPU.ShaderCache,
+		ThreadedOptimization: p.GPU.ThreadedOptimization,
+		PowerMizer:           p.GPU.PowerMizer,
+		EnableHDR:            p.Proton.EnableHDR,
+		EnableWayland:        p.Proton.EnableWayland,
+		EnableNGXUpdater:     p.Proton.EnableNGXUpdater,
 	}
 }
 
@@ -148,6 +160,13 @@ func (a *App) SaveProfile(appID uint64, info ProfileInfo) error {
 			SROverride: info.SROverride,
 			FGEnabled:  info.FGEnabled,
 			FGOverride: true,
+			MultiFrame: info.MultiFrame,
+			Indicator:  info.Indicator,
+		},
+		GPU: profile.GPUSettings{
+			ShaderCache:          info.ShaderCache,
+			ThreadedOptimization: info.ThreadedOptimization,
+			PowerMizer:           info.PowerMizer,
 		},
 		Proton: profile.ProtonSettings{
 			EnableHDR:        info.EnableHDR,
@@ -327,4 +346,31 @@ func (a *App) RestoreDLLs(appID uint64) error {
 
 func (a *App) HasDLLBackup(appID uint64) bool {
 	return dll.BackupExists(appID)
+}
+
+func (a *App) LaunchGame(appID uint64) error {
+	if a.db == nil {
+		return ErrDatabaseNotLoaded
+	}
+
+	g, ok := a.db.Games[appID]
+	if !ok || g == nil {
+		return fmt.Errorf("%w: %d", ErrGameNotFound, appID)
+	}
+
+	p, _ := profile.Load(appID)
+
+	e := env.New()
+	if p != nil {
+		p.Apply(e)
+	}
+
+	cmd := exec.Command("steam", fmt.Sprintf("steam://rungameid/%d", appID))
+	e.ApplyToCmd(cmd)
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to launch game: %w", err)
+	}
+
+	return nil
 }

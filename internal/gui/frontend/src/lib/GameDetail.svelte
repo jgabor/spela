@@ -1,6 +1,6 @@
 <script>
   import { createEventDispatcher, onMount } from 'svelte'
-  import { GetProfile, SaveProfile, CheckDLLUpdates, UpdateDLLs, RestoreDLLs, HasDLLBackup } from '../../wailsjs/go/main/App'
+  import { GetProfile, SaveProfile, CheckDLLUpdates, UpdateDLLs, RestoreDLLs, HasDLLBackup, LaunchGame } from '../../wailsjs/go/main/App'
 
   export let game
 
@@ -13,9 +13,12 @@
   let hasBackup = false
   let updatingDLLs = false
   let restoringDLLs = false
+  let launching = false
 
-  const presetOptions = ['performance', 'balanced', 'quality', 'custom']
-  const srModeOptions = ['off', 'ultra_performance', 'performance', 'balanced', 'quality', 'dlaa']
+  const srModeOptions = ['', 'off', 'ultra_performance', 'performance', 'balanced', 'quality', 'dlaa']
+  const srPresetOptions = ['', 'A', 'B', 'C', 'D', 'E', 'F', 'J', 'K', 'L', 'M']
+  const multiFrameOptions = [0, 1, 2, 3, 4]
+  const powerMizerOptions = ['', 'adaptive', 'max']
 
   onMount(async () => {
     await Promise.all([loadProfile(), checkDLLUpdates()])
@@ -25,10 +28,15 @@
     profile = await GetProfile(game.appId)
     if (!profile) {
       profile = {
-        preset: 'balanced',
-        srMode: 'balanced',
+        srMode: '',
+        srPreset: '',
         srOverride: false,
         fgEnabled: false,
+        multiFrame: 0,
+        indicator: false,
+        shaderCache: false,
+        threadedOptimization: false,
+        powerMizer: '',
         enableHdr: false,
         enableWayland: false,
         enableNgxUpdater: false
@@ -86,12 +94,29 @@
   }
 
   $: hasUpdates = dllUpdates.some(d => d.hasUpdate)
+
+  async function launchGame() {
+    launching = true
+    try {
+      await LaunchGame(game.appId)
+      message = 'Game launched!'
+      setTimeout(() => message = '', 3000)
+    } catch (e) {
+      message = 'Failed to launch: ' + formatError(e)
+    }
+    launching = false
+  }
 </script>
 
 <div class="detail">
-  <button class="back" on:click={() => dispatch('back')}>
-    ← Back
-  </button>
+  <div class="top-bar">
+    <button class="back" on:click={() => dispatch('back')}>
+      ← Back
+    </button>
+    <button class="launch" on:click={launchGame} disabled={launching}>
+      {launching ? 'Launching...' : '▶ Launch'}
+    </button>
+  </div>
 
   <h1>{game.name}</h1>
 
@@ -145,30 +170,36 @@
 
   {#if profile}
     <div class="section">
-      <h2>Profile settings</h2>
+      <h2>DLSS settings</h2>
 
       <div class="form">
         <div class="field">
-          <label for="preset">Preset</label>
-          <select id="preset" bind:value={profile.preset}>
-            {#each presetOptions as opt}
-              <option value={opt}>{opt}</option>
+          <label for="srMode">Quality mode</label>
+          <select id="srMode" bind:value={profile.srMode}>
+            {#each srModeOptions as opt}
+              <option value={opt}>{opt || '(default)'}</option>
             {/each}
           </select>
         </div>
 
         <div class="field">
-          <label for="srMode">DLSS-SR mode</label>
-          <select id="srMode" bind:value={profile.srMode}>
-            {#each srModeOptions as opt}
-              <option value={opt}>{opt}</option>
+          <label for="srPreset">DLSS preset</label>
+          <select id="srPreset" bind:value={profile.srPreset}>
+            {#each srPresetOptions as opt}
+              <option value={opt}>{opt || '(default)'}</option>
             {/each}
           </select>
+          <span class="hint">A-F: CNN (DLSS 2/3), J-M: Transformer (DLSS 4/4.5)</span>
         </div>
 
         <div class="field checkbox">
           <input type="checkbox" id="srOverride" bind:checked={profile.srOverride} />
-          <label for="srOverride">DLSS-SR override</label>
+          <label for="srOverride">Override (force DLSS even if unsupported)</label>
+        </div>
+
+        <div class="field checkbox">
+          <input type="checkbox" id="indicator" bind:checked={profile.indicator} />
+          <label for="indicator">Show DLSS indicator</label>
         </div>
 
         <div class="field checkbox">
@@ -176,6 +207,47 @@
           <label for="fgEnabled">Frame generation</label>
         </div>
 
+        <div class="field">
+          <label for="multiFrame">Multi-frame generation</label>
+          <select id="multiFrame" bind:value={profile.multiFrame}>
+            {#each multiFrameOptions as opt}
+              <option value={opt}>{opt === 0 ? '(default)' : opt}</option>
+            {/each}
+          </select>
+          <span class="hint">Extra frames to generate (0=off)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>GPU settings</h2>
+
+      <div class="form">
+        <div class="field checkbox">
+          <input type="checkbox" id="shaderCache" bind:checked={profile.shaderCache} />
+          <label for="shaderCache">Shader cache</label>
+        </div>
+
+        <div class="field checkbox">
+          <input type="checkbox" id="threadedOptimization" bind:checked={profile.threadedOptimization} />
+          <label for="threadedOptimization">Threaded optimization</label>
+        </div>
+
+        <div class="field">
+          <label for="powerMizer">Power mode</label>
+          <select id="powerMizer" bind:value={profile.powerMizer}>
+            {#each powerMizerOptions as opt}
+              <option value={opt}>{opt || '(default)'}</option>
+            {/each}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Proton settings</h2>
+
+      <div class="form">
         <div class="field checkbox">
           <input type="checkbox" id="enableHdr" bind:checked={profile.enableHdr} />
           <label for="enableHdr">HDR</label>
@@ -190,15 +262,17 @@
           <input type="checkbox" id="enableNgxUpdater" bind:checked={profile.enableNgxUpdater} />
           <label for="enableNgxUpdater">NGX Updater</label>
         </div>
-
-        <button class="save" on:click={save} disabled={saving}>
-          {saving ? 'Saving...' : 'Save profile'}
-        </button>
-
-        {#if message}
-          <div class="message">{message}</div>
-        {/if}
       </div>
+    </div>
+
+    <div class="actions">
+      <button class="save" on:click={save} disabled={saving}>
+        {saving ? 'Saving...' : 'Save profile'}
+      </button>
+
+      {#if message}
+        <div class="message">{message}</div>
+      {/if}
     </div>
   {/if}
 </div>
@@ -206,6 +280,13 @@
 <style>
   .detail {
     max-width: 800px;
+  }
+
+  .top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
   }
 
   .back {
@@ -216,11 +297,30 @@
     color: var(--accent-secondary);
     cursor: pointer;
     font-size: 0.9rem;
-    margin-bottom: 1rem;
   }
 
   .back:hover {
     background-color: var(--bg-secondary);
+  }
+
+  .launch {
+    padding: 0.5rem 1.5rem;
+    border: none;
+    border-radius: 4px;
+    background-color: var(--success);
+    color: black;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+  }
+
+  .launch:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+
+  .launch:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   h1 {
@@ -402,5 +502,18 @@
     color: black;
     border-radius: 4px;
     text-align: center;
+  }
+
+  .hint {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-top: 0.25rem;
+  }
+
+  .actions {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-default);
   }
 </style>

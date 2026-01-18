@@ -30,6 +30,10 @@ export function HasDLLBackup(arg1) {
   return window['go']['gui']['App']['HasDLLBackup'](arg1);
 }
 
+export function LaunchGame(arg1) {
+  return window['go']['gui']['App']['LaunchGame'](arg1);
+}
+
 export function RestoreDLLs(arg1) {
   return window['go']['gui']['App']['RestoreDLLs'](arg1);
 }
