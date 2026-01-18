@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -40,6 +41,8 @@ type OptionsModalModel struct {
 	optionCursor   int
 	modified       bool
 	visible        bool
+	editingPath    bool
+	pathInput      textinput.Model
 	width          int
 	height         int
 }
@@ -51,8 +54,14 @@ type optionsSavedMsg struct {
 type optionsCancelledMsg struct{}
 
 func NewOptionsModal() OptionsModalModel {
+	ti := textinput.New()
+	ti.Placeholder = "Enter path..."
+	ti.CharLimit = 256
+	ti.Width = 40
+
 	return OptionsModalModel{
-		sections: buildOptionsSections(),
+		sections:  buildOptionsSections(),
+		pathInput: ti,
 	}
 }
 
@@ -181,6 +190,7 @@ func (m *OptionsModalModel) Open(cfg *config.Config) {
 	m.sectionCursor = 0
 	m.optionCursor = 0
 	m.modified = false
+	m.editingPath = false
 }
 
 func (m *OptionsModalModel) Close() {
@@ -196,6 +206,10 @@ func (m OptionsModalModel) Update(msg tea.Msg) (OptionsModalModel, tea.Cmd) {
 		return m, nil
 	}
 
+	if m.editingPath {
+		return m.updatePathEditing(msg)
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -207,6 +221,12 @@ func (m OptionsModalModel) Update(msg tea.Msg) (OptionsModalModel, tea.Cmd) {
 			m.cycleValue(-1)
 		case "right", "l":
 			m.cycleValue(1)
+		case "enter":
+			opt := m.getCurrentOption()
+			if opt != nil && opt.Type == OptionTypePath {
+				m.startPathEditing()
+				return m, nil
+			}
 		case "s":
 			return m.save()
 		case "esc", "q":
@@ -219,6 +239,51 @@ func (m OptionsModalModel) Update(msg tea.Msg) (OptionsModalModel, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+func (m *OptionsModalModel) startPathEditing() {
+	opt := m.getCurrentOption()
+	if opt == nil {
+		return
+	}
+
+	currentValue := m.getConfigValue(opt.Key)
+	if currentValue == "(default)" {
+		currentValue = ""
+	}
+
+	m.pathInput.SetValue(currentValue)
+	m.pathInput.Focus()
+	m.editingPath = true
+}
+
+func (m OptionsModalModel) updatePathEditing(msg tea.Msg) (OptionsModalModel, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "enter":
+			opt := m.getCurrentOption()
+			if opt != nil {
+				value := m.pathInput.Value()
+				if value == "" {
+					value = "(default)"
+				}
+				m.setConfigValue(opt.Key, value)
+				m.modified = true
+			}
+			m.editingPath = false
+			m.pathInput.Blur()
+			return m, nil
+		case "esc":
+			m.editingPath = false
+			m.pathInput.Blur()
+			return m, nil
+		}
+	}
+
+	var cmd tea.Cmd
+	m.pathInput, cmd = m.pathInput.Update(msg)
+	return m, cmd
 }
 
 func (m *OptionsModalModel) moveCursor(direction int) {
@@ -444,15 +509,22 @@ func (m OptionsModalModel) View() string {
 			style := normalStyle
 			valueStyle := dlssStyle
 
-			if flatIndex == currentFlat {
+			isCurrentOption := flatIndex == currentFlat
+
+			if isCurrentOption {
 				cursor = "> "
 				style = selectedStyle
 			}
 
-			value := m.getConfigValue(opt.Key)
 			label := fmt.Sprintf("%s%-22s: ", cursor, opt.Label)
 			b.WriteString(style.Render(label))
-			b.WriteString(valueStyle.Render(value))
+
+			if isCurrentOption && m.editingPath && opt.Type == OptionTypePath {
+				b.WriteString(m.pathInput.View())
+			} else {
+				value := m.getConfigValue(opt.Key)
+				b.WriteString(valueStyle.Render(value))
+			}
 			b.WriteString("\n")
 			flatIndex++
 		}
@@ -470,8 +542,16 @@ func (m OptionsModalModel) View() string {
 		b.WriteString("\n")
 	}
 
-	if hint := RenderHint("\n↑↓:navigate • ←→:change • s:save • esc:close"); hint != "" {
-		b.WriteString(hint)
+	var hint string
+	if m.editingPath {
+		hint = "\nenter:confirm • esc:cancel"
+	} else if currentOption != nil && currentOption.Type == OptionTypePath {
+		hint = "\n↑↓:navigate • enter:edit • s:save • esc:close"
+	} else {
+		hint = "\n↑↓:navigate • ←→:change • s:save • esc:close"
+	}
+	if h := RenderHint(hint); h != "" {
+		b.WriteString(h)
 	}
 
 	modal := boxStyle.Render(b.String())
