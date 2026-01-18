@@ -48,13 +48,6 @@ func NewProfileEditor(g *game.Game, p *profile.Profile) ProfileEditorModel {
 			description: "Neural network preset (A-F: CNN, J-M: Transformer)",
 		},
 		{
-			label:       "DLSS Model",
-			key:         "sr_model_preset",
-			value:       modelPresetValue(p.DLSS.SRModelPreset),
-			options:     []string{"auto", "k", "l", "m"},
-			description: "AI model: auto selects best for mode. K=general, L=4K ultra perf, M=perf",
-		},
-		{
 			label:       "DLSS-SR Override",
 			key:         "sr_override",
 			value:       boolStr(p.DLSS.SROverride),
@@ -147,13 +140,6 @@ func boolStr(b bool) string {
 	return "false"
 }
 
-func modelPresetValue(p profile.DLSSModelPreset) string {
-	if p == "" {
-		return "auto"
-	}
-	return string(p)
-}
-
 func srPresetValue(p profile.DLSSPreset) string {
 	if p == "" {
 		return "default"
@@ -226,8 +212,6 @@ func (m *ProfileEditorModel) applyToProfile() {
 			m.profile.DLSS.SRMode = profile.DLSSMode(f.value)
 		case "sr_preset":
 			m.profile.DLSS.SRPreset = profile.DLSSPreset(f.value)
-		case "sr_model_preset":
-			m.profile.DLSS.SRModelPreset = profile.DLSSModelPreset(f.value)
 		case "sr_override":
 			m.profile.DLSS.SROverride = f.value == "true"
 		case "fg_enabled":

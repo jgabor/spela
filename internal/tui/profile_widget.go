@@ -87,13 +87,6 @@ func NewProfileWidget(g *game.Game, p *profile.Profile) ProfileWidgetModel {
 					usesModal:   true,
 				},
 				{
-					label:       "Model",
-					key:         "sr_model_preset",
-					value:       displayValue(modelPresetValue(p.DLSS.SRModelPreset)),
-					options:     []string{"(default)", "k", "l", "m"},
-					description: "AI model: K=general, L=4K, M=perf",
-				},
-				{
 					label:       "Override",
 					key:         "sr_override",
 					value:       displayBool(p.DLSS.SROverride),
@@ -322,12 +315,6 @@ func (m *ProfileWidgetModel) applyToProfile() {
 					m.profile.DLSS.SRPreset = ""
 				} else {
 					m.profile.DLSS.SRPreset = profile.DLSSPreset(value)
-				}
-			case "sr_model_preset":
-				if isDefault {
-					m.profile.DLSS.SRModelPreset = ""
-				} else {
-					m.profile.DLSS.SRModelPreset = profile.DLSSModelPreset(value)
 				}
 			case "sr_override":
 				m.profile.DLSS.SROverride = value == "true"
