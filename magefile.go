@@ -195,11 +195,12 @@ func (Release) Release() error {
 		summary = ""
 	}
 
-	if err := showPreviewAndConfirm(nextVersion, changelog, summary); err != nil {
+	summary, err = showPreviewAndConfirm(nextVersion, changelog, summary)
+	if err != nil {
 		return err
 	}
 
-	if err := updateChangelogFile(nextVersion); err != nil {
+	if err := updateChangelogFile(nextVersion, summary); err != nil {
 		return fmt.Errorf("failed to update CHANGELOG.md: %w", err)
 	}
 
@@ -340,7 +341,7 @@ Summary:`, changelog)
 	return strings.TrimSpace(stdout.String()), nil
 }
 
-func showPreviewAndConfirm(version, changelog, summary string) error {
+func showPreviewAndConfirm(version, changelog, summary string) (string, error) {
 	fmt.Println("\n" + strings.Repeat("=", 60))
 	fmt.Printf("Release Preview: %s\n", version)
 	fmt.Println(strings.Repeat("=", 60))
@@ -364,30 +365,59 @@ func showPreviewAndConfirm(version, changelog, summary string) error {
 
 	switch choice {
 	case "1":
-		return nil
+		return summary, nil
 	case "2":
 		fmt.Print("Enter new summary (single line): ")
 		newSummary, _ := reader.ReadString('\n')
-		fmt.Printf("\nNew summary: %s\n", strings.TrimSpace(newSummary))
+		newSummary = strings.TrimSpace(newSummary)
+		fmt.Printf("\nNew summary: %s\n", newSummary)
 		fmt.Print("Proceed? [y/N]: ")
 		confirm, _ := reader.ReadString('\n')
 		if strings.ToLower(strings.TrimSpace(confirm)) != "y" {
-			return fmt.Errorf("aborted")
+			return "", fmt.Errorf("aborted")
 		}
-		return nil
+		return newSummary, nil
 	case "3":
-		return fmt.Errorf("aborted")
+		return "", fmt.Errorf("aborted")
 	default:
-		return fmt.Errorf("invalid choice")
+		return "", fmt.Errorf("invalid choice")
 	}
 }
 
-func updateChangelogFile(version string) error {
+func updateChangelogFile(version, summary string) error {
 	gitCliff, err := findGitCliff()
 	if err != nil {
 		return err
 	}
-	return sh.RunV(gitCliff, "--tag", version, "-o", "CHANGELOG.md")
+	if err := sh.RunV(gitCliff, "--tag", version, "-o", "CHANGELOG.md"); err != nil {
+		return err
+	}
+
+	if summary == "" {
+		return nil
+	}
+
+	content, err := os.ReadFile("CHANGELOG.md")
+	if err != nil {
+		return fmt.Errorf("failed to read CHANGELOG.md: %w", err)
+	}
+
+	v := strings.TrimPrefix(version, "v")
+	headerPattern := regexp.MustCompile(`(?m)(## \[` + regexp.QuoteMeta(v) + `\][^\n]*\n)`)
+	loc := headerPattern.FindIndex(content)
+	if loc == nil {
+		return fmt.Errorf("could not find version header for %s in CHANGELOG.md", version)
+	}
+
+	headerEnd := loc[1]
+	summaryBlock := "\n" + summary + "\n"
+	newContent := string(content[:headerEnd]) + summaryBlock + string(content[headerEnd:])
+
+	if err := os.WriteFile("CHANGELOG.md", []byte(newContent), 0644); err != nil {
+		return fmt.Errorf("failed to write CHANGELOG.md: %w", err)
+	}
+
+	return nil
 }
 
 func commitTagPush(version string) error {
@@ -430,11 +460,12 @@ func releaseWithVersion(version string) error {
 		summary = ""
 	}
 
-	if err := showPreviewAndConfirm(version, changelog, summary); err != nil {
+	summary, err = showPreviewAndConfirm(version, changelog, summary)
+	if err != nil {
 		return err
 	}
 
-	if err := updateChangelogFile(version); err != nil {
+	if err := updateChangelogFile(version, summary); err != nil {
 		return fmt.Errorf("failed to update CHANGELOG.md: %w", err)
 	}
 
