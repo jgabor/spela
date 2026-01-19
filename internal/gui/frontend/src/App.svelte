@@ -589,7 +589,7 @@
   .app-shell {
     flex: 1;
     display: grid;
-    grid-template-columns: minmax(250px, 320px) 1fr;
+    grid-template-columns: clamp(25ch, 30%, 50ch) minmax(0, 1fr);
     gap: 1rem;
     padding: 1rem 1.5rem;
     min-height: 0;
@@ -649,11 +649,6 @@
   }
 
   @media (max-width: 1100px) {
-    .app-shell {
-      grid-template-columns: minmax(220px, 1fr);
-      grid-template-rows: 280px 1fr;
-    }
-
     .content {
       padding: 1rem;
     }
