@@ -1,25 +1,20 @@
 <script>
   import { onMount } from 'svelte'
-  import { GetGPUInfo, GetCPUInfo, GetConfig, SaveConfig, GetVersion, GetLogo } from '../wailsjs/go/gui/App'
+  import { GetConfig, SaveConfig, GetVersion } from '../wailsjs/go/gui/App'
+  import Header from './lib/Header.svelte'
   import GameList from './lib/GameList.svelte'
   import GameDetail from './lib/GameDetail.svelte'
 
-  const wailsBindings = { GetConfig, SaveConfig, GetVersion, GetLogo }
-  const metricsBindings = { GetGPUInfo, GetCPUInfo }
+  const wailsBindings = { GetConfig, SaveConfig, GetVersion }
 
   let selectedGame = null
-  let gpu = null
-  let cpu = null
-  let refreshTimer
   let theme = 'dark'
   let showOptions = false
   let config = null
-  let logoSource = null
   let version = ''
   let configMessage = ''
   let configMessageType = 'info'
   let configMessageTimer
-  const logoText = 'Spela'
 
   const optionSections = [
     {
@@ -62,23 +57,8 @@
 
   onMount(() => {
     loadConfig()
-    loadAssets()
-    refreshMetrics()
-    refreshTimer = setInterval(refreshMetrics, 2000)
-    return () => {
-      clearInterval(refreshTimer)
-    }
+    loadVersion()
   })
-
-  async function refreshMetrics() {
-    try {
-      gpu = await metricsBindings.GetGPUInfo()
-      cpu = await metricsBindings.GetCPUInfo()
-    } catch (error) {
-      gpu = null
-      cpu = null
-    }
-  }
 
   function selectGame(game) {
     selectedGame = game
@@ -114,12 +94,10 @@
     }
   }
 
-  async function loadAssets() {
+  async function loadVersion() {
     try {
-      logoSource = await wailsBindings.GetLogo()
       version = await wailsBindings.GetVersion()
     } catch (error) {
-      logoSource = null
       version = ''
     }
   }
@@ -176,60 +154,7 @@
 </script>
 
 <main>
-  <header class="app-header">
-    <div class="logo">
-      {#if logoSource}
-        <img src={logoSource} alt="Spela" class="logo-image" />
-      {:else}
-        <div class="logo-text">{logoText}</div>
-      {/if}
-    </div>
-    <div class="header-right">
-      <div class="metrics">
-        <div class="metric-line">
-          <span class="metric-label">GPU:</span>
-          <span class="metric-value">
-            {#if gpu}
-              {gpu.temperature}°C {gpu.utilization}% {gpu.powerDraw.toFixed(0)}W
-            {:else}
-              N/A
-            {/if}
-          </span>
-        </div>
-        <div class="metric-line">
-          <span class="metric-label">VRAM:</span>
-          <span class="metric-value">
-            {#if gpu}
-              {(gpu.memoryUsed / 1024).toFixed(1)}/{(gpu.memoryTotal / 1024).toFixed(1)} GB
-            {:else}
-              N/A
-            {/if}
-          </span>
-        </div>
-        <div class="metric-line">
-          <span class="metric-label">CPU:</span>
-          <span class="metric-value">
-            {#if cpu}
-              {cpu.utilizationPercent.toFixed(0)}% {cpu.averageFrequency}MHz
-            {:else}
-              N/A
-            {/if}
-          </span>
-        </div>
-        <div class="metric-line">
-          <span class="metric-label">RAM:</span>
-          <span class="metric-value">
-            {#if cpu}
-              {(cpu.memoryUsedMegabytes / 1024).toFixed(1)}/{(cpu.memoryTotalMegabytes / 1024).toFixed(1)} GB
-            {:else}
-              N/A
-            {/if}
-          </span>
-        </div>
-      </div>
-      <button class="options-button" on:click={toggleOptions}>Options</button>
-    </div>
-  </header>
+  <Header on:options={toggleOptions} />
 
   {#if showOptions}
     <button
@@ -314,69 +239,6 @@
     position: relative;
   }
 
-  .app-header {
-    display: flex;
-    justify-content: space-between;
-    padding: 0.75rem 1.5rem 1rem;
-    border-bottom: 1px solid var(--border-default);
-    background-color: var(--bg-primary);
-  }
-
-  .logo {
-    display: flex;
-    align-items: center;
-    min-height: 44px;
-  }
-
-  .logo img {
-    image-rendering: auto;
-  }
-
-  .logo-text {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--accent-primary);
-    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
-  }
-
-  .logo-image {
-    height: 42px;
-    width: auto;
-    display: block;
-  }
-
-    .header-right {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-
-  .metrics {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    font-size: 0.75rem;
-    align-items: flex-end;
-    letter-spacing: 0.02em;
-  }
-
-  .metrics .metric-label {
-    text-transform: uppercase;
-  }
-
-  .metrics .metric-value {
-    text-transform: none;
-    letter-spacing: 0.02em;
-    white-space: nowrap;
-  }
-
-  .metric-value {
-    font-weight: 600;
-  }
-
-  .metric-line {
-    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
-  }
 
   .options-panel button {
     font-family: inherit;
@@ -421,36 +283,6 @@
     color: var(--text-dim);
   }
 
-  .metric-line {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .metric-label {
-    color: var(--text-dim);
-    text-transform: uppercase;
-  }
-
-  .metric-value {
-    color: var(--text-primary);
-  }
-
-  .options-button {
-    padding: 0.45rem 0.9rem;
-    border: 1px solid var(--border-default);
-    border-radius: 6px;
-    background-color: transparent;
-    color: var(--text-primary);
-    font-size: 0.75rem;
-    cursor: pointer;
-    align-self: flex-start;
-    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
-  }
-
-  .options-button:hover {
-    border-color: var(--border-focus);
-    color: var(--accent-primary);
-  }
 
   .options-overlay {
     position: fixed;
@@ -652,28 +484,9 @@
     .content {
       padding: 1rem;
     }
-
-    .header-right {
-      flex-direction: column;
-      align-items: flex-end;
-    }
   }
 
   @media (max-width: 720px) {
-    .app-header {
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .header-right {
-      width: 100%;
-      align-items: flex-start;
-    }
-
-    .metrics {
-      align-items: flex-start;
-    }
-
     .app-shell {
       padding: 0.75rem 1rem;
       gap: 0.75rem;
