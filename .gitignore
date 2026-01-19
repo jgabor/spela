@@ -12,3 +12,7 @@ docs/
 
 # GUI frontend
 internal/gui/frontend/node_modules/
+internal/gui/frontend/wailsjs/wailsjs/
+
+# Wails build output
+cmd/spela/build/
