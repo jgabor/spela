@@ -498,6 +498,10 @@
     font-size: 0.7rem;
   }
 
+  .dll-header .dll-cell {
+    color: var(--text-dim);
+  }
+
   .dll-cell {
     color: var(--accent-secondary);
   }
