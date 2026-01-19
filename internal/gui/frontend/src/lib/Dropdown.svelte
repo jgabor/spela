@@ -63,20 +63,27 @@
   .dropdown {
     position: relative;
     display: inline-block;
+    width: 100%;
+    z-index: 20;
+  }
+
+  .dropdown:focus-within {
+    z-index: 2001;
   }
 
   .trigger {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 0.5rem;
-    padding: 0.25rem 0.5rem;
+    padding: 0.25rem 0.6rem;
     border: 1px solid var(--border-default);
-    border-radius: 4px;
+    border-radius: 6px;
     background-color: var(--bg-secondary);
     color: var(--text-primary);
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     cursor: pointer;
-    min-width: 100px;
+    width: 100%;
   }
 
   .trigger:hover {
@@ -96,10 +103,12 @@
     min-width: 100%;
     background-color: var(--bg-secondary);
     border: 1px solid var(--border-default);
-    border-radius: 4px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    z-index: 100;
-    overflow: hidden;
+    border-radius: 6px;
+    z-index: 2000;
+    max-height: 220px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
   }
 
   .option {
@@ -109,7 +118,7 @@
     border: none;
     background: none;
     color: var(--text-primary);
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     text-align: left;
     cursor: pointer;
   }

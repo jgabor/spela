@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte'
-  import { GetGPUInfo, GetCPUInfo } from '../../wailsjs/go/main/App'
+  import { GetGPUInfo, GetCPUInfo } from '../../wailsjs/go/gui/App'
 
   let gpu = null
   let cpuInfo = null

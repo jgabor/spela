@@ -1,7 +1,9 @@
 <script>
   import { onMount, createEventDispatcher } from 'svelte'
-  import { GetGames, ScanGames, UpdateDLLs } from '../../wailsjs/go/main/App'
+  import { GetGames, ScanGames, UpdateDLLs } from '../../wailsjs/go/gui/App'
   import Dropdown from './Dropdown.svelte'
+
+  export let selectedGame = null
 
   const dispatch = createEventDispatcher()
 
@@ -15,6 +17,7 @@
   let selected = new Set()
   let batchUpdating = false
   let batchMessage = ''
+  let messageTimer
 
   const sortModes = [
     { value: 'name-asc', label: 'Name A-Z' },
@@ -113,23 +116,35 @@
     } else {
       selected.add(appId)
     }
-    selected = selected
+    selected = new Set(selected)
   }
 
   function selectAll() {
-    filteredGames.forEach(g => selected.add(g.appId))
-    selected = selected
+    filteredGames.forEach(game => {
+      selected.add(game.appId)
+    })
+    selected = new Set(selected)
   }
 
   function selectNone() {
     selected = new Set()
   }
 
+  function clearMessageAfter(delay) {
+    if (messageTimer) {
+      clearTimeout(messageTimer)
+    }
+    messageTimer = setTimeout(() => {
+      batchMessage = ''
+      messageTimer = null
+    }, delay)
+  }
+
   async function batchUpdateDLLs() {
     const gamesWithDLLs = filteredGames.filter(g => selected.has(g.appId) && g.dlls && g.dlls.length > 0)
     if (gamesWithDLLs.length === 0) {
       batchMessage = 'No selected games have DLLs to update'
-      setTimeout(() => batchMessage = '', 3000)
+      clearMessageAfter(3000)
       return
     }
 
@@ -148,10 +163,12 @@
       }
     }
 
-    batchMessage = failCount > 0
-      ? `Updated ${successCount} games, ${failCount} failed`
-      : `Updated DLLs for ${successCount} games`
-    setTimeout(() => batchMessage = '', 5000)
+    if (failCount > 0) {
+      batchMessage = `Updated ${successCount} games, ${failCount} failed`
+    } else {
+      batchMessage = `Updated DLLs for ${successCount} games`
+    }
+    clearMessageAfter(5000)
     batchUpdating = false
     selected = new Set()
     selectMode = false
@@ -168,10 +185,12 @@
       placeholder="Search games..."
       bind:value={search}
     />
-    <button on:click={rescan}>Rescan</button>
-    <button class="select-btn" class:active={selectMode} on:click={toggleSelectMode}>
-      {selectMode ? 'Cancel' : 'Select'}
-    </button>
+    <div class="header-actions">
+      <button on:click={rescan}>Rescan</button>
+      <button class="select-btn" class:active={selectMode} on:click={toggleSelectMode}>
+        {selectMode ? 'Cancel' : 'Select'}
+      </button>
+    </div>
   </div>
 
   {#if selectMode}
@@ -243,7 +262,7 @@
             <span class="name">{game.name}</span>
             <div class="badges">
               {#if game.dlls && game.dlls.length > 0}
-                <span class="badge dlss">● DLSS</span>
+                <span class="badge dlss">● DLLs</span>
               {/if}
               {#if game.hasProfile}
                 <span class="badge profile">◆ Profile</span>
@@ -251,11 +270,15 @@
             </div>
           </label>
         {:else}
-          <button class="game-item" on:click={() => dispatch('select', game)}>
+          <button
+            class="game-item"
+            class:active={selectedGame && selectedGame.appId === game.appId}
+            on:click={() => dispatch('select', game)}
+          >
             <span class="name">{game.name}</span>
             <div class="badges">
               {#if game.dlls && game.dlls.length > 0}
-                <span class="badge dlss">● DLSS</span>
+                <span class="badge dlss">● DLLs</span>
               {/if}
               {#if game.hasProfile}
                 <span class="badge profile">◆ Profile</span>
@@ -273,22 +296,25 @@
     height: 100%;
     display: flex;
     flex-direction: column;
+    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
   }
 
   .header {
     display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
   }
 
   .header input {
     flex: 1;
-    padding: 0.5rem 1rem;
+    padding: 0.5rem 0.75rem;
     border: 1px solid var(--border-default);
-    border-radius: 4px;
+    border-radius: 6px;
     background-color: var(--bg-secondary);
     color: var(--text-primary);
-    font-size: 0.9rem;
+    font-size: 0.8rem;
+    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
   }
 
   .header input:focus {
@@ -300,13 +326,20 @@
     color: var(--text-dim);
   }
 
+  .header-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
   .header button {
-    padding: 0.5rem 1rem;
+    padding: 0.4rem 0.75rem;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     background-color: var(--accent-primary);
     color: var(--color-ghost-white, #F5F5FD);
     cursor: pointer;
+    font-size: 0.8rem;
+    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
   }
 
   .header button:hover {
@@ -323,13 +356,18 @@
     color: black;
   }
 
+  .game-item.active .badges .badge {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: var(--color-ghost-white, #F5F5FD);
+  }
+
   .batch-toolbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 0.5rem;
     background-color: var(--bg-secondary);
-    border-radius: 4px;
+    border-radius: 6px;
     margin-bottom: 0.75rem;
   }
 
@@ -382,23 +420,24 @@
     padding: 0.5rem;
     background-color: var(--accent-primary);
     color: var(--color-ghost-white, #F5F5FD);
-    border-radius: 4px;
+    border-radius: 6px;
     text-align: center;
     margin-bottom: 0.75rem;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
   }
 
   .toolbar {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.75rem;
-    gap: 0.5rem;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 0.6rem;
+    gap: 0.6rem;
   }
 
   .filters {
     display: flex;
     gap: 0.5rem;
+    flex-wrap: wrap;
   }
 
   .filter-toggle {
@@ -406,10 +445,10 @@
     align-items: center;
     gap: 0.25rem;
     padding: 0.25rem 0.5rem;
-    border-radius: 4px;
+    border-radius: 6px;
     background-color: var(--bg-secondary);
     cursor: pointer;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     transition: all 0.2s;
   }
 
@@ -429,6 +468,10 @@
     color: var(--color-ghost-white, #F5F5FD);
   }
 
+  .filter-toggle.active .filter-label::before {
+    content: '> ';
+  }
+
   .filter-toggle:hover {
     filter: brightness(1.1);
   }
@@ -437,6 +480,7 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    width: 100%;
   }
 
   .clear-btn {
@@ -454,9 +498,9 @@
   }
 
   .count {
-    font-size: 0.8rem;
+    font-size: 0.65rem;
     color: var(--text-dim);
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.4rem;
   }
 
   .loading, .empty {
@@ -482,7 +526,7 @@
   .list {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.25rem;
     overflow-y: auto;
   }
 
@@ -490,24 +534,43 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.75rem 1rem;
-    border: 1px solid var(--border-default);
-    border-radius: 4px;
-    background-color: var(--bg-secondary);
+    padding: 0.6rem 0.85rem;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background-color: transparent;
     color: var(--text-primary);
     cursor: pointer;
     text-align: left;
+    font-size: 0.78rem;
     transition: all 0.2s;
   }
 
   .game-item:hover {
-    background-color: var(--bg-elevated);
+    background-color: var(--bg-secondary);
     border-color: var(--accent-primary);
+  }
+
+  .game-item.active {
+    background-color: var(--accent-primary);
+    color: var(--color-ghost-white, #F5F5FD);
+  }
+
+  .game-item.active .name {
+    color: var(--color-ghost-white, #F5F5FD);
+  }
+
+  .game-item.active .badge.dlss,
+  .game-item.active .badge.profile {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: var(--color-ghost-white, #F5F5FD);
   }
 
   .game-item.selectable {
     cursor: pointer;
+    letter-spacing: 0.02em;
+    font-size: 0.82rem;
   }
+
 
   .game-item.selectable input[type="checkbox"] {
     width: 18px;
@@ -524,6 +587,7 @@
 
   .name {
     font-weight: 500;
+    color: inherit;
   }
 
   .badges {
@@ -532,15 +596,16 @@
   }
 
   .badge {
-    padding: 0.2rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.75rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
     font-weight: 500;
+    text-transform: none;
   }
 
   .badge.dlss {
-    background-color: var(--success);
-    color: black;
+    background-color: var(--accent-secondary);
+    color: var(--color-ghost-white, #F5F5FD);
   }
 
   .badge.profile {

@@ -1,16 +1,19 @@
-export namespace main {
-
+export namespace gui {
+	
 	export class CPUInfo {
 	    model: string;
 	    cores: number;
 	    averageFrequency: number;
 	    governor: string;
 	    smtEnabled: boolean;
-
+	    utilizationPercent: number;
+	    memoryUsedMegabytes: number;
+	    memoryTotalMegabytes: number;
+	
 	    static createFrom(source: any = {}) {
 	        return new CPUInfo(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.model = source["model"];
@@ -18,30 +21,60 @@ export namespace main {
 	        this.averageFrequency = source["averageFrequency"];
 	        this.governor = source["governor"];
 	        this.smtEnabled = source["smtEnabled"];
+	        this.utilizationPercent = source["utilizationPercent"];
+	        this.memoryUsedMegabytes = source["memoryUsedMegabytes"];
+	        this.memoryTotalMegabytes = source["memoryTotalMegabytes"];
 	    }
 	}
-	export class DLLUpdateInfo {
-	    name: string;
-	    currentVersion: string;
-	    latestVersion: string;
-	    hasUpdate: boolean;
-
+	export class ConfigInfo {
+	    logLevel: string;
+	    shaderCache: string;
+	    checkUpdates: boolean;
+	    showHints: boolean;
+	    rescanOnStartup: boolean;
+	    autoUpdateDLLs: boolean;
+	    steamPath: string;
+	    additionalLibraryPaths: string[];
+	    dllCachePath: string;
+	    backupPath: string;
+	    dllManifestURL: string;
+	    autoRefreshManifest: boolean;
+	    manifestRefreshHours: number;
+	    preferredDLLSource: string;
+	    theme: string;
+	    compactMode: boolean;
+	    confirmDestructive: boolean;
+	
 	    static createFrom(source: any = {}) {
-	        return new DLLUpdateInfo(source);
+	        return new ConfigInfo(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.currentVersion = source["currentVersion"];
-	        this.latestVersion = source["latestVersion"];
-	        this.hasUpdate = source["hasUpdate"];
+	        this.logLevel = source["logLevel"];
+	        this.shaderCache = source["shaderCache"];
+	        this.checkUpdates = source["checkUpdates"];
+	        this.showHints = source["showHints"];
+	        this.rescanOnStartup = source["rescanOnStartup"];
+	        this.autoUpdateDLLs = source["autoUpdateDLLs"];
+	        this.steamPath = source["steamPath"];
+	        this.additionalLibraryPaths = source["additionalLibraryPaths"];
+	        this.dllCachePath = source["dllCachePath"];
+	        this.backupPath = source["backupPath"];
+	        this.dllManifestURL = source["dllManifestURL"];
+	        this.autoRefreshManifest = source["autoRefreshManifest"];
+	        this.manifestRefreshHours = source["manifestRefreshHours"];
+	        this.preferredDLLSource = source["preferredDLLSource"];
+	        this.theme = source["theme"];
+	        this.compactMode = source["compactMode"];
+	        this.confirmDestructive = source["confirmDestructive"];
 	    }
 	}
 	export class DLLInfo {
 	    name: string;
 	    path: string;
 	    version: string;
+	    dllType: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new DLLInfo(source);
@@ -52,6 +85,25 @@ export namespace main {
 	        this.name = source["name"];
 	        this.path = source["path"];
 	        this.version = source["version"];
+	        this.dllType = source["dllType"];
+	    }
+	}
+	export class DLLUpdateInfo {
+	    name: string;
+	    currentVersion: string;
+	    latestVersion: string;
+	    hasUpdate: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new DLLUpdateInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.currentVersion = source["currentVersion"];
+	        this.latestVersion = source["latestVersion"];
+	        this.hasUpdate = source["hasUpdate"];
 	    }
 	}
 	export class GPUInfo {
@@ -135,11 +187,12 @@ export namespace main {
 	    enableHdr: boolean;
 	    enableWayland: boolean;
 	    enableNgxUpdater: boolean;
-
+	    backupOnLaunch: boolean;
+	
 	    static createFrom(source: any = {}) {
 	        return new ProfileInfo(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.srMode = source["srMode"];
@@ -154,6 +207,7 @@ export namespace main {
 	        this.enableHdr = source["enableHdr"];
 	        this.enableWayland = source["enableWayland"];
 	        this.enableNgxUpdater = source["enableNgxUpdater"];
+	        this.backupOnLaunch = source["backupOnLaunch"];
 	    }
 	}
 

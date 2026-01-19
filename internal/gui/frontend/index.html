@@ -17,18 +17,21 @@
         --color-ghost-white: #F5F5FD;
 
         --bg-primary: var(--color-midnight-black);
-        --bg-secondary: var(--color-dark-amethyst);
+        --bg-secondary: #14052d;
         --bg-elevated: #1a0a2e;
         --text-primary: var(--color-ghost-white);
         --text-dim: #a090b8;
         --accent-primary: var(--color-amethyst);
         --accent-secondary: var(--color-royal-blue);
         --accent-highlight: var(--color-pink-carnation);
-        --border-default: var(--color-velvet-orchid);
+        --border-default: #5a1f78;
         --border-focus: var(--color-amethyst);
         --success: #76b900;
         --error: #ff6b6b;
         --warning: #ffa500;
+        --border-radius: 8px;
+        --border-radius-small: 6px;
+        --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       }
 
       [data-theme="light"] {
@@ -54,10 +57,17 @@
       }
 
       body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         background-color: var(--bg-primary);
         color: var(--text-primary);
         min-height: 100vh;
+        letter-spacing: 0;
+      }
+
+      button,
+      input,
+      select {
+        font-family: inherit;
       }
     </style>
   </head>

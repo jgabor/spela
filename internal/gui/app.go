@@ -2,11 +2,14 @@ package gui
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"os/exec"
 
+	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/cpu"
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/env"
@@ -23,6 +26,150 @@ var (
 type App struct {
 	ctx context.Context
 	db  *game.Database
+}
+
+type ConfigInfo struct {
+	LogLevel               string   `json:"logLevel"`
+	ShaderCache            string   `json:"shaderCache"`
+	CheckUpdates           bool     `json:"checkUpdates"`
+	ShowHints              bool     `json:"showHints"`
+	RescanOnStartup        bool     `json:"rescanOnStartup"`
+	AutoUpdateDLLs         bool     `json:"autoUpdateDLLs"`
+	SteamPath              string   `json:"steamPath"`
+	AdditionalLibraryPaths []string `json:"additionalLibraryPaths"`
+	DLLCachePath           string   `json:"dllCachePath"`
+	BackupPath             string   `json:"backupPath"`
+	DLLManifestURL         string   `json:"dllManifestURL"`
+	AutoRefreshManifest    bool     `json:"autoRefreshManifest"`
+	ManifestRefreshHours   int      `json:"manifestRefreshHours"`
+	PreferredDLLSource     string   `json:"preferredDLLSource"`
+	Theme                  string   `json:"theme"`
+	CompactMode            bool     `json:"compactMode"`
+	ConfirmDestructive     bool     `json:"confirmDestructive"`
+}
+
+func (a *App) GetConfig() (ConfigInfo, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return ConfigInfo{}, err
+	}
+	return configInfoFromConfig(cfg), nil
+}
+
+func (a *App) SaveConfig(info ConfigInfo) error {
+	current, err := config.Load()
+	if err != nil {
+		return err
+	}
+	if err := applyConfigInfo(current, info); err != nil {
+		return err
+	}
+	return current.Save()
+}
+
+func configInfoFromConfig(cfg *config.Config) ConfigInfo {
+	return ConfigInfo{
+		LogLevel:               string(cfg.LogLevel),
+		ShaderCache:            cfg.ShaderCache,
+		CheckUpdates:           cfg.CheckUpdates,
+		ShowHints:              cfg.ShowHints,
+		RescanOnStartup:        cfg.RescanOnStartup,
+		AutoUpdateDLLs:         cfg.AutoUpdateDLLs,
+		SteamPath:              cfg.SteamPath,
+		AdditionalLibraryPaths: cfg.AdditionalLibraryPaths,
+		DLLCachePath:           cfg.DLLCachePath,
+		BackupPath:             cfg.BackupPath,
+		DLLManifestURL:         cfg.DLLManifestURL,
+		AutoRefreshManifest:    cfg.AutoRefreshManifest,
+		ManifestRefreshHours:   cfg.ManifestRefreshHours,
+		PreferredDLLSource:     cfg.PreferredDLLSource,
+		Theme:                  cfg.Theme,
+		CompactMode:            cfg.CompactMode,
+		ConfirmDestructive:     cfg.ConfirmDestructive,
+	}
+}
+
+func applyConfigInfo(cfg *config.Config, info ConfigInfo) error {
+	logLevel, err := parseLogLevel(info.LogLevel)
+	if err != nil {
+		return err
+	}
+	preferredDLLSource, err := parsePreferredDLLSource(info.PreferredDLLSource)
+	if err != nil {
+		return err
+	}
+	theme, err := parseTheme(info.Theme)
+	if err != nil {
+		return err
+	}
+	cfg.LogLevel = logLevel
+	cfg.ShaderCache = info.ShaderCache
+	cfg.CheckUpdates = info.CheckUpdates
+	cfg.ShowHints = info.ShowHints
+	cfg.RescanOnStartup = info.RescanOnStartup
+	cfg.AutoUpdateDLLs = info.AutoUpdateDLLs
+	cfg.SteamPath = info.SteamPath
+	cfg.AdditionalLibraryPaths = info.AdditionalLibraryPaths
+	cfg.DLLCachePath = info.DLLCachePath
+	cfg.BackupPath = info.BackupPath
+	cfg.DLLManifestURL = info.DLLManifestURL
+	cfg.AutoRefreshManifest = info.AutoRefreshManifest
+	cfg.ManifestRefreshHours = info.ManifestRefreshHours
+	cfg.PreferredDLLSource = preferredDLLSource
+	cfg.Theme = theme
+	cfg.CompactMode = info.CompactMode
+	cfg.ConfirmDestructive = info.ConfirmDestructive
+	return nil
+}
+
+func parseLogLevel(level string) (config.LogLevel, error) {
+	switch level {
+	case string(config.LogLevelDebug):
+		return config.LogLevelDebug, nil
+	case string(config.LogLevelInfo):
+		return config.LogLevelInfo, nil
+	case string(config.LogLevelWarn):
+		return config.LogLevelWarn, nil
+	case string(config.LogLevelError):
+		return config.LogLevelError, nil
+	default:
+		return "", fmt.Errorf("unsupported log level: %s", level)
+	}
+}
+
+func parsePreferredDLLSource(source string) (string, error) {
+	switch source {
+	case "techpowerup", "github":
+		return source, nil
+	default:
+		return "", fmt.Errorf("unsupported DLL source: %s", source)
+	}
+}
+
+func parseTheme(theme string) (string, error) {
+	switch theme {
+	case "default", "dark":
+		return theme, nil
+	default:
+		return "", fmt.Errorf("unsupported theme: %s", theme)
+	}
+}
+
+func (a *App) GetVersion() string {
+	version := os.Getenv("SPELA_VERSION")
+	if version == "" {
+		return "dev"
+	}
+	return version
+}
+
+func (a *App) GetLogo() string {
+	data, err := os.ReadFile("assets/spela.png")
+	if err != nil {
+		return ""
+	}
+	encoded := base64.StdEncoding.EncodeToString(data)
+	return "data:image/png;base64," + encoded
 }
 
 func NewApp() *App {
@@ -55,6 +202,7 @@ type DLLInfo struct {
 	Name    string `json:"name"`
 	Path    string `json:"path"`
 	Version string `json:"version"`
+	DLLType string `json:"dllType"`
 }
 
 func (a *App) GetGames() []GameInfo {
@@ -77,6 +225,7 @@ func (a *App) GetGames() []GameInfo {
 				Name:    d.Name,
 				Path:    d.Path,
 				Version: d.Version,
+				DLLType: string(d.Type),
 			})
 		}
 
@@ -109,6 +258,7 @@ func (a *App) GetGame(appID uint64) *GameInfo {
 			Name:    d.Name,
 			Path:    d.Path,
 			Version: d.Version,
+			DLLType: string(d.Type),
 		})
 	}
 
@@ -128,6 +278,7 @@ type ProfileInfo struct {
 	EnableHDR            bool   `json:"enableHdr"`
 	EnableWayland        bool   `json:"enableWayland"`
 	EnableNGXUpdater     bool   `json:"enableNgxUpdater"`
+	BackupOnLaunch       bool   `json:"backupOnLaunch"`
 }
 
 func (a *App) GetProfile(appID uint64) *ProfileInfo {
@@ -149,6 +300,7 @@ func (a *App) GetProfile(appID uint64) *ProfileInfo {
 		EnableHDR:            p.Proton.EnableHDR,
 		EnableWayland:        p.Proton.EnableWayland,
 		EnableNGXUpdater:     p.Proton.EnableNGXUpdater,
+		BackupOnLaunch:       p.Ludusavi.BackupOnLaunch,
 	}
 }
 
@@ -172,6 +324,9 @@ func (a *App) SaveProfile(appID uint64, info ProfileInfo) error {
 			EnableHDR:        info.EnableHDR,
 			EnableWayland:    info.EnableWayland,
 			EnableNGXUpdater: info.EnableNGXUpdater,
+		},
+		Ludusavi: profile.LudusaviSettings{
+			BackupOnLaunch: info.BackupOnLaunch,
 		},
 	}
 
@@ -217,11 +372,14 @@ func (a *App) GetGPUInfo() *GPUInfo {
 }
 
 type CPUInfo struct {
-	Model            string `json:"model"`
-	Cores            int    `json:"cores"`
-	AverageFrequency int    `json:"averageFrequency"`
-	Governor         string `json:"governor"`
-	SMTEnabled       bool   `json:"smtEnabled"`
+	Model                string  `json:"model"`
+	Cores                int     `json:"cores"`
+	AverageFrequency     int     `json:"averageFrequency"`
+	Governor             string  `json:"governor"`
+	SMTEnabled           bool    `json:"smtEnabled"`
+	UtilizationPercent   float64 `json:"utilizationPercent"`
+	MemoryUsedMegabytes  int     `json:"memoryUsedMegabytes"`
+	MemoryTotalMegabytes int     `json:"memoryTotalMegabytes"`
 }
 
 func (a *App) GetCPUInfo() *CPUInfo {
@@ -241,6 +399,9 @@ func (a *App) GetCPUInfo() *CPUInfo {
 		result.AverageFrequency = metrics.AverageFrequency
 		result.Governor = string(metrics.Governor)
 		result.SMTEnabled = metrics.SMTEnabled
+		result.UtilizationPercent = metrics.Utilization
+		result.MemoryUsedMegabytes = metrics.RAMUsedMB
+		result.MemoryTotalMegabytes = metrics.RAMTotalMB
 	}
 
 	return result

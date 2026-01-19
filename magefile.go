@@ -77,8 +77,14 @@ func Build() error {
 	return sh.RunV("go", "build", "-tags", "production,webkit2_41", "-ldflags", ldf, "-o", binaryName, "./cmd/spela")
 }
 
+// FrontendBindings regenerates Wails frontend bindings
+func FrontendBindings() error {
+	return runInDir(filepath.Join("cmd", "spela"), "wails", "build", "-s", "-skipembedcreate", "-nopackage", "-m", "-tags", "wails")
+}
+
 // FrontendBuild builds the Svelte frontend
 func FrontendBuild() error {
+	mg.Deps(FrontendBindings)
 	if err := runInDir(frontendDir, "bun", "install"); err != nil {
 		return err
 	}

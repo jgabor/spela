@@ -10,6 +10,10 @@ export function GetCPUInfo() {
   return window['go']['gui']['App']['GetCPUInfo']();
 }
 
+export function GetConfig() {
+  return window['go']['gui']['App']['GetConfig']();
+}
+
 export function GetGPUInfo() {
   return window['go']['gui']['App']['GetGPUInfo']();
 }
@@ -22,8 +26,16 @@ export function GetGames() {
   return window['go']['gui']['App']['GetGames']();
 }
 
+export function GetLogo() {
+  return window['go']['gui']['App']['GetLogo']();
+}
+
 export function GetProfile(arg1) {
   return window['go']['gui']['App']['GetProfile'](arg1);
+}
+
+export function GetVersion() {
+  return window['go']['gui']['App']['GetVersion']();
 }
 
 export function HasDLLBackup(arg1) {
@@ -36,6 +48,10 @@ export function LaunchGame(arg1) {
 
 export function RestoreDLLs(arg1) {
   return window['go']['gui']['App']['RestoreDLLs'](arg1);
+}
+
+export function SaveConfig(arg1) {
+  return window['go']['gui']['App']['SaveConfig'](arg1);
 }
 
 export function SaveProfile(arg1, arg2) {
