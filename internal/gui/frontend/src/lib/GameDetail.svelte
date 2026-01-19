@@ -551,9 +551,15 @@
 
   .profile-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     gap: 1rem;
     margin-top: 0.5rem;
+  }
+
+  @media (min-width: 80ch) {
+    .profile-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   .section.boxed {
@@ -670,10 +676,6 @@
   }
 
   @media (max-width: 1100px) {
-    .profile-grid {
-      grid-template-columns: 1fr;
-    }
-
     .game-header {
       flex-direction: column;
     }
