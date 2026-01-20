@@ -434,7 +434,7 @@
     border: 1px solid var(--border-default);
     border-radius: 6px;
     padding: 0.75rem 1rem;
-    background-color: rgba(32, 7, 72, 0.4);
+    background-color: var(--bg-secondary);
   }
 
   .row {

@@ -20,25 +20,73 @@
     {
       title: 'Display',
       options: [
-        { key: 'theme', label: 'Theme', type: 'select', choices: ['default', 'dark'] },
-        { key: 'showHints', label: 'Show hints', type: 'toggle' },
-        { key: 'compactMode', label: 'Compact mode', type: 'toggle' }
+        {
+          key: 'theme',
+          label: 'Theme',
+          description: 'Match the system theme or force dark mode.',
+          type: 'select',
+          choices: ['default', 'dark']
+        },
+        {
+          key: 'showHints',
+          label: 'Show hints',
+          description: 'Show keyboard hints in the footer and dialogs.',
+          type: 'toggle'
+        },
+        {
+          key: 'compactMode',
+          label: 'Compact mode',
+          description: 'Use tighter spacing in lists and panels.',
+          type: 'toggle'
+        }
       ]
     },
     {
       title: 'Startup',
       options: [
-        { key: 'rescanOnStartup', label: 'Re-scan on startup', type: 'toggle' },
-        { key: 'autoUpdateDLLs', label: 'Auto-update DLLs', type: 'toggle' },
-        { key: 'checkUpdates', label: 'Check for updates', type: 'toggle' }
+        {
+          key: 'rescanOnStartup',
+          label: 'Re-scan on startup',
+          description: 'Scan for games whenever Spela launches.',
+          type: 'toggle'
+        },
+        {
+          key: 'autoUpdateDLLs',
+          label: 'Auto-update DLLs',
+          description: 'Update DLLs automatically when the app starts.',
+          type: 'toggle'
+        },
+        {
+          key: 'checkUpdates',
+          label: 'Check for updates',
+          description: 'Look for new Spela releases at startup.',
+          type: 'toggle'
+        }
       ]
     },
     {
       title: 'DLL management',
       options: [
-        { key: 'autoRefreshManifest', label: 'Auto-refresh manifest', type: 'toggle' },
-        { key: 'manifestRefreshHours', label: 'Refresh interval', type: 'select', choices: ['1', '6', '12', '24', '48', '168'] },
-        { key: 'preferredDLLSource', label: 'DLL source', type: 'select', choices: ['techpowerup', 'github'] }
+        {
+          key: 'autoRefreshManifest',
+          label: 'Auto-refresh manifest',
+          description: 'Refresh the DLL manifest automatically.',
+          type: 'toggle'
+        },
+        {
+          key: 'manifestRefreshHours',
+          label: 'Refresh interval',
+          description: 'How often to refresh the manifest (hours).',
+          type: 'select',
+          choices: ['1', '6', '12', '24', '48', '168']
+        },
+        {
+          key: 'preferredDLLSource',
+          label: 'DLL source',
+          description: 'Preferred source for DLL downloads.',
+          type: 'select',
+          choices: ['techpowerup', 'github']
+        }
       ]
     }
   ]
@@ -176,7 +224,12 @@
           <div class="options-section-title">{section.title}</div>
           {#each section.options as option}
             <div class="options-row">
-              <div class="options-label">{option.label}</div>
+              <div class="options-label">
+                <div class="options-label-title">{option.label}</div>
+                {#if option.description}
+                  <div class="options-description">{option.description}</div>
+                {/if}
+              </div>
               <div class="options-control">
                 {#if option.type === 'toggle'}
                   <button
@@ -355,16 +408,30 @@
   .options-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
+    align-items: flex-start;
+    gap: 1.2rem;
     padding: 0.45rem 0;
   }
 
   .options-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
     font-size: 0.7rem;
     color: var(--text-dim);
     text-transform: none;
     letter-spacing: 0.01em;
+  }
+
+  .options-label-title {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .options-description {
+    font-size: 0.65rem;
+    line-height: 1.3;
+    max-width: 220px;
   }
 
   .options-control {
@@ -431,7 +498,6 @@
   .sidebar,
   .content {
     position: relative;
-    z-index: 1;
   }
 
   .sidebar,
@@ -439,7 +505,7 @@
     border: 1px solid var(--border-default);
     border-radius: var(--border-radius);
     background-color: var(--bg-primary);
-    overflow: hidden;
+    overflow: visible;
     display: flex;
     flex-direction: column;
     min-height: 0;

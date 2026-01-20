@@ -1,22 +1,18 @@
 <script>
   import { onMount, onDestroy, createEventDispatcher } from 'svelte'
-  import { GetGPUInfo, GetCPUInfo } from '../../wailsjs/go/gui/App'
+  import { GetGPUInfo, GetCPUInfo, GetLogo } from '../../wailsjs/go/gui/App'
 
   const dispatch = createEventDispatcher()
 
-  const logoText = [
-    '####### ######  ####### #       ##### ',
-    '#       #     # #       #      #     #',
-    '#####   ######  #####   #      #######',
-    '#       #       #       #      #     #',
-    '#       #       ####### ####### #     #'
-  ].join('\n')
+  const logoText = 'Spela'
 
+  let logoSource = ''
   let graphicsInfo = null
   let processorInfo = null
   let refreshTimer = null
 
   onMount(() => {
+    loadLogo()
     refreshMetrics()
     refreshTimer = setInterval(refreshMetrics, 2000)
   })
@@ -26,6 +22,10 @@
       clearInterval(refreshTimer)
     }
   })
+
+  async function loadLogo() {
+    logoSource = await GetLogo()
+  }
 
   async function refreshMetrics() {
     graphicsInfo = await GetGPUInfo()
@@ -38,7 +38,13 @@
 </script>
 
 <header class="app-header">
-  <pre class="logo" aria-label="Spela logo">{logoText}</pre>
+  <div class="logo" aria-label="Spela logo">
+    {#if logoSource}
+      <img src={logoSource} alt="Spela logo" />
+    {:else}
+      <span class="logo-text">{logoText}</span>
+    {/if}
+  </div>
   <div class="header-right">
     <div class="metrics">
       <div class="metric-line">
@@ -98,12 +104,24 @@
   }
 
   .logo {
-    margin: 0;
-    font-size: 0.72rem;
-    line-height: 1.1;
+    display: flex;
+    align-items: center;
+    min-height: 48px;
+  }
+
+  .logo img {
+    height: 48px;
+    width: auto;
+    display: block;
+  }
+
+  .logo-text {
+    font-size: 1.4rem;
+    font-weight: 700;
     color: var(--accent-primary);
-    white-space: pre;
-    font-family: var(--font-mono, "Space Mono", "Courier New", monospace);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
   }
 
   .header-right {
