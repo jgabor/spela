@@ -75,7 +75,8 @@ test.describe('profile settings', () => {
     await page.goto('/')
     await page.getByText('Cyberpunk 2077').click()
     await expect(page.getByLabel('DLSS-SR override')).toBeVisible()
-    await expect(page.getByLabel('Frame generation')).toBeVisible()
+    const frameGenField = page.locator('.field', { hasText: 'Frame generation' })
+    await expect(frameGenField.locator('.trigger')).toBeVisible()
     await expect(page.getByLabel('HDR')).toBeVisible()
     await expect(page.getByLabel('Wayland')).toBeVisible()
     await expect(page.getByLabel('NGX Updater')).toBeVisible()
@@ -85,7 +86,13 @@ test.describe('profile settings', () => {
     await page.goto('/')
     await page.getByText('Cyberpunk 2077').click()
     const profile = profiles[1091500]
-    await expect(page.getByLabel('Frame generation')).toBeChecked({ checked: profile.fgEnabled })
+    const frameGenField = page.locator('.field', { hasText: 'Frame generation' })
+    const frameGenValue = profile.fgOverride
+      ? profile.fgEnabled
+        ? 'true'
+        : 'false'
+      : '(default)'
+    await expect(frameGenField.locator('.trigger')).toContainText(frameGenValue)
     await expect(page.getByLabel('HDR')).toBeChecked({ checked: profile.enableHdr })
     await expect(page.getByLabel('Wayland')).toBeChecked({ checked: profile.enableWayland })
   })

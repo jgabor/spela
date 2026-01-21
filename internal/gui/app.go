@@ -272,6 +272,7 @@ type ProfileInfo struct {
 	SRPreset             string `json:"srPreset"`
 	SROverride           bool   `json:"srOverride"`
 	FGEnabled            bool   `json:"fgEnabled"`
+	FGOverride           bool   `json:"fgOverride"`
 	MultiFrame           int    `json:"multiFrame"`
 	Indicator            bool   `json:"indicator"`
 	ShaderCache          bool   `json:"shaderCache"`
@@ -293,6 +294,7 @@ func profileInfoFromProfile(p *profile.Profile) *ProfileInfo {
 		SRPreset:             string(p.DLSS.SRPreset),
 		SROverride:           p.DLSS.SROverride,
 		FGEnabled:            p.DLSS.FGEnabled,
+		FGOverride:           p.DLSS.FGOverride,
 		MultiFrame:           p.DLSS.MultiFrame,
 		Indicator:            p.DLSS.Indicator,
 		ShaderCache:          p.GPU.ShaderCache,
@@ -312,7 +314,7 @@ func profileFromInfo(info ProfileInfo) *profile.Profile {
 			SRPreset:   profile.DLSSPreset(info.SRPreset),
 			SROverride: info.SROverride,
 			FGEnabled:  info.FGEnabled,
-			FGOverride: true,
+			FGOverride: info.FGOverride,
 			MultiFrame: info.MultiFrame,
 			Indicator:  info.Indicator,
 		},

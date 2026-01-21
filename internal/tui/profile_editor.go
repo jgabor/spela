@@ -11,12 +11,13 @@ import (
 )
 
 type ProfileEditorModel struct {
-	game     *game.Game
-	profile  *profile.Profile
-	cursor   int
-	fields   []profileField
-	modified bool
-	message  string
+	game       *game.Game
+	profile    *profile.Profile
+	saveTarget ProfileSaveTarget
+	cursor     int
+	fields     []profileField
+	modified   bool
+	message    string
 }
 
 type profileField struct {
@@ -25,6 +26,16 @@ type profileField struct {
 	value       string
 	options     []string
 	description string
+}
+
+func frameGenerationValue(p *profile.Profile) string {
+	if !p.DLSS.FGOverride {
+		return "(default)"
+	}
+	if p.DLSS.FGEnabled {
+		return "true"
+	}
+	return "false"
 }
 
 func NewProfileEditor(g *game.Game, p *profile.Profile) ProfileEditorModel {
@@ -57,8 +68,8 @@ func NewProfileEditor(g *game.Game, p *profile.Profile) ProfileEditorModel {
 		{
 			label:       "Frame Gen",
 			key:         "fg_enabled",
-			value:       boolStr(p.DLSS.FGEnabled),
-			options:     []string{"true", "false"},
+			value:       frameGenerationValue(p),
+			options:     []string{"(default)", "true", "false"},
 			description: "Generate extra frames using AI. Increases FPS but adds slight latency",
 		},
 		{
@@ -127,9 +138,116 @@ func NewProfileEditor(g *game.Game, p *profile.Profile) ProfileEditorModel {
 	}
 
 	return ProfileEditorModel{
-		game:    g,
-		profile: p,
-		fields:  fields,
+		game:       g,
+		profile:    p,
+		saveTarget: NewGameProfileSaveTarget(g.AppID),
+		fields:     fields,
+	}
+}
+
+func NewDefaultProfileEditor(p *profile.Profile) ProfileEditorModel {
+	if p == nil {
+		p = &profile.Profile{Name: "Default profile"}
+	}
+
+	fields := []profileField{
+		{
+			label:       "Quality mode",
+			key:         "sr_mode",
+			value:       string(p.DLSS.SRMode),
+			options:     []string{"off", "ultra_performance", "performance", "balanced", "quality", "dlaa"},
+			description: "Super resolution quality. Higher = sharper but slower. DLAA is native res anti-aliasing",
+		},
+		{
+			label:       "DLSS preset",
+			key:         "sr_preset",
+			value:       srPresetValue(p.DLSS.SRPreset),
+			options:     []string{"default", "A", "B", "C", "D", "E", "F", "J", "K", "L", "M"},
+			description: "Neural network preset (A-F: CNN, J-M: Transformer)",
+		},
+		{
+			label:       "DLSS-SR Override",
+			key:         "sr_override",
+			value:       boolStr(p.DLSS.SROverride),
+			options:     []string{"true", "false"},
+			description: "Force DLSS super resolution even if game doesn't natively support it",
+		},
+		{
+			label:       "Frame Gen",
+			key:         "fg_enabled",
+			value:       frameGenerationValue(p),
+			options:     []string{"(default)", "true", "false"},
+			description: "Generate extra frames using AI. Increases FPS but adds slight latency",
+		},
+		{
+			label:       "Multi-Frame",
+			key:         "multi_frame",
+			value:       intStr(p.DLSS.MultiFrame),
+			options:     []string{"0", "1", "2", "3", "4"},
+			description: "Number of extra frames to generate (0=disabled, 1-4=frame multiplier)",
+		},
+		{
+			label:       "DLSS Indicator",
+			key:         "indicator",
+			value:       boolStr(p.DLSS.Indicator),
+			options:     []string{"true", "false"},
+			description: "Show on-screen indicator when DLSS is active",
+		},
+		{
+			label:       "Shader Cache",
+			key:         "shader_cache",
+			value:       boolStr(p.GPU.ShaderCache),
+			options:     []string{"true", "false"},
+			description: "Enable GPU shader caching for faster load times after first run",
+		},
+		{
+			label:       "Threaded Opt",
+			key:         "threaded_opt",
+			value:       boolStr(p.GPU.ThreadedOptimization),
+			options:     []string{"true", "false"},
+			description: "Enable NVIDIA threaded optimization for multi-core performance",
+		},
+		{
+			label:       "Power Mode",
+			key:         "power_mizer",
+			value:       powerMizerValue(p.GPU.PowerMizer),
+			options:     []string{"auto", "adaptive", "max"},
+			description: "GPU power mode: auto (driver decides), adaptive, max performance",
+		},
+		{
+			label:       "HDR",
+			key:         "hdr",
+			value:       boolStr(p.Proton.EnableHDR),
+			options:     []string{"true", "false"},
+			description: "Enable high dynamic range output for compatible displays",
+		},
+		{
+			label:       "Wayland",
+			key:         "wayland",
+			value:       boolStr(p.Proton.EnableWayland),
+			options:     []string{"true", "false"},
+			description: "Use native Wayland instead of XWayland. May improve latency",
+		},
+		{
+			label:       "NGX Updater",
+			key:         "ngx_updater",
+			value:       boolStr(p.Proton.EnableNGXUpdater),
+			options:     []string{"true", "false"},
+			description: "Let Proton automatically update DLSS DLLs to latest version",
+		},
+		{
+			label:       "Save Backup",
+			key:         "backup_on_launch",
+			value:       boolStr(p.Ludusavi.BackupOnLaunch),
+			options:     []string{"true", "false"},
+			description: "Backup saves when launching game",
+		},
+	}
+
+	return ProfileEditorModel{
+		profile:    p,
+		saveTarget: DefaultProfileSaveTarget(),
+		fields:     fields,
 	}
 }
 
@@ -215,8 +333,13 @@ func (m *ProfileEditorModel) applyToProfile() {
 		case "sr_override":
 			m.profile.DLSS.SROverride = f.value == "true"
 		case "fg_enabled":
-			m.profile.DLSS.FGEnabled = f.value == "true"
-			m.profile.DLSS.FGOverride = true
+			if f.value == "(default)" {
+				m.profile.DLSS.FGEnabled = false
+				m.profile.DLSS.FGOverride = false
+			} else {
+				m.profile.DLSS.FGEnabled = f.value == "true"
+				m.profile.DLSS.FGOverride = true
+			}
 		case "multi_frame":
 			var v int
 			_, _ = fmt.Sscanf(f.value, "%d", &v)
@@ -247,7 +370,7 @@ func (m *ProfileEditorModel) applyToProfile() {
 
 func (m ProfileEditorModel) save() tea.Cmd {
 	return func() tea.Msg {
-		if err := profile.Save(m.game.AppID, m.profile); err != nil {
+		if err := m.saveTarget.SaveProfile(m.profile); err != nil {
 			return profileSaveMsg{err: err}
 		}
 		return profileSaveMsg{success: true}
@@ -262,7 +385,11 @@ type profileSaveMsg struct {
 func (m ProfileEditorModel) View() string {
 	var b strings.Builder
 
-	b.WriteString(titleStyle.Render(fmt.Sprintf("Profile: %s", m.game.Name)))
+	profileName := "Default profile"
+	if m.game != nil {
+		profileName = m.game.Name
+	}
+	b.WriteString(titleStyle.Render(fmt.Sprintf("Profile: %s", profileName)))
 	b.WriteString("\n\n")
 
 	for i, field := range m.fields {

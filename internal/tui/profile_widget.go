@@ -11,6 +11,40 @@ import (
 	"github.com/jgabor/spela/internal/profile"
 )
 
+type ProfileSaveTargetKind int
+
+const (
+	ProfileSaveTargetGame ProfileSaveTargetKind = iota
+	ProfileSaveTargetDefault
+)
+
+type ProfileSaveTarget struct {
+	kind  ProfileSaveTargetKind
+	appID uint64
+}
+
+func NewGameProfileSaveTarget(appID uint64) ProfileSaveTarget {
+	return ProfileSaveTarget{
+		kind:  ProfileSaveTargetGame,
+		appID: appID,
+	}
+}
+
+func DefaultProfileSaveTarget() ProfileSaveTarget {
+	return ProfileSaveTarget{kind: ProfileSaveTargetDefault}
+}
+
+func (target ProfileSaveTarget) SaveProfile(p *profile.Profile) error {
+	switch target.kind {
+	case ProfileSaveTargetDefault:
+		return profile.SaveDefault(p)
+	case ProfileSaveTargetGame:
+		return profile.Save(target.appID, p)
+	default:
+		return fmt.Errorf("unsupported profile save target")
+	}
+}
+
 type WidgetField struct {
 	label       string
 	key         string
@@ -26,8 +60,8 @@ type WidgetGroup struct {
 }
 
 type ProfileWidgetModel struct {
-	game         *game.Game
 	profile      *profile.Profile
+	saveTarget   ProfileSaveTarget
 	groups       []WidgetGroup
 	focusedGroup int
 	focusedField int
@@ -51,6 +85,16 @@ func displayBool(b bool) string {
 	return "true"
 }
 
+func displayFrameGeneration(enabled bool, override bool) string {
+	if !override {
+		return "(default)"
+	}
+	if enabled {
+		return "true"
+	}
+	return "false"
+}
+
 func displayInt(i int) string {
 	if i == 0 {
 		return "(default)"
@@ -63,8 +107,16 @@ type openDLSSPresetModalMsg struct {
 }
 
 func NewProfileWidget(g *game.Game, p *profile.Profile) ProfileWidgetModel {
+	return newProfileWidget(NewGameProfileSaveTarget(g.AppID), g.Name, p)
+}
+
+func NewDefaultProfileWidget(p *profile.Profile) ProfileWidgetModel {
+	return newProfileWidget(DefaultProfileSaveTarget(), "Default profile", p)
+}
+
+func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Profile) ProfileWidgetModel {
 	if p == nil {
-		p = &profile.Profile{Name: g.Name}
+		p = &profile.Profile{Name: name}
 	}
 
 	groups := []WidgetGroup{
@@ -103,7 +155,7 @@ func NewProfileWidget(g *game.Game, p *profile.Profile) ProfileWidgetModel {
 				{
 					label:       "Frame gen",
 					key:         "fg_enabled",
-					value:       displayBool(p.DLSS.FGEnabled),
+					value:       displayFrameGeneration(p.DLSS.FGEnabled, p.DLSS.FGOverride),
 					options:     []string{"(default)", "true", "false"},
 					description: "Enable AI frame generation",
 				},
@@ -183,8 +235,8 @@ func NewProfileWidget(g *game.Game, p *profile.Profile) ProfileWidgetModel {
 	}
 
 	return ProfileWidgetModel{
-		game:         g,
 		profile:      p,
+		saveTarget:   saveTarget,
 		groups:       groups,
 		focusedGroup: 0,
 		focusedField: 0,
@@ -319,8 +371,11 @@ func (m *ProfileWidgetModel) applyToProfile() {
 			case "sr_override":
 				m.profile.DLSS.SROverride = value == "true"
 			case "fg_enabled":
-				m.profile.DLSS.FGEnabled = value == "true"
-				if !isDefault {
+				if isDefault {
+					m.profile.DLSS.FGEnabled = false
+					m.profile.DLSS.FGOverride = false
+				} else {
+					m.profile.DLSS.FGEnabled = value == "true"
 					m.profile.DLSS.FGOverride = true
 				}
 			case "multi_frame":
@@ -376,7 +431,7 @@ func (m *ProfileWidgetModel) SetDLSSPreset(preset profile.DLSSPreset) {
 
 func (m ProfileWidgetModel) save() tea.Cmd {
 	return func() tea.Msg {
-		if err := profile.Save(m.game.AppID, m.profile); err != nil {
+		if err := m.saveTarget.SaveProfile(m.profile); err != nil {
 			return profileSaveMsg{err: err}
 		}
 		return profileSaveMsg{success: true}

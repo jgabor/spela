@@ -77,10 +77,16 @@ func NewLayout(db *game.Database) LayoutModel {
 
 func (m LayoutModel) Init() tea.Cmd {
 	cmds := []tea.Cmd{m.header.Init()}
-	if g := m.sidebar.Selected(); g != nil {
-		cmds = append(cmds, func() tea.Msg {
-			return gameSelectedMsg{game: g}
-		})
+	if selected := m.sidebar.SelectedItem(); selected != nil {
+		if selected.kind == sidebarItemDefaultProfile {
+			cmds = append(cmds, func() tea.Msg {
+				return defaultProfileSelectedMsg{}
+			})
+		} else if selected.game != nil {
+			cmds = append(cmds, func() tea.Msg {
+				return gameSelectedMsg{game: selected.game}
+			})
+		}
 	}
 	return tea.Batch(cmds...)
 }
@@ -176,6 +182,15 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case gameConfirmedMsg:
 		m.content = m.content.SetGame(msg.game)
+		m.focus = FocusContent
+		return m, nil
+
+	case defaultProfileSelectedMsg:
+		m.content = m.content.SetDefaultProfile()
+		return m, nil
+
+	case defaultProfileConfirmedMsg:
+		m.content = m.content.SetDefaultProfile()
 		m.focus = FocusContent
 		return m, nil
 
@@ -344,7 +359,7 @@ func (m LayoutModel) View() string {
 
 	messageBar := m.messageBar.View()
 
-	contextHelp := ContextHelp(m.focus, m.sidebar.search.Focused(), m.sidebar.InSelectMode())
+	contextHelp := ContextHelp(m.focus, m.sidebar.search.Focused(), m.sidebar.InSelectMode(), m.content.HasGameSelection())
 	statusBar := m.statusBar.ViewWithHelp(contextHelp)
 
 	return lipgloss.JoinVertical(lipgloss.Left, header, mainArea, messageBar, statusBar)
@@ -379,6 +394,10 @@ type gameSelectedMsg struct {
 type gameConfirmedMsg struct {
 	game *game.Game
 }
+
+type defaultProfileSelectedMsg struct{}
+
+type defaultProfileConfirmedMsg struct{}
 
 func Run(db *game.Database) error {
 	p := tea.NewProgram(NewLayout(db), tea.WithAltScreen())

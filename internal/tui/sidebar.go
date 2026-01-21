@@ -32,9 +32,21 @@ func (f FilterState) IsActive() bool {
 	return f.hasDLLs || f.hasProfile
 }
 
+type sidebarItemKind int
+
+const (
+	sidebarItemGame sidebarItemKind = iota
+	sidebarItemDefaultProfile
+)
+
+type sidebarItem struct {
+	kind sidebarItemKind
+	game *game.Game
+}
+
 type SidebarModel struct {
 	games      []*game.Game
-	filtered   []*game.Game
+	filtered   []sidebarItem
 	cursor     int
 	search     textinput.Model
 	filters    FilterState
@@ -88,14 +100,14 @@ func (m SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
 			if m.cursor > 0 {
 				m.cursor--
 				if !m.selectMode {
-					return m, m.selectCurrentGame()
+					return m, m.selectCurrentItem()
 				}
 			}
 		case "down", "j":
 			if m.cursor < len(m.filtered)-1 {
 				m.cursor++
 				if !m.selectMode {
-					return m, m.selectCurrentGame()
+					return m, m.selectCurrentItem()
 				}
 			}
 		case "/":
@@ -114,22 +126,27 @@ func (m SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
 			m.clearFilters()
 		case " ":
 			if m.cursor < len(m.filtered) {
-				g := m.filtered[m.cursor]
+				item := m.filtered[m.cursor]
+				if item.kind != sidebarItemGame || item.game == nil {
+					return m, nil
+				}
 				if !m.selectMode {
 					m.selectMode = true
-					m.selected[g.AppID] = true
+					m.selected[item.game.AppID] = true
 				} else {
-					if m.selected[g.AppID] {
-						delete(m.selected, g.AppID)
+					if m.selected[item.game.AppID] {
+						delete(m.selected, item.game.AppID)
 					} else {
-						m.selected[g.AppID] = true
+						m.selected[item.game.AppID] = true
 					}
 				}
 			}
 		case "a":
 			if m.selectMode {
-				for _, g := range m.filtered {
-					m.selected[g.AppID] = true
+				for _, item := range m.filtered {
+					if item.kind == sidebarItemGame && item.game != nil {
+						m.selected[item.game.AppID] = true
+					}
 				}
 			}
 		case "A":
@@ -152,9 +169,16 @@ func (m SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
 					return batchActionRequestMsg{selected: m.SelectedGames()}
 				}
 			}
-			if selected := m.Selected(); selected != nil {
-				return m, func() tea.Msg {
-					return gameConfirmedMsg{game: selected}
+			if selected := m.SelectedItem(); selected != nil {
+				if selected.kind == sidebarItemDefaultProfile {
+					return m, func() tea.Msg {
+						return defaultProfileConfirmedMsg{}
+					}
+				}
+				if selected.game != nil {
+					return m, func() tea.Msg {
+						return gameConfirmedMsg{game: selected.game}
+					}
 				}
 			}
 		}
@@ -215,8 +239,16 @@ func (m *SidebarModel) applyFiltersAndSort() {
 		})
 	}
 
-	m.filtered = filtered
-	if m.cursor >= len(filtered) {
+	items := make([]sidebarItem, 0, len(filtered)+1)
+	if m.showDefaultProfile() {
+		items = append(items, sidebarItem{kind: sidebarItemDefaultProfile})
+	}
+	for _, g := range filtered {
+		items = append(items, sidebarItem{kind: sidebarItemGame, game: g})
+	}
+
+	m.filtered = items
+	if m.cursor >= len(items) {
 		m.cursor = 0
 	}
 }
@@ -276,16 +308,18 @@ func (m SidebarModel) View() string {
 	maxNameWidth := max(m.width-10, 10)
 
 	for i := start; i < end; i++ {
-		g := m.filtered[i]
+		item := m.filtered[i]
 		prefix := "  "
 		style := normalStyle
 
 		if m.selectMode {
 			// In select mode: checkmark for selected, cursor for current unselected
-			if m.selected[g.AppID] {
-				prefix = "✓ "
-			} else if i == m.cursor {
-				prefix = "> "
+			if item.kind == sidebarItemGame && item.game != nil {
+				if m.selected[item.game.AppID] {
+					prefix = "✓ "
+				} else if i == m.cursor {
+					prefix = "> "
+				}
 			}
 			if i == m.cursor {
 				style = selectedStyle
@@ -298,24 +332,16 @@ func (m SidebarModel) View() string {
 			}
 		}
 
-		name := g.Name
+		name := m.itemName(item)
 		if len(name) > maxNameWidth {
 			name = name[:maxNameWidth-3] + "..."
 		}
 
 		line := fmt.Sprintf("%s%s", prefix, name)
 
-		indicators := ""
-		if len(g.DLLs) > 0 {
-			indicators += " ●"
-		}
-		if profile.Exists(g.AppID) {
-			indicators += " ◆"
-		}
-
 		b.WriteString(style.Render(line))
-		if indicators != "" {
-			b.WriteString(dlssStyle.Render(indicators))
+		if indicator := m.itemIndicator(item); indicator != "" {
+			b.WriteString(indicator)
 		}
 		b.WriteString("\n")
 	}
@@ -338,16 +364,30 @@ func (m SidebarModel) View() string {
 }
 
 func (m SidebarModel) Selected() *game.Game {
-	if m.cursor < len(m.filtered) {
-		return m.filtered[m.cursor]
+	if selected := m.SelectedItem(); selected != nil && selected.kind == sidebarItemGame {
+		return selected.game
 	}
 	return nil
 }
 
-func (m SidebarModel) selectCurrentGame() tea.Cmd {
-	if g := m.Selected(); g != nil {
-		return func() tea.Msg {
-			return gameSelectedMsg{game: g}
+func (m SidebarModel) SelectedItem() *sidebarItem {
+	if m.cursor < len(m.filtered) {
+		return &m.filtered[m.cursor]
+	}
+	return nil
+}
+
+func (m SidebarModel) selectCurrentItem() tea.Cmd {
+	if selected := m.SelectedItem(); selected != nil {
+		if selected.kind == sidebarItemDefaultProfile {
+			return func() tea.Msg {
+				return defaultProfileSelectedMsg{}
+			}
+		}
+		if selected.game != nil {
+			return func() tea.Msg {
+				return gameSelectedMsg{game: selected.game}
+			}
 		}
 	}
 	return nil
@@ -361,6 +401,41 @@ func (m SidebarModel) SelectedGames() []*game.Game {
 		}
 	}
 	return games
+}
+
+func (m SidebarModel) showDefaultProfile() bool {
+	return !m.selectMode && m.search.Value() == "" && !m.filters.IsActive() && m.sortMode == SortNameAsc
+}
+
+func (m SidebarModel) itemName(item sidebarItem) string {
+	if item.kind == sidebarItemDefaultProfile {
+		return "Default profile"
+	}
+	if item.game == nil {
+		return ""
+	}
+	return item.game.Name
+}
+
+func (m SidebarModel) itemIndicator(item sidebarItem) string {
+	if item.kind == sidebarItemDefaultProfile {
+		return dimStyle.Render(" Default")
+	}
+	if item.game == nil {
+		return ""
+	}
+
+	indicators := ""
+	if len(item.game.DLLs) > 0 {
+		indicators += " ●"
+	}
+	if profile.Exists(item.game.AppID) {
+		indicators += " ◆"
+	}
+	if indicators == "" {
+		return ""
+	}
+	return dlssStyle.Render(indicators)
 }
 
 func (m SidebarModel) SelectionCount() int {

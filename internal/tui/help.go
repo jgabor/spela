@@ -32,7 +32,7 @@ func NewHelp() HelpModel {
 					{"↑/k", "Move up"},
 					{"↓/j", "Move down"},
 					{"Tab", "Switch pane"},
-					{"Enter", "Select game"},
+					{"Enter", "Select"},
 					{"Esc", "Clear/back"},
 				},
 			},
@@ -142,7 +142,7 @@ func (m HelpModel) View() string {
 	return b.String()
 }
 
-func ContextHelp(focus Focus, searchFocused, selectMode bool) string {
+func ContextHelp(focus Focus, searchFocused, selectMode, hasGameSelection bool) string {
 	if !ShowHints() {
 		return "?:help • q:quit"
 	}
@@ -156,7 +156,11 @@ func ContextHelp(focus Focus, searchFocused, selectMode bool) string {
 	} else if focus == FocusSidebar {
 		hints = []string{"↑↓:navigate", "/:search", "d:DLLs", "p:profile", "s:sort", "enter:select"}
 	} else {
-		hints = []string{"↑↓:navigate", "←→:change", "s:save", "i:install", "u:update", "R:restore", "tab:sidebar"}
+		hints = []string{"↑↓:navigate", "←→:change", "s:save"}
+		if hasGameSelection {
+			hints = append(hints, "i:install", "u:update", "R:restore")
+		}
+		hints = append(hints, "tab:sidebar")
 	}
 
 	hints = append(hints, "?:help", "o:options", "q:quit")

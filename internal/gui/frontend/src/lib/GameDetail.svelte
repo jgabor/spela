@@ -74,12 +74,18 @@
     { value: 'adaptive', label: 'Adaptive' },
     { value: 'max', label: 'Max performance' }
   ]
+  const frameGenerationOptions = [
+    { value: '(default)', label: '(default)' },
+    { value: 'true', label: 'true' },
+    { value: 'false', label: 'false' }
+  ]
 
   const emptyProfile = () => ({
     srMode: '',
     srPreset: '',
     srOverride: false,
     fgEnabled: false,
+    fgOverride: false,
     multiFrame: 0,
     indicator: false,
     shaderCache: false,
@@ -100,6 +106,7 @@
 
   let lastGameId = null
   let lastProfileMode = profileMode
+  let frameGenerationMode = '(default)'
 
   $: if (profileMode !== lastProfileMode) {
     lastProfileMode = profileMode
@@ -116,6 +123,12 @@
     closeInstallWizard()
     void loadProfile()
     void checkDLLUpdates()
+  }
+
+  $: if (profile) {
+    frameGenerationMode = profile.fgOverride
+      ? (profile.fgEnabled ? 'true' : 'false')
+      : '(default)'
   }
 
   async function loadProfile() {
@@ -151,6 +164,19 @@
     if (typeof e === 'string') return e
     if (e?.message) return e.message
     return String(e)
+  }
+
+  function updateFrameGeneration(value) {
+    if (!profile) {
+      return
+    }
+    if (value === '(default)') {
+      profile.fgOverride = false
+      profile.fgEnabled = false
+      return
+    }
+    profile.fgOverride = true
+    profile.fgEnabled = value === 'true'
   }
 
   function clearMessageAfter(delay) {
@@ -472,9 +498,13 @@
             <span class="hint">Display a small on-screen DLSS status overlay.</span>
           </div>
 
-          <div class="field checkbox">
-            <input type="checkbox" id="fgEnabled" bind:checked={profile.fgEnabled} />
+          <div class="field">
             <label for="fgEnabled">Frame generation</label>
+            <Dropdown
+              bind:value={frameGenerationMode}
+              options={frameGenerationOptions}
+              on:change={(event) => updateFrameGeneration(event.detail)}
+            />
             <span class="hint">Generate extra frames for higher FPS.</span>
           </div>
 

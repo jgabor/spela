@@ -28,6 +28,7 @@ const (
 
 type ContentModel struct {
 	game            *game.Game
+	defaultProfile  bool
 	profile         *profile.Profile
 	profileWidget   ProfileWidgetModel
 	dlssPresetModal DLSSPresetModalModel
@@ -74,8 +75,11 @@ func NewContent() ContentModel {
 
 func (m ContentModel) SetGame(g *game.Game) ContentModel {
 	m.game = g
+	m.defaultProfile = false
 	m.dllOperating = false
 	m.scrollOffset = 0
+	m.dllInstallState = DLLInstallNone
+	m.profileHeight = m.profileSectionHeight()
 
 	if g != nil {
 		p, _ := profile.Load(g.AppID)
@@ -87,10 +91,36 @@ func (m ContentModel) SetGame(g *game.Game) ContentModel {
 	return m
 }
 
+func (m ContentModel) SetDefaultProfile() ContentModel {
+	m.game = nil
+	m.defaultProfile = true
+	m.dllOperating = false
+	m.scrollOffset = 0
+	m.dllInstallState = DLLInstallNone
+	m.hasBackup = false
+	m.profileHeight = m.profileSectionHeight()
+
+	p, _ := profile.LoadDefault()
+	m.profile = p
+	m.profileWidget = NewDefaultProfileWidget(p)
+	if m.profile == nil {
+		m.profile = m.profileWidget.profile
+	}
+
+	return m
+}
+
 func (m *ContentModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
-	m.profileHeight = max(height-headerSectionHeight-dllSectionHeight-2, 5)
+	m.profileHeight = m.profileSectionHeight()
+}
+
+func (m ContentModel) profileSectionHeight() int {
+	if m.defaultProfile {
+		return max(m.height-3, 5)
+	}
+	return max(m.height-headerSectionHeight-dllSectionHeight-2, 5)
 }
 
 func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
@@ -143,9 +173,14 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		}
 
 	case profileSaveMsg:
-		if msg.success && m.game != nil {
-			p, _ := profile.Load(m.game.AppID)
-			m.profile = p
+		if msg.success {
+			if m.defaultProfile {
+				p, _ := profile.LoadDefault()
+				m.profile = p
+			} else if m.game != nil {
+				p, _ := profile.Load(m.game.AppID)
+				m.profile = p
+			}
 		}
 		return m, nil
 
@@ -244,11 +279,11 @@ func (m ContentModel) HasModalOpen() bool {
 	return m.dlssPresetModal.Visible() || m.dllInstallState != DLLInstallNone || m.profileWidget.Editing()
 }
 
-func (m ContentModel) View() string {
-	if m.game == nil {
-		return dimStyle.Render("Select a game from the sidebar")
-	}
+func (m ContentModel) HasGameSelection() bool {
+	return m.game != nil
+}
 
+func (m ContentModel) View() string {
 	if m.dlssPresetModal.Visible() {
 		return m.dlssPresetModal.View()
 	}
@@ -257,12 +292,30 @@ func (m ContentModel) View() string {
 		return m.renderDLLInstallDialog()
 	}
 
+	if m.defaultProfile {
+		return m.renderDefaultProfile()
+	}
+
+	if m.game == nil {
+		return dimStyle.Render("Select a game from the sidebar")
+	}
+
 	var b strings.Builder
 
 	b.WriteString(m.renderGameInfo())
 	b.WriteString("\n")
 	b.WriteString(m.renderDLLs())
 	b.WriteString("\n")
+	b.WriteString(m.renderProfile())
+
+	return b.String()
+}
+
+func (m ContentModel) renderDefaultProfile() string {
+	var b strings.Builder
+
+	b.WriteString(titleStyle.Render("Default profile"))
+	b.WriteString("\n\n")
 	b.WriteString(m.renderProfile())
 
 	return b.String()

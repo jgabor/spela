@@ -56,6 +56,7 @@ export const profiles = {
     srMode: 'balanced',
     srOverride: false,
     fgEnabled: true,
+    fgOverride: true,
     enableHdr: true,
     enableWayland: false,
     enableNgxUpdater: false,
