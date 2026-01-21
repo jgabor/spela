@@ -14,6 +14,10 @@ export function GetConfig() {
   return window['go']['gui']['App']['GetConfig']();
 }
 
+export function GetDefaultProfile() {
+  return window['go']['gui']['App']['GetDefaultProfile']();
+}
+
 export function GetGPUInfo() {
   return window['go']['gui']['App']['GetGPUInfo']();
 }
@@ -42,8 +46,20 @@ export function HasDLLBackup(arg1) {
   return window['go']['gui']['App']['HasDLLBackup'](arg1);
 }
 
+export function InstallDLL(arg1, arg2, arg3) {
+  return window['go']['gui']['App']['InstallDLL'](arg1, arg2, arg3);
+}
+
 export function LaunchGame(arg1) {
   return window['go']['gui']['App']['LaunchGame'](arg1);
+}
+
+export function ListDLLInstallTypes(arg1) {
+  return window['go']['gui']['App']['ListDLLInstallTypes'](arg1);
+}
+
+export function ListDLLVersions(arg1) {
+  return window['go']['gui']['App']['ListDLLVersions'](arg1);
 }
 
 export function RestoreDLLs(arg1) {
@@ -52,6 +68,10 @@ export function RestoreDLLs(arg1) {
 
 export function SaveConfig(arg1) {
   return window['go']['gui']['App']['SaveConfig'](arg1);
+}
+
+export function SaveDefaultProfile(arg1) {
+  return window['go']['gui']['App']['SaveDefaultProfile'](arg1);
 }
 
 export function SaveProfile(arg1, arg2) {

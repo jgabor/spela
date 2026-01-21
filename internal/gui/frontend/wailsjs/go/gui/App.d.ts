@@ -8,6 +8,8 @@ export function GetCPUInfo():Promise<gui.CPUInfo>;
 
 export function GetConfig():Promise<gui.ConfigInfo>;
 
+export function GetDefaultProfile():Promise<gui.ProfileInfo>;
+
 export function GetGPUInfo():Promise<gui.GPUInfo>;
 
 export function GetGame(arg1:number):Promise<gui.GameInfo>;
@@ -22,11 +24,19 @@ export function GetVersion():Promise<string>;
 
 export function HasDLLBackup(arg1:number):Promise<boolean>;
 
+export function InstallDLL(arg1:number,arg2:string,arg3:string):Promise<void>;
+
 export function LaunchGame(arg1:number):Promise<void>;
+
+export function ListDLLInstallTypes(arg1:number):Promise<Array<string>>;
+
+export function ListDLLVersions(arg1:string):Promise<Array<string>>;
 
 export function RestoreDLLs(arg1:number):Promise<void>;
 
 export function SaveConfig(arg1:gui.ConfigInfo):Promise<void>;
+
+export function SaveDefaultProfile(arg1:gui.ProfileInfo):Promise<void>;
 
 export function SaveProfile(arg1:number,arg2:gui.ProfileInfo):Promise<void>;
 

@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"sort"
+	"time"
 
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/cpu"
@@ -281,9 +283,8 @@ type ProfileInfo struct {
 	BackupOnLaunch       bool   `json:"backupOnLaunch"`
 }
 
-func (a *App) GetProfile(appID uint64) *ProfileInfo {
-	p, err := profile.Load(appID)
-	if err != nil || p == nil {
+func profileInfoFromProfile(p *profile.Profile) *ProfileInfo {
+	if p == nil {
 		return nil
 	}
 
@@ -304,8 +305,8 @@ func (a *App) GetProfile(appID uint64) *ProfileInfo {
 	}
 }
 
-func (a *App) SaveProfile(appID uint64, info ProfileInfo) error {
-	p := &profile.Profile{
+func profileFromInfo(info ProfileInfo) *profile.Profile {
+	return &profile.Profile{
 		DLSS: profile.DLSSSettings{
 			SRMode:     profile.DLSSMode(info.SRMode),
 			SRPreset:   profile.DLSSPreset(info.SRPreset),
@@ -329,8 +330,30 @@ func (a *App) SaveProfile(appID uint64, info ProfileInfo) error {
 			BackupOnLaunch: info.BackupOnLaunch,
 		},
 	}
+}
 
-	return profile.Save(appID, p)
+func (a *App) GetProfile(appID uint64) *ProfileInfo {
+	p, err := profile.Load(appID)
+	if err != nil {
+		return nil
+	}
+	return profileInfoFromProfile(p)
+}
+
+func (a *App) GetDefaultProfile() *ProfileInfo {
+	p, err := profile.LoadDefault()
+	if err != nil {
+		return nil
+	}
+	return profileInfoFromProfile(p)
+}
+
+func (a *App) SaveProfile(appID uint64, info ProfileInfo) error {
+	return profile.Save(appID, profileFromInfo(info))
+}
+
+func (a *App) SaveDefaultProfile(info ProfileInfo) error {
+	return profile.SaveDefault(profileFromInfo(info))
 }
 
 type GPUInfo struct {
@@ -458,6 +481,132 @@ func (a *App) CheckDLLUpdates(appID uint64) []DLLUpdateInfo {
 	return updates
 }
 
+func (a *App) ListDLLInstallTypes(appID uint64) ([]string, error) {
+	if a.db == nil {
+		return nil, ErrDatabaseNotLoaded
+	}
+
+	g, ok := a.db.Games[appID]
+	if !ok || g == nil {
+		return nil, fmt.Errorf("%w: %d", ErrGameNotFound, appID)
+	}
+
+	manifest, err := dll.GetManifest(false, "")
+	if err != nil {
+		return nil, err
+	}
+
+	validTypes := make(map[string]bool)
+	if len(g.DLLs) > 0 {
+		validTypes = make(map[string]bool, len(g.DLLs))
+		for _, d := range g.DLLs {
+			validTypes[string(d.Type)] = true
+		}
+	}
+
+	filtered := make([]string, 0)
+	for _, t := range manifest.ListDLLNames() {
+		if len(manifest.DLLs[t]) == 0 {
+			continue
+		}
+		if len(validTypes) > 0 && !validTypes[t] {
+			continue
+		}
+		filtered = append(filtered, t)
+	}
+
+	if len(filtered) == 0 {
+		return nil, fmt.Errorf("no supported DLL types detected for this game")
+	}
+
+	sort.Strings(filtered)
+	return filtered, nil
+}
+
+func (a *App) ListDLLVersions(dllType string) ([]string, error) {
+	if dllType == "" {
+		return nil, fmt.Errorf("dll type is required")
+	}
+
+	manifest, err := dll.GetManifest(false, "")
+	if err != nil {
+		return nil, err
+	}
+
+	versions, ok := manifest.DLLs[dllType]
+	if !ok {
+		return nil, fmt.Errorf("no versions found for %s", dllType)
+	}
+
+	results := make([]string, 0, len(versions))
+	for _, entry := range versions {
+		results = append(results, entry.Version)
+	}
+
+	return results, nil
+}
+
+func (a *App) InstallDLL(appID uint64, dllType, version string) error {
+	if a.db == nil {
+		return ErrDatabaseNotLoaded
+	}
+	if dllType == "" {
+		return fmt.Errorf("dll type is required")
+	}
+
+	g, ok := a.db.Games[appID]
+	if !ok || g == nil {
+		return fmt.Errorf("%w: %d", ErrGameNotFound, appID)
+	}
+
+	manifest, err := dll.GetManifest(false, "")
+	if err != nil {
+		return err
+	}
+
+	targetVersion := version
+	if targetVersion == "" {
+		targetVersion = "latest"
+	}
+
+	var targetDLL *dll.DLL
+	if targetVersion == "latest" {
+		targetDLL = manifest.GetLatestDLL(dllType)
+	} else {
+		targetDLL = manifest.GetDLLVersion(dllType, targetVersion)
+	}
+	if targetDLL == nil {
+		return fmt.Errorf("no version available for %s", dllType)
+	}
+
+	cachePath, err := dll.GetOrDownloadDLL(manifest, dllType, targetVersion)
+	if err != nil {
+		return err
+	}
+
+	var gameDLLs []dll.GameDLL
+	for _, d := range g.DLLs {
+		gameDLLs = append(gameDLLs, dll.GameDLL{
+			Name:    d.Name,
+			Path:    d.Path,
+			Version: d.Version,
+		})
+	}
+
+	if err := dll.InstallDLL(g.AppID, g.Name, g.InstallDir, gameDLLs, targetDLL.Filename, cachePath); err != nil {
+		return err
+	}
+
+	detected, err := dll.ScanDirectory(g.InstallDir)
+	if err != nil {
+		return err
+	}
+
+	g.DLLs = detected
+	g.ScannedAt = time.Now()
+	return a.db.Save()
+}
+
 func (a *App) UpdateDLLs(appID uint64) error {
 	if a.db == nil {
 		return ErrDatabaseNotLoaded
@@ -519,7 +668,7 @@ func (a *App) LaunchGame(appID uint64) error {
 		return fmt.Errorf("%w: %d", ErrGameNotFound, appID)
 	}
 
-	p, _ := profile.Load(appID)
+	p, _ := profile.LoadEffective(appID)
 
 	e := env.New()
 	if p != nil {

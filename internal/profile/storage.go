@@ -12,8 +12,14 @@ import (
 	"github.com/jgabor/spela/internal/xdg"
 )
 
+const defaultProfileFilename = "default.yaml"
+
 func profilesDir() string {
 	return xdg.ConfigPath("profiles")
+}
+
+func defaultProfilePath() string {
+	return filepath.Join(profilesDir(), defaultProfileFilename)
 }
 
 func profilePath(appID uint64) string {
@@ -42,6 +48,34 @@ func Load(appID uint64) (*Profile, error) {
 	return &p, nil
 }
 
+func LoadDefault() (*Profile, error) {
+	data, err := os.ReadFile(defaultProfilePath())
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var p Profile
+	if err := yaml.Unmarshal(data, &p); err != nil {
+		return nil, err
+	}
+
+	return &p, nil
+}
+
+func LoadEffective(appID uint64) (*Profile, error) {
+	p, err := Load(appID)
+	if err != nil {
+		return nil, err
+	}
+	if p != nil {
+		return p, nil
+	}
+	return LoadDefault()
+}
+
 func Save(appID uint64, p *Profile) error {
 	if err := EnsureProfilesDir(); err != nil {
 		return err
@@ -55,8 +89,30 @@ func Save(appID uint64, p *Profile) error {
 	return os.WriteFile(profilePath(appID), data, 0o644)
 }
 
+func SaveDefault(p *Profile) error {
+	if err := EnsureProfilesDir(); err != nil {
+		return err
+	}
+
+	data, err := yaml.Marshal(p)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(defaultProfilePath(), data, 0o644)
+}
+
 func Delete(appID uint64) error {
 	path := profilePath(appID)
+	err := os.Remove(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	return err
+}
+
+func DeleteDefault() error {
+	path := defaultProfilePath()
 	err := os.Remove(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil

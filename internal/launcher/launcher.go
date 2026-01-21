@@ -24,6 +24,11 @@ type Launcher struct {
 	cleanup     []func()
 }
 
+type WrapperInvocation struct {
+	Command     []string
+	Environment map[string]string
+}
+
 func New(g *game.Game) *Launcher {
 	return &Launcher{
 		Game:        g,
@@ -90,11 +95,16 @@ func (l *Launcher) runCleanup() {
 }
 
 func IsWrapperMode(args []string) bool {
-	if len(args) == 0 {
+	invocation := ParseWrapperArguments(args)
+	if len(invocation.Command) == 0 {
 		return false
 	}
 
-	first := args[0]
+	first := invocation.Command[0]
+	if strings.HasPrefix(first, "-") {
+		return false
+	}
+
 	if filepath.IsAbs(first) {
 		if _, err := os.Stat(first); err == nil {
 			return true
@@ -115,9 +125,71 @@ func IsWrapperMode(args []string) bool {
 	return false
 }
 
+func ParseWrapperArguments(args []string) WrapperInvocation {
+	variables := make(map[string]string)
+	position := 0
+
+	for position < len(args) {
+		arg := args[position]
+		if arg == "--" {
+			position++
+			break
+		}
+		if key, value, ok := splitEnvAssignment(arg); ok {
+			variables[key] = value
+			position++
+			continue
+		}
+		break
+	}
+
+	return WrapperInvocation{
+		Command:     args[position:],
+		Environment: variables,
+	}
+}
+
+func splitEnvAssignment(arg string) (string, string, bool) {
+	parts := strings.SplitN(arg, "=", 2)
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	if !isValidEnvKey(parts[0]) {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
+}
+
+func isValidEnvKey(key string) bool {
+	if key == "" {
+		return false
+	}
+	if !isEnvKeyStart(key[0]) {
+		return false
+	}
+	for i := 1; i < len(key); i++ {
+		if !isEnvKeyChar(key[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func isEnvKeyStart(value byte) bool {
+	return value == '_' || (value >= 'A' && value <= 'Z') || (value >= 'a' && value <= 'z')
+}
+
+func isEnvKeyChar(value byte) bool {
+	return isEnvKeyStart(value) || (value >= '0' && value <= '9')
+}
+
 func DetectGameFromCommand(db *game.Database, args []string) *game.Game {
 	if len(args) == 0 {
 		return nil
+	}
+
+	if g := detectGameFromEnvironment(db); g != nil {
+		return g
 	}
 
 	for _, arg := range args {
@@ -139,5 +211,23 @@ func DetectGameFromCommand(db *game.Database, args []string) *game.Game {
 		}
 	}
 
+	return nil
+}
+
+func detectGameFromEnvironment(db *game.Database) *game.Game {
+	keys := []string{"SteamAppId", "SteamGameId"}
+	for _, key := range keys {
+		value := strings.TrimSpace(os.Getenv(key))
+		if value == "" {
+			continue
+		}
+		id, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			continue
+		}
+		if g := db.GetGame(id); g != nil {
+			return g
+		}
+	}
 	return nil
 }

@@ -167,6 +167,36 @@ func SwapDLL(appID uint64, gameName string, dlls []GameDLL, dllName, cachePath s
 	return nil
 }
 
+func InstallDLL(appID uint64, gameName, installDir string, dlls []GameDLL, dllName, cachePath string) error {
+	if installDir == "" {
+		return fmt.Errorf("install directory is required")
+	}
+
+	targetPath := ""
+	for _, dll := range dlls {
+		if dll.Name == dllName {
+			targetPath = dll.Path
+			break
+		}
+	}
+
+	if targetPath == "" {
+		targetPath = filepath.Join(installDir, dllName)
+	}
+
+	if !BackupExists(appID) && len(dlls) > 0 {
+		if _, err := CreateBackup(appID, gameName, dlls); err != nil {
+			return fmt.Errorf("failed to create backup before install: %w", err)
+		}
+	}
+
+	if err := copyFile(cachePath, targetPath); err != nil {
+		return fmt.Errorf("failed to install DLL: %w", err)
+	}
+
+	return nil
+}
+
 func copyFile(src, dst string) error {
 	sourceFile, err := os.Open(src)
 	if err != nil {

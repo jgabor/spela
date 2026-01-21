@@ -64,11 +64,10 @@
     position: relative;
     display: inline-block;
     width: 100%;
-    z-index: 20;
   }
 
   .dropdown:focus-within {
-    z-index: 2001;
+    z-index: 2;
   }
 
   .trigger {

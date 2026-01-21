@@ -4,6 +4,7 @@
   import Dropdown from './Dropdown.svelte'
 
   export let selectedGame = null
+  export let defaultProfileSelected = false
 
   const dispatch = createEventDispatcher()
 
@@ -27,6 +28,7 @@
   ]
 
   $: filteredGames = applyFiltersAndSort(games, search, filterDLLs, filterProfile, sortMode)
+  $: showDefaultProfile = !selectMode && !hasActiveFilters
 
   function applyFiltersAndSort(list, searchQuery, dllFilter, profileFilter, sort) {
     let filtered = list.filter(g => {
@@ -83,6 +85,10 @@
       console.error('Failed to load games:', e)
     }
     loading = false
+  }
+
+  export async function refreshGames() {
+    await loadGames()
   }
 
   async function rescan() {
@@ -239,19 +245,33 @@
 
   {#if loading}
     <div class="loading">Loading...</div>
-  {:else if filteredGames.length === 0}
-    <div class="empty">
-      {#if search || filterDLLs || filterProfile}
-        No games matching filters
-        <button class="clear-link" on:click={clearFilters}>Clear filters</button>
-      {:else}
-        No games found. Try running 'spela scan' first.
-      {/if}
-    </div>
   {:else}
-    <div class="count">{filteredGames.length} game{filteredGames.length !== 1 ? 's' : ''}</div>
-    <div class="list">
-      {#each filteredGames as game}
+    {#if showDefaultProfile}
+      <button
+        class="game-item default-profile"
+        class:active={defaultProfileSelected}
+        on:click={() => dispatch('selectDefaultProfile')}
+      >
+        <span class="name">Default profile</span>
+        <div class="badges">
+          <span class="badge default">Default</span>
+        </div>
+      </button>
+    {/if}
+
+    {#if filteredGames.length === 0}
+      <div class="empty">
+        {#if search || filterDLLs || filterProfile}
+          No games matching filters
+          <button class="clear-link" on:click={clearFilters}>Clear filters</button>
+        {:else}
+          No games found. Try running 'spela scan' first.
+        {/if}
+      </div>
+    {:else}
+      <div class="count">{filteredGames.length} game{filteredGames.length !== 1 ? 's' : ''}</div>
+      <div class="list">
+        {#each filteredGames as game}
         {#if selectMode}
           <label class="game-item selectable" class:selected={selected.has(game.appId)}>
             <input
@@ -287,9 +307,11 @@
           </button>
         {/if}
       {/each}
-    </div>
+      </div>
+    {/if}
   {/if}
 </div>
+
 
 <style>
   .game-list {
@@ -545,6 +567,11 @@
     transition: all 0.2s;
   }
 
+  .game-item.default-profile {
+    border: 1px dashed var(--border-default);
+    background-color: var(--bg-secondary);
+  }
+
   .game-item:hover {
     background-color: var(--bg-secondary);
     border-color: var(--accent-primary);
@@ -608,7 +635,8 @@
     color: var(--color-ghost-white, #F5F5FD);
   }
 
-  .badge.profile {
+  .badge.profile,
+  .badge.default {
     background-color: var(--accent-secondary);
     color: var(--color-ghost-white, #F5F5FD);
   }

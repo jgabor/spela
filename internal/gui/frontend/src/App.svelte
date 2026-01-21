@@ -8,6 +8,8 @@
   const wailsBindings = { GetConfig, SaveConfig, GetVersion }
 
   let selectedGame = null
+  let selectedProfileMode = 'game'
+  let gameListComponent
   let theme = 'dark'
   let showOptions = false
   let config = null
@@ -65,6 +67,47 @@
       ]
     },
     {
+      title: 'Paths',
+      options: [
+        {
+          key: 'steamPath',
+          label: 'Steam path',
+          description: 'Custom Steam installation path.',
+          type: 'path'
+        },
+        {
+          key: 'dllCachePath',
+          label: 'DLL cache path',
+          description: 'Override where downloaded DLLs are stored.',
+          type: 'path'
+        },
+        {
+          key: 'backupPath',
+          label: 'Backup path',
+          description: 'Location for DLL and save backups.',
+          type: 'path'
+        }
+      ]
+    },
+    {
+      title: 'System',
+      options: [
+        {
+          key: 'logLevel',
+          label: 'Log level',
+          description: 'Control logging verbosity for troubleshooting.',
+          type: 'select',
+          choices: ['debug', 'info', 'warn', 'error']
+        },
+        {
+          key: 'confirmDestructive',
+          label: 'Confirm destructive',
+          description: 'Ask before destructive actions like restores.',
+          type: 'toggle'
+        }
+      ]
+    },
+    {
       title: 'DLL management',
       options: [
         {
@@ -95,6 +138,11 @@
     theme: 'dark',
     showHints: true,
     compactMode: false,
+    logLevel: 'info',
+    steamPath: '',
+    dllCachePath: '',
+    backupPath: '',
+    confirmDestructive: true,
     rescanOnStartup: false,
     autoUpdateDLLs: false,
     checkUpdates: false,
@@ -109,7 +157,23 @@
   })
 
   function selectGame(game) {
+    selectedProfileMode = 'game'
     selectedGame = game
+  }
+
+  function selectDefaultProfile() {
+    selectedProfileMode = 'default'
+    selectedGame = null
+  }
+
+  async function handleGameUpdate(event) {
+    const updated = event.detail
+    if (updated && selectedProfileMode === 'game') {
+      selectedGame = updated
+      if (gameListComponent?.refreshGames) {
+        await gameListComponent.refreshGames()
+      }
+    }
   }
 
   function toggleOptions() {
@@ -127,6 +191,11 @@
         theme: loaded.theme || 'default',
         showHints: loaded.showHints,
         compactMode: loaded.compactMode,
+        logLevel: loaded.logLevel || 'info',
+        steamPath: loaded.steamPath || '',
+        dllCachePath: loaded.dllCachePath || '',
+        backupPath: loaded.backupPath || '',
+        confirmDestructive: loaded.confirmDestructive ?? true,
         rescanOnStartup: loaded.rescanOnStartup,
         autoUpdateDLLs: loaded.autoUpdateDLLs,
         checkUpdates: loaded.checkUpdates,
@@ -180,6 +249,11 @@
       theme: optionsState.theme,
       showHints: optionsState.showHints,
       compactMode: optionsState.compactMode,
+      logLevel: optionsState.logLevel,
+      steamPath: optionsState.steamPath,
+      dllCachePath: optionsState.dllCachePath,
+      backupPath: optionsState.backupPath,
+      confirmDestructive: optionsState.confirmDestructive,
       rescanOnStartup: optionsState.rescanOnStartup,
       autoUpdateDLLs: optionsState.autoUpdateDLLs,
       checkUpdates: optionsState.checkUpdates,
@@ -251,8 +325,17 @@
                       </button>
                     {/each}
                   </div>
+                {:else if option.type === 'path'}
+                  <input
+                    type="text"
+                    class="path-input"
+                    placeholder="(default)"
+                    value={optionsState[option.key]}
+                    on:input={event => updateOption(option.key, event.currentTarget.value)}
+                  />
                 {/if}
               </div>
+
             </div>
           {/each}
         </div>
@@ -265,11 +348,19 @@
 
   <div class="app-shell">
     <aside class="sidebar">
-      <GameList on:select={e => selectGame(e.detail)} selectedGame={selectedGame} />
+      <GameList
+        bind:this={gameListComponent}
+        selectedGame={selectedGame}
+        defaultProfileSelected={selectedProfileMode === 'default'}
+        on:select={e => selectGame(e.detail)}
+        on:selectDefaultProfile={selectDefaultProfile}
+      />
     </aside>
     <section class="content">
-      {#if selectedGame}
-        <GameDetail game={selectedGame} />
+      {#if selectedProfileMode === 'default'}
+        <GameDetail profileMode="default" on:gameUpdate={handleGameUpdate} />
+      {:else if selectedGame}
+        <GameDetail game={selectedGame} profileMode="game" on:gameUpdate={handleGameUpdate} />
       {:else}
         <div class="empty-state">Select a game from the list</div>
       {/if}
@@ -343,7 +434,7 @@
     background: rgba(0, 0, 0, 0.6);
     border: none;
     padding: 0;
-    z-index: 10;
+    z-index: 3000;
   }
 
 
@@ -356,7 +447,7 @@
     border: 1px solid var(--border-default);
     border-radius: 8px;
     padding: 1rem;
-    z-index: 11;
+    z-index: 3001;
     text-transform: none;
     font-size: 0.85rem;
   }
@@ -438,6 +529,22 @@
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
+  }
+
+  .path-input {
+    min-width: 220px;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--border-default);
+    border-radius: 6px;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.75rem;
+    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+  }
+
+  .path-input:focus {
+    outline: none;
+    border-color: var(--border-focus);
   }
 
   .toggle {

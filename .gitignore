@@ -10,9 +10,6 @@ coverage.txt
 dist/
 docs/
 
-# Beans
-.beans/
-
 # GUI frontend
 internal/gui/frontend/node_modules/
 internal/gui/frontend/wailsjs/wailsjs/
