@@ -2,7 +2,9 @@ package tui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -496,29 +498,37 @@ func (m ContentModel) renderProfile() string {
 }
 
 func (m ContentModel) loadDLLTypes() tea.Cmd {
-	gameDLLTypes := make(map[string]bool)
-	for _, d := range m.game.DLLs {
-		gameDLLTypes[strings.ToLower(string(d.Type))] = true
-	}
-
 	return func() tea.Msg {
 		manifest, err := dll.GetManifest(false, "")
 		if err != nil {
 			return dllInstallMsg{err: err}
 		}
 
-		allTypes := manifest.ListDLLNames()
-		var filteredTypes []string
-		for _, t := range allTypes {
-			if gameDLLTypes[t] {
-				filteredTypes = append(filteredTypes, t)
+		validTypes := make(map[string]bool)
+		if len(m.game.DLLs) > 0 {
+			validTypes = make(map[string]bool, len(m.game.DLLs))
+			for _, d := range m.game.DLLs {
+				validTypes[strings.ToLower(string(d.Type))] = true
 			}
+		}
+
+		allTypes := manifest.ListDLLNames()
+		filteredTypes := make([]string, 0, len(allTypes))
+		for _, t := range allTypes {
+			if len(manifest.DLLs[t]) == 0 {
+				continue
+			}
+			if len(validTypes) > 0 && !validTypes[t] {
+				continue
+			}
+			filteredTypes = append(filteredTypes, t)
 		}
 
 		if len(filteredTypes) == 0 {
 			return dllInstallMsg{err: fmt.Errorf("no supported DLL types detected in game")}
 		}
 
+		sort.Strings(filteredTypes)
 		return dllTypesLoadedMsg{types: filteredTypes}
 	}
 }
@@ -613,9 +623,17 @@ func (m ContentModel) installSelectedDLL() tea.Cmd {
 		}
 
 		targetName := dllInfo.Filename
-		if err := dll.SwapDLL(g.AppID, g.Name, gameDLLs, targetName, cachePath); err != nil {
+		if err := dll.InstallDLL(g.AppID, g.Name, g.InstallDir, gameDLLs, targetName, cachePath); err != nil {
 			return dllInstallMsg{err: err}
 		}
+
+		detected, err := dll.ScanDirectory(g.InstallDir)
+		if err != nil {
+			return dllInstallMsg{err: err}
+		}
+
+		g.DLLs = detected
+		g.ScannedAt = time.Now()
 
 		return dllInstallMsg{success: true}
 	}
