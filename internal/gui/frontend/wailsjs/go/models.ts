@@ -179,6 +179,7 @@ export namespace gui {
 	    srPreset: string;
 	    srOverride: boolean;
 	    fgEnabled: boolean;
+	    fgOverride: boolean;
 	    multiFrame: number;
 	    indicator: boolean;
 	    shaderCache: boolean;
@@ -199,6 +200,7 @@ export namespace gui {
 	        this.srPreset = source["srPreset"];
 	        this.srOverride = source["srOverride"];
 	        this.fgEnabled = source["fgEnabled"];
+	        this.fgOverride = source["fgOverride"];
 	        this.multiFrame = source["multiFrame"];
 	        this.indicator = source["indicator"];
 	        this.shaderCache = source["shaderCache"];

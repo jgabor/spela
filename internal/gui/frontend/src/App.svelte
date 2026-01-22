@@ -1,6 +1,7 @@
 <script>
-  import { onMount } from 'svelte'
+  import { onMount, onDestroy } from 'svelte'
   import { GetConfig, SaveConfig, GetVersion } from '../wailsjs/go/gui/App'
+  import { Quit } from '../wailsjs/runtime/runtime'
   import Header from './lib/Header.svelte'
   import GameList from './lib/GameList.svelte'
   import GameDetail from './lib/GameDetail.svelte'
@@ -10,8 +11,11 @@
   let selectedGame = null
   let selectedProfileMode = 'game'
   let gameListComponent
+  let gameDetailComponent
   let theme = 'dark'
   let showOptions = false
+  let showHelp = false
+  let focusPane = 'list'
   let config = null
   let version = ''
   let configMessage = ''
@@ -154,6 +158,11 @@
   onMount(() => {
     loadConfig()
     loadVersion()
+    window.addEventListener('keydown', handleKeydown)
+  })
+
+  onDestroy(() => {
+    window.removeEventListener('keydown', handleKeydown)
   })
 
   function selectGame(game) {
@@ -164,6 +173,63 @@
   function selectDefaultProfile() {
     selectedProfileMode = 'default'
     selectedGame = null
+  }
+
+  function toggleHelp() {
+    showHelp = !showHelp
+  }
+
+  function setFocusPane(nextPane) {
+    if (nextPane === 'detail' && !gameDetailComponent) {
+      focusPane = 'list'
+      gameListComponent?.focusSearch?.()
+      return
+    }
+    focusPane = nextPane
+    if (focusPane === 'list') {
+      gameListComponent?.focusSearch?.()
+    } else {
+      gameDetailComponent?.focusPrimary?.()
+    }
+  }
+
+  function isEditableTarget(target) {
+    if (!target || !(target instanceof HTMLElement)) {
+      return false
+    }
+    const tagName = target.tagName.toLowerCase()
+    return tagName === 'input' || tagName === 'textarea' || tagName === 'select' || target.isContentEditable
+  }
+
+  function handleKeydown(event) {
+    if (event.key === 'Tab' && !showOptions && !showHelp) {
+      event.preventDefault()
+      const nextPane = focusPane === 'list' ? 'detail' : 'list'
+      setFocusPane(nextPane)
+      return
+    }
+
+    if (isEditableTarget(event.target)) {
+      return
+    }
+
+    if (event.key === 'q' || event.key === 'Q') {
+      event.preventDefault()
+      Quit()
+      return
+    }
+
+    if (event.key === '?') {
+      event.preventDefault()
+      toggleHelp()
+      return
+    }
+
+    if (event.key === 'Escape' && showHelp) {
+      event.preventDefault()
+      showHelp = false
+      return
+    }
   }
 
   async function handleGameUpdate(event) {
@@ -346,6 +412,48 @@
     </div>
   {/if}
 
+  {#if showHelp}
+    <button
+      type="button"
+      class="options-overlay"
+      aria-label="Close help"
+      on:click={toggleHelp}
+    ></button>
+    <div class="help-panel" role="dialog" aria-modal="true" aria-label="Help">
+      <div class="options-header">
+        <div class="options-title">Help</div>
+        <button class="options-close" on:click={toggleHelp}>Close</button>
+      </div>
+      <div class="help-section">
+        <div class="help-title">Navigation</div>
+        <div class="help-rows">
+          <div class="help-row"><span class="help-key">Tab</span><span>Switch between list and detail</span></div>
+          <div class="help-row"><span class="help-key">?</span><span>Toggle this help</span></div>
+          <div class="help-row"><span class="help-key">Q</span><span>Quit</span></div>
+        </div>
+      </div>
+      <div class="help-section">
+        <div class="help-title">List</div>
+        <div class="help-rows">
+          <div class="help-row"><span class="help-key">/</span><span>Search games</span></div>
+          <div class="help-row"><span class="help-key">D</span><span>Toggle DLL filter</span></div>
+          <div class="help-row"><span class="help-key">P</span><span>Toggle profile filter</span></div>
+          <div class="help-row"><span class="help-key">S</span><span>Cycle sort mode</span></div>
+          <div class="help-row"><span class="help-key">R</span><span>Rescan games</span></div>
+        </div>
+      </div>
+      <div class="help-section">
+        <div class="help-title">Detail</div>
+        <div class="help-rows">
+          <div class="help-row"><span class="help-key">L</span><span>Launch game</span></div>
+          <div class="help-row"><span class="help-key">I</span><span>Install DLL</span></div>
+          <div class="help-row"><span class="help-key">U</span><span>Update DLLs</span></div>
+          <div class="help-row"><span class="help-key">R</span><span>Restore DLLs</span></div>
+        </div>
+      </div>
+    </div>
+  {/if}
+
   <div class="app-shell">
     <aside class="sidebar">
       <GameList
@@ -358,9 +466,18 @@
     </aside>
     <section class="content">
       {#if selectedProfileMode === 'default'}
-        <GameDetail profileMode="default" on:gameUpdate={handleGameUpdate} />
+        <GameDetail
+          bind:this={gameDetailComponent}
+          profileMode="default"
+          on:gameUpdate={handleGameUpdate}
+        />
       {:else if selectedGame}
-        <GameDetail game={selectedGame} profileMode="game" on:gameUpdate={handleGameUpdate} />
+        <GameDetail
+          bind:this={gameDetailComponent}
+          game={selectedGame}
+          profileMode="game"
+          on:gameUpdate={handleGameUpdate}
+        />
       {:else}
         <div class="empty-state">Select a game from the list</div>
       {/if}
@@ -450,6 +567,55 @@
     z-index: 3001;
     text-transform: none;
     font-size: 0.85rem;
+  }
+
+  .help-panel {
+    position: fixed;
+    top: 8rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(560px, 92vw);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-default);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    z-index: 3001;
+  }
+
+  .help-section {
+    padding: 0.75rem 0;
+    border-top: 1px solid var(--border-default);
+  }
+
+  .help-section:first-of-type {
+    border-top: none;
+  }
+
+  .help-title {
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent-secondary);
+    margin-bottom: 0.5rem;
+  }
+
+  .help-rows {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .help-row {
+    display: grid;
+    grid-template-columns: 4rem 1fr;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  .help-key {
+    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+    font-weight: 600;
+    color: var(--text-primary);
   }
 
   .options-header {

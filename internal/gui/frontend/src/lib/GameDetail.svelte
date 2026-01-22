@@ -1,5 +1,5 @@
 <script>
-  import { onMount, createEventDispatcher } from 'svelte'
+  import { onMount, createEventDispatcher, tick } from 'svelte'
   import {
     CheckDLLUpdates,
     GetDefaultProfile,
@@ -39,6 +39,7 @@
   let selectedInstallType = ''
   let installingDLL = false
   let installError = ''
+  let root
 
   const srModeOptions = [
     { value: '', label: '(default)' },
@@ -94,7 +95,8 @@
     enableHdr: false,
     enableWayland: false,
     enableNgxUpdater: false,
-    backupOnLaunch: false
+    backupOnLaunch: false,
+    inheritedFromDefault: false
   })
 
   onMount(async () => {
@@ -203,6 +205,7 @@
         setMessage('Default profile saved!', 'success')
       } else if (game) {
         await SaveProfile(game.appId, profile)
+        profile.inheritedFromDefault = false
         await refreshGameDetails()
         setMessage('Profile saved!', 'success')
       }
@@ -351,9 +354,17 @@
     }
     launching = false
   }
+
+  export async function focusPrimary() {
+    await tick()
+    const focusTarget = root?.querySelector(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    )
+    focusTarget?.focus()
+  }
 </script>
 
-  <div class="detail">
+  <div class="detail" bind:this={root}>
     {#if profileMode === 'default'}
       <div class="default-header">
         <h1>Default profile</h1>
@@ -463,6 +474,9 @@
 
 
   {#if profile}
+    {#if profileMode === 'game' && profile.inheritedFromDefault}
+      <p class="default-note">Using default profile values.</p>
+    {/if}
     <div class="profile-grid">
       <div class="section boxed">
         <h2>DLSS settings</h2>

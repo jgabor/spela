@@ -282,9 +282,10 @@ type ProfileInfo struct {
 	EnableWayland        bool   `json:"enableWayland"`
 	EnableNGXUpdater     bool   `json:"enableNgxUpdater"`
 	BackupOnLaunch       bool   `json:"backupOnLaunch"`
+	InheritedFromDefault bool   `json:"inheritedFromDefault"`
 }
 
-func profileInfoFromProfile(p *profile.Profile) *ProfileInfo {
+func profileInfoFromProfile(p *profile.Profile, inheritedFromDefault bool) *ProfileInfo {
 	if p == nil {
 		return nil
 	}
@@ -304,6 +305,7 @@ func profileInfoFromProfile(p *profile.Profile) *ProfileInfo {
 		EnableWayland:        p.Proton.EnableWayland,
 		EnableNGXUpdater:     p.Proton.EnableNGXUpdater,
 		BackupOnLaunch:       p.Ludusavi.BackupOnLaunch,
+		InheritedFromDefault: inheritedFromDefault,
 	}
 }
 
@@ -335,11 +337,22 @@ func profileFromInfo(info ProfileInfo) *profile.Profile {
 }
 
 func (a *App) GetProfile(appID uint64) *ProfileInfo {
-	p, err := profile.Load(appID)
+	perGameProfile, err := profile.Load(appID)
 	if err != nil {
 		return nil
 	}
-	return profileInfoFromProfile(p)
+	if perGameProfile != nil {
+		return profileInfoFromProfile(perGameProfile, false)
+	}
+
+	defaultProfile, err := profile.LoadDefault()
+	if err != nil {
+		return nil
+	}
+	if defaultProfile == nil {
+		return nil
+	}
+	return profileInfoFromProfile(defaultProfile, true)
 }
 
 func (a *App) GetDefaultProfile() *ProfileInfo {
@@ -347,7 +360,7 @@ func (a *App) GetDefaultProfile() *ProfileInfo {
 	if err != nil {
 		return nil
 	}
-	return profileInfoFromProfile(p)
+	return profileInfoFromProfile(p, false)
 }
 
 func (a *App) SaveProfile(appID uint64, info ProfileInfo) error {

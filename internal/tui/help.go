@@ -44,6 +44,7 @@ func NewHelp() HelpModel {
 					{"p", "Toggle profile filter"},
 					{"s", "Cycle sort mode"},
 					{"C", "Clear all filters"},
+					{"r", "Rescan games"},
 				},
 			},
 			{
@@ -54,6 +55,7 @@ func NewHelp() HelpModel {
 					{"←/h", "Decrease value"},
 					{"→/l", "Increase value"},
 					{"s", "Save profile"},
+					{"l", "Launch game"},
 					{"i", "Install DLL"},
 					{"u", "Update DLLs"},
 					{"R", "Restore DLLs"},
@@ -154,11 +156,11 @@ func ContextHelp(focus Focus, searchFocused, selectMode, hasGameSelection bool) 
 	} else if selectMode {
 		hints = []string{"↑↓:navigate", "space:toggle", "a:all", "A:none", "enter:batch", "esc:exit"}
 	} else if focus == FocusSidebar {
-		hints = []string{"↑↓:navigate", "/:search", "d:DLLs", "p:profile", "s:sort", "enter:select"}
+		hints = []string{"↑↓:navigate", "/:search", "d:DLLs", "p:profile", "s:sort", "r:rescan", "enter:select"}
 	} else {
 		hints = []string{"↑↓:navigate", "←→:change", "s:save"}
 		if hasGameSelection {
-			hints = append(hints, "i:install", "u:update", "R:restore")
+			hints = append(hints, "l:launch", "i:install", "u:update", "R:restore")
 		}
 		hints = append(hints, "tab:sidebar")
 	}

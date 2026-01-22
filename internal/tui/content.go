@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"os/exec"
 	"sort"
 	"strings"
 	"time"
@@ -9,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jgabor/spela/internal/dll"
+	"github.com/jgabor/spela/internal/env"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/profile"
 )
@@ -29,17 +31,20 @@ const (
 )
 
 type ContentModel struct {
-	game            *game.Game
-	defaultProfile  bool
-	profile         *profile.Profile
-	profileWidget   ProfileWidgetModel
-	dlssPresetModal DLSSPresetModalModel
-	width           int
-	height          int
-	profileHeight   int
-	dllOperating    bool
-	hasBackup       bool
-	scrollOffset    int
+	game                *game.Game
+	defaultProfile      bool
+	profile             *profile.Profile
+	profileWidget       ProfileWidgetModel
+	dlssPresetModal     DLSSPresetModalModel
+	width               int
+	height              int
+	profileHeight       int
+	dllOperating        bool
+	hasBackup           bool
+	hasUpdates          bool
+	usingDefaultProfile bool
+	launching           bool
+	scrollOffset        int
 
 	dllInstallState   DLLInstallState
 	dllTypes          []string
@@ -56,6 +61,16 @@ type dllUpdateMsg struct {
 }
 
 type dllRestoreMsg struct {
+	success bool
+	err     error
+}
+
+type dllUpdatesCheckedMsg struct {
+	hasUpdates bool
+	err        error
+}
+
+type launchGameMsg struct {
 	success bool
 	err     error
 }
@@ -82,10 +97,14 @@ func (m ContentModel) SetGame(g *game.Game) ContentModel {
 	m.scrollOffset = 0
 	m.dllInstallState = DLLInstallNone
 	m.profileHeight = m.profileSectionHeight()
+	m.hasUpdates = false
+	m.usingDefaultProfile = false
+	m.launching = false
 
 	if g != nil {
-		p, _ := profile.Load(g.AppID)
+		p, inherited := loadEffectiveProfile(g.AppID)
 		m.profile = p
+		m.usingDefaultProfile = inherited
 		m.profileWidget = NewProfileWidget(g, p)
 		m.hasBackup = dll.BackupExists(g.AppID)
 	}
@@ -101,6 +120,9 @@ func (m ContentModel) SetDefaultProfile() ContentModel {
 	m.dllInstallState = DLLInstallNone
 	m.hasBackup = false
 	m.profileHeight = m.profileSectionHeight()
+	m.hasUpdates = false
+	m.usingDefaultProfile = false
+	m.launching = false
 
 	p, _ := profile.LoadDefault()
 	m.profile = p
@@ -122,7 +144,11 @@ func (m ContentModel) profileSectionHeight() int {
 	if m.defaultProfile {
 		return max(m.height-3, 5)
 	}
-	return max(m.height-headerSectionHeight-dllSectionHeight-2, 5)
+	extraLines := 0
+	if m.usingDefaultProfile {
+		extraLines = 1
+	}
+	return max(m.height-headerSectionHeight-dllSectionHeight-2-extraLines, 5)
 }
 
 func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
@@ -156,6 +182,11 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch msg.String() {
+		case "l":
+			if m.game != nil && !m.defaultProfile && !m.launching {
+				m.launching = true
+				return m, m.launchGame()
+			}
 		case "i":
 			if m.game != nil && !m.dllOperating {
 				m.dllInstallState = DLLInstallSelectType
@@ -163,7 +194,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				return m, m.loadDLLTypes()
 			}
 		case "u":
-			if m.game != nil && len(m.game.DLLs) > 0 && !m.dllOperating {
+			if m.game != nil && len(m.game.DLLs) > 0 && m.hasUpdates && !m.dllOperating {
 				m.dllOperating = true
 				return m, m.updateDLLs()
 			}
@@ -180,8 +211,10 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				p, _ := profile.LoadDefault()
 				m.profile = p
 			} else if m.game != nil {
-				p, _ := profile.Load(m.game.AppID)
+				p, inherited := loadEffectiveProfile(m.game.AppID)
 				m.profile = p
+				m.usingDefaultProfile = inherited
+				m.profileHeight = m.profileSectionHeight()
 			}
 		}
 		return m, nil
@@ -189,13 +222,27 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	case dllUpdateMsg:
 		m.dllOperating = false
 		m.hasBackup = m.game != nil && dll.BackupExists(m.game.AppID)
+		if msg.success {
+			m.hasUpdates = false
+			return m, m.LoadDLLUpdates()
+		}
 		return m, nil
 
 	case dllRestoreMsg:
 		m.dllOperating = false
 		if msg.success {
-			m.hasBackup = false
+			m.hasBackup = m.game != nil && dll.BackupExists(m.game.AppID)
 		}
+		return m, nil
+
+	case dllUpdatesCheckedMsg:
+		if msg.err == nil {
+			m.hasUpdates = msg.hasUpdates
+		}
+		return m, nil
+
+	case launchGameMsg:
+		m.launching = false
 		return m, nil
 	}
 
@@ -258,6 +305,14 @@ func (m ContentModel) updateDLLs() tea.Cmd {
 		if updatedCount == 0 {
 			return dllUpdateMsg{err: fmt.Errorf("no updates available")}
 		}
+
+		detected, err := dll.ScanDirectory(m.game.InstallDir)
+		if err != nil {
+			return dllUpdateMsg{err: err}
+		}
+
+		m.game.DLLs = detected
+		m.game.ScannedAt = time.Now()
 
 		return dllUpdateMsg{success: true}
 	}
@@ -465,7 +520,7 @@ func (m ContentModel) renderDLLs() string {
 
 		if ShowHints() {
 			var actions []string
-			if !m.dllOperating {
+			if !m.dllOperating && m.hasUpdates {
 				actions = append(actions, "u:update")
 			}
 			if m.hasBackup && !m.dllOperating {
@@ -493,8 +548,26 @@ func (m ContentModel) renderDLLs() string {
 }
 
 func (m ContentModel) renderProfile() string {
+	var b strings.Builder
+	if m.usingDefaultProfile {
+		b.WriteString(dimStyle.Render("Using default profile values"))
+		b.WriteString("\n")
+	}
 	m.profileWidget.SetSize(m.width, m.profileHeight)
-	return m.profileWidget.View()
+	b.WriteString(m.profileWidget.View())
+	return b.String()
+}
+
+func loadEffectiveProfile(appID uint64) (*profile.Profile, bool) {
+	p, _ := profile.Load(appID)
+	if p != nil {
+		return p, false
+	}
+	defaultProfile, _ := profile.LoadDefault()
+	if defaultProfile == nil {
+		return nil, false
+	}
+	return defaultProfile, true
 }
 
 func (m ContentModel) loadDLLTypes() tea.Cmd {
@@ -574,6 +647,7 @@ func (m ContentModel) updateDLLInstall(msg tea.Msg) (ContentModel, tea.Cmd) {
 		m.dllOperating = false
 		if msg.success {
 			m.hasBackup = m.game != nil && dll.BackupExists(m.game.AppID)
+			return m, m.LoadDLLUpdates()
 		}
 		return m, nil
 
@@ -595,6 +669,63 @@ func (m ContentModel) loadDLLVersions() tea.Cmd {
 		}
 		versions := manifest.DLLs[dllType]
 		return dllVersionsLoadedMsg{versions: versions}
+	}
+}
+
+func (m ContentModel) LoadDLLUpdates() tea.Cmd {
+	g := m.game
+	return func() tea.Msg {
+		if g == nil || len(g.DLLs) == 0 {
+			return dllUpdatesCheckedMsg{hasUpdates: false}
+		}
+
+		manifest, err := dll.LoadManifest()
+		if err != nil {
+			return dllUpdatesCheckedMsg{err: fmt.Errorf("failed to load manifest: %w", err)}
+		}
+		if manifest == nil {
+			manifest, err = dll.UpdateManifest("")
+			if err != nil {
+				return dllUpdatesCheckedMsg{err: fmt.Errorf("failed to fetch manifest: %w", err)}
+			}
+		}
+
+		for _, d := range g.DLLs {
+			dllType := strings.ToLower(string(d.Type))
+			latest := manifest.GetLatestDLL(dllType)
+			if latest == nil {
+				continue
+			}
+			if d.Version != "" && !dll.IsNewer(d.Version, latest.Version) {
+				continue
+			}
+			return dllUpdatesCheckedMsg{hasUpdates: true}
+		}
+
+		return dllUpdatesCheckedMsg{hasUpdates: false}
+	}
+}
+
+func (m ContentModel) launchGame() tea.Cmd {
+	g := m.game
+	return func() tea.Msg {
+		if g == nil {
+			return launchGameMsg{err: fmt.Errorf("no game selected")}
+		}
+
+		p, _ := profile.LoadEffective(g.AppID)
+		environment := env.New()
+		if p != nil {
+			p.Apply(environment)
+		}
+
+		cmd := exec.Command("steam", fmt.Sprintf("steam://rungameid/%d", g.AppID))
+		environment.ApplyToCmd(cmd)
+		if err := cmd.Start(); err != nil {
+			return launchGameMsg{err: fmt.Errorf("failed to launch game: %w", err)}
+		}
+
+		return launchGameMsg{success: true}
 	}
 }
 

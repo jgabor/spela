@@ -10,6 +10,7 @@
 
   let games = []
   let search = ''
+  let searchInput
   let loading = true
   let sortMode = 'name-asc'
   let filterDLLs = false
@@ -89,6 +90,10 @@
 
   export async function refreshGames() {
     await loadGames()
+  }
+
+  export function focusSearch() {
+    searchInput?.focus()
   }
 
   async function rescan() {
@@ -190,6 +195,7 @@
       type="text"
       placeholder="Search games..."
       bind:value={search}
+      bind:this={searchInput}
     />
     <div class="header-actions">
       <button on:click={rescan}>Rescan</button>

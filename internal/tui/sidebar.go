@@ -190,6 +190,7 @@ func (m SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
 func (m *SidebarModel) clearFilters() {
 	m.filters = FilterState{}
 	m.search.SetValue("")
+	m.sortMode = SortNameAsc
 	m.applyFiltersAndSort()
 }
 
@@ -377,6 +378,15 @@ func (m SidebarModel) SelectedItem() *sidebarItem {
 	return nil
 }
 
+func (m SidebarModel) SetGames(games []*game.Game) SidebarModel {
+	m.games = games
+	m.applyFiltersAndSort()
+	if m.cursor >= len(m.filtered) {
+		m.cursor = max(len(m.filtered)-1, 0)
+	}
+	return m
+}
+
 func (m SidebarModel) selectCurrentItem() tea.Cmd {
 	if selected := m.SelectedItem(); selected != nil {
 		if selected.kind == sidebarItemDefaultProfile {
@@ -395,9 +405,12 @@ func (m SidebarModel) selectCurrentItem() tea.Cmd {
 
 func (m SidebarModel) SelectedGames() []*game.Game {
 	var games []*game.Game
-	for _, g := range m.games {
-		if m.selected[g.AppID] {
-			games = append(games, g)
+	for _, item := range m.filtered {
+		if item.kind != sidebarItemGame || item.game == nil {
+			continue
+		}
+		if m.selected[item.game.AppID] {
+			games = append(games, item.game)
 		}
 	}
 	return games

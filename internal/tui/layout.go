@@ -37,6 +37,7 @@ type LayoutModel struct {
 	help          HelpModel
 	optionsModal  OptionsModalModel
 	config        *config.Config
+	db            *game.Database
 	showHelp      bool
 	showBatchMenu bool
 	batchGames    []*game.Game
@@ -71,6 +72,7 @@ func NewLayout(db *game.Database) LayoutModel {
 		help:         NewHelp(),
 		optionsModal: NewOptionsModal(),
 		config:       cfg,
+		db:           db,
 		focus:        FocusSidebar,
 	}
 }
@@ -172,18 +174,23 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.focus = FocusSidebar
 			}
 			return m, nil
+		case "r":
+			if m.focus == FocusSidebar && !m.sidebar.search.Focused() {
+				messageCmd := m.messageBar.SetMessage("Rescanning games...", MessageInfo)
+				return m, tea.Batch(messageCmd, m.rescanGames())
+			}
 		}
 	}
 
 	switch msg := msg.(type) {
 	case gameSelectedMsg:
 		m.content = m.content.SetGame(msg.game)
-		return m, nil
+		return m, m.content.LoadDLLUpdates()
 
 	case gameConfirmedMsg:
 		m.content = m.content.SetGame(msg.game)
 		m.focus = FocusContent
-		return m, nil
+		return m, m.content.LoadDLLUpdates()
 
 	case defaultProfileSelectedMsg:
 		m.content = m.content.SetDefaultProfile()
@@ -220,9 +227,10 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			message = fmt.Sprintf("Update failed: %v", msg.err)
 			msgType = MessageError
 		}
-		cmd := m.messageBar.SetMessage(message, msgType)
-		m.content, _ = m.content.Update(msg)
-		return m, cmd
+		messageCmd := m.messageBar.SetMessage(message, msgType)
+		var contentCmd tea.Cmd
+		m.content, contentCmd = m.content.Update(msg)
+		return m, tea.Batch(messageCmd, contentCmd)
 
 	case dllRestoreMsg:
 		var msgType MessageType
@@ -248,9 +256,51 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			message = fmt.Sprintf("Install failed: %v", msg.err)
 			msgType = MessageError
 		}
-		cmd := m.messageBar.SetMessage(message, msgType)
+		messageCmd := m.messageBar.SetMessage(message, msgType)
+		var contentCmd tea.Cmd
+		m.content, contentCmd = m.content.Update(msg)
+		return m, tea.Batch(messageCmd, contentCmd)
+
+	case dllUpdatesCheckedMsg:
 		m.content, _ = m.content.Update(msg)
-		return m, cmd
+		return m, nil
+
+	case launchGameMsg:
+		var msgType MessageType
+		var message string
+		if msg.success {
+			message = "Game launched!"
+			msgType = MessageSuccess
+		} else if msg.err != nil {
+			message = fmt.Sprintf("Launch failed: %v", msg.err)
+			msgType = MessageError
+		}
+		messageCmd := m.messageBar.SetMessage(message, msgType)
+		m.content, _ = m.content.Update(msg)
+		return m, messageCmd
+
+	case rescanGamesMsg:
+		if msg.err != nil {
+			messageCmd := m.messageBar.SetMessage(fmt.Sprintf("Rescan failed: %v", msg.err), MessageError)
+			return m, messageCmd
+		}
+		m.db = msg.db
+		games := msg.db.List()
+		m.sidebar = m.sidebar.SetGames(games)
+		messageCmd := m.messageBar.SetMessage(
+			fmt.Sprintf("Rescan complete: %d games found", len(games)),
+			MessageSuccess,
+		)
+		var contentCmd tea.Cmd
+		if m.content.game != nil && !m.content.defaultProfile {
+			if refreshed := msg.db.GetGame(m.content.game.AppID); refreshed != nil {
+				m.content = m.content.SetGame(refreshed)
+				contentCmd = m.content.LoadDLLUpdates()
+			} else {
+				m.content = m.content.SetGame(nil)
+			}
+		}
+		return m, tea.Batch(messageCmd, contentCmd)
 
 	case profileSaveMsg:
 		var msgType MessageType
@@ -398,6 +448,21 @@ type gameConfirmedMsg struct {
 type defaultProfileSelectedMsg struct{}
 
 type defaultProfileConfirmedMsg struct{}
+
+type rescanGamesMsg struct {
+	db  *game.Database
+	err error
+}
+
+func (m LayoutModel) rescanGames() tea.Cmd {
+	return func() tea.Msg {
+		db, err := game.LoadDatabase()
+		if err != nil {
+			return rescanGamesMsg{err: err}
+		}
+		return rescanGamesMsg{db: db}
+	}
+}
 
 func Run(db *game.Database) error {
 	p := tea.NewProgram(NewLayout(db), tea.WithAltScreen())
