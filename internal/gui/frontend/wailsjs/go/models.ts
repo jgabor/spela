@@ -189,6 +189,7 @@ export namespace gui {
 	    enableWayland: boolean;
 	    enableNgxUpdater: boolean;
 	    backupOnLaunch: boolean;
+	    inheritedFromDefault: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ProfileInfo(source);
@@ -210,6 +211,7 @@ export namespace gui {
 	        this.enableWayland = source["enableWayland"];
 	        this.enableNgxUpdater = source["enableNgxUpdater"];
 	        this.backupOnLaunch = source["backupOnLaunch"];
+	        this.inheritedFromDefault = source["inheritedFromDefault"];
 	    }
 	}
 

@@ -338,11 +338,11 @@
     flex: 1;
     padding: 0.5rem 0.75rem;
     border: 1px solid var(--border-default);
-    border-radius: 6px;
-    background-color: var(--bg-secondary);
+    border-radius: 0;
+    background-color: var(--bg-primary);
     color: var(--text-primary);
     font-size: 0.8rem;
-    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .header input:focus {
@@ -362,12 +362,12 @@
   .header button {
     padding: 0.4rem 0.75rem;
     border: none;
-    border-radius: 6px;
+    border-radius: 0;
     background-color: var(--accent-primary);
     color: var(--color-ghost-white, #F5F5FD);
     cursor: pointer;
     font-size: 0.8rem;
-    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .header button:hover {
@@ -395,7 +395,7 @@
     align-items: center;
     padding: 0.5rem;
     background-color: var(--bg-secondary);
-    border-radius: 6px;
+    border-radius: 0;
     margin-bottom: 0.75rem;
   }
 
@@ -404,6 +404,7 @@
     align-items: center;
     gap: 0.75rem;
     font-size: 0.9rem;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .link-btn {
@@ -414,6 +415,7 @@
     text-decoration: underline;
     font-size: 0.85rem;
     padding: 0;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .link-btn:hover {
@@ -428,11 +430,12 @@
   .batch-btn {
     padding: 0.4rem 0.75rem;
     border: none;
-    border-radius: 4px;
+    border-radius: 0;
     background-color: var(--success);
     color: black;
     cursor: pointer;
     font-size: 0.85rem;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .batch-btn:hover:not(:disabled) {
@@ -448,10 +451,11 @@
     padding: 0.5rem;
     background-color: var(--accent-primary);
     color: var(--color-ghost-white, #F5F5FD);
-    border-radius: 6px;
+    border-radius: 0;
     text-align: center;
     margin-bottom: 0.75rem;
     font-size: 0.85rem;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .toolbar {
@@ -473,11 +477,12 @@
     align-items: center;
     gap: 0.25rem;
     padding: 0.25rem 0.5rem;
-    border-radius: 6px;
+    border-radius: 0;
     background-color: var(--bg-secondary);
     cursor: pointer;
     font-size: 0.7rem;
     transition: all 0.2s;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .filter-toggle input {
@@ -514,7 +519,7 @@
   .clear-btn {
     padding: 0.25rem 0.5rem;
     border: none;
-    border-radius: 4px;
+    border-radius: 0;
     background-color: transparent;
     color: var(--text-dim);
     cursor: pointer;
@@ -529,6 +534,7 @@
     font-size: 0.65rem;
     color: var(--text-dim);
     margin-bottom: 0.4rem;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .loading, .empty {
@@ -554,8 +560,9 @@
   .list {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0;
     overflow-y: auto;
+    border-top: 1px solid var(--border-default);
   }
 
   .game-item {
@@ -563,39 +570,41 @@
     justify-content: space-between;
     align-items: center;
     padding: 0.6rem 0.85rem;
-    border: 1px solid transparent;
-    border-radius: 6px;
+    border: none;
+    border-bottom: 1px solid var(--border-default);
+    border-left: 3px solid transparent;
+    border-radius: 0;
     background-color: transparent;
     color: var(--text-primary);
     cursor: pointer;
     text-align: left;
     font-size: 0.78rem;
     transition: all 0.2s;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .game-item.default-profile {
-    border: 1px dashed var(--border-default);
-    background-color: var(--bg-secondary);
+    border-left: 3px dashed var(--border-default);
   }
 
   .game-item:hover {
-    background-color: var(--bg-secondary);
-    border-color: var(--accent-primary);
+    background-color: var(--bg-primary);
   }
 
   .game-item.active {
-    background-color: var(--accent-primary);
-    color: var(--color-ghost-white, #F5F5FD);
+    background-color: var(--bg-primary);
+    border-left-color: var(--accent-primary);
+    color: var(--text-primary);
   }
 
   .game-item.active .name {
-    color: var(--color-ghost-white, #F5F5FD);
+    color: var(--text-primary);
   }
 
   .game-item.active .badge.dlss,
   .game-item.active .badge.profile {
-    background-color: rgba(255, 255, 255, 0.2);
-    color: var(--color-ghost-white, #F5F5FD);
+    color: var(--text-primary);
+    border-color: var(--text-primary);
   }
 
   .game-item.selectable {
@@ -630,20 +639,24 @@
 
   .badge {
     padding: 0.15rem 0.45rem;
-    border-radius: 6px;
+    border-radius: 0;
+    border: 1px solid var(--border-default);
     font-size: 0.7rem;
     font-weight: 500;
     text-transform: none;
+    background-color: transparent;
+    color: var(--text-dim);
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .badge.dlss {
-    background-color: var(--accent-secondary);
-    color: var(--color-ghost-white, #F5F5FD);
+    border-color: var(--accent-secondary);
+    color: var(--accent-secondary);
   }
 
   .badge.profile,
   .badge.default {
-    background-color: var(--accent-secondary);
-    color: var(--color-ghost-white, #F5F5FD);
+    border-color: var(--accent-secondary);
+    color: var(--accent-secondary);
   }
 </style>

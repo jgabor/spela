@@ -99,8 +99,10 @@
     align-items: flex-start;
     gap: 1.5rem;
     padding: 0.75rem 1.5rem 1rem;
-    border-bottom: 1px solid var(--border-default);
-    background-color: var(--bg-primary);
+    margin: 1rem 1.5rem 0;
+    border: 1px solid var(--border-default);
+    border-radius: 0;
+    background-color: var(--bg-secondary);
   }
 
   .logo {
@@ -121,7 +123,7 @@
     color: var(--accent-primary);
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .header-right {
@@ -137,12 +139,12 @@
     font-size: 0.75rem;
     align-items: flex-end;
     letter-spacing: 0.02em;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .metric-line {
     display: flex;
     gap: 0.5rem;
-    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
   }
 
   .metric-label {
@@ -159,13 +161,13 @@
   .options-button {
     padding: 0.45rem 0.9rem;
     border: 1px solid var(--border-default);
-    border-radius: 6px;
+    border-radius: 0;
     background-color: transparent;
     color: var(--text-primary);
     font-size: 0.75rem;
     cursor: pointer;
     align-self: flex-start;
-    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .options-button:hover {

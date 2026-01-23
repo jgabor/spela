@@ -645,7 +645,7 @@
   .launch {
     padding: 0.45rem 1.4rem;
     border: none;
-    border-radius: 6px;
+    border-radius: 0;
     background-color: var(--success);
     color: black;
     cursor: pointer;
@@ -654,7 +654,7 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     align-self: flex-start;
-    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .launch:hover:not(:disabled) {
@@ -677,7 +677,7 @@
   .default-header {
     padding: 1rem 1.25rem;
     border: 1px solid var(--border-default);
-    border-radius: 8px;
+    border-radius: 0;
     background-color: var(--bg-secondary);
   }
 
@@ -689,12 +689,14 @@
     margin: 0;
     font-size: 0.85rem;
     color: var(--text-dim);
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   h1 {
     font-size: 1.6rem;
     margin-bottom: 0;
     color: var(--text-primary);
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   h2 {
@@ -703,11 +705,12 @@
     margin-bottom: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.12em;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .info {
     border: 1px solid var(--border-default);
-    border-radius: 6px;
+    border-radius: 0;
     padding: 0.75rem 1rem;
     background-color: var(--bg-secondary);
   }
@@ -727,12 +730,14 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
     font-size: 0.7rem;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .value {
     color: var(--text-primary);
     word-break: break-all;
     font-size: 0.85rem;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .section {
@@ -753,7 +758,7 @@
 
   .dll-table {
     border: 1px solid var(--border-default);
-    border-radius: 6px;
+    border-radius: 0;
     padding: 0.5rem 0.75rem;
     background-color: var(--bg-secondary);
   }
@@ -764,6 +769,7 @@
     gap: 0.5rem;
     padding: 0.35rem 0;
     font-size: 0.85rem;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .dll-header {
@@ -810,7 +816,7 @@
     width: min(420px, 92vw);
     background-color: var(--bg-secondary);
     border: 1px solid var(--border-default);
-    border-radius: 8px;
+    border-radius: 0;
     padding: 1rem;
     z-index: 3001;
   }
@@ -826,6 +832,7 @@
     font-size: 0.9rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .install-close {
@@ -846,6 +853,7 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     margin-bottom: 0.5rem;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .install-options {
@@ -857,13 +865,13 @@
   .install-option {
     text-align: left;
     border: 1px solid var(--border-default);
-    border-radius: 6px;
+    border-radius: 0;
     background-color: var(--bg-primary);
     color: var(--text-primary);
     padding: 0.4rem 0.6rem;
     cursor: pointer;
     font-size: 0.8rem;
-    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .install-option:hover {
@@ -873,10 +881,11 @@
   .install-message {
     padding: 0.4rem 0.6rem;
     border: 1px solid var(--border-default);
-    border-radius: 6px;
+    border-radius: 0;
     font-size: 0.75rem;
     margin-bottom: 0.6rem;
     color: var(--error);
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .install-back {
@@ -886,6 +895,7 @@
     color: var(--text-dim);
     cursor: pointer;
     font-size: 0.75rem;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .install-back:hover {
@@ -896,6 +906,7 @@
     margin-top: 0.75rem;
     font-size: 0.75rem;
     color: var(--text-dim);
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   @media (max-width: 720px) {
@@ -911,12 +922,12 @@
   .install-btn {
     padding: 0.4rem 0.9rem;
     border: none;
-    border-radius: 6px;
+    border-radius: 0;
     cursor: pointer;
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .update-btn {
@@ -966,7 +977,7 @@
 
   .section.boxed {
     border: 1px solid var(--border-default);
-    border-radius: 8px;
+    border-radius: 0;
     padding: 0.75rem;
     background-color: var(--bg-secondary);
   }
@@ -988,7 +999,7 @@
     font-size: 0.8rem;
     letter-spacing: 0.02em;
     text-transform: uppercase;
-    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .field.checkbox {
@@ -1020,13 +1031,14 @@
     width: 100%;
     padding: 0.75rem;
     border: none;
-    border-radius: 6px;
+    border-radius: 0;
     background-color: var(--accent-primary);
     color: var(--color-ghost-white, #F5F5FD);
     cursor: pointer;
     font-size: 0.9rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .save:hover:not(:disabled) {
@@ -1041,11 +1053,12 @@
   .message {
     margin-top: 0.75rem;
     padding: 0.5rem;
-    border-radius: 6px;
+    border-radius: 0;
     text-align: center;
     background-color: var(--bg-secondary);
     border: 1px solid var(--border-default);
     text-transform: none;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .message[data-type='success'] {
@@ -1065,6 +1078,7 @@
     margin-top: 0.2rem;
     line-height: 1.3;
     text-transform: none;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .field.checkbox .hint {

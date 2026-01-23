@@ -519,11 +519,11 @@
   .options-message {
     padding: 0.4rem 0.6rem;
     border: 1px solid var(--border-default);
-    border-radius: 6px;
+    border-radius: 0;
     margin-bottom: 0.6rem;
     font-size: 0.75rem;
     color: var(--text-primary);
-    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .options-message[data-type='success'] {
@@ -562,7 +562,7 @@
     width: min(460px, 92vw);
     background-color: var(--bg-secondary);
     border: 1px solid var(--border-default);
-    border-radius: 8px;
+    border-radius: 0;
     padding: 1rem;
     z-index: 3001;
     text-transform: none;
@@ -577,7 +577,7 @@
     width: min(560px, 92vw);
     background-color: var(--bg-secondary);
     border: 1px solid var(--border-default);
-    border-radius: 10px;
+    border-radius: 0;
     padding: 1rem 1.2rem;
     z-index: 3001;
   }
@@ -597,6 +597,7 @@
     text-transform: uppercase;
     color: var(--accent-secondary);
     margin-bottom: 0.5rem;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .help-rows {
@@ -610,10 +611,11 @@
     gap: 0.5rem;
     font-size: 0.8rem;
     color: var(--text-dim);
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .help-key {
-    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
     font-weight: 600;
     color: var(--text-primary);
   }
@@ -628,6 +630,7 @@
   .options-title {
     font-size: 0.9rem;
     letter-spacing: 0.08em;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .options-close {
@@ -636,6 +639,7 @@
     color: var(--text-dim);
     cursor: pointer;
     font-size: 0.7rem;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .options-close:hover {
@@ -660,6 +664,7 @@
     letter-spacing: 0.08em;
     margin-bottom: 0.5rem;
     text-transform: uppercase;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .options-row {
@@ -678,6 +683,7 @@
     color: var(--text-dim);
     text-transform: none;
     letter-spacing: 0.01em;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .options-label-title {
@@ -689,6 +695,7 @@
     font-size: 0.65rem;
     line-height: 1.3;
     max-width: 220px;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .options-control {
@@ -701,11 +708,11 @@
     min-width: 220px;
     padding: 0.3rem 0.6rem;
     border: 1px solid var(--border-default);
-    border-radius: 6px;
+    border-radius: 0;
     background-color: var(--bg-primary);
     color: var(--text-primary);
     font-size: 0.75rem;
-    font-family: var(--font-ui, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .path-input:focus {
@@ -715,12 +722,13 @@
 
   .toggle {
     border: 1px solid var(--border-default);
-    border-radius: 6px;
+    border-radius: 0;
     background-color: transparent;
     color: var(--text-dim);
     padding: 0.25rem 0.6rem;
     font-size: 0.7rem;
     cursor: pointer;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .toggle.active {
@@ -736,12 +744,13 @@
 
   .select-option {
     border: 1px solid var(--border-default);
-    border-radius: 6px;
+    border-radius: 0;
     background-color: transparent;
     color: var(--text-dim);
     padding: 0.2rem 0.5rem;
     font-size: 0.7rem;
     cursor: pointer;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   .select-option.active {
@@ -762,8 +771,8 @@
     flex: 1;
     display: grid;
     grid-template-columns: clamp(25ch, 30%, 50ch) minmax(0, 1fr);
-    gap: 1rem;
-    padding: 1rem 1.5rem;
+    gap: 0.75rem;
+    padding: 0 1.5rem 1rem;
     min-height: 0;
     background-color: var(--bg-primary);
   }
@@ -776,8 +785,8 @@
   .sidebar,
   .content {
     border: 1px solid var(--border-default);
-    border-radius: var(--border-radius);
-    background-color: var(--bg-primary);
+    border-radius: 0;
+    background-color: var(--bg-secondary);
     overflow: visible;
     display: flex;
     flex-direction: column;
@@ -808,8 +817,10 @@
     padding: 0.5rem 1.5rem 0.75rem;
     font-size: 0.75rem;
     color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+    text-transform: none;
+    letter-spacing: 0.04em;
+    background-color: var(--bg-secondary);
   }
 
   .footer-message {
@@ -817,6 +828,7 @@
     text-transform: none;
     letter-spacing: 0.01em;
     font-size: 0.7rem;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
   @media (max-width: 1100px) {
@@ -827,13 +839,13 @@
 
   @media (max-width: 720px) {
     .app-shell {
-      padding: 0.75rem 1rem;
+      padding: 0 1rem 0.75rem;
       gap: 0.75rem;
     }
 
     .sidebar,
     .content {
-      border-radius: var(--border-radius-small);
+      border-radius: 0;
     }
 
     .footer {
