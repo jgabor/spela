@@ -196,10 +196,9 @@ func (Release) Release() error {
 		return fmt.Errorf("failed to generate changelog: %w", err)
 	}
 
-	summary, err := generateReleaseSummary(changelog)
+	summary, err := resolveReleaseSummary(changelog)
 	if err != nil {
-		fmt.Printf("Warning: failed to generate LLM summary: %v\n", err)
-		summary = ""
+		return err
 	}
 
 	summary, err = showPreviewAndConfirm(nextVersion, changelog, summary)
@@ -252,11 +251,21 @@ func (Release) Rollback() error {
 	return nil
 }
 
-// Redo re-releases the specified version (destructive: deletes remote tag and GitHub release)
-func (Release) Redo(version string) error {
+// Redo re-releases a specified version (destructive: deletes remote tag and GitHub release)
+func (Release) Redo() error {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Enter version to redo (e.g., v0.1.0): ")
+	input, _ := reader.ReadString('\n')
+	version := strings.TrimSpace(input)
 	if version == "" {
-		return fmt.Errorf("version argument required, e.g., 'mage release:redo v0.1.0'")
+		return fmt.Errorf("version is required")
 	}
+
+	return redoRelease(version)
+}
+
+func redoRelease(version string) error {
+	reader := bufio.NewReader(os.Stdin)
 
 	if !strings.HasPrefix(version, "v") {
 		version = "v" + version
@@ -264,12 +273,14 @@ func (Release) Redo(version string) error {
 
 	fmt.Println("WARNING: This is a destructive operation!")
 	fmt.Printf("This will delete the remote tag %s and its GitHub release.\n", version)
-	fmt.Print("Type the version to confirm: ")
+	fmt.Print("Continue? [y/N]: ")
+	confirm, _ := reader.ReadString('\n')
+	if strings.ToLower(strings.TrimSpace(confirm)) != "y" {
+		return fmt.Errorf("aborted")
+	}
 
-	var response string
-	fmt.Scanln(&response)
-	if response != version && response != strings.TrimPrefix(version, "v") {
-		return fmt.Errorf("confirmation failed, aborted")
+	if err := ensureGitHubAuth(); err != nil {
+		return err
 	}
 
 	fmt.Printf("Deleting local tag %s...\n", version)
@@ -279,7 +290,9 @@ func (Release) Redo(version string) error {
 	sh.Run("git", "push", "origin", ":refs/tags/"+version)
 
 	fmt.Printf("Deleting GitHub release %s...\n", version)
-	sh.Run("gh", "release", "delete", version, "--yes")
+	if err := sh.RunV("gh", "release", "delete", version, "--yes"); err != nil {
+		return fmt.Errorf("failed to delete GitHub release: %w", err)
+	}
 
 	fmt.Println("Now running release with version override...")
 	return releaseWithVersion(version)
@@ -345,7 +358,21 @@ Summary:`, changelog)
 		return "", fmt.Errorf("opencode failed: %w, stderr: %s", err, stderr.String())
 	}
 
-	return strings.TrimSpace(stdout.String()), nil
+	summary := strings.TrimSpace(stdout.String())
+	if summary == "" {
+		return "", fmt.Errorf("opencode returned an empty summary")
+	}
+
+	return summary, nil
+}
+
+func resolveReleaseSummary(changelog string) (string, error) {
+	summary, err := generateReleaseSummary(changelog)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate release summary: %w", err)
+	}
+
+	return summary, nil
 }
 
 func showPreviewAndConfirm(version, changelog, summary string) (string, error) {
@@ -427,6 +454,26 @@ func updateChangelogFile(version, summary string) error {
 	return nil
 }
 
+func ensureGitHubAuth() error {
+	if _, err := exec.LookPath("gh"); err != nil {
+		return fmt.Errorf("GitHub CLI not found. Install gh or set GH_TOKEN for release deletion")
+	}
+
+	cmd := exec.Command("gh", "auth", "status", "-h", "github.com")
+	var stderr bytes.Buffer
+	cmd.Stdout = &bytes.Buffer{}
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		message := strings.TrimSpace(stderr.String())
+		if message == "" {
+			message = "run `gh auth login` or set GH_TOKEN"
+		}
+		return fmt.Errorf("GitHub CLI authentication required: %s", message)
+	}
+
+	return nil
+}
+
 func commitTagPush(version string) error {
 	if err := sh.RunV("git", "add", "CHANGELOG.md"); err != nil {
 		return err
@@ -461,10 +508,9 @@ func releaseWithVersion(version string) error {
 		return fmt.Errorf("failed to generate changelog: %w", err)
 	}
 
-	summary, err := generateReleaseSummary(changelog)
+	summary, err := resolveReleaseSummary(changelog)
 	if err != nil {
-		fmt.Printf("Warning: failed to generate LLM summary: %v\n", err)
-		summary = ""
+		return err
 	}
 
 	summary, err = showPreviewAndConfirm(version, changelog, summary)
