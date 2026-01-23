@@ -79,7 +79,7 @@ func Build() error {
 
 // FrontendBindings regenerates Wails frontend bindings
 func FrontendBindings() error {
-	return runInDir(filepath.Join("cmd", "spela"), "wails", "build", "-s", "-skipembedcreate", "-nopackage", "-m", "-tags", "wails,webkit2_41")
+	return runInDir(filepath.Join("cmd", "spela"), "wails", "build", "-s", "-nopackage", "-m", "-tags", "wails,webkit2_41")
 }
 
 // FrontendBuild builds the Svelte frontend
