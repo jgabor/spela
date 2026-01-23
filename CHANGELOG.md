@@ -5,7 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] - 2026-01-17
+## [0.1.0] - 2026-01-23
+
+This release introduces Spela as a comprehensive Linux gaming optimization tool for NVIDIA GPUs, featuring DLSS/DLL management and per-game profiles. It includes multiple interfaces (CLI, TUI with bubbletea, and Wails desktop app) along with game scanning, launch wrapper, and tuning capabilities. The release also adds DLSS Frame Generation and Ray Reconstruction support, unified theme with light/dark modes, and extensive CI/CD automation with AUR package publishing.
 
 ### Added
 
@@ -23,6 +25,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add TUI enhancements
 - Add DLSS-G and DLSS-D DLL support
 - Add release automation and preparation for v0.1.0
+- Add Playwright e2e tests
+- Include LLM summary in CHANGELOG.md
+- Automate AUR package publishing
+- Polish layout and profile settings UI
+- Filter out Proton and Steam tools from game lists
+- Add options modal for global configuration
+- Add unified spela theme with light/dark mode support
+- Improve GUI feature parity with TUI
+- Keep options and bindings in sync
+- Keep game list sidebar visible
+- Add header metrics panel
+- Simplify header and options panel
+- Add default profiles and dll install
+- Align default profile and fg override state
+- Align gui and tui parity behaviors
+- Align visual language with tui
 
 ### Changed
 
@@ -45,10 +63,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add DLSS Frame Generation 310.5.0 to manifest
 - Add DLSS Ray Reconstruction 310.5.0 to manifest
 - Move DLL releases to separate spela-dlls repository
+- Remove preset system, add DLSS 4/4.5 presets
+- Ignore Wails generated artifacts
+- Ignore beans tracking and tweak dll headers
 
 ### Documentation
 
 - Add README with features and installation guide
+- Add screenshot to README
 
 ### Fixed
 
@@ -69,6 +91,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add explicit permissions to CI workflow
 - Show reason when GUI falls back to TUI
 - Find git-cliff in common install locations
+- Add production build tag for Wails GUI
+- Run go vet on whole project instead of individual files
+- Add path editing support in options modal
+- Only dim profile widget border, not content
+- Remove duplicate Model setting from profile widget
+- Use webkit2gtk-4.1 for Ubuntu 24.04 compatibility
+- Correct Wails binding package name from main to gui
+- Fix filter reactivity and dropdown styling
+- Use custom Dropdown component for styled sort menu
+- Use custom Dropdown component for game detail settings
+- Adjust profile grid responsiveness
+- Add webkit2_41 tag to bindings
+- Allow dll install without detection
+- Restore interactive redo flow
+- Change summary model
 
 [0.1.0]: https://github.com/jgabor/spela/tree/v0.1.0
-
