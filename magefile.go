@@ -349,7 +349,7 @@ Changelog:
 
 Summary:`, changelog)
 
-	cmd := exec.Command("opencode", "run", "-m", "opencode/minimax-m2.1-free", prompt)
+	cmd := exec.Command("opencode", "run", "-m", "opencode/big-pickle", prompt)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
