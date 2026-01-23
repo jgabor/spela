@@ -9,6 +9,8 @@
 coverage.txt
 dist/
 docs/
+!internal/gui/frontend/dist/
+!internal/gui/frontend/dist/.gitkeep
 
 # GUI frontend
 internal/gui/frontend/node_modules/
