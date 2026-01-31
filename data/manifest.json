@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "updated_at": "2026-01-17T13:58:02Z",
+  "updated_at": "2026-01-31T06:16:43Z",
   "repository": "jgabor/spela-dlls",
   "dlls": {
     "dlss": [
@@ -26,6 +26,15 @@
       }
     ],
     "dlssd": [
+      {
+        "version": "310.5.3",
+        "filename": "nvngx_dlssd.dll",
+        "url": "https://github.com/jgabor/spela/releases/download/dll-dlssd-v310.5.3/nvngx_dlssd.dll",
+        "sha256": "e1d1b8d8d07e7210b5feafc42f118fe3bf0144b9e7f2768e44c6f652faa6d7b8",
+        "size": 28596848,
+        "release_date": "2026-01-31T06:16:43Z",
+        "notes": "From techpowerup.com"
+      },
       {
         "version": "310.5.0",
         "filename": "nvngx_dlssd.dll",
