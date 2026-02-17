@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/jgabor/spela/internal/privilege"
 )
 
 type Governor string
@@ -47,7 +49,8 @@ func SetGovernor(gov Governor) error {
 	cpuCount := GetCPUCount()
 	for i := 0; i < cpuCount; i++ {
 		path := fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/scaling_governor", i)
-		if err := os.WriteFile(path, []byte(gov), 0o644); err != nil {
+		_, err := privilege.ExecWithInput(string(gov), "tee", path)
+		if err != nil {
 			return fmt.Errorf("failed to set governor for cpu%d: %w", i, err)
 		}
 	}
@@ -67,7 +70,8 @@ func SetSMT(enabled bool) error {
 	if enabled {
 		value = "on"
 	}
-	return os.WriteFile("/sys/devices/system/cpu/smt/control", []byte(value), 0o644)
+	_, err := privilege.ExecWithInput(value, "tee", "/sys/devices/system/cpu/smt/control")
+	return err
 }
 
 func LaunchWithAffinity(affinity string, args []string) *exec.Cmd {

@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"github.com/jgabor/spela/internal/privilege"
 )
 
 type NVIDIASettings struct {
@@ -51,23 +53,20 @@ func SetDigitalVibrance(level int) error {
 }
 
 func SetGraphicsClockOffset(offset int) error {
-	_, err := runNvidiaSMI("-lgc", fmt.Sprintf("%d,%d", 0, 2100+offset))
-	return err
+	return runNvidiaSMIElevated("-lgc", fmt.Sprintf("%d,%d", 0, 2100+offset))
 }
 
 func SetMemoryClockOffset(offset int) error {
-	_, err := runNvidiaSMI("-lmc", fmt.Sprintf("%d", offset))
-	return err
+	return runNvidiaSMIElevated("-lmc", fmt.Sprintf("%d", offset))
 }
 
 func SetPowerLimit(watts int) error {
-	_, err := runNvidiaSMI("-pl", fmt.Sprintf("%d", watts))
-	return err
+	return runNvidiaSMIElevated("-pl", fmt.Sprintf("%d", watts))
 }
 
 func ResetClocks() error {
-	_, _ = runNvidiaSMI("-rgc")
-	_, _ = runNvidiaSMI("-rmc")
+	_ = runNvidiaSMIElevated("-rgc")
+	_ = runNvidiaSMIElevated("-rmc")
 	return nil
 }
 
@@ -145,6 +144,11 @@ func runNvidiaSMI(args ...string) (string, error) {
 	cmd.Stderr = &out
 	err := cmd.Run()
 	return out.String(), err
+}
+
+func runNvidiaSMIElevated(args ...string) error {
+	_, err := privilege.Exec("nvidia-smi", args...)
+	return err
 }
 
 func parseNvidiaSettingsValue(output string) string {
