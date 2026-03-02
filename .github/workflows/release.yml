@@ -10,30 +10,47 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
+          cache: true
+
+      - name: Cache Go tools
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        id: go-tools
+        with:
+          path: ~/go/bin
+          key: ${{ runner.os }}-go-tools-wails2.11.0-mage
 
       - name: Install Wails CLI
+        if: steps.go-tools.outputs.cache-hit != 'true'
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 
+      - name: Install mage
+        if: steps.go-tools.outputs.cache-hit != 'true'
+        run: go install github.com/magefile/mage@latest
+
       - name: Set up bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2.1.2
         with:
           bun-version: latest
 
-      - name: Install mage
-        run: go install github.com/magefile/mage@latest
+      - name: Cache bun dependencies
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
 
       - name: Install webview dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+        uses: awalsh128/cache-apt-pkgs-action@acb598e5ddbc6f68a970c5da0688d2f3a9f04d05 # v1.6.0
+        with:
+          packages: libgtk-3-dev libwebkit2gtk-4.1-dev
+          version: 1.0
 
       - name: Build unified binary
         run: |
@@ -68,7 +85,7 @@ jobs:
           echo "$NOTES" > release_notes.md
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           files: |
             spela-linux-amd64
@@ -77,31 +94,32 @@ jobs:
 
   aur-publish:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
+          cache: true
 
-      - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+      - name: Cache Go tools
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        id: go-tools
+        with:
+          path: ~/go/bin
+          key: ${{ runner.os }}-go-tools-mage
 
       - name: Install mage
+        if: steps.go-tools.outputs.cache-hit != 'true'
         run: go install github.com/magefile/mage@latest
 
       - name: Update PKGBUILD version and checksum
         run: mage aur:updateVersion ${{ github.ref_name }}
 
-      - name: Generate .SRCINFO
-        run: |
-          sudo pacman -Sy --noconfirm pacman-contrib
-          mage aur:srcinfo
-
       - name: Publish spela to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
+        uses: KSXGitHub/github-actions-deploy-aur@a97f56a8425a7a7f3b8c58607f769c69b089cadb # v3.0.1
         with:
           pkgname: spela
           pkgbuild: pkg/aur/PKGBUILD
@@ -111,7 +129,7 @@ jobs:
           commit_message: "Update to ${{ github.ref_name }}"
 
       - name: Publish spela-git to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
+        uses: KSXGitHub/github-actions-deploy-aur@a97f56a8425a7a7f3b8c58607f769c69b089cadb # v3.0.1
         with:
           pkgname: spela-git
           pkgbuild: pkg/aur/PKGBUILD-git
