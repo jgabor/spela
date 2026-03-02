@@ -1,5 +1,6 @@
 /node_modules/
-/dist/
+/dist/*
+!/dist/.gitkeep
 /test-results/
 /playwright-report/
 /playwright/.cache/
