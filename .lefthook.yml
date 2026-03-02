@@ -1,22 +1,56 @@
+output: [
+    # "meta",
+    "summary",
+    # "success",
+    "failure",
+    # "execution",
+    # "execution_out",
+    # "execution_info",
+    # "skips",
+  ]
+
+post-checkout:
+  commands:
+    go:
+      run: go mod tidy
+
 pre-commit:
-  jobs:
-    - group:
-        parallel: true
-        jobs:
-          - name: go test
-            run: go test ./...
-          - name: lint
-            run: golangci-lint run
-          - name: go vet
-            run: go vet ./...
-    - group:
-        parallel: true
-        jobs:
-          - name: gofumpt
-            stage_fixed: true
-            glob: "*.go"
-            run: gofumpt -w {staged_files}
-          - name: markdown
-            glob: "*.md"
-            stage_fixed: true
-            run: bunx markdownlint --disable MD013 MD029 MD033 MD036 MD040 MD041 MD060 --fix {staged_files}
+  commands:
+    go:
+      run: go mod tidy
+      stage_fixed: true
+    lint:
+      run: golangci-lint run --fix ./...
+      stage_fixed: true
+      glob: "*.go"
+    vet:
+      run: go vet ./...
+      stage_fixed: true
+      glob: "*.go"
+    vuln:
+      run: govulncheck ./...
+      stage_fixed: true
+      glob: "*.go"
+    docs:
+      run: bunx markdownlint --dot --fix --disable MD013 MD024 MD029 MD033 MD036 MD040 MD060 -- {staged_files}
+      stage_fixed: true
+      glob: "*.md"
+    configs:
+      run: bunx prettier --write {staged_files}
+      stage_fixed: true
+      glob: "*.json"
+
+pre-push:
+  parallel: true
+  commands:
+    lint:
+      run: golangci-lint run --fix ./...
+      stage_fixed: true
+      glob: "*.go"
+    test:
+      run: go test ./...
+      glob: "*.go"
+    vuln:
+      run: govulncheck ./...
+      stage_fixed: true
+      glob: "*.go"

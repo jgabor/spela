@@ -1,18 +1,23 @@
 version: "2"
 
+run:
+  timeout: 5m
+  tests: true
+  allow-parallel-runners: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+formatters:
+  enable:
+    - goimports
+    - gofumpt
+
 linters:
   enable:
     - errcheck
     - govet
+    - ineffassign
     - staticcheck
     - unused
-    - ineffassign
-
-formatters:
-  enable:
-    - gofmt
-    - goimports
-  settings:
-    goimports:
-      local-prefixes:
-        - github.com/jgabor/spela
