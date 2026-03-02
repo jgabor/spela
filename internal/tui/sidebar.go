@@ -57,7 +57,7 @@ type SidebarModel struct {
 	selectMode bool
 }
 
-func NewSidebar(games []*game.Game) SidebarModel {
+func NewSidebar(games []*game.Game) (SidebarModel, tea.Cmd) {
 	ti := textinput.New()
 	ti.Placeholder = "Search..."
 	ti.CharLimit = 30
@@ -70,7 +70,7 @@ func NewSidebar(games []*game.Game) SidebarModel {
 		selected: make(map[uint64]bool),
 	}
 	m.applyFiltersAndSort()
-	return m
+	return m, m.selectCurrentItem()
 }
 
 func (m *SidebarModel) SetSize(width, height int) {
@@ -151,7 +151,11 @@ func (m SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
 			}
 		case "A":
 			if m.selectMode {
-				m.selected = make(map[uint64]bool)
+				for _, item := range m.filtered {
+					if item.kind == sidebarItemGame && item.game != nil {
+						delete(m.selected, item.game.AppID)
+					}
+				}
 			}
 		case "esc":
 			if m.selectMode {
@@ -195,6 +199,18 @@ func (m *SidebarModel) clearFilters() {
 }
 
 func (m *SidebarModel) applyFiltersAndSort() {
+	// Save current game identity before filtering (#8)
+	var currentAppID uint64
+	var hasCurrentGame bool
+	if m.cursor < len(m.filtered) {
+		item := m.filtered[m.cursor]
+		if item.kind == sidebarItemGame && item.game != nil {
+			currentAppID = item.game.AppID
+			hasCurrentGame = true
+		}
+	}
+	oldCursor := m.cursor
+
 	query := strings.ToLower(m.search.Value())
 
 	var filtered []*game.Game
@@ -211,17 +227,25 @@ func (m *SidebarModel) applyFiltersAndSort() {
 		filtered = append(filtered, g)
 	}
 
+	// Pre-compute hasProfile map before sorting (#21)
+	hasProfileMap := make(map[uint64]bool, len(filtered))
+	if m.sortMode == SortProfileFirst {
+		for _, g := range filtered {
+			hasProfileMap[g.AppID] = profile.Exists(g.AppID)
+		}
+	}
+
 	switch m.sortMode {
 	case SortNameAsc:
-		sort.Slice(filtered, func(i, j int) bool {
+		sort.SliceStable(filtered, func(i, j int) bool {
 			return filtered[i].Name < filtered[j].Name
 		})
 	case SortNameDesc:
-		sort.Slice(filtered, func(i, j int) bool {
+		sort.SliceStable(filtered, func(i, j int) bool {
 			return filtered[i].Name > filtered[j].Name
 		})
 	case SortDLLsFirst:
-		sort.Slice(filtered, func(i, j int) bool {
+		sort.SliceStable(filtered, func(i, j int) bool {
 			iHas := len(filtered[i].DLLs) > 0
 			jHas := len(filtered[j].DLLs) > 0
 			if iHas != jHas {
@@ -230,9 +254,9 @@ func (m *SidebarModel) applyFiltersAndSort() {
 			return filtered[i].Name < filtered[j].Name
 		})
 	case SortProfileFirst:
-		sort.Slice(filtered, func(i, j int) bool {
-			iHas := profile.Exists(filtered[i].AppID)
-			jHas := profile.Exists(filtered[j].AppID)
+		sort.SliceStable(filtered, func(i, j int) bool {
+			iHas := hasProfileMap[filtered[i].AppID]
+			jHas := hasProfileMap[filtered[j].AppID]
 			if iHas != jHas {
 				return iHas
 			}
@@ -249,8 +273,20 @@ func (m *SidebarModel) applyFiltersAndSort() {
 	}
 
 	m.filtered = items
-	if m.cursor >= len(items) {
+
+	// Restore cursor position (#8): find current game in new list, or clamp
+	if hasCurrentGame {
+		for i, item := range items {
+			if item.kind == sidebarItemGame && item.game != nil && item.game.AppID == currentAppID {
+				m.cursor = i
+				return
+			}
+		}
+	}
+	if len(items) == 0 {
 		m.cursor = 0
+	} else {
+		m.cursor = min(oldCursor, len(items)-1)
 	}
 }
 

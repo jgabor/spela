@@ -52,6 +52,7 @@ type WidgetField struct {
 	options     []string
 	description string
 	usesModal   bool
+	disabled    bool // field is visible but not yet functional
 }
 
 type WidgetGroup struct {
@@ -71,6 +72,31 @@ type ProfileWidgetModel struct {
 	height       int
 }
 
+func boolStr(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
+}
+
+func intStr(i int) string {
+	return fmt.Sprintf("%d", i)
+}
+
+func srPresetValue(p profile.DLSSPreset) string {
+	if p == "" {
+		return "default"
+	}
+	return string(p)
+}
+
+func powerMizerValue(p string) string {
+	if p == "" {
+		return "auto"
+	}
+	return p
+}
+
 func displayValue(v string) string {
 	if v == "" || v == "default" || v == "auto" {
 		return "(default)"
@@ -83,6 +109,16 @@ func displayBool(b bool) string {
 		return "(default)"
 	}
 	return "true"
+}
+
+func displayBoolPtr(b *bool) string {
+	if b == nil {
+		return "(default)"
+	}
+	if *b {
+		return "true"
+	}
+	return "false"
 }
 
 func displayFrameGeneration(enabled bool, override bool) string {
@@ -106,6 +142,11 @@ type openDLSSPresetModalMsg struct {
 	currentPreset profile.DLSSPreset
 }
 
+type profileSaveMsg struct {
+	success bool
+	err     error
+}
+
 func NewProfileWidget(g *game.Game, p *profile.Profile) ProfileWidgetModel {
 	return newProfileWidget(NewGameProfileSaveTarget(g.AppID), g.Name, p)
 }
@@ -121,7 +162,7 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 
 	groups := []WidgetGroup{
 		{
-			title: "DLSS settings",
+			title: "DLSS super resolution",
 			fields: []WidgetField{
 				{
 					label:       "Quality mode",
@@ -139,6 +180,13 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 					usesModal:   true,
 				},
 				{
+					label:       "Model preset",
+					key:         "sr_model_preset",
+					value:       displayValue(string(p.DLSS.SRModelPreset)),
+					options:     []string{"(default)", "auto", "k", "l", "m"},
+					description: "Force specific transformer model version",
+				},
+				{
 					label:       "Override",
 					key:         "sr_override",
 					value:       displayBool(p.DLSS.SROverride),
@@ -146,12 +194,43 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 					description: "Force DLSS even if unsupported",
 				},
 				{
-					label:       "Indicator",
+					label:       "SR indicator",
 					key:         "indicator",
 					value:       displayBool(p.DLSS.Indicator),
 					options:     []string{"(default)", "true", "false"},
 					description: "Show on-screen DLSS indicator",
 				},
+			},
+		},
+		{
+			title: "DLSS ray reconstruction",
+			fields: []WidgetField{
+				{
+					label:       "RR mode",
+					key:         "rr_mode",
+					value:       displayValue(string(p.DLSS.RRMode)),
+					options:     []string{"(default)", "off", "ultra_performance", "performance", "balanced", "quality", "dlaa"},
+					description: "Ray reconstruction quality mode",
+				},
+				{
+					label:       "RR preset",
+					key:         "rr_preset",
+					value:       displayValue(srPresetValue(p.DLSS.RRPreset)),
+					options:     []string{"(default)", "A", "B", "C", "D", "E", "F", "J", "K", "L", "M"},
+					description: "Ray reconstruction neural network preset",
+				},
+				{
+					label:       "RR override",
+					key:         "rr_override",
+					value:       displayBool(p.DLSS.RROverride),
+					options:     []string{"(default)", "true", "false"},
+					description: "Force ray reconstruction even if unsupported",
+				},
+			},
+		},
+		{
+			title: "DLSS frame generation",
+			fields: []WidgetField{
 				{
 					label:       "Frame gen",
 					key:         "fg_enabled",
@@ -166,6 +245,13 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 					options:     []string{"(default)", "1", "2", "3", "4"},
 					description: "Extra frames to generate (0=off)",
 				},
+				{
+					label:       "FG indicator",
+					key:         "fg_indicator",
+					value:       displayBool(p.DLSS.FGIndicator),
+					options:     []string{"(default)", "true", "false"},
+					description: "Show on-screen frame generation indicator",
+				},
 			},
 		},
 		{
@@ -177,6 +263,13 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 					value:       displayBool(p.GPU.ShaderCache),
 					options:     []string{"(default)", "true", "false"},
 					description: "Enable GPU shader caching",
+				},
+				{
+					label:       "Shader cache path",
+					key:         "shader_cache_path",
+					value:       displayValue(p.GPU.ShaderCachePath),
+					options:     nil,
+					description: "Custom path for shader cache storage",
 				},
 				{
 					label:       "Threaded opt",
@@ -191,6 +284,52 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 					value:       displayValue(powerMizerValue(p.GPU.PowerMizer)),
 					options:     []string{"(default)", "adaptive", "max"},
 					description: "GPU power mode",
+					disabled:    true,
+				},
+				{
+					label:       "Clock offset",
+					key:         "clock_offset",
+					value:       displayInt(p.GPU.ClockOffset),
+					options:     nil,
+					description: "GPU core clock offset in MHz",
+					disabled:    true,
+				},
+				{
+					label:       "Memory offset",
+					key:         "memory_offset",
+					value:       displayInt(p.GPU.MemoryOffset),
+					options:     nil,
+					description: "GPU memory clock offset in MHz",
+					disabled:    true,
+				},
+			},
+		},
+		{
+			title: "CPU settings",
+			fields: []WidgetField{
+				{
+					label:       "Governor",
+					key:         "cpu_governor",
+					value:       displayValue(p.CPU.Governor),
+					options:     []string{"(default)", "performance", "powersave", "schedutil", "ondemand"},
+					description: "CPU frequency scaling governor",
+					disabled:    true,
+				},
+				{
+					label:       "SMT",
+					key:         "cpu_smt",
+					value:       displayBoolPtr(p.CPU.SMT),
+					options:     []string{"(default)", "true", "false"},
+					description: "Enable simultaneous multi-threading (hyperthreading)",
+					disabled:    true,
+				},
+				{
+					label:       "Affinity",
+					key:         "cpu_affinity",
+					value:       displayValue(p.CPU.Affinity),
+					options:     nil,
+					description: "CPU core affinity mask (hex or decimal)",
+					disabled:    true,
 				},
 			},
 		},
@@ -221,14 +360,91 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 			},
 		},
 		{
+			title: "Overlay settings",
+			fields: []WidgetField{
+				{
+					label:       "Enabled",
+					key:         "overlay_enabled",
+					value:       displayBool(p.Overlay.Enabled),
+					options:     []string{"(default)", "true", "false"},
+					description: "Show performance overlay",
+					disabled:    true,
+				},
+				{
+					label:       "Position",
+					key:         "overlay_position",
+					value:       displayValue(p.Overlay.Position),
+					options:     []string{"(default)", "top-left", "top-right", "bottom-left", "bottom-right"},
+					description: "Overlay screen position",
+					disabled:    true,
+				},
+				{
+					label:       "Show FPS",
+					key:         "overlay_fps",
+					value:       displayBool(p.Overlay.ShowFPS),
+					options:     []string{"(default)", "true", "false"},
+					description: "Show frames per second in overlay",
+					disabled:    true,
+				},
+				{
+					label:       "Show frametime",
+					key:         "overlay_frametime",
+					value:       displayBool(p.Overlay.ShowFrametime),
+					options:     []string{"(default)", "true", "false"},
+					description: "Show frame time in overlay",
+					disabled:    true,
+				},
+				{
+					label:       "Show CPU",
+					key:         "overlay_cpu",
+					value:       displayBool(p.Overlay.ShowCPU),
+					options:     []string{"(default)", "true", "false"},
+					description: "Show CPU usage in overlay",
+					disabled:    true,
+				},
+				{
+					label:       "Show GPU",
+					key:         "overlay_gpu",
+					value:       displayBool(p.Overlay.ShowGPU),
+					options:     []string{"(default)", "true", "false"},
+					description: "Show GPU usage in overlay",
+					disabled:    true,
+				},
+				{
+					label:       "Show VRAM",
+					key:         "overlay_vram",
+					value:       displayBool(p.Overlay.ShowVRAM),
+					options:     []string{"(default)", "true", "false"},
+					description: "Show VRAM usage in overlay",
+					disabled:    true,
+				},
+				{
+					label:       "Toggle key",
+					key:         "overlay_toggle_key",
+					value:       displayValue(p.Overlay.ToggleKey),
+					options:     nil,
+					description: "Key to toggle overlay visibility",
+					disabled:    true,
+				},
+			},
+		},
+		{
 			title: "Backup settings",
 			fields: []WidgetField{
 				{
-					label:       "Save backup",
+					label:       "Backup on launch",
 					key:         "backup_on_launch",
 					value:       displayBool(p.Ludusavi.BackupOnLaunch),
 					options:     []string{"(default)", "true", "false"},
 					description: "Backup saves on launch",
+				},
+				{
+					label:       "Restore on launch",
+					key:         "restore_on_launch",
+					value:       displayBool(p.Ludusavi.RestoreOnLaunch),
+					options:     []string{"(default)", "true", "false"},
+					description: "Restore saves on launch",
+					disabled:    true,
 				},
 			},
 		},
@@ -261,26 +477,41 @@ func (m ProfileWidgetModel) Update(msg tea.Msg) (ProfileWidgetModel, tea.Cmd) {
 }
 
 func (m ProfileWidgetModel) updateGrid(msg tea.KeyMsg) (ProfileWidgetModel, tea.Cmd) {
+	cols := m.columnCount()
 	switch msg.String() {
 	case "up", "k":
-		if m.focusedGroup > 0 {
-			m.focusedGroup--
+		// Move up within the same column
+		col := m.focusedGroup % cols
+		prev := m.focusedGroup - cols
+		if prev >= 0 && prev%cols == col {
+			m.focusedGroup = prev
 		}
 	case "down", "j":
-		if m.focusedGroup < len(m.groups)-1 {
-			m.focusedGroup++
+		// Move down within the same column
+		col := m.focusedGroup % cols
+		next := m.focusedGroup + cols
+		if next < len(m.groups) && next%cols == col {
+			m.focusedGroup = next
 		}
 	case "left", "h":
-		if m.focusedGroup > 0 {
+		// Move left to previous column (same row)
+		if cols > 1 && m.focusedGroup%cols > 0 {
 			m.focusedGroup--
 		}
 	case "right", "l":
-		if m.focusedGroup < len(m.groups)-1 {
+		// Move right to next column (same row)
+		if cols > 1 && m.focusedGroup%cols < cols-1 && m.focusedGroup+1 < len(m.groups) {
 			m.focusedGroup++
 		}
 	case "enter":
 		m.editing = true
 		m.focusedField = 0
+		for i, f := range m.groups[m.focusedGroup].fields {
+			if !f.disabled {
+				m.focusedField = i
+				break
+			}
+		}
 	case "s":
 		return m, m.save()
 	}
@@ -293,25 +524,34 @@ func (m ProfileWidgetModel) updateEditing(msg tea.KeyMsg) (ProfileWidgetModel, t
 
 	switch msg.String() {
 	case "up", "k":
-		if m.focusedField > 0 {
-			m.focusedField--
+		for i := m.focusedField - 1; i >= 0; i-- {
+			if !group.fields[i].disabled {
+				m.focusedField = i
+				break
+			}
 		}
 	case "down", "j":
-		if m.focusedField < len(group.fields)-1 {
-			m.focusedField++
+		for i := m.focusedField + 1; i < len(group.fields); i++ {
+			if !group.fields[i].disabled {
+				m.focusedField = i
+				break
+			}
 		}
 	case "left", "h":
 		field := group.fields[m.focusedField]
-		if !field.usesModal {
+		if !field.disabled && !field.usesModal {
 			m.cycleFieldValue(-1)
 		}
 	case "right", "l":
 		field := group.fields[m.focusedField]
-		if !field.usesModal {
+		if !field.disabled && !field.usesModal {
 			m.cycleFieldValue(1)
 		}
 	case "enter":
 		field := group.fields[m.focusedField]
+		if field.disabled {
+			break
+		}
 		if field.usesModal && field.key == "sr_preset" {
 			currentPreset := profile.DLSSPreset(m.profile.DLSS.SRPreset)
 			return m, func() tea.Msg {
@@ -335,9 +575,15 @@ func (m *ProfileWidgetModel) cycleFieldValue(direction int) {
 		return
 	}
 
+	// If the current value is unknown (prefixed with "?"), start from first option.
+	rawValue := field.value
+	if len(rawValue) > 0 && rawValue[0] == '?' {
+		rawValue = field.options[0]
+	}
+
 	currentIndex := 0
 	for i, opt := range field.options {
-		if opt == field.value {
+		if opt == rawValue {
 			currentIndex = i
 			break
 		}
@@ -368,8 +614,28 @@ func (m *ProfileWidgetModel) applyToProfile() {
 				} else {
 					m.profile.DLSS.SRPreset = profile.DLSSPreset(value)
 				}
+			case "sr_model_preset":
+				if isDefault {
+					m.profile.DLSS.SRModelPreset = ""
+				} else {
+					m.profile.DLSS.SRModelPreset = profile.DLSSModelPreset(value)
+				}
 			case "sr_override":
 				m.profile.DLSS.SROverride = value == "true"
+			case "rr_mode":
+				if isDefault {
+					m.profile.DLSS.RRMode = ""
+				} else {
+					m.profile.DLSS.RRMode = profile.DLSSMode(value)
+				}
+			case "rr_preset":
+				if isDefault {
+					m.profile.DLSS.RRPreset = ""
+				} else {
+					m.profile.DLSS.RRPreset = profile.DLSSPreset(value)
+				}
+			case "rr_override":
+				m.profile.DLSS.RROverride = value == "true"
 			case "fg_enabled":
 				if isDefault {
 					m.profile.DLSS.FGEnabled = false
@@ -388,8 +654,16 @@ func (m *ProfileWidgetModel) applyToProfile() {
 				}
 			case "indicator":
 				m.profile.DLSS.Indicator = value == "true"
+			case "fg_indicator":
+				m.profile.DLSS.FGIndicator = value == "true"
 			case "shader_cache":
 				m.profile.GPU.ShaderCache = value == "true"
+			case "shader_cache_path":
+				if isDefault {
+					m.profile.GPU.ShaderCachePath = ""
+				} else {
+					m.profile.GPU.ShaderCachePath = value
+				}
 			case "threaded_opt":
 				m.profile.GPU.ThreadedOptimization = value == "true"
 			case "power_mizer":
@@ -398,14 +672,75 @@ func (m *ProfileWidgetModel) applyToProfile() {
 				} else {
 					m.profile.GPU.PowerMizer = value
 				}
+			case "clock_offset":
+				if isDefault {
+					m.profile.GPU.ClockOffset = 0
+				} else {
+					var v int
+					_, _ = fmt.Sscanf(value, "%d", &v)
+					m.profile.GPU.ClockOffset = v
+				}
+			case "memory_offset":
+				if isDefault {
+					m.profile.GPU.MemoryOffset = 0
+				} else {
+					var v int
+					_, _ = fmt.Sscanf(value, "%d", &v)
+					m.profile.GPU.MemoryOffset = v
+				}
+			case "cpu_governor":
+				if isDefault {
+					m.profile.CPU.Governor = ""
+				} else {
+					m.profile.CPU.Governor = value
+				}
+			case "cpu_smt":
+				if isDefault {
+					m.profile.CPU.SMT = nil
+				} else {
+					b := value == "true"
+					m.profile.CPU.SMT = &b
+				}
+			case "cpu_affinity":
+				if isDefault {
+					m.profile.CPU.Affinity = ""
+				} else {
+					m.profile.CPU.Affinity = value
+				}
 			case "hdr":
 				m.profile.Proton.EnableHDR = value == "true"
 			case "wayland":
 				m.profile.Proton.EnableWayland = value == "true"
 			case "ngx_updater":
 				m.profile.Proton.EnableNGXUpdater = value == "true"
+			case "overlay_enabled":
+				m.profile.Overlay.Enabled = value == "true"
+			case "overlay_position":
+				if isDefault {
+					m.profile.Overlay.Position = ""
+				} else {
+					m.profile.Overlay.Position = value
+				}
+			case "overlay_fps":
+				m.profile.Overlay.ShowFPS = value == "true"
+			case "overlay_frametime":
+				m.profile.Overlay.ShowFrametime = value == "true"
+			case "overlay_cpu":
+				m.profile.Overlay.ShowCPU = value == "true"
+			case "overlay_gpu":
+				m.profile.Overlay.ShowGPU = value == "true"
+			case "overlay_vram":
+				m.profile.Overlay.ShowVRAM = value == "true"
+			case "overlay_toggle_key":
+				if isDefault {
+					m.profile.Overlay.ToggleKey = ""
+				} else {
+					m.profile.Overlay.ToggleKey = value
+				}
 			case "backup_on_launch":
 				m.profile.Ludusavi.BackupOnLaunch = value == "true"
+			case "restore_on_launch":
+				m.profile.Ludusavi.RestoreOnLaunch = value == "true"
 			}
 		}
 	}
@@ -510,12 +845,20 @@ func (m ProfileWidgetModel) getCurrentDescription() string {
 
 	// When not editing, show a summary of what the group contains
 	switch group.title {
-	case "DLSS settings":
-		return "NVIDIA DLSS super resolution and frame generation settings"
+	case "DLSS super resolution":
+		return "NVIDIA DLSS super resolution quality and preset settings"
+	case "DLSS ray reconstruction":
+		return "NVIDIA DLSS ray reconstruction mode and preset settings"
+	case "DLSS frame generation":
+		return "NVIDIA DLSS frame generation and multi-frame settings"
 	case "GPU settings":
 		return "GPU driver and optimization settings"
+	case "CPU settings":
+		return "CPU governor, SMT, and affinity settings"
 	case "Proton settings":
 		return "Proton compatibility layer settings"
+	case "Overlay settings":
+		return "Performance overlay display settings"
 	case "Backup settings":
 		return "Game save backup settings via Ludusavi"
 	}
@@ -589,13 +932,24 @@ func (m ProfileWidgetModel) renderFieldToString(field WidgetField, isFieldFocuse
 	style := normalStyle
 	valueStyle := dlssStyle
 
+	if field.disabled {
+		line := fmt.Sprintf("%s%-14s: ", prefix, field.label)
+		return dimStyle.Render(line + "Coming soon")
+	}
+
 	if isFieldFocused {
 		prefix = "> "
 		style = selectedStyle
 	}
 
+	displayedValue := field.value
+	isUnknown := len(displayedValue) > 0 && displayedValue[0] == '?'
+	if isUnknown {
+		valueStyle = warningStyle
+	}
+
 	line := fmt.Sprintf("%s%-14s: ", prefix, field.label)
-	result := style.Render(line) + valueStyle.Render(field.value)
+	result := style.Render(line) + valueStyle.Render(displayedValue)
 
 	if isFieldFocused {
 		var hint string

@@ -53,6 +53,10 @@ type optionsSavedMsg struct {
 
 type optionsCancelledMsg struct{}
 
+type optionsSaveErrorMsg struct {
+	err error
+}
+
 func NewOptionsModal() OptionsModalModel {
 	ti := textinput.New()
 	ti.Placeholder = "Enter path..."
@@ -157,7 +161,7 @@ func buildOptionsSections() []OptionsSection {
 					Label:       "Theme",
 					Description: "Color theme for the interface",
 					Type:        OptionTypeEnum,
-					Options:     []string{"default", "dark"},
+					Options:     []string{"default", "dark", "light"},
 				},
 				{
 					Key:         "compact_mode",
@@ -452,9 +456,12 @@ func (m *OptionsModalModel) setConfigValue(key, value string) {
 		SetShowHints(m.config.ShowHints)
 	case "theme":
 		m.config.Theme = value
-		if value == "dark" {
+		switch value {
+		case "dark":
 			SetTheme(DarkTheme)
-		} else {
+		case "light":
+			SetTheme(LightTheme)
+		default:
 			SetTheme(DefaultTheme)
 		}
 	case "compact_mode":
@@ -470,7 +477,7 @@ func (m OptionsModalModel) save() (OptionsModalModel, tea.Cmd) {
 	m.modified = false
 	return m, func() tea.Msg {
 		if err := cfg.Save(); err != nil {
-			return optionsCancelledMsg{}
+			return optionsSaveErrorMsg{err: err}
 		}
 		return optionsSavedMsg{config: cfg}
 	}
@@ -556,8 +563,8 @@ func (m OptionsModalModel) View() string {
 
 	modal := boxStyle.Render(b.String())
 
-	centerX := (m.width - modalWidth - 4) / 2
-	centerY := (m.height - modalHeight - 4) / 2
+	centerX := (m.width - modalWidth - 8) / 2
+	centerY := (m.height - modalHeight - 8) / 2
 	if centerX < 0 {
 		centerX = 0
 	}

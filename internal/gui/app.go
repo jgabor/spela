@@ -7,16 +7,15 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
 	"sort"
 	"time"
 
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/cpu"
 	"github.com/jgabor/spela/internal/dll"
-	"github.com/jgabor/spela/internal/env"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/gpu"
+	"github.com/jgabor/spela/internal/launcher"
 	"github.com/jgabor/spela/internal/profile"
 )
 
@@ -150,7 +149,7 @@ func parsePreferredDLLSource(source string) (string, error) {
 
 func parseTheme(theme string) (string, error) {
 	switch theme {
-	case "default", "dark":
+	case "default", "dark", "light":
 		return theme, nil
 	default:
 		return "", fmt.Errorf("unsupported theme: %s", theme)
@@ -270,12 +269,18 @@ func (a *App) GetGame(appID uint64) *GameInfo {
 type ProfileInfo struct {
 	SRMode               string `json:"srMode"`
 	SRPreset             string `json:"srPreset"`
+	SRModelPreset        string `json:"srModelPreset"`
 	SROverride           bool   `json:"srOverride"`
+	RRMode               string `json:"rrMode"`
+	RRPreset             string `json:"rrPreset"`
+	RROverride           bool   `json:"rrOverride"`
 	FGEnabled            bool   `json:"fgEnabled"`
 	FGOverride           bool   `json:"fgOverride"`
+	FGIndicator          bool   `json:"fgIndicator"`
 	MultiFrame           int    `json:"multiFrame"`
 	Indicator            bool   `json:"indicator"`
 	ShaderCache          bool   `json:"shaderCache"`
+	ShaderCachePath      string `json:"shaderCachePath"`
 	ThreadedOptimization bool   `json:"threadedOptimization"`
 	PowerMizer           string `json:"powerMizer"`
 	EnableHDR            bool   `json:"enableHdr"`
@@ -293,12 +298,18 @@ func profileInfoFromProfile(p *profile.Profile, inheritedFromDefault bool) *Prof
 	return &ProfileInfo{
 		SRMode:               string(p.DLSS.SRMode),
 		SRPreset:             string(p.DLSS.SRPreset),
+		SRModelPreset:        string(p.DLSS.SRModelPreset),
 		SROverride:           p.DLSS.SROverride,
+		RRMode:               string(p.DLSS.RRMode),
+		RRPreset:             string(p.DLSS.RRPreset),
+		RROverride:           p.DLSS.RROverride,
 		FGEnabled:            p.DLSS.FGEnabled,
 		FGOverride:           p.DLSS.FGOverride,
+		FGIndicator:          p.DLSS.FGIndicator,
 		MultiFrame:           p.DLSS.MultiFrame,
 		Indicator:            p.DLSS.Indicator,
 		ShaderCache:          p.GPU.ShaderCache,
+		ShaderCachePath:      p.GPU.ShaderCachePath,
 		ThreadedOptimization: p.GPU.ThreadedOptimization,
 		PowerMizer:           p.GPU.PowerMizer,
 		EnableHDR:            p.Proton.EnableHDR,
@@ -312,16 +323,22 @@ func profileInfoFromProfile(p *profile.Profile, inheritedFromDefault bool) *Prof
 func profileFromInfo(info ProfileInfo) *profile.Profile {
 	return &profile.Profile{
 		DLSS: profile.DLSSSettings{
-			SRMode:     profile.DLSSMode(info.SRMode),
-			SRPreset:   profile.DLSSPreset(info.SRPreset),
-			SROverride: info.SROverride,
-			FGEnabled:  info.FGEnabled,
-			FGOverride: info.FGOverride,
-			MultiFrame: info.MultiFrame,
-			Indicator:  info.Indicator,
+			SRMode:        profile.DLSSMode(info.SRMode),
+			SRPreset:      profile.DLSSPreset(info.SRPreset),
+			SRModelPreset: profile.DLSSModelPreset(info.SRModelPreset),
+			SROverride:    info.SROverride,
+			RRMode:        profile.DLSSMode(info.RRMode),
+			RRPreset:      profile.DLSSPreset(info.RRPreset),
+			RROverride:    info.RROverride,
+			FGEnabled:     info.FGEnabled,
+			FGOverride:    info.FGOverride,
+			FGIndicator:   info.FGIndicator,
+			MultiFrame:    info.MultiFrame,
+			Indicator:     info.Indicator,
 		},
 		GPU: profile.GPUSettings{
 			ShaderCache:          info.ShaderCache,
+			ShaderCachePath:      info.ShaderCachePath,
 			ThreadedOptimization: info.ThreadedOptimization,
 			PowerMizer:           info.PowerMizer,
 		},
@@ -662,11 +679,34 @@ func (a *App) UpdateDLLs(appID uint64) error {
 		}
 	}
 
-	return nil
+	detected, err := dll.ScanDirectory(g.InstallDir)
+	if err == nil {
+		g.DLLs = detected
+		g.ScannedAt = time.Now()
+	}
+	return a.db.Save()
 }
 
 func (a *App) RestoreDLLs(appID uint64) error {
-	return dll.RestoreBackup(appID)
+	if a.db == nil {
+		return ErrDatabaseNotLoaded
+	}
+
+	g, ok := a.db.Games[appID]
+	if !ok || g == nil {
+		return fmt.Errorf("%w: %d", ErrGameNotFound, appID)
+	}
+
+	if err := dll.RestoreBackup(appID); err != nil {
+		return err
+	}
+
+	detected, err := dll.ScanDirectory(g.InstallDir)
+	if err == nil {
+		g.DLLs = detected
+		g.ScannedAt = time.Now()
+	}
+	return a.db.Save()
 }
 
 func (a *App) HasDLLBackup(appID uint64) bool {
@@ -684,16 +724,14 @@ func (a *App) LaunchGame(appID uint64) error {
 	}
 
 	p, _ := profile.LoadEffective(appID)
-
-	e := env.New()
+	l := launcher.New(g)
+	l.Profile = p
 	if p != nil {
-		p.Apply(e)
+		p.Apply(l.Environment)
 	}
 
-	cmd := exec.Command("steam", fmt.Sprintf("steam://rungameid/%d", appID))
-	e.ApplyToCmd(cmd)
-
-	if err := cmd.Start(); err != nil {
+	steamURL := fmt.Sprintf("steam://rungameid/%d", appID)
+	if err := l.Launch([]string{"steam", steamURL}); err != nil {
 		return fmt.Errorf("failed to launch game: %w", err)
 	}
 

@@ -405,12 +405,14 @@
           <div class="dll-row dll-header">
             <span class="dll-cell">DLSS</span>
             <span class="dll-cell">DLSS-G</span>
+            <span class="dll-cell">DLSS-D</span>
             <span class="dll-cell">XESS</span>
             <span class="dll-cell">FSR</span>
           </div>
           <div class="dll-row">
             <span class="dll-cell">{game.dlls?.find(d => d.dllType === 'dlss')?.version || '-'}</span>
             <span class="dll-cell">{game.dlls?.find(d => d.dllType === 'dlssg')?.version || '-'}</span>
+            <span class="dll-cell">{game.dlls?.find(d => d.dllType === 'dlssd')?.version || '-'}</span>
             <span class="dll-cell">{game.dlls?.find(d => d.dllType === 'xess')?.version || '-'}</span>
             <span class="dll-cell">{game.dlls?.find(d => d.dllType === 'fsr')?.version || '-'}</span>
           </div>
@@ -765,7 +767,7 @@
 
   .dll-row {
     display: grid;
-    grid-template-columns: repeat(4, minmax(80px, 1fr));
+    grid-template-columns: repeat(5, minmax(80px, 1fr));
     gap: 0.5rem;
     padding: 0.35rem 0;
     font-size: 0.85rem;

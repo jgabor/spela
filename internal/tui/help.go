@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type HelpSection struct {
@@ -55,7 +54,7 @@ func NewHelp() HelpModel {
 					{"←/h", "Decrease value"},
 					{"→/l", "Increase value"},
 					{"s", "Save profile"},
-					{"l", "Launch game"},
+					{"L", "Launch game"},
 					{"i", "Install DLL"},
 					{"u", "Update DLLs"},
 					{"R", "Restore DLLs"},
@@ -101,25 +100,24 @@ func (m HelpModel) Update(msg tea.Msg) (HelpModel, tea.Cmd) {
 }
 
 func (m HelpModel) View() string {
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("205")).
-		MarginBottom(1)
+	t := GetTheme()
 
-	sectionStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("229")).
+	helpTitleStyle := titleStyle.Foreground(t.Primary).MarginBottom(1)
+
+	sectionStyle := normalStyle.
+		Foreground(t.Secondary).
 		Bold(true)
 
-	keyStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("76")).
+	keyStyle := normalStyle.
+		Foreground(t.Accent).
 		Width(10)
 
-	descStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252"))
+	descStyle := normalStyle.
+		Foreground(t.Text)
 
 	var b strings.Builder
 
-	b.WriteString(titleStyle.Render("Keyboard shortcuts"))
+	b.WriteString(helpTitleStyle.Render("Keyboard shortcuts"))
 	b.WriteString("\n\n")
 
 	for i, section := range m.sections {
@@ -160,7 +158,7 @@ func ContextHelp(focus Focus, searchFocused, selectMode, hasGameSelection bool) 
 	} else {
 		hints = []string{"↑↓:navigate", "←→:change", "s:save"}
 		if hasGameSelection {
-			hints = append(hints, "l:launch", "i:install", "u:update", "R:restore")
+			hints = append(hints, "L:launch", "i:install", "u:update", "R:restore")
 		}
 		hints = append(hints, "tab:sidebar")
 	}

@@ -10,80 +10,19 @@ import (
 	"github.com/jgabor/spela/internal/profile"
 )
 
-type DLSSPresetInfo struct {
-	Preset      profile.DLSSPreset
-	Version     string
-	Technology  string
-	Description string
-}
-
-var dlssPresets = []DLSSPresetInfo{
-	{
-		Preset:      profile.DLSSPresetDefault,
-		Version:     "-",
-		Technology:  "-",
-		Description: "Use game's default preset",
-	},
-	{
-		Preset:      profile.DLSSPresetA,
-		Version:     "DLSS 2/3",
-		Technology:  "CNN",
-		Description: "Basic preset for Performance, Balanced, Quality tiers. For games without all native DLSS inputs like motion vectors",
-	},
-	{
-		Preset:      profile.DLSSPresetB,
-		Version:     "DLSS 2/3",
-		Technology:  "CNN",
-		Description: "Variant of A, improves Ultra Performance tier at high resolutions (4K+)",
-	},
-	{
-		Preset:      profile.DLSSPresetC,
-		Version:     "DLSS 2/3",
-		Technology:  "CNN",
-		Description: "Variant of A for fast-paced games. Less temporally stable images, but less ghosting",
-	},
-	{
-		Preset:      profile.DLSSPresetD,
-		Version:     "DLSS 2/3",
-		Technology:  "CNN",
-		Description: "Variant of A for slower-paced games. More temporally stable images, but more ghosting",
-	},
-	{
-		Preset:      profile.DLSSPresetE,
-		Version:     "DLSS 2/3",
-		Technology:  "CNN",
-		Description: "Improved version of D, should be used over D in most cases",
-	},
-	{
-		Preset:      profile.DLSSPresetF,
-		Version:     "DLSS 2/3",
-		Technology:  "CNN",
-		Description: "Optimized for high resolutions (4K+) in Ultra Performance / DLAA quality tiers",
-	},
-	{
-		Preset:      profile.DLSSPresetJ,
-		Version:     "DLSS 4",
-		Technology:  "Transformer",
-		Description: "Baseline transformer preset. Sharper but less temporally stable than K",
-	},
-	{
-		Preset:      profile.DLSSPresetK,
-		Version:     "DLSS 4",
-		Technology:  "Transformer",
-		Description: "Variant of J. Blurrier but more temporally stable than J",
-	},
-	{
-		Preset:      profile.DLSSPresetL,
-		Version:     "DLSS 4.5",
-		Technology:  "Transformer 2",
-		Description: "Optimized for high resolutions (4K+) in Ultra Performance / DLAA quality tiers",
-	},
-	{
-		Preset:      profile.DLSSPresetM,
-		Version:     "DLSS 4.5",
-		Technology:  "Transformer 2",
-		Description: "Optimized for lower resolutions in Performance / Balanced / Quality tiers",
-	},
+// dlssPresetOrder defines the display order for DLSS presets.
+var dlssPresetOrder = []profile.DLSSPreset{
+	profile.DLSSPresetDefault,
+	profile.DLSSPresetA,
+	profile.DLSSPresetB,
+	profile.DLSSPresetC,
+	profile.DLSSPresetD,
+	profile.DLSSPresetE,
+	profile.DLSSPresetF,
+	profile.DLSSPresetJ,
+	profile.DLSSPresetK,
+	profile.DLSSPresetL,
+	profile.DLSSPresetM,
 }
 
 type DLSSPresetModalModel struct {
@@ -114,8 +53,8 @@ func (m *DLSSPresetModalModel) Open(currentPreset profile.DLSSPreset) {
 	m.currentPreset = currentPreset
 
 	m.cursor = 0
-	for i, p := range dlssPresets {
-		if p.Preset == currentPreset {
+	for i, p := range dlssPresetOrder {
+		if p == currentPreset {
 			m.cursor = i
 			break
 		}
@@ -139,12 +78,12 @@ func (m DLSSPresetModalModel) Update(msg tea.Msg) (DLSSPresetModalModel, tea.Cmd
 				m.cursor--
 			}
 		case "down", "j":
-			if m.cursor < len(dlssPresets)-1 {
+			if m.cursor < len(dlssPresetOrder)-1 {
 				m.cursor++
 			}
 		case "enter":
 			m.visible = false
-			selectedPreset := dlssPresets[m.cursor].Preset
+			selectedPreset := dlssPresetOrder[m.cursor]
 			return m, func() tea.Msg {
 				return dlssPresetSelectedMsg{preset: selectedPreset}
 			}
@@ -167,7 +106,7 @@ func (m DLSSPresetModalModel) View() string {
 	t := GetTheme()
 
 	modalWidth := 70
-	modalHeight := len(dlssPresets) + 12
+	modalHeight := len(dlssPresetOrder) + 12
 
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -184,7 +123,7 @@ func (m DLSSPresetModalModel) View() string {
 	b.WriteString(headerStyle.Render(fmt.Sprintf("  %-10s %-12s %-14s", "Preset", "Version", "Technology")))
 	b.WriteString("\n")
 
-	for i, preset := range dlssPresets {
+	for i, preset := range dlssPresetOrder {
 		cursor := "  "
 		style := normalStyle
 		valueStyle := dlssStyle
@@ -194,20 +133,27 @@ func (m DLSSPresetModalModel) View() string {
 			style = selectedStyle
 		}
 
-		presetName := string(preset.Preset)
-		if preset.Preset == profile.DLSSPresetDefault {
+		presetName := string(preset)
+		if preset == profile.DLSSPresetDefault {
 			presetName = "(default)"
 		}
 
+		info := profile.DLSSPresetInfo[preset]
+
 		line := fmt.Sprintf("%s%-10s", cursor, presetName)
 		b.WriteString(style.Render(line))
-		b.WriteString(valueStyle.Render(fmt.Sprintf(" %-12s %-14s", preset.Version, preset.Technology)))
+		b.WriteString(valueStyle.Render(fmt.Sprintf(" %-12s %-14s", info.Version, info.Technology)))
 		b.WriteString("\n")
 	}
 
 	b.WriteString("\n")
-	currentPreset := dlssPresets[m.cursor]
-	b.WriteString(dimStyle.Render(currentPreset.Description))
+	currentPreset := dlssPresetOrder[m.cursor]
+	currentInfo := profile.DLSSPresetInfo[currentPreset]
+	description := currentInfo.Description
+	if currentPreset == profile.DLSSPresetDefault {
+		description = "Use game's default preset"
+	}
+	b.WriteString(dimStyle.Render(description))
 	b.WriteString("\n")
 
 	if hint := RenderHint("\n\n" + "↑↓:navigate • enter:select • esc:cancel"); hint != "" {

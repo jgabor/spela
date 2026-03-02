@@ -222,6 +222,15 @@ func runDLLUpdate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to swap DLL: %w", err)
 	}
 
+	// Re-scan DLLs and persist updated versions to database
+	detected, err := dll.ScanDirectory(g.InstallDir)
+	if err == nil {
+		g.DLLs = detected
+	}
+	if err := db.Save(); err != nil {
+		fmt.Printf("Warning: failed to save database: %v\n", err)
+	}
+
 	fmt.Printf("Updated %s to version %s\n", targetDLL.Name, latest.Version)
 	return nil
 }
@@ -250,6 +259,15 @@ func runDLLRestore(cmd *cobra.Command, args []string) error {
 
 	if err := dll.RestoreBackup(g.AppID); err != nil {
 		return fmt.Errorf("failed to restore backup: %w", err)
+	}
+
+	// Re-scan DLLs and persist restored versions to database
+	detected, err := dll.ScanDirectory(g.InstallDir)
+	if err == nil {
+		g.DLLs = detected
+	}
+	if err := db.Save(); err != nil {
+		fmt.Printf("Warning: failed to save database: %v\n", err)
 	}
 
 	fmt.Printf("Restored original DLLs for %s\n", g.Name)

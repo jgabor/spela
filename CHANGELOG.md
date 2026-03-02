@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-03-02
+
+### Added
+
+- Add missing profile fields: DLSS ray reconstruction, frame generation, GPU clock offsets, CPU settings, overlay settings, and Ludusavi restore (TUI and GUI)
+- Add missing `dlss set` CLI flags: `--sr-model-preset`, `--rr-preset`, `--rr-override`, `--fg-override`, `--fg-indicator`
+- Add distinct dark and light themes with theme switcher in options modal
+- Add "Coming soon" label for profile settings not yet wired to backend
+- Add initial game auto-selection on TUI startup
+- Add unknown profile value indicator (? prefix) for non-standard values
+
+### Changed
+
+- Remap game launch key from `l` to `L` (Shift+L) to free vim-style navigation
+- Change `q` key to always back-navigate (content → sidebar → quit)
+- Use `sort.SliceStable` for deterministic game list ordering
+- Pre-compute profile existence map before sorting to reduce filesystem calls
+- Scope deselect-all (`A`) to current filter view instead of clearing all selections
+- Preserve cursor position on filter changes instead of resetting to top
+- Replace hardcoded colors with theme references throughout TUI
+- Use launcher package for game launching in TUI and GUI (enables Ludusavi backup and signal handling)
+- Deduplicate DLSS preset metadata using canonical profile package source
+
+### Fixed
+
+- Fix messages dropped when switching focus during async DLL load
+- Fix data race on game.DLLs mutation from background goroutines
+- Fix DLL install/update/restore errors silently swallowed with no user feedback
+- Fix `dllOperating` guard never set, allowing concurrent DLL operations
+- Fix DLSS-G versions never displayed due to column key mismatch
+- Fix DLSS-D type detected but missing from display columns (TUI and GUI)
+- Fix launch errors not shown to user
+- Fix options save error silently treated as cancel
+- Fix options modal centering off by padding amount
+- Fix profile widget grid navigation (left/right now moves between columns)
+- Fix zombie process from `cmd.Start()` without `cmd.Wait()`
+- Fix DLL version metadata not persisted to database after update/install/restore (TUI, GUI, CLI)
+- Fix DLL update progress not shown to user in TUI
+- Fix GUI theme selector not accepting "light" theme
+
+### Removed
+
+- Remove dead `profile_editor.go` (~430 lines of unused code)
+
 ## [0.1.0] - 2026-01-23
 
 This release introduces Spela as a comprehensive Linux gaming optimization tool for NVIDIA GPUs, featuring DLSS/DLL management and per-game profiles. It includes multiple interfaces (CLI, TUI with bubbletea, and Wails desktop app) along with game scanning, launch wrapper, and tuning capabilities. The release also adds DLSS Frame Generation and Ray Reconstruction support, unified theme with light/dark modes, and extensive CI/CD automation with AUR package publishing.
@@ -107,4 +151,5 @@ This release introduces Spela as a comprehensive Linux gaming optimization tool 
 - Restore interactive redo flow
 - Change summary model
 
+[0.2.0]: https://github.com/jgabor/spela/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jgabor/spela/tree/v0.1.0

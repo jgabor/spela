@@ -52,26 +52,46 @@ var DefaultTheme = Theme{
 	SelectionBg: lipgloss.Color("53"),  // Dark Amethyst
 }
 
-var DarkTheme = DefaultTheme
-
-var LightTheme = Theme{
-	Name: "light",
+// DarkTheme uses deeper blacks and adjusted contrast for OLED/dark environments.
+var DarkTheme = Theme{
+	Name: "dark",
 
 	Primary:     lipgloss.Color("133"), // Amethyst
-	Secondary:   lipgloss.Color("62"),  // Dusk Blue
+	Secondary:   lipgloss.Color("69"),  // Royal Blue
 	Accent:      lipgloss.Color("212"), // Pink Carnation
-	Text:        lipgloss.Color("53"),  // Dark Amethyst
-	TextDim:     lipgloss.Color("91"),  // Velvet Orchid
-	Background:  lipgloss.Color("255"), // Ghost White
-	Border:      lipgloss.Color("140"), // Light orchid
-	BorderFocus: lipgloss.Color("133"), // Amethyst
+	Text:        lipgloss.Color("253"), // Near-white
+	TextDim:     lipgloss.Color("240"), // Medium gray
+	Background:  lipgloss.Color("232"), // Deep charcoal (not quite black)
+	Border:      lipgloss.Color("55"),  // Deep violet
+	BorderFocus: lipgloss.Color("99"),  // Slate blue
 
-	Success: lipgloss.Color("34"),
+	Success: lipgloss.Color("71"),
 	Error:   lipgloss.Color("160"),
 	Warning: lipgloss.Color("172"),
 
 	SelectionFg: lipgloss.Color("255"), // Ghost White
-	SelectionBg: lipgloss.Color("133"), // Amethyst
+	SelectionBg: lipgloss.Color("17"),  // Darkest blue
+}
+
+// LightTheme uses light backgrounds with dark text for bright environments.
+var LightTheme = Theme{
+	Name: "light",
+
+	Primary:     lipgloss.Color("91"),  // Velvet Orchid
+	Secondary:   lipgloss.Color("26"),  // Medium blue
+	Accent:      lipgloss.Color("162"), // Deep pink
+	Text:        lipgloss.Color("235"), // Near-black
+	TextDim:     lipgloss.Color("243"), // Dark gray
+	Background:  lipgloss.Color("255"), // Ghost White
+	Border:      lipgloss.Color("183"), // Light violet
+	BorderFocus: lipgloss.Color("91"),  // Velvet Orchid
+
+	Success: lipgloss.Color("28"),
+	Error:   lipgloss.Color("160"),
+	Warning: lipgloss.Color("130"),
+
+	SelectionFg: lipgloss.Color("255"), // Ghost White
+	SelectionBg: lipgloss.Color("91"),  // Velvet Orchid
 }
 
 var (
@@ -108,7 +128,6 @@ var (
 	selectedStyle lipgloss.Style
 	normalStyle   lipgloss.Style
 	dimStyle      lipgloss.Style
-	helpStyle     lipgloss.Style
 	dlssStyle     lipgloss.Style
 	errorStyle    lipgloss.Style
 	successStyle  lipgloss.Style
@@ -138,10 +157,6 @@ func rebuildStyles() {
 	dimStyle = lipgloss.NewStyle().
 		Foreground(t.TextDim)
 
-	helpStyle = lipgloss.NewStyle().
-		Foreground(t.TextDim).
-		MarginTop(1)
-
 	dlssStyle = lipgloss.NewStyle().
 		Foreground(t.Secondary)
 
@@ -153,6 +168,13 @@ func rebuildStyles() {
 
 	warningStyle = lipgloss.NewStyle().
 		Foreground(t.Warning)
+
+	cliPrimaryStyle = lipgloss.NewStyle().Foreground(t.Primary)
+	cliSecondaryStyle = lipgloss.NewStyle().Foreground(t.Secondary)
+	cliDimStyle = lipgloss.NewStyle().Foreground(t.TextDim)
+	cliSuccessStyle = lipgloss.NewStyle().Foreground(t.Success)
+	cliErrorStyle = lipgloss.NewStyle().Foreground(t.Error)
+	cliAccentStyle = lipgloss.NewStyle().Foreground(t.Accent)
 }
 
 type StateIndicator int
@@ -212,12 +234,12 @@ func BorderColor(focused bool) lipgloss.Color {
 
 // CLI color helper styles using the spela theme
 var (
-	cliPrimaryStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("133")) // Amethyst
-	cliSecondaryStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("69"))  // Royal Blue
-	cliDimStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("145")) // Light purple
-	cliSuccessStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("114"))
-	cliErrorStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("203"))
-	cliAccentStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("212")) // Pink Carnation
+	cliPrimaryStyle   lipgloss.Style
+	cliSecondaryStyle lipgloss.Style
+	cliDimStyle       lipgloss.Style
+	cliSuccessStyle   lipgloss.Style
+	cliErrorStyle     lipgloss.Style
+	cliAccentStyle    lipgloss.Style
 )
 
 func CLIPrimary(text string) string {

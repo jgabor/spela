@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"os/exec"
 	"sort"
 	"strings"
 	"time"
@@ -10,8 +9,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jgabor/spela/internal/dll"
-	"github.com/jgabor/spela/internal/env"
 	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/launcher"
 	"github.com/jgabor/spela/internal/profile"
 )
 
@@ -30,6 +29,18 @@ const (
 	dllSectionHeight    = 5 // title + DLL columns (2 rows) + hint + blank
 )
 
+// dllDisplayColumns defines the ordered list of DLL types to display and their column headers.
+var dllDisplayColumns = []struct {
+	dllType    game.DLLType
+	columnName string
+}{
+	{game.DLLTypeDLSS, "DLSS"},
+	{game.DLLTypeDLSSG, "DLSS-G"},
+	{game.DLLTypeDLSSD, "DLSS-D"},
+	{game.DLLTypeXeSS, "XESS"},
+	{game.DLLTypeFSR, "FSR"},
+}
+
 type ContentModel struct {
 	game                *game.Game
 	defaultProfile      bool
@@ -40,6 +51,7 @@ type ContentModel struct {
 	height              int
 	profileHeight       int
 	dllOperating        bool
+	dllOperatingLabel   string
 	hasBackup           bool
 	hasUpdates          bool
 	usingDefaultProfile bool
@@ -58,6 +70,7 @@ type ContentModel struct {
 type dllUpdateMsg struct {
 	success bool
 	err     error
+	dlls    []game.DetectedDLL
 }
 
 type dllRestoreMsg struct {
@@ -78,6 +91,7 @@ type launchGameMsg struct {
 type dllInstallMsg struct {
 	success bool
 	err     error
+	dlls    []game.DetectedDLL
 }
 
 type dllTypesLoadedMsg struct {
@@ -182,13 +196,15 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "l":
+		case "L":
 			if m.game != nil && !m.defaultProfile && !m.launching {
 				m.launching = true
 				return m, m.launchGame()
 			}
 		case "i":
 			if m.game != nil && !m.dllOperating {
+				m.dllOperating = true
+				m.dllOperatingLabel = "Installing DLL..."
 				m.dllInstallState = DLLInstallSelectType
 				m.dllTypeCursor = 0
 				return m, m.loadDLLTypes()
@@ -196,11 +212,13 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		case "u":
 			if m.game != nil && len(m.game.DLLs) > 0 && m.hasUpdates && !m.dllOperating {
 				m.dllOperating = true
+				m.dllOperatingLabel = "Updating DLLs..."
 				return m, m.updateDLLs()
 			}
 		case "R":
 			if m.game != nil && m.hasBackup && !m.dllOperating {
 				m.dllOperating = true
+				m.dllOperatingLabel = "Restoring DLLs..."
 				return m, m.restoreDLLs()
 			}
 		}
@@ -221,6 +239,10 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 
 	case dllUpdateMsg:
 		m.dllOperating = false
+		if msg.success && msg.dlls != nil && m.game != nil {
+			m.game.DLLs = msg.dlls
+			m.game.ScannedAt = time.Now()
+		}
 		m.hasBackup = m.game != nil && dll.BackupExists(m.game.AppID)
 		if msg.success {
 			m.hasUpdates = false
@@ -254,8 +276,9 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 }
 
 func (m ContentModel) updateDLLs() tea.Cmd {
+	g := m.game
 	return func() tea.Msg {
-		if m.game == nil || len(m.game.DLLs) == 0 {
+		if g == nil || len(g.DLLs) == 0 {
 			return dllUpdateMsg{err: fmt.Errorf("no game or DLLs selected")}
 		}
 
@@ -271,7 +294,7 @@ func (m ContentModel) updateDLLs() tea.Cmd {
 		}
 
 		var gameDLLs []dll.GameDLL
-		for _, d := range m.game.DLLs {
+		for _, d := range g.DLLs {
 			gameDLLs = append(gameDLLs, dll.GameDLL{
 				Name:    d.Name,
 				Path:    d.Path,
@@ -280,7 +303,7 @@ func (m ContentModel) updateDLLs() tea.Cmd {
 		}
 
 		updatedCount := 0
-		for _, d := range m.game.DLLs {
+		for _, d := range g.DLLs {
 			dllType := strings.ToLower(string(d.Type))
 			latest := manifest.GetLatestDLL(dllType)
 			if latest == nil {
@@ -296,7 +319,7 @@ func (m ContentModel) updateDLLs() tea.Cmd {
 				return dllUpdateMsg{err: fmt.Errorf("download %s failed: %w", dllType, err)}
 			}
 
-			if err := dll.SwapDLL(m.game.AppID, m.game.Name, gameDLLs, d.Name, cachePath); err != nil {
+			if err := dll.SwapDLL(g.AppID, g.Name, gameDLLs, d.Name, cachePath); err != nil {
 				return dllUpdateMsg{err: fmt.Errorf("swap %s failed: %w", dllType, err)}
 			}
 			updatedCount++
@@ -306,25 +329,23 @@ func (m ContentModel) updateDLLs() tea.Cmd {
 			return dllUpdateMsg{err: fmt.Errorf("no updates available")}
 		}
 
-		detected, err := dll.ScanDirectory(m.game.InstallDir)
+		detected, err := dll.ScanDirectory(g.InstallDir)
 		if err != nil {
 			return dllUpdateMsg{err: err}
 		}
 
-		m.game.DLLs = detected
-		m.game.ScannedAt = time.Now()
-
-		return dllUpdateMsg{success: true}
+		return dllUpdateMsg{success: true, dlls: detected}
 	}
 }
 
 func (m ContentModel) restoreDLLs() tea.Cmd {
+	g := m.game
 	return func() tea.Msg {
-		if m.game == nil {
+		if g == nil {
 			return dllRestoreMsg{err: fmt.Errorf("no game selected")}
 		}
 
-		if err := dll.RestoreBackup(m.game.AppID); err != nil {
+		if err := dll.RestoreBackup(g.AppID); err != nil {
 			return dllRestoreMsg{err: err}
 		}
 
@@ -483,33 +504,31 @@ func (m ContentModel) renderDLLs() string {
 		b.WriteString("\n")
 		lines++
 	} else {
-		// Build DLL type -> version mapping
-		dllVersions := make(map[string]string)
+		// Build DLL type -> version mapping using DLLType constants directly
+		dllVersions := make(map[game.DLLType]string)
 		for _, d := range m.game.DLLs {
 			version := d.Version
 			if version == "" {
 				version = "?"
 			}
-			dllType := strings.ToUpper(string(d.Type))
-			dllVersions[dllType] = version
+			dllVersions[d.Type] = version
 		}
 
 		// Column layout: type headers then versions
-		columnWidth := 12
-		dllTypes := []string{"DLSS", "DLSS-G", "XESS", "FSR"}
+		columnWidth := 10
 
 		// Header row
 		b.WriteString("  ")
-		for _, dllType := range dllTypes {
-			b.WriteString(dimStyle.Render(fmt.Sprintf("%-*s", columnWidth, dllType)))
+		for _, col := range dllDisplayColumns {
+			b.WriteString(dimStyle.Render(fmt.Sprintf("%-*s", columnWidth, col.columnName)))
 		}
 		b.WriteString("\n")
 		lines++
 
 		// Version row
 		b.WriteString("  ")
-		for _, dllType := range dllTypes {
-			version := dllVersions[dllType]
+		for _, col := range dllDisplayColumns {
+			version := dllVersions[col.dllType]
 			if version == "" {
 				version = "-"
 			}
@@ -518,12 +537,16 @@ func (m ContentModel) renderDLLs() string {
 		b.WriteString("\n")
 		lines++
 
-		if ShowHints() {
+		if m.dllOperating {
+			b.WriteString(warningStyle.Render("  ⟳ " + m.dllOperatingLabel))
+			b.WriteString("\n")
+			lines++
+		} else if ShowHints() {
 			var actions []string
-			if !m.dllOperating && m.hasUpdates {
+			if m.hasUpdates {
 				actions = append(actions, "u:update")
 			}
-			if m.hasBackup && !m.dllOperating {
+			if m.hasBackup {
 				actions = append(actions, "R:restore")
 			}
 			if m.hasBackup {
@@ -571,6 +594,7 @@ func loadEffectiveProfile(appID uint64) (*profile.Profile, bool) {
 }
 
 func (m ContentModel) loadDLLTypes() tea.Cmd {
+	g := m.game
 	return func() tea.Msg {
 		manifest, err := dll.GetManifest(false, "")
 		if err != nil {
@@ -578,9 +602,9 @@ func (m ContentModel) loadDLLTypes() tea.Cmd {
 		}
 
 		validTypes := make(map[string]bool)
-		if len(m.game.DLLs) > 0 {
-			validTypes = make(map[string]bool, len(m.game.DLLs))
-			for _, d := range m.game.DLLs {
+		if len(g.DLLs) > 0 {
+			validTypes = make(map[string]bool, len(g.DLLs))
+			for _, d := range g.DLLs {
 				validTypes[strings.ToLower(string(d.Type))] = true
 			}
 		}
@@ -612,6 +636,7 @@ func (m ContentModel) updateDLLInstall(msg tea.Msg) (ContentModel, tea.Cmd) {
 		switch msg.String() {
 		case "esc", "q":
 			m.dllInstallState = DLLInstallNone
+			m.dllOperating = false
 			return m, nil
 		case "up", "k":
 			if m.dllInstallState == DLLInstallSelectType && m.dllTypeCursor > 0 {
@@ -646,6 +671,10 @@ func (m ContentModel) updateDLLInstall(msg tea.Msg) (ContentModel, tea.Cmd) {
 		m.dllInstallState = DLLInstallNone
 		m.dllOperating = false
 		if msg.success {
+			if msg.dlls != nil && m.game != nil {
+				m.game.DLLs = msg.dlls
+				m.game.ScannedAt = time.Now()
+			}
 			m.hasBackup = m.game != nil && dll.BackupExists(m.game.AppID)
 			return m, m.LoadDLLUpdates()
 		}
@@ -714,14 +743,15 @@ func (m ContentModel) launchGame() tea.Cmd {
 		}
 
 		p, _ := profile.LoadEffective(g.AppID)
-		environment := env.New()
+
+		l := launcher.New(g)
+		l.Profile = p
 		if p != nil {
-			p.Apply(environment)
+			p.Apply(l.Environment)
 		}
 
-		cmd := exec.Command("steam", fmt.Sprintf("steam://rungameid/%d", g.AppID))
-		environment.ApplyToCmd(cmd)
-		if err := cmd.Start(); err != nil {
+		steamURL := fmt.Sprintf("steam://rungameid/%d", g.AppID)
+		if err := l.Launch([]string{"steam", steamURL}); err != nil {
 			return launchGameMsg{err: fmt.Errorf("failed to launch game: %w", err)}
 		}
 
@@ -763,9 +793,6 @@ func (m ContentModel) installSelectedDLL() tea.Cmd {
 			return dllInstallMsg{err: err}
 		}
 
-		g.DLLs = detected
-		g.ScannedAt = time.Now()
-
-		return dllInstallMsg{success: true}
+		return dllInstallMsg{success: true, dlls: detected}
 	}
 }

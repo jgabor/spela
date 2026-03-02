@@ -47,6 +47,7 @@ type LayoutModel struct {
 	width         int
 	height        int
 	sidebarWidth  int
+	initCmd       tea.Cmd
 }
 
 func NewLayout(db *game.Database) LayoutModel {
@@ -63,9 +64,10 @@ func NewLayout(db *game.Database) LayoutModel {
 	}
 
 	games := db.List()
+	sidebar, sidebarCmd := NewSidebar(games)
 	return LayoutModel{
 		header:       NewHeader(),
-		sidebar:      NewSidebar(games),
+		sidebar:      sidebar,
 		content:      NewContent(),
 		statusBar:    NewStatusBar(),
 		messageBar:   NewMessageBar(),
@@ -74,23 +76,12 @@ func NewLayout(db *game.Database) LayoutModel {
 		config:       cfg,
 		db:           db,
 		focus:        FocusSidebar,
+		initCmd:      sidebarCmd,
 	}
 }
 
 func (m LayoutModel) Init() tea.Cmd {
-	cmds := []tea.Cmd{m.header.Init()}
-	if selected := m.sidebar.SelectedItem(); selected != nil {
-		if selected.kind == sidebarItemDefaultProfile {
-			cmds = append(cmds, func() tea.Msg {
-				return defaultProfileSelectedMsg{}
-			})
-		} else if selected.game != nil {
-			cmds = append(cmds, func() tea.Msg {
-				return gameSelectedMsg{game: selected.game}
-			})
-		}
-	}
-	return tea.Batch(cmds...)
+	return tea.Batch(m.header.Init(), m.initCmd)
 }
 
 func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -223,6 +214,10 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.success {
 			message = "DLLs updated successfully!"
 			msgType = MessageSuccess
+			if err := m.db.Save(); err != nil {
+				message = fmt.Sprintf("DLLs updated but failed to save database: %v", err)
+				msgType = MessageError
+			}
 		} else if msg.err != nil {
 			message = fmt.Sprintf("Update failed: %v", msg.err)
 			msgType = MessageError
@@ -238,13 +233,25 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.success {
 			message = "Original DLLs restored!"
 			msgType = MessageSuccess
+			// Re-scan DLLs to update versions after restore
+			if m.content.game != nil {
+				detected, err := dll.ScanDirectory(m.content.game.InstallDir)
+				if err == nil {
+					m.content.game.DLLs = detected
+				}
+			}
+			if err := m.db.Save(); err != nil {
+				message = fmt.Sprintf("DLLs restored but failed to save database: %v", err)
+				msgType = MessageError
+			}
 		} else if msg.err != nil {
 			message = fmt.Sprintf("Restore failed: %v", msg.err)
 			msgType = MessageError
 		}
-		cmd := m.messageBar.SetMessage(message, msgType)
-		m.content, _ = m.content.Update(msg)
-		return m, cmd
+		messageCmd := m.messageBar.SetMessage(message, msgType)
+		var contentCmd tea.Cmd
+		m.content, contentCmd = m.content.Update(msg)
+		return m, tea.Batch(messageCmd, contentCmd)
 
 	case dllInstallMsg:
 		var msgType MessageType
@@ -252,6 +259,10 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.success {
 			message = "DLL installed successfully!"
 			msgType = MessageSuccess
+			if err := m.db.Save(); err != nil {
+				message = fmt.Sprintf("DLL installed but failed to save database: %v", err)
+				msgType = MessageError
+			}
 		} else if msg.err != nil {
 			message = fmt.Sprintf("Install failed: %v", msg.err)
 			msgType = MessageError
@@ -260,6 +271,16 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var contentCmd tea.Cmd
 		m.content, contentCmd = m.content.Update(msg)
 		return m, tea.Batch(messageCmd, contentCmd)
+
+	case dllTypesLoadedMsg:
+		var contentCmd tea.Cmd
+		m.content, contentCmd = m.content.Update(msg)
+		return m, contentCmd
+
+	case dllVersionsLoadedMsg:
+		var contentCmd tea.Cmd
+		m.content, contentCmd = m.content.Update(msg)
+		return m, contentCmd
 
 	case dllUpdatesCheckedMsg:
 		m.content, _ = m.content.Update(msg)
@@ -276,8 +297,9 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			msgType = MessageError
 		}
 		messageCmd := m.messageBar.SetMessage(message, msgType)
-		m.content, _ = m.content.Update(msg)
-		return m, messageCmd
+		var contentCmd tea.Cmd
+		m.content, contentCmd = m.content.Update(msg)
+		return m, tea.Batch(messageCmd, contentCmd)
 
 	case rescanGamesMsg:
 		if msg.err != nil {
@@ -319,6 +341,10 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case optionsSavedMsg:
 		m.config = msg.config
 		cmd := m.messageBar.SetMessage("Options saved!", MessageSuccess)
+		return m, cmd
+
+	case optionsSaveErrorMsg:
+		cmd := m.messageBar.SetMessage(fmt.Sprintf("Failed to save options: %v", msg.err), MessageError)
 		return m, cmd
 
 	case optionsCancelledMsg:
@@ -561,12 +587,9 @@ func (m LayoutModel) renderBatchOverlay() string {
 func (m LayoutModel) renderBatchMenu() string {
 	var b strings.Builder
 
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("205")).
-		MarginBottom(1)
+	batchTitleStyle := titleStyle.Foreground(GetTheme().Primary).MarginBottom(1)
 
-	b.WriteString(titleStyle.Render(fmt.Sprintf("Batch action (%d games)", len(m.batchGames))))
+	b.WriteString(batchTitleStyle.Render(fmt.Sprintf("Batch action (%d games)", len(m.batchGames))))
 	b.WriteString("\n\n")
 
 	for i, action := range batchActions {

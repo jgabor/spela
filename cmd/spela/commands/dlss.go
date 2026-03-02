@@ -24,12 +24,17 @@ var dlssShowCmd = &cobra.Command{
 }
 
 var (
-	dlssSetSRMode     string
-	dlssSetSRPreset   string
-	dlssSetRRMode     string
-	dlssSetFGEnabled  string
-	dlssSetMultiFrame int
-	dlssSetIndicator  bool
+	dlssSetSRMode        string
+	dlssSetSRPreset      string
+	dlssSetSRModelPreset string
+	dlssSetRRMode        string
+	dlssSetRRPreset      string
+	dlssSetRROverride    string
+	dlssSetFGEnabled     string
+	dlssSetFGOverride    string
+	dlssSetFGIndicator   bool
+	dlssSetMultiFrame    int
+	dlssSetIndicator     bool
 )
 
 var dlssSetCmd = &cobra.Command{
@@ -42,8 +47,13 @@ var dlssSetCmd = &cobra.Command{
 func init() {
 	dlssSetCmd.Flags().StringVar(&dlssSetSRMode, "sr-mode", "", "DLSS-SR mode (off, ultra_performance, performance, balanced, quality, dlaa)")
 	dlssSetCmd.Flags().StringVar(&dlssSetSRPreset, "sr-preset", "", "DLSS-SR preset (default, A, B, C, D, E, F, J, K, L, M)")
+	dlssSetCmd.Flags().StringVar(&dlssSetSRModelPreset, "sr-model-preset", "", "DLSS-SR model preset (auto, k, l, m)")
 	dlssSetCmd.Flags().StringVar(&dlssSetRRMode, "rr-mode", "", "DLSS-RR mode")
+	dlssSetCmd.Flags().StringVar(&dlssSetRRPreset, "rr-preset", "", "DLSS-RR preset (default, A, B, C, D, E, F, J, K, L, M)")
+	dlssSetCmd.Flags().StringVar(&dlssSetRROverride, "rr-override", "", "Force ray reconstruction override (true/false)")
 	dlssSetCmd.Flags().StringVar(&dlssSetFGEnabled, "fg", "", "Frame generation (true/false)")
+	dlssSetCmd.Flags().StringVar(&dlssSetFGOverride, "fg-override", "", "Force frame generation override (true/false)")
+	dlssSetCmd.Flags().BoolVar(&dlssSetFGIndicator, "fg-indicator", false, "Enable frame generation indicator")
 	dlssSetCmd.Flags().IntVar(&dlssSetMultiFrame, "multi-frame", -1, "Multi-frame count (0-3)")
 	dlssSetCmd.Flags().BoolVar(&dlssSetIndicator, "indicator", false, "Enable DLSS indicator")
 
@@ -79,9 +89,10 @@ func runDLSSShow(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("DLSS configuration for %s:\n\n", g.Name)
 	fmt.Printf("Super Resolution (SR):\n")
-	fmt.Printf("  Mode:     %s\n", p.DLSS.SRMode)
-	fmt.Printf("  Preset:   %s\n", p.DLSS.SRPreset)
-	fmt.Printf("  Override: %v\n", p.DLSS.SROverride)
+	fmt.Printf("  Mode:          %s\n", p.DLSS.SRMode)
+	fmt.Printf("  Preset:        %s\n", p.DLSS.SRPreset)
+	fmt.Printf("  Model Preset:  %s\n", p.DLSS.SRModelPreset)
+	fmt.Printf("  Override:      %v\n", p.DLSS.SROverride)
 
 	fmt.Printf("\nRay Reconstruction (RR):\n")
 	fmt.Printf("  Mode:     %s\n", p.DLSS.RRMode)
@@ -139,9 +150,25 @@ func runDLSSSet(cmd *cobra.Command, args []string) error {
 		changed = true
 	}
 
+	if dlssSetSRModelPreset != "" {
+		p.DLSS.SRModelPreset = profile.DLSSModelPreset(dlssSetSRModelPreset)
+		changed = true
+	}
+
 	if dlssSetRRMode != "" {
 		p.DLSS.RRMode = profile.DLSSMode(dlssSetRRMode)
 		p.DLSS.RROverride = true
+		changed = true
+	}
+
+	if dlssSetRRPreset != "" {
+		p.DLSS.RRPreset = profile.DLSSPreset(dlssSetRRPreset)
+		p.DLSS.RROverride = true
+		changed = true
+	}
+
+	if dlssSetRROverride != "" {
+		p.DLSS.RROverride = dlssSetRROverride == "true" || dlssSetRROverride == "1"
 		changed = true
 	}
 
@@ -151,9 +178,19 @@ func runDLSSSet(cmd *cobra.Command, args []string) error {
 		changed = true
 	}
 
+	if dlssSetFGOverride != "" {
+		p.DLSS.FGOverride = dlssSetFGOverride == "true" || dlssSetFGOverride == "1"
+		changed = true
+	}
+
 	if dlssSetMultiFrame >= 0 {
 		p.DLSS.MultiFrame = dlssSetMultiFrame
 		p.DLSS.FGOverride = true
+		changed = true
+	}
+
+	if cmd.Flags().Changed("fg-indicator") {
+		p.DLSS.FGIndicator = dlssSetFGIndicator
 		changed = true
 	}
 
