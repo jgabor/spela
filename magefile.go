@@ -74,7 +74,7 @@ func Build() error {
 	if err != nil {
 		return err
 	}
-	return sh.RunV("go", "build", "-tags", "production,webkit2_41", "-ldflags", ldf, "-o", binaryName, "./cmd/spela")
+	return sh.RunV("go", "build", "-tags", "embed_assets,production,webkit2_41", "-ldflags", ldf, "-o", binaryName, "./cmd/spela")
 }
 
 // FrontendBindings regenerates Wails frontend bindings
@@ -127,7 +127,7 @@ func Install() error {
 	if err != nil {
 		return err
 	}
-	return sh.RunV("go", "install", "-tags", "production,webkit2_41", "-ldflags", ldf, "./cmd/spela")
+	return sh.RunV("go", "install", "-tags", "embed_assets,production,webkit2_41", "-ldflags", ldf, "./cmd/spela")
 }
 
 // Clean removes build artifacts

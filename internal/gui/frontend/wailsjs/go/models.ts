@@ -177,12 +177,18 @@ export namespace gui {
 	export class ProfileInfo {
 	    srMode: string;
 	    srPreset: string;
+	    srModelPreset: string;
 	    srOverride: boolean;
+	    rrMode: string;
+	    rrPreset: string;
+	    rrOverride: boolean;
 	    fgEnabled: boolean;
 	    fgOverride: boolean;
+	    fgIndicator: boolean;
 	    multiFrame: number;
 	    indicator: boolean;
 	    shaderCache: boolean;
+	    shaderCachePath: string;
 	    threadedOptimization: boolean;
 	    powerMizer: string;
 	    enableHdr: boolean;
@@ -199,12 +205,18 @@ export namespace gui {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.srMode = source["srMode"];
 	        this.srPreset = source["srPreset"];
+	        this.srModelPreset = source["srModelPreset"];
 	        this.srOverride = source["srOverride"];
+	        this.rrMode = source["rrMode"];
+	        this.rrPreset = source["rrPreset"];
+	        this.rrOverride = source["rrOverride"];
 	        this.fgEnabled = source["fgEnabled"];
 	        this.fgOverride = source["fgOverride"];
+	        this.fgIndicator = source["fgIndicator"];
 	        this.multiFrame = source["multiFrame"];
 	        this.indicator = source["indicator"];
 	        this.shaderCache = source["shaderCache"];
+	        this.shaderCachePath = source["shaderCachePath"];
 	        this.threadedOptimization = source["threadedOptimization"];
 	        this.powerMizer = source["powerMizer"];
 	        this.enableHdr = source["enableHdr"];

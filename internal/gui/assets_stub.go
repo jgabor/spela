@@ -1,18 +1,15 @@
-//go:build embed_assets
+//go:build !embed_assets && !dev
 
 package gui
 
 import (
-	"embed"
 	"io/fs"
 	"net/http"
+	"os"
 )
 
-//go:embed all:frontend/dist
-var embeddedAssets embed.FS
-
 func getAssets() fs.FS {
-	return embeddedAssets
+	return os.DirFS("internal/gui/frontend/dist")
 }
 
 func getDevHandler() http.Handler {

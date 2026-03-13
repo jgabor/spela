@@ -197,3 +197,7 @@ Spela configures these environment variables when launching games:
 ## 📄 License
 
 MIT
+
+## Author
+
+Jonathan Gabor ([@jgabor](https://github.com/jgabor))
