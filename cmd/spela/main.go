@@ -72,9 +72,10 @@ func runWrapperMode(args []string) error {
 
 	var p *profile.Profile
 	if g != nil {
-		p, err = profile.Load(g.AppID)
-		if err != nil {
-			return fmt.Errorf("failed to load profile: %w", err)
+		var profileErr error
+		p, profileErr = profile.LoadEffective(g.AppID)
+		if profileErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to load profile for %s: %v\n", g.Name, profileErr)
 		}
 	}
 
