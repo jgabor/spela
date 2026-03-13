@@ -28,6 +28,13 @@ func CacheHome() string {
 	return filepath.Join(os.Getenv("HOME"), ".cache", appName)
 }
 
+func StateHome() string {
+	if dir := os.Getenv("XDG_STATE_HOME"); dir != "" {
+		return filepath.Join(dir, appName)
+	}
+	return filepath.Join(os.Getenv("HOME"), ".local", "state", appName)
+}
+
 func RuntimeDir() string {
 	if dir := os.Getenv("XDG_RUNTIME_DIR"); dir != "" {
 		return filepath.Join(dir, appName)
@@ -49,6 +56,11 @@ func EnsureDataHome() (string, error) {
 	return dir, os.MkdirAll(dir, 0o755)
 }
 
+func EnsureStateHome() (string, error) {
+	dir := StateHome()
+	return dir, os.MkdirAll(dir, 0o755)
+}
+
 func EnsureCacheHome() (string, error) {
 	dir := CacheHome()
 	return dir, os.MkdirAll(dir, 0o755)
@@ -60,6 +72,10 @@ func ConfigPath(elem ...string) string {
 
 func DataPath(elem ...string) string {
 	return filepath.Join(append([]string{DataHome()}, elem...)...)
+}
+
+func StatePath(elem ...string) string {
+	return filepath.Join(append([]string{StateHome()}, elem...)...)
 }
 
 func CachePath(elem ...string) string {

@@ -4,21 +4,20 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"path/filepath"
 
 	"github.com/jgabor/spela/internal/config"
+	"github.com/jgabor/spela/internal/xdg"
 )
 
 var logger *slog.Logger
 
 func Init(level config.LogLevel, verbose bool) error {
-	logDir := filepath.Join(os.Getenv("HOME"), "logs")
-	if err := os.MkdirAll(logDir, 0o755); err != nil {
+	if _, err := xdg.EnsureStateHome(); err != nil {
 		return err
 	}
 
 	logFile, err := os.OpenFile(
-		filepath.Join(logDir, "spela.log"),
+		xdg.StatePath("spela.log"),
 		os.O_CREATE|os.O_WRONLY|os.O_APPEND,
 		0o644,
 	)
