@@ -1,6 +1,7 @@
 package dll
 
 import (
+	"bytes"
 	"debug/pe"
 	"encoding/binary"
 	"fmt"
@@ -76,14 +77,14 @@ func extractVersionFromResource(data []byte) string {
 		binary.LittleEndian.PutUint16(vsBytes[i*2:], r)
 	}
 
-	vsIndex := findBytes(data, vsBytes)
+	vsIndex := bytes.Index(data, vsBytes)
 	if vsIndex == -1 {
 		return ""
 	}
 
 	// VS_FIXEDFILEINFO signature: 0xFEEF04BD
 	fixedFileInfoSignature := []byte{0xBD, 0x04, 0xEF, 0xFE}
-	relativeIndex := findBytes(data[vsIndex:], fixedFileInfoSignature)
+	relativeIndex := bytes.Index(data[vsIndex:], fixedFileInfoSignature)
 	if relativeIndex == -1 {
 		return ""
 	}
@@ -112,22 +113,6 @@ func extractVersionFromResource(data []byte) string {
 	}
 
 	return formatVersion(major, minor, build, revision)
-}
-
-func findBytes(data, pattern []byte) int {
-	for i := 0; i <= len(data)-len(pattern); i++ {
-		match := true
-		for j := 0; j < len(pattern); j++ {
-			if data[i+j] != pattern[j] {
-				match = false
-				break
-			}
-		}
-		if match {
-			return i
-		}
-	}
-	return -1
 }
 
 func formatVersion(major, minor, build, rev uint16) string {

@@ -208,8 +208,10 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = destFile.Close() }()
 
 	_, err = io.Copy(destFile, sourceFile)
+	if closeErr := destFile.Close(); err == nil {
+		err = closeErr
+	}
 	return err
 }

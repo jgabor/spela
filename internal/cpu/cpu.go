@@ -205,46 +205,19 @@ func GetCPUMetrics() (*CPUMetrics, error) {
 }
 
 func getCPUUtilization() float64 {
-	data, err := os.ReadFile("/proc/stat")
+	data, err := os.ReadFile("/proc/loadavg")
 	if err != nil {
 		return 0
 	}
 
-	lines := strings.Split(string(data), "\n")
-	if len(lines) == 0 {
-		return 0
+	var load1 float64
+	_, _ = fmt.Sscanf(string(data), "%f", &load1)
+
+	// Normalize by CPU count for percentage approximation
+	cpuCount := float64(GetCPUCount())
+	util := (load1 / cpuCount) * 100
+	if util > 100 {
+		util = 100
 	}
-
-	// Parse first line: cpu user nice system idle iowait irq softirq
-	fields := strings.Fields(lines[0])
-	if len(fields) < 5 {
-		return 0
-	}
-
-	var user, nice, system, idle int
-	_, _ = fmt.Sscanf(fields[1], "%d", &user)
-	_, _ = fmt.Sscanf(fields[2], "%d", &nice)
-	_, _ = fmt.Sscanf(fields[3], "%d", &system)
-	_, _ = fmt.Sscanf(fields[4], "%d", &idle)
-
-	total := user + nice + system + idle
-	if total == 0 {
-		return 0
-	}
-
-	// This is cumulative since boot, so not very useful for instant reading
-	// Use load average instead for a better approximation
-	if loadData, err := os.ReadFile("/proc/loadavg"); err == nil {
-		var load1 float64
-		_, _ = fmt.Sscanf(string(loadData), "%f", &load1)
-		// Normalize by CPU count for percentage approximation
-		cpuCount := float64(GetCPUCount())
-		util := (load1 / cpuCount) * 100
-		if util > 100 {
-			util = 100
-		}
-		return util
-	}
-
-	return 0
+	return util
 }
