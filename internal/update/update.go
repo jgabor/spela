@@ -15,6 +15,8 @@ const (
 	CheckInterval     = 24 * time.Hour
 )
 
+var httpClient = &http.Client{Timeout: 15 * time.Second}
+
 type Release struct {
 	TagName     string    `json:"tag_name"`
 	Name        string    `json:"name"`
@@ -39,7 +41,7 @@ type UpdateInfo struct {
 }
 
 func CheckForUpdate(currentVersion string) (*UpdateInfo, error) {
-	resp, err := http.Get(GitHubReleasesURL)
+	resp, err := httpClient.Get(GitHubReleasesURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check for updates: %w", err)
 	}

@@ -37,7 +37,7 @@ func DownloadDLLWithProgress(dll *DLL, dllName string, progress ProgressCallback
 		return "", fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
-	resp, err := http.Get(dll.URL)
+	resp, err := httpClient.Get(dll.URL)
 	if err != nil {
 		return "", fmt.Errorf("failed to download DLL: %w", err)
 	}

@@ -14,6 +14,15 @@ import (
 	"github.com/jgabor/spela/internal/xdg"
 )
 
+// httpClient is used for all HTTP requests in the dll package.
+// ResponseHeaderTimeout ensures hanging connections are detected without
+// cutting off large DLL downloads that take time to transfer.
+var httpClient = &http.Client{
+	Transport: &http.Transport{
+		ResponseHeaderTimeout: 30 * time.Second,
+	},
+}
+
 const (
 	DefaultManifestURL = "https://raw.githubusercontent.com/jgabor/spela/main/data/manifest.json"
 	ManifestCacheFile  = "manifest.json"
@@ -74,7 +83,7 @@ func FetchManifest(manifestURL string) (*Manifest, error) {
 		manifestURL = DefaultManifestURL
 	}
 
-	resp, err := http.Get(manifestURL)
+	resp, err := httpClient.Get(manifestURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch manifest: %w", err)
 	}
