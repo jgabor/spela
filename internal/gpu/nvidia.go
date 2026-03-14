@@ -65,9 +65,10 @@ func SetPowerLimit(watts int) error {
 }
 
 func ResetClocks() error {
-	_ = runNvidiaSMIElevated("-rgc")
-	_ = runNvidiaSMIElevated("-rmc")
-	return nil
+	if err := runNvidiaSMIElevated("-rgc"); err != nil {
+		return err
+	}
+	return runNvidiaSMIElevated("-rmc")
 }
 
 func GetGPUInfo() (map[string]string, error) {
@@ -152,8 +153,7 @@ func runNvidiaSMIElevated(args ...string) error {
 }
 
 func parseNvidiaSettingsValue(output string) string {
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
+	for line := range strings.SplitSeq(output, "\n") {
 		if strings.Contains(line, "):") {
 			parts := strings.Split(line, ":")
 			if len(parts) >= 2 {

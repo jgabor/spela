@@ -43,7 +43,7 @@ func runLaunch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("game not found")
 	}
 
-	p, err := profile.Load(g.AppID)
+	p, err := profile.LoadEffective(g.AppID)
 	if err != nil {
 		return fmt.Errorf("failed to load profile: %w", err)
 	}
