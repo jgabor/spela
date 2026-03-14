@@ -311,7 +311,7 @@ func (m OptionsModalModel) totalOptions() int {
 
 func (m OptionsModalModel) flatIndex() int {
 	index := 0
-	for i := 0; i < m.sectionCursor; i++ {
+	for i := range m.sectionCursor {
 		index += len(m.sections[i].Options)
 	}
 	return index + m.optionCursor

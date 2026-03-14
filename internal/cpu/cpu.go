@@ -47,7 +47,7 @@ func GetAvailableGovernors() ([]Governor, error) {
 
 func SetGovernor(gov Governor) error {
 	cpuCount := GetCPUCount()
-	for i := 0; i < cpuCount; i++ {
+	for i := range cpuCount {
 		path := fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/scaling_governor", i)
 		_, err := privilege.ExecWithInput(string(gov), "tee", path)
 		if err != nil {
@@ -71,7 +71,10 @@ func SetSMT(enabled bool) error {
 		value = "on"
 	}
 	_, err := privilege.ExecWithInput(value, "tee", "/sys/devices/system/cpu/smt/control")
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to set SMT: %w", err)
+	}
+	return nil
 }
 
 func LaunchWithAffinity(affinity string, args []string) *exec.Cmd {
@@ -86,8 +89,7 @@ func GetCPUInfo() (map[string]string, error) {
 	}
 
 	info := make(map[string]string)
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		if strings.HasPrefix(line, "model name") {
 			parts := strings.SplitN(line, ":", 2)
 			if len(parts) == 2 {
@@ -164,7 +166,7 @@ func GetCPUMetrics() (*CPUMetrics, error) {
 	cpuCount := GetCPUCount()
 
 	var total int
-	for i := 0; i < cpuCount; i++ {
+	for i := range cpuCount {
 		path := fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", i)
 		data, err := os.ReadFile(path)
 		if err != nil {
@@ -185,8 +187,7 @@ func GetCPUMetrics() (*CPUMetrics, error) {
 
 	// Get RAM info from /proc/meminfo
 	if memData, err := os.ReadFile("/proc/meminfo"); err == nil {
-		lines := strings.Split(string(memData), "\n")
-		for _, line := range lines {
+		for line := range strings.SplitSeq(string(memData), "\n") {
 			if strings.HasPrefix(line, "MemTotal:") {
 				_, _ = fmt.Sscanf(line, "MemTotal: %d kB", &metrics.RAMTotalMB)
 				metrics.RAMTotalMB /= 1024
