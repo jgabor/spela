@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/jgabor/spela/internal/privilege"
@@ -39,7 +40,7 @@ func GetAvailableGovernors() ([]Governor, error) {
 	}
 
 	var governors []Governor
-	for _, g := range strings.Fields(string(data)) {
+	for g := range strings.FieldsSeq(string(data)) {
 		governors = append(governors, Governor(g))
 	}
 	return governors, nil
@@ -99,7 +100,7 @@ func GetCPUInfo() (map[string]string, error) {
 		}
 	}
 
-	info["cores"] = fmt.Sprintf("%d", GetCPUCount())
+	info["cores"] = strconv.Itoa(GetCPUCount())
 
 	gov, err := GetCurrentGovernor()
 	if err == nil {

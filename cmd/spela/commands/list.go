@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -55,8 +56,8 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, g := range games {
+		fmt.Printf("%s %s\n", tui.CLIPrimary(g.Name), tui.CLIDim("("+strconv.FormatUint(g.AppID, 10)+")"))
 		if listWithDLLs && len(g.DLLs) > 0 {
-			fmt.Printf("%s %s\n", tui.CLIPrimary(g.Name), tui.CLIDim(fmt.Sprintf("(%d)", g.AppID)))
 			for _, d := range g.DLLs {
 				version := d.Version
 				if version == "" {
@@ -64,8 +65,6 @@ func runList(cmd *cobra.Command, args []string) error {
 				}
 				fmt.Printf("  %s: %s\n", tui.CLISecondary(d.Name), tui.CLIAccent(version))
 			}
-		} else {
-			fmt.Printf("%s %s\n", tui.CLIPrimary(g.Name), tui.CLIDim(fmt.Sprintf("(%d)", g.AppID)))
 		}
 	}
 

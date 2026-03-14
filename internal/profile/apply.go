@@ -1,7 +1,7 @@
 package profile
 
 import (
-	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/jgabor/spela/internal/env"
@@ -58,7 +58,7 @@ func (p *Profile) applyDLSS(e *env.Environment) []func() {
 	if p.DLSS.FGOverride {
 		e.Set("DXVK_NVAPI_DRS_NGX_DLSS_FG_OVERRIDE", "on")
 		if p.DLSS.FGEnabled {
-			e.Set("DXVK_NVAPI_DRS_NGX_DLSSG_MULTI_FRAME_COUNT", fmt.Sprintf("%d", p.DLSS.MultiFrame))
+			e.Set("DXVK_NVAPI_DRS_NGX_DLSSG_MULTI_FRAME_COUNT", strconv.Itoa(p.DLSS.MultiFrame))
 		}
 	}
 

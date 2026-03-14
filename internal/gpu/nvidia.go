@@ -57,11 +57,11 @@ func SetGraphicsClockOffset(offset int) error {
 }
 
 func SetMemoryClockOffset(offset int) error {
-	return runNvidiaSMIElevated("-lmc", fmt.Sprintf("%d", offset))
+	return runNvidiaSMIElevated("-lmc", strconv.Itoa(offset))
 }
 
 func SetPowerLimit(watts int) error {
-	return runNvidiaSMIElevated("-pl", fmt.Sprintf("%d", watts))
+	return runNvidiaSMIElevated("-pl", strconv.Itoa(watts))
 }
 
 func ResetClocks() error {

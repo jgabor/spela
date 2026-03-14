@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -80,7 +81,7 @@ func boolStr(b bool) string {
 }
 
 func intStr(i int) string {
-	return fmt.Sprintf("%d", i)
+	return strconv.Itoa(i)
 }
 
 func srPresetValue(p profile.DLSSPreset) string {
@@ -135,7 +136,7 @@ func displayInt(i int) string {
 	if i == 0 {
 		return "(default)"
 	}
-	return fmt.Sprintf("%d", i)
+	return strconv.Itoa(i)
 }
 
 type openDLSSPresetModalMsg struct {

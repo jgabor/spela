@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -73,7 +74,7 @@ func runProfileList(cmd *cobra.Command, args []string) error {
 	}
 	entries := make([]profileEntry, 0, len(profiles))
 	for appID, p := range profiles {
-		name := fmt.Sprintf("%d", appID)
+		name := strconv.FormatUint(appID, 10)
 		if db != nil {
 			if g := db.GetGame(appID); g != nil {
 				name = g.Name
@@ -90,7 +91,7 @@ func runProfileList(cmd *cobra.Command, args []string) error {
 		if profileName == "" {
 			profileName = "custom"
 		}
-		fmt.Printf("%s %s: %s\n", tui.CLIPrimary(entry.name), tui.CLIDim(fmt.Sprintf("(%d)", entry.appID)), tui.CLISecondary(profileName))
+		fmt.Printf("%s %s: %s\n", tui.CLIPrimary(entry.name), tui.CLIDim("("+strconv.FormatUint(entry.appID, 10)+")"), tui.CLISecondary(profileName))
 	}
 
 	return nil
