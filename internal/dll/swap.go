@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/jgabor/spela/internal/xdg"
@@ -29,7 +30,7 @@ type BackedUpFile struct {
 }
 
 func GetBackupDir(appID uint64) string {
-	return xdg.DataPath(filepath.Join("backups", fmt.Sprintf("%d", appID)))
+	return xdg.DataPath(filepath.Join("backups", strconv.FormatUint(appID, 10)))
 }
 
 func GetBackupMetadataPath(appID uint64) string {

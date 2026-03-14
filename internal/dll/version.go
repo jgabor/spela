@@ -40,12 +40,7 @@ func parseVersion(v string) []int {
 	result := make([]int, len(parts))
 
 	for i, part := range parts {
-		n, err := strconv.Atoi(part)
-		if err != nil {
-			result[i] = 0
-		} else {
-			result[i] = n
-		}
+		result[i], _ = strconv.Atoi(part)
 	}
 
 	return result

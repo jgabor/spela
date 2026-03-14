@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 
@@ -108,10 +109,8 @@ func SaveOverrides(o *Overrides) error {
 func IsDenied(appID uint64) (bool, string) {
 	overrides, _ := LoadOverrides()
 	if overrides != nil {
-		for _, id := range overrides.Allowed {
-			if id == appID {
-				return false, ""
-			}
+		if slices.Contains(overrides.Allowed, appID) {
+			return false, ""
 		}
 		for _, e := range overrides.Denied {
 			if e.AppID == appID {
@@ -138,10 +137,8 @@ func Allow(appID uint64) error {
 		return err
 	}
 
-	for _, id := range overrides.Allowed {
-		if id == appID {
-			return nil
-		}
+	if slices.Contains(overrides.Allowed, appID) {
+		return nil
 	}
 
 	overrides.Allowed = append(overrides.Allowed, appID)
@@ -156,6 +153,7 @@ func Deny(appID uint64, name, reason string) error {
 
 	for i, e := range overrides.Denied {
 		if e.AppID == appID {
+			overrides.Denied[i].Name = name
 			overrides.Denied[i].Reason = reason
 			return SaveOverrides(overrides)
 		}
