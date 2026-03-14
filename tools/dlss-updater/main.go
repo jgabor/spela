@@ -10,10 +10,21 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 )
 
 const (
 	userAgent = "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0"
+)
+
+var (
+	httpClient = &http.Client{
+		Transport: &http.Transport{
+			ResponseHeaderTimeout: 30 * time.Second,
+		},
+	}
+
+	idRegex = regexp.MustCompile(`<input type="hidden" name="id" value="(\d+)"`)
 )
 
 type DLLSource struct {
@@ -126,15 +137,13 @@ func fetchLatestVersion(source *DLLSource) (*LatestVersion, error) {
 }
 
 func fetchFromTechPowerUp(source *DLLSource) (*LatestVersion, error) {
-	client := &http.Client{}
-
 	req, err := http.NewRequest("GET", source.TechPowerUp, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", userAgent)
 
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +169,6 @@ func fetchFromTechPowerUp(source *DLLSource) (*LatestVersion, error) {
 	version := matches[1]
 
 	// Extract file ID
-	idRegex := regexp.MustCompile(`<input type="hidden" name="id" value="(\d+)"`)
 	idMatches := idRegex.FindStringSubmatch(html)
 	if len(idMatches) < 2 {
 		return nil, fmt.Errorf("could not find file ID")
@@ -184,6 +192,9 @@ func fetchFromTechPowerUp(source *DLLSource) (*LatestVersion, error) {
 
 func getTechPowerUpDownloadURL(baseURL, fileID string) (string, error) {
 	client := &http.Client{
+		Transport: &http.Transport{
+			ResponseHeaderTimeout: 30 * time.Second,
+		},
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},

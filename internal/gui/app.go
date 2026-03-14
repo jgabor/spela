@@ -241,8 +241,8 @@ func (a *App) GetGame(appID uint64) *GameInfo {
 		return nil
 	}
 
-	g, ok := a.db.Games[appID]
-	if !ok || g == nil {
+	g := a.db.GetGame(appID)
+	if g == nil {
 		return nil
 	}
 
@@ -483,8 +483,8 @@ func (a *App) CheckDLLUpdates(appID uint64) []DLLUpdateInfo {
 		return []DLLUpdateInfo{}
 	}
 
-	g, ok := a.db.Games[appID]
-	if !ok || g == nil {
+	g := a.db.GetGame(appID)
+	if g == nil {
 		return []DLLUpdateInfo{}
 	}
 
@@ -518,8 +518,8 @@ func (a *App) ListDLLInstallTypes(appID uint64) ([]string, error) {
 		return nil, ErrDatabaseNotLoaded
 	}
 
-	g, ok := a.db.Games[appID]
-	if !ok || g == nil {
+	g := a.db.GetGame(appID)
+	if g == nil {
 		return nil, fmt.Errorf("%w: %d", ErrGameNotFound, appID)
 	}
 
@@ -586,8 +586,8 @@ func (a *App) InstallDLL(appID uint64, dllType, version string) error {
 		return fmt.Errorf("dll type is required")
 	}
 
-	g, ok := a.db.Games[appID]
-	if !ok || g == nil {
+	g := a.db.GetGame(appID)
+	if g == nil {
 		return fmt.Errorf("%w: %d", ErrGameNotFound, appID)
 	}
 
@@ -644,8 +644,8 @@ func (a *App) UpdateDLLs(appID uint64) error {
 		return ErrDatabaseNotLoaded
 	}
 
-	g, ok := a.db.Games[appID]
-	if !ok || g == nil {
+	g := a.db.GetGame(appID)
+	if g == nil {
 		return fmt.Errorf("%w: %d", ErrGameNotFound, appID)
 	}
 
@@ -692,8 +692,8 @@ func (a *App) RestoreDLLs(appID uint64) error {
 		return ErrDatabaseNotLoaded
 	}
 
-	g, ok := a.db.Games[appID]
-	if !ok || g == nil {
+	g := a.db.GetGame(appID)
+	if g == nil {
 		return fmt.Errorf("%w: %d", ErrGameNotFound, appID)
 	}
 
@@ -718,8 +718,8 @@ func (a *App) LaunchGame(appID uint64) error {
 		return ErrDatabaseNotLoaded
 	}
 
-	g, ok := a.db.Games[appID]
-	if !ok || g == nil {
+	g := a.db.GetGame(appID)
+	if g == nil {
 		return fmt.Errorf("%w: %d", ErrGameNotFound, appID)
 	}
 
