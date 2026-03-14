@@ -13,7 +13,8 @@ import (
 	"github.com/jgabor/spela/internal/xdg"
 )
 
-// Tool name patterns for filtering non-game entries from the database.
+// toolNamePatterns matches names of Steam tools (Proton, Runtimes, SDKs)
+// that should not appear in game lists.
 var toolNamePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)^proton(\s|$)`),
 	regexp.MustCompile(`(?i)^steam\s+linux\s+runtime`),
@@ -22,7 +23,8 @@ var toolNamePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)^steam\s+controller`),
 }
 
-func isToolName(name string) bool {
+// IsToolName reports whether name matches a known Steam tool pattern.
+func IsToolName(name string) bool {
 	name = strings.TrimSpace(name)
 	for _, pattern := range toolNamePatterns {
 		if pattern.MatchString(name) {
@@ -95,7 +97,7 @@ func (db *Database) GetGameByName(name string) *Game {
 func (db *Database) List() []*Game {
 	games := make([]*Game, 0, len(db.Games))
 	for _, g := range db.Games {
-		if isToolName(g.Name) {
+		if IsToolName(g.Name) {
 			continue
 		}
 		games = append(games, g)
@@ -106,7 +108,7 @@ func (db *Database) List() []*Game {
 func (db *Database) GamesWithDLSS() []*Game {
 	var games []*Game
 	for _, g := range db.Games {
-		if isToolName(g.Name) {
+		if IsToolName(g.Name) {
 			continue
 		}
 		if g.HasDLSS() || g.HasDLSSG() || g.HasDLSSD() {

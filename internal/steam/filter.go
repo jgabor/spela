@@ -3,8 +3,8 @@ package steam
 import (
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
+
+	"github.com/jgabor/spela/internal/game"
 )
 
 // Known Steam tool AppIDs that should not appear in game lists.
@@ -50,15 +50,6 @@ var knownToolAppIDs = map[uint64]bool{
 	3026190: true, // Proton Next
 }
 
-// Name patterns that indicate a tool rather than a game.
-var toolNamePatterns = []*regexp.Regexp{
-	regexp.MustCompile(`(?i)^proton\s`),
-	regexp.MustCompile(`(?i)^steam\s+linux\s+runtime`),
-	regexp.MustCompile(`(?i)^steamworks`),
-	regexp.MustCompile(`(?i)redistributable`),
-	regexp.MustCompile(`(?i)^steam\s+controller`),
-}
-
 // IsTool returns true if the given app appears to be a Steam tool
 // (Proton, Runtime, SDK) rather than a game.
 func IsTool(appID uint64, name, installDir string) bool {
@@ -70,7 +61,7 @@ func IsTool(appID uint64, name, installDir string) bool {
 		return true
 	}
 
-	if matchesToolNamePattern(name) {
+	if game.IsToolName(name) {
 		return true
 	}
 
@@ -83,15 +74,4 @@ func hasToolManifest(installDir string) bool {
 	manifestPath := filepath.Join(installDir, "toolmanifest.vdf")
 	info, err := os.Stat(manifestPath)
 	return err == nil && !info.IsDir()
-}
-
-// matchesToolNamePattern checks if the name matches known tool patterns.
-func matchesToolNamePattern(name string) bool {
-	name = strings.TrimSpace(name)
-	for _, pattern := range toolNamePatterns {
-		if pattern.MatchString(name) {
-			return true
-		}
-	}
-	return false
 }
