@@ -5,6 +5,8 @@ import (
 	"sync"
 )
 
+const unsetSentinel = "\x00unset"
+
 type RestorePoint struct {
 	mu       sync.Mutex
 	envVars  map[string]string
@@ -22,8 +24,12 @@ func (r *RestorePoint) SaveEnv(keys ...string) {
 	defer r.mu.Unlock()
 
 	for _, key := range keys {
-		if _, exists := r.envVars[key]; !exists {
-			r.envVars[key] = os.Getenv(key)
+		if _, saved := r.envVars[key]; !saved {
+			if value, exists := os.LookupEnv(key); exists {
+				r.envVars[key] = value
+			} else {
+				r.envVars[key] = unsetSentinel
+			}
 		}
 	}
 }
@@ -39,7 +45,7 @@ func (r *RestorePoint) Restore() {
 	defer r.mu.Unlock()
 
 	for key, value := range r.envVars {
-		if value == "" {
+		if value == unsetSentinel {
 			_ = os.Unsetenv(key)
 		} else {
 			_ = os.Setenv(key, value)

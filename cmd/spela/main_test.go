@@ -108,22 +108,27 @@ func captureOutput(t *testing.T, fn func() error) (string, string) {
 
 	os.Stdout = stdoutWriter
 	os.Stderr = stderrWriter
+	defer func() {
+		os.Stdout = originalStdout
+		os.Stderr = originalStderr
+	}()
 
 	runErr := fn()
 
 	_ = stdoutWriter.Close()
 	_ = stderrWriter.Close()
-	os.Stdout = originalStdout
-	os.Stderr = originalStderr
 
 	stdoutBytes, err := io.ReadAll(stdoutReader)
 	if err != nil {
 		t.Fatalf("failed to read stdout: %v", err)
 	}
+	_ = stdoutReader.Close()
+
 	stderrBytes, err := io.ReadAll(stderrReader)
 	if err != nil {
 		t.Fatalf("failed to read stderr: %v", err)
 	}
+	_ = stderrReader.Close()
 
 	if runErr != nil {
 		t.Fatalf("runWrapperMode returned error: %v", runErr)

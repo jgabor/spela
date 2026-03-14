@@ -111,7 +111,7 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.batchCursor--
 				}
 			case "down", "j":
-				if m.batchCursor < 2 {
+				if m.batchCursor < len(batchActions)-1 {
 					m.batchCursor++
 				}
 			case "enter":
