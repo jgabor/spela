@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -601,12 +600,9 @@ func (m ContentModel) loadDLLTypes() tea.Cmd {
 			return dllInstallMsg{err: err}
 		}
 
-		validTypes := make(map[string]bool)
-		if len(g.DLLs) > 0 {
-			validTypes = make(map[string]bool, len(g.DLLs))
-			for _, d := range g.DLLs {
-				validTypes[strings.ToLower(string(d.Type))] = true
-			}
+		validTypes := make(map[string]bool, len(g.DLLs))
+		for _, d := range g.DLLs {
+			validTypes[strings.ToLower(string(d.Type))] = true
 		}
 
 		allTypes := manifest.ListDLLNames()
@@ -625,7 +621,6 @@ func (m ContentModel) loadDLLTypes() tea.Cmd {
 			return dllInstallMsg{err: fmt.Errorf("no supported DLL types detected in game")}
 		}
 
-		sort.Strings(filteredTypes)
 		return dllTypesLoadedMsg{types: filteredTypes}
 	}
 }

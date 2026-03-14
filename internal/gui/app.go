@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"sort"
 	"time"
 
 	"github.com/jgabor/spela/internal/config"
@@ -516,16 +515,14 @@ func (a *App) ListDLLInstallTypes(appID uint64) ([]string, error) {
 		return nil, err
 	}
 
-	validTypes := make(map[string]bool)
-	if len(g.DLLs) > 0 {
-		validTypes = make(map[string]bool, len(g.DLLs))
-		for _, d := range g.DLLs {
-			validTypes[string(d.Type)] = true
-		}
+	validTypes := make(map[string]bool, len(g.DLLs))
+	for _, d := range g.DLLs {
+		validTypes[string(d.Type)] = true
 	}
 
-	filtered := make([]string, 0)
-	for _, t := range manifest.ListDLLNames() {
+	allTypes := manifest.ListDLLNames()
+	filtered := make([]string, 0, len(allTypes))
+	for _, t := range allTypes {
 		if len(manifest.DLLs[t]) == 0 {
 			continue
 		}
@@ -539,7 +536,6 @@ func (a *App) ListDLLInstallTypes(appID uint64) ([]string, error) {
 		return nil, fmt.Errorf("no supported DLL types detected for this game")
 	}
 
-	sort.Strings(filtered)
 	return filtered, nil
 }
 

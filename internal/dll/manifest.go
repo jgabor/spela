@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/jgabor/spela/internal/xdg"
@@ -156,9 +157,10 @@ func (m *Manifest) GetDLLVersion(name, version string) *DLL {
 }
 
 func (m *Manifest) ListDLLNames() []string {
-	var names []string
+	names := make([]string, 0, len(m.DLLs))
 	for name := range m.DLLs {
 		names = append(names, name)
 	}
+	sort.Strings(names)
 	return names
 }
