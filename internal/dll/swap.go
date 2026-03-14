@@ -213,5 +213,8 @@ func copyFile(src, dst string) error {
 	if closeErr := destFile.Close(); err == nil {
 		err = closeErr
 	}
+	if err != nil {
+		_ = os.Remove(dst)
+	}
 	return err
 }
