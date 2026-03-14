@@ -3,6 +3,7 @@ package lock
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -45,7 +46,7 @@ func Acquire() error {
 		return err
 	}
 
-	if !os.IsExist(err) {
+	if !errors.Is(err, fs.ErrExist) {
 		return fmt.Errorf("failed to create lock file: %w", err)
 	}
 

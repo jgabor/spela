@@ -117,7 +117,7 @@ func (db *Database) List() []*Game {
 }
 
 func (db *Database) GamesWithDLSS() []*Game {
-	var games []*Game
+	games := make([]*Game, 0, len(db.Games))
 	for _, g := range db.Games {
 		if IsToolName(g.Name) {
 			continue

@@ -34,6 +34,8 @@ func IsPolkitAvailable() bool {
 	return err == nil
 }
 
+var ErrPolkitNotAvailable = errors.New("pkexec not available: install polkit for privileged operations")
+
 func IsRoot() bool {
 	return os.Geteuid() == 0
 }
@@ -44,7 +46,7 @@ func Exec(cmd string, args ...string) (*ExecResult, error) {
 	}
 
 	if !IsPolkitAvailable() {
-		return nil, fmt.Errorf("pkexec not available: install polkit for privileged operations")
+		return nil, ErrPolkitNotAvailable
 	}
 
 	result := run("pkexec", append([]string{cmd}, args...)...)
@@ -63,7 +65,7 @@ func ExecWithInput(input string, cmd string, args ...string) (*ExecResult, error
 	}
 
 	if !IsPolkitAvailable() {
-		return nil, fmt.Errorf("pkexec not available: install polkit for privileged operations")
+		return nil, ErrPolkitNotAvailable
 	}
 
 	result := runWithInput(input, "pkexec", append([]string{cmd}, args...)...)

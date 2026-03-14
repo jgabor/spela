@@ -131,12 +131,14 @@ func GetCacheSize() (int64, error) {
 	cachePath := xdg.CachePath("dlls")
 	var size int64
 
-	err := filepath.Walk(cachePath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(cachePath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
-		if !info.IsDir() {
-			size += info.Size()
+		if !d.IsDir() {
+			if info, err := d.Info(); err == nil {
+				size += info.Size()
+			}
 		}
 		return nil
 	})
