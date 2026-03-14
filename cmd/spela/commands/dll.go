@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -60,12 +59,7 @@ func runDLLList(cmd *cobra.Command, args []string) error {
 	var games []*game.Game
 
 	if len(args) > 0 {
-		var g *game.Game
-		if appID, err := strconv.ParseUint(args[0], 10, 64); err == nil {
-			g = db.GetGame(appID)
-		} else {
-			g = db.GetGameByName(args[0])
-		}
+		g := db.FindGame(args[0])
 		if g == nil {
 			return fmt.Errorf("game not found: %s", args[0])
 		}
@@ -158,12 +152,7 @@ func runDLLUpdate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load game database: %w", err)
 	}
 
-	var g *game.Game
-	if appID, err := strconv.ParseUint(gameArg, 10, 64); err == nil {
-		g = db.GetGame(appID)
-	} else {
-		g = db.GetGameByName(gameArg)
-	}
+	g := db.FindGame(gameArg)
 	if g == nil {
 		return fmt.Errorf("game not found: %s", gameArg)
 	}
@@ -243,12 +232,7 @@ func runDLLRestore(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load game database: %w", err)
 	}
 
-	var g *game.Game
-	if appID, err := strconv.ParseUint(gameArg, 10, 64); err == nil {
-		g = db.GetGame(appID)
-	} else {
-		g = db.GetGameByName(gameArg)
-	}
+	g := db.FindGame(gameArg)
 	if g == nil {
 		return fmt.Errorf("game not found: %s", gameArg)
 	}

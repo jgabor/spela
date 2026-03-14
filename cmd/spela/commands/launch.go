@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -36,10 +35,8 @@ func runLaunch(cmd *cobra.Command, args []string) error {
 
 	if launchGameID != 0 {
 		g = db.GetGame(launchGameID)
-	} else if appID, err := strconv.ParseUint(args[0], 10, 64); err == nil {
-		g = db.GetGame(appID)
 	} else {
-		g = db.GetGameByName(args[0])
+		g = db.FindGame(args[0])
 	}
 
 	if g == nil {

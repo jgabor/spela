@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -83,6 +84,16 @@ func (db *Database) AddGame(game *Game) {
 
 func (db *Database) GetGame(appID uint64) *Game {
 	return db.Games[appID]
+}
+
+// FindGame looks up a game by ID (if query is numeric) or name.
+func (db *Database) FindGame(query string) *Game {
+	if appID, err := strconv.ParseUint(query, 10, 64); err == nil {
+		if g := db.GetGame(appID); g != nil {
+			return g
+		}
+	}
+	return db.GetGameByName(query)
 }
 
 func (db *Database) GetGameByName(name string) *Game {

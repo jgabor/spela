@@ -3,7 +3,6 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -32,16 +31,7 @@ func runShow(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load game database: %w", err)
 	}
 
-	var g *game.Game
-
-	if appID, err := strconv.ParseUint(args[0], 10, 64); err == nil {
-		g = db.GetGame(appID)
-	}
-
-	if g == nil {
-		g = db.GetGameByName(args[0])
-	}
-
+	g := db.FindGame(args[0])
 	if g == nil {
 		return fmt.Errorf("game not found: %s", args[0])
 	}
