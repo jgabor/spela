@@ -3,6 +3,7 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -47,12 +48,12 @@ func runScan(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Printf("Found %s games\n", tui.CLIPrimary(fmt.Sprintf("%d", len(db.Games))))
+	fmt.Printf("Found %s games\n", tui.CLIPrimary(strconv.Itoa(len(db.Games))))
 	gamesWithDLSS := db.GamesWithDLSS()
 	if len(gamesWithDLSS) > 0 {
-		fmt.Printf("Games with DLSS/FSR/XeSS: %s\n", tui.CLIAccent(fmt.Sprintf("%d", len(gamesWithDLSS))))
+		fmt.Printf("Games with DLSS/FSR/XeSS: %s\n", tui.CLIAccent(strconv.Itoa(len(gamesWithDLSS))))
 		for _, g := range gamesWithDLSS {
-			fmt.Printf("  - %s %s\n", tui.CLIPrimary(g.Name), tui.CLIDim(fmt.Sprintf("(%d)", g.AppID)))
+			fmt.Printf("  - %s %s\n", tui.CLIPrimary(g.Name), tui.CLIDim("("+strconv.FormatUint(g.AppID, 10)+")"))
 			for _, d := range g.DLLs {
 				version := d.Version
 				if version == "" {

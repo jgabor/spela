@@ -16,3 +16,6 @@ internal/gui/frontend/wailsjs/wailsjs/
 
 # Wails build output
 cmd/spela/build/
+
+# Tool binaries
+/dlss-updater

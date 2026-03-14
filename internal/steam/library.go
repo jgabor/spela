@@ -50,11 +50,7 @@ func GetLibraries(steamPath string) ([]Library, error) {
 	}
 
 	var libraries []Library
-	for key, value := range libraryFolders {
-		if _, err := filepath.Abs(key); err != nil {
-			continue
-		}
-
+	for _, value := range libraryFolders {
 		libNode, ok := value.(VDFNode)
 		if !ok {
 			continue
@@ -119,15 +115,7 @@ func ScanLibrary(lib Library) ([]*game.Game, error) {
 			g.PrefixPath = prefix.Path
 		}
 
-		dlls, _ := dll.ScanDirectory(manifest.FullInstallDir)
-		for _, d := range dlls {
-			g.DLLs = append(g.DLLs, game.DetectedDLL{
-				Path:    d.Path,
-				Name:    d.Name,
-				Type:    d.Type,
-				Version: d.Version,
-			})
-		}
+		g.DLLs, _ = dll.ScanDirectory(manifest.FullInstallDir)
 
 		games = append(games, g)
 	}

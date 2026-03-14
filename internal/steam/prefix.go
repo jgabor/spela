@@ -3,6 +3,7 @@ package steam
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 )
 
@@ -57,10 +58,8 @@ func FindDLLsInPrefix(prefix *ProtonPrefix, dllNames []string) map[string][]stri
 		}
 
 		name := d.Name()
-		for _, dllName := range dllNames {
-			if name == dllName {
-				results[dllName] = append(results[dllName], path)
-			}
+		if slices.Contains(dllNames, name) {
+			results[name] = append(results[name], path)
 		}
 		return nil
 	})

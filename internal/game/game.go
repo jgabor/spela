@@ -1,6 +1,7 @@
 package game
 
 import (
+	"slices"
 	"time"
 )
 
@@ -32,30 +33,15 @@ type DetectedDLL struct {
 }
 
 func (g *Game) HasDLSS() bool {
-	for _, d := range g.DLLs {
-		if d.Type == DLLTypeDLSS {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(g.DLLs, func(d DetectedDLL) bool { return d.Type == DLLTypeDLSS })
 }
 
 func (g *Game) HasDLSSG() bool {
-	for _, d := range g.DLLs {
-		if d.Type == DLLTypeDLSSG {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(g.DLLs, func(d DetectedDLL) bool { return d.Type == DLLTypeDLSSG })
 }
 
 func (g *Game) HasDLSSD() bool {
-	for _, d := range g.DLLs {
-		if d.Type == DLLTypeDLSSD {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(g.DLLs, func(d DetectedDLL) bool { return d.Type == DLLTypeDLSSD })
 }
 
 func (g *Game) GetDLL(dllType DLLType) *DetectedDLL {

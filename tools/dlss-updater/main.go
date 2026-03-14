@@ -101,7 +101,10 @@ func main() {
 
 	if *outputJSON {
 		enc := json.NewEncoder(os.Stdout)
-		_ = enc.Encode(latest)
+		if err := enc.Encode(latest); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to encode JSON: %v\n", err)
+			os.Exit(1)
+		}
 	} else {
 		if latest.IsNew {
 			fmt.Printf("New %s version available: %s\n", strings.ToUpper(source.Type), latest.Version)
