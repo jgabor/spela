@@ -118,7 +118,7 @@ func (c *MangoHudConfig) ToConfigString() string {
 	}
 
 	if c.LoggingEnabled {
-		lines = append(lines, "output_folder=~/.local/share/spela/logs")
+		lines = append(lines, fmt.Sprintf("output_folder=%s", xdg.StatePath("logs")))
 		if c.LogDuration > 0 {
 			lines = append(lines, fmt.Sprintf("log_duration=%d", c.LogDuration))
 		}

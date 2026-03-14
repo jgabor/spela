@@ -31,7 +31,7 @@ type DLLSource struct {
 	Type         string
 	TechPowerUp  string
 	Filename     string
-	TitlePattern string
+	TitlePattern *regexp.Regexp
 }
 
 var dllSources = []DLLSource{
@@ -39,19 +39,19 @@ var dllSources = []DLLSource{
 		Type:         "dlss",
 		TechPowerUp:  "https://www.techpowerup.com/download/nvidia-dlss-dll/",
 		Filename:     "nvngx_dlss.dll",
-		TitlePattern: `<title>NVIDIA DLSS DLL (\d+\.\d+\.\d+) Download`,
+		TitlePattern: regexp.MustCompile(`<title>NVIDIA DLSS DLL (\d+\.\d+\.\d+) Download`),
 	},
 	{
 		Type:         "dlssg",
 		TechPowerUp:  "https://www.techpowerup.com/download/nvidia-dlss-3-frame-generation-dll/",
 		Filename:     "nvngx_dlssg.dll",
-		TitlePattern: `<title>NVIDIA DLSS Frame Generation DLL (\d+\.\d+\.\d+) Download`,
+		TitlePattern: regexp.MustCompile(`<title>NVIDIA DLSS Frame Generation DLL (\d+\.\d+\.\d+) Download`),
 	},
 	{
 		Type:         "dlssd",
 		TechPowerUp:  "https://www.techpowerup.com/download/nvidia-dlss-3-ray-reconstruction-dll/",
 		Filename:     "nvngx_dlssd.dll",
-		TitlePattern: `<title>NVIDIA DLSS Ray Reconstruction DLL (\d+\.\d+\.\d+) Download`,
+		TitlePattern: regexp.MustCompile(`<title>NVIDIA DLSS Ray Reconstruction DLL (\d+\.\d+\.\d+) Download`),
 	},
 }
 
@@ -161,8 +161,7 @@ func fetchFromTechPowerUp(source *DLLSource) (*LatestVersion, error) {
 	html := string(body)
 
 	// Extract version from title
-	titleRegex := regexp.MustCompile(source.TitlePattern)
-	matches := titleRegex.FindStringSubmatch(html)
+	matches := source.TitlePattern.FindStringSubmatch(html)
 	if len(matches) < 2 {
 		return nil, fmt.Errorf("could not find version in page title")
 	}

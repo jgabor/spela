@@ -66,7 +66,9 @@ func DownloadDLLWithProgress(dll *DLL, dllName string, progress ProgressCallback
 	}
 
 	_, err = io.Copy(writer, resp.Body)
-	_ = out.Close()
+	if closeErr := out.Close(); err == nil {
+		err = closeErr
+	}
 	if err != nil {
 		_ = os.Remove(tmpPath)
 		return "", fmt.Errorf("failed to write DLL: %w", err)
