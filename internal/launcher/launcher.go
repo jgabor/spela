@@ -193,8 +193,7 @@ func DetectGameFromCommand(db *game.Database, args []string) *game.Game {
 	}
 
 	for _, arg := range args {
-		if strings.HasPrefix(arg, "SteamAppId=") {
-			idStr := strings.TrimPrefix(arg, "SteamAppId=")
+		if idStr, ok := strings.CutPrefix(arg, "SteamAppId="); ok {
 			if id, err := strconv.ParseUint(idStr, 10, 64); err == nil {
 				if g := db.GetGame(id); g != nil {
 					return g

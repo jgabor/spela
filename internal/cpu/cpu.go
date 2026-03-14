@@ -142,8 +142,8 @@ func GetSchedulers() ([]string, error) {
 	var schedulers []string
 	for _, e := range entries {
 		name := filepath.Base(e)
-		if strings.HasPrefix(name, "scx_") {
-			schedulers = append(schedulers, strings.TrimPrefix(name, "scx_"))
+		if after, ok := strings.CutPrefix(name, "scx_"); ok {
+			schedulers = append(schedulers, after)
 		}
 	}
 	return schedulers, nil

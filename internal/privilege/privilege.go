@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -76,34 +77,21 @@ func ExecWithInput(input string, cmd string, args ...string) (*ExecResult, error
 }
 
 func run(cmd string, args ...string) *ExecResult {
-	command := exec.Command(cmd, args...)
-	var stdout, stderr bytes.Buffer
-	command.Stdout = &stdout
-	command.Stderr = &stderr
-
-	err := command.Run()
-	exitCode := 0
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
-		} else {
-			exitCode = 1
-		}
-	}
-
-	return &ExecResult{
-		Stdout:   stdout.String(),
-		Stderr:   stderr.String(),
-		ExitCode: exitCode,
-	}
+	return execCommand(nil, cmd, args...)
 }
 
 func runWithInput(input string, cmd string, args ...string) *ExecResult {
+	return execCommand(strings.NewReader(input), cmd, args...)
+}
+
+func execCommand(stdin io.Reader, cmd string, args ...string) *ExecResult {
 	command := exec.Command(cmd, args...)
 	var stdout, stderr bytes.Buffer
 	command.Stdout = &stdout
 	command.Stderr = &stderr
-	command.Stdin = strings.NewReader(input)
+	if stdin != nil {
+		command.Stdin = stdin
+	}
 
 	err := command.Run()
 	exitCode := 0
