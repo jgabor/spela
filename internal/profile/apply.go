@@ -35,7 +35,7 @@ func (p *Profile) applyDLSS(e *env.Environment) []func() {
 	if p.DLSS.SROverride {
 		e.Set("DXVK_NVAPI_DRS_NGX_DLSS_SR_OVERRIDE", "on")
 		if p.DLSS.SRMode != "" {
-			e.Set("DXVK_NVAPI_DRS_NGX_DLSS_SR_MODE", dlssModeToEnv(p.DLSS.SRMode))
+			e.Set("DXVK_NVAPI_DRS_NGX_DLSS_SR_MODE", string(p.DLSS.SRMode))
 		}
 		if p.DLSS.SRModelPreset != "" {
 			preset := resolveModelPreset(p.DLSS.SRModelPreset, p.DLSS.SRMode)
@@ -48,7 +48,7 @@ func (p *Profile) applyDLSS(e *env.Environment) []func() {
 	if p.DLSS.RROverride {
 		e.Set("DXVK_NVAPI_DRS_NGX_DLSS_RR_OVERRIDE", "on")
 		if p.DLSS.RRMode != "" {
-			e.Set("DXVK_NVAPI_DRS_NGX_DLSS_RR_MODE", dlssModeToEnv(p.DLSS.RRMode))
+			e.Set("DXVK_NVAPI_DRS_NGX_DLSS_RR_MODE", string(p.DLSS.RRMode))
 		}
 		if p.DLSS.RRPreset != "" {
 			e.Set("DXVK_NVAPI_DRS_NGX_DLSS_RR_OVERRIDE_RENDER_PRESET_SELECTION", dlssPresetToEnv(p.DLSS.RRPreset))
@@ -88,23 +88,6 @@ func (p *Profile) applyGPU(e *env.Environment) []func() {
 	e.SetThreadedOptimization(p.GPU.ThreadedOptimization)
 
 	return nil
-}
-
-func dlssModeToEnv(mode DLSSMode) string {
-	switch mode {
-	case DLSSModeUltraPerformance:
-		return "ultra_performance"
-	case DLSSModePerformance:
-		return "performance"
-	case DLSSModeBalanced:
-		return "balanced"
-	case DLSSModeQuality:
-		return "quality"
-	case DLSSModeDLAA:
-		return "dlaa"
-	default:
-		return string(mode)
-	}
 }
 
 func dlssPresetToEnv(preset DLSSPreset) string {
