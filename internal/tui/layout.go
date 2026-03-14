@@ -526,14 +526,7 @@ func executeBatchDLLUpdate(games []*game.Game) batchCompleteMsg {
 			continue
 		}
 
-		var gameDLLs []dll.GameDLL
-		for _, d := range g.DLLs {
-			gameDLLs = append(gameDLLs, dll.GameDLL{
-				Name:    d.Name,
-				Path:    d.Path,
-				Version: d.Version,
-			})
-		}
+		gameDLLs := dll.GameDLLsFromDetected(g.DLLs)
 
 		gameUpdated := false
 		for _, d := range g.DLLs {

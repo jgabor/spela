@@ -198,14 +198,7 @@ func runDLLUpdate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to download DLL: %w", err)
 	}
 
-	var gameDLLs []dll.GameDLL
-	for _, d := range g.DLLs {
-		gameDLLs = append(gameDLLs, dll.GameDLL{
-			Name:    d.Name,
-			Path:    d.Path,
-			Version: d.Version,
-		})
-	}
+	gameDLLs := dll.GameDLLsFromDetected(g.DLLs)
 
 	if err := dll.SwapDLL(g.AppID, g.Name, gameDLLs, targetDLL.Name, cachePath); err != nil {
 		return fmt.Errorf("failed to swap DLL: %w", err)

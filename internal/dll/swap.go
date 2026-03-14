@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/xdg"
 )
 
@@ -78,6 +79,20 @@ type GameDLL struct {
 	Name    string
 	Path    string
 	Version string
+}
+
+// GameDLLsFromDetected converts detected DLLs to the GameDLL type used
+// by backup and swap operations.
+func GameDLLsFromDetected(dlls []game.DetectedDLL) []GameDLL {
+	result := make([]GameDLL, len(dlls))
+	for i, d := range dlls {
+		result[i] = GameDLL{
+			Name:    d.Name,
+			Path:    d.Path,
+			Version: d.Version,
+		}
+	}
+	return result
 }
 
 func CreateBackup(appID uint64, gameName string, dlls []GameDLL) (*Backup, error) {

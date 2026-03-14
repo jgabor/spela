@@ -600,14 +600,7 @@ func (a *App) InstallDLL(appID uint64, dllType, version string) error {
 		return err
 	}
 
-	var gameDLLs []dll.GameDLL
-	for _, d := range g.DLLs {
-		gameDLLs = append(gameDLLs, dll.GameDLL{
-			Name:    d.Name,
-			Path:    d.Path,
-			Version: d.Version,
-		})
-	}
+	gameDLLs := dll.GameDLLsFromDetected(g.DLLs)
 
 	if err := dll.InstallDLL(g.AppID, g.Name, g.InstallDir, gameDLLs, targetDLL.Filename, cachePath); err != nil {
 		return err
@@ -638,14 +631,7 @@ func (a *App) UpdateDLLs(appID uint64) error {
 		return err
 	}
 
-	var gameDLLs []dll.GameDLL
-	for _, d := range g.DLLs {
-		gameDLLs = append(gameDLLs, dll.GameDLL{
-			Name:    d.Name,
-			Path:    d.Path,
-			Version: d.Version,
-		})
-	}
+	gameDLLs := dll.GameDLLsFromDetected(g.DLLs)
 
 	for _, d := range g.DLLs {
 		latest := manifest.GetLatestDLL(d.Name)

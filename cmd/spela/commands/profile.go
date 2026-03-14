@@ -1,8 +1,10 @@
 package commands
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	"github.com/spf13/cobra"
 
@@ -64,6 +66,12 @@ func runProfileList(cmd *cobra.Command, args []string) error {
 
 	db, _ := game.LoadDatabase()
 
+	type profileEntry struct {
+		appID uint64
+		name  string
+		p     *profile.Profile
+	}
+	entries := make([]profileEntry, 0, len(profiles))
 	for appID, p := range profiles {
 		name := fmt.Sprintf("%d", appID)
 		if db != nil {
@@ -71,11 +79,18 @@ func runProfileList(cmd *cobra.Command, args []string) error {
 				name = g.Name
 			}
 		}
-		profileName := p.Name
+		entries = append(entries, profileEntry{appID: appID, name: name, p: p})
+	}
+	slices.SortFunc(entries, func(a, b profileEntry) int {
+		return cmp.Compare(a.name, b.name)
+	})
+
+	for _, entry := range entries {
+		profileName := entry.p.Name
 		if profileName == "" {
 			profileName = "custom"
 		}
-		fmt.Printf("%s %s: %s\n", tui.CLIPrimary(name), tui.CLIDim(fmt.Sprintf("(%d)", appID)), tui.CLISecondary(profileName))
+		fmt.Printf("%s %s: %s\n", tui.CLIPrimary(entry.name), tui.CLIDim(fmt.Sprintf("(%d)", entry.appID)), tui.CLISecondary(profileName))
 	}
 
 	return nil

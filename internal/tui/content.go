@@ -292,14 +292,7 @@ func (m ContentModel) updateDLLs() tea.Cmd {
 			}
 		}
 
-		var gameDLLs []dll.GameDLL
-		for _, d := range g.DLLs {
-			gameDLLs = append(gameDLLs, dll.GameDLL{
-				Name:    d.Name,
-				Path:    d.Path,
-				Version: d.Version,
-			})
-		}
+		gameDLLs := dll.GameDLLsFromDetected(g.DLLs)
 
 		updatedCount := 0
 		for _, d := range g.DLLs {
@@ -769,14 +762,7 @@ func (m ContentModel) installSelectedDLL() tea.Cmd {
 			return dllInstallMsg{err: err}
 		}
 
-		var gameDLLs []dll.GameDLL
-		for _, d := range g.DLLs {
-			gameDLLs = append(gameDLLs, dll.GameDLL{
-				Name:    d.Name,
-				Path:    d.Path,
-				Version: d.Version,
-			})
-		}
+		gameDLLs := dll.GameDLLsFromDetected(g.DLLs)
 
 		targetName := dllInfo.Filename
 		if err := dll.InstallDLL(g.AppID, g.Name, g.InstallDir, gameDLLs, targetName, cachePath); err != nil {

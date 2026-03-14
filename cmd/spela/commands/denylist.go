@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -65,18 +66,8 @@ func runDenylistShow(cmd *cobra.Command, args []string) error {
 
 	fmt.Println("Denied games (anti-cheat):")
 	for _, e := range list.Entries {
-		allowed := false
-		if overrides != nil {
-			for _, id := range overrides.Allowed {
-				if id == e.AppID {
-					allowed = true
-					break
-				}
-			}
-		}
-
 		status := ""
-		if allowed {
+		if overrides != nil && slices.Contains(overrides.Allowed, e.AppID) {
 			status = " [FORCE-ALLOWED]"
 		}
 		fmt.Printf("  %s (%d): %s%s\n", e.Name, e.AppID, e.Reason, status)
