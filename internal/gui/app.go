@@ -213,24 +213,7 @@ func (a *App) GetGames() []GameInfo {
 
 	var games []GameInfo
 	for _, g := range a.db.List() {
-		info := GameInfo{
-			AppID:      g.AppID,
-			Name:       g.Name,
-			InstallDir: g.InstallDir,
-			PrefixPath: g.PrefixPath,
-			HasProfile: profile.Exists(g.AppID),
-		}
-
-		for _, d := range g.DLLs {
-			info.DLLs = append(info.DLLs, DLLInfo{
-				Name:    d.Name,
-				Path:    d.Path,
-				Version: d.Version,
-				DLLType: string(d.Type),
-			})
-		}
-
-		games = append(games, info)
+		games = append(games, gameInfoFromGame(g))
 	}
 
 	return games
@@ -246,7 +229,12 @@ func (a *App) GetGame(appID uint64) *GameInfo {
 		return nil
 	}
 
-	info := &GameInfo{
+	info := gameInfoFromGame(g)
+	return &info
+}
+
+func gameInfoFromGame(g *game.Game) GameInfo {
+	info := GameInfo{
 		AppID:      g.AppID,
 		Name:       g.Name,
 		InstallDir: g.InstallDir,

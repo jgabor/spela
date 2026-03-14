@@ -3,7 +3,6 @@ package privilege
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -54,7 +53,7 @@ func Exec(cmd string, args ...string) (*ExecResult, error) {
 		if isAuthDismissed(result) {
 			return nil, &AuthError{Message: "authentication dismissed by user"}
 		}
-		return nil, fmt.Errorf("%s", strings.TrimSpace(result.Stderr))
+		return nil, errors.New(strings.TrimSpace(result.Stderr))
 	}
 	return result, nil
 }
@@ -73,7 +72,7 @@ func ExecWithInput(input string, cmd string, args ...string) (*ExecResult, error
 		if isAuthDismissed(result) {
 			return nil, &AuthError{Message: "authentication dismissed by user"}
 		}
-		return nil, fmt.Errorf("%s", strings.TrimSpace(result.Stderr))
+		return nil, errors.New(strings.TrimSpace(result.Stderr))
 	}
 	return result, nil
 }
@@ -98,7 +97,8 @@ func execCommand(stdin io.Reader, cmd string, args ...string) *ExecResult {
 	err := command.Run()
 	exitCode := 0
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			exitCode = exitErr.ExitCode()
 		} else {
 			exitCode = 1

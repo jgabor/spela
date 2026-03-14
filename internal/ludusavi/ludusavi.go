@@ -58,7 +58,7 @@ func FindGame(gameName string) (*SaveInfo, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("ludusavi find failed: %s", stderr.String())
+		return nil, fmt.Errorf("ludusavi find failed: %w: %s", err, stderr.String())
 	}
 
 	var result map[string]SaveInfo
@@ -81,7 +81,7 @@ func BackupGame(gameName string) (*BackupResult, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("ludusavi backup failed: %s", stderr.String())
+		return nil, fmt.Errorf("ludusavi backup failed: %w: %s", err, stderr.String())
 	}
 
 	var result BackupResult
@@ -99,7 +99,7 @@ func RestoreGame(gameName string) (*BackupResult, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("ludusavi restore failed: %s", stderr.String())
+		return nil, fmt.Errorf("ludusavi restore failed: %w: %s", err, stderr.String())
 	}
 
 	var result BackupResult
@@ -117,7 +117,7 @@ func ListBackups() ([]string, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("ludusavi backups failed: %s", stderr.String())
+		return nil, fmt.Errorf("ludusavi backups failed: %w: %s", err, stderr.String())
 	}
 
 	var games []string
