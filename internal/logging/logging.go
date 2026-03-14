@@ -9,7 +9,7 @@ import (
 	"github.com/jgabor/spela/internal/xdg"
 )
 
-var logger *slog.Logger
+var logger = slog.Default()
 
 func Init(level config.LogLevel, verbose bool) error {
 	if _, err := xdg.EnsureStateHome(); err != nil {

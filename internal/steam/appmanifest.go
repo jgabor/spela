@@ -34,7 +34,10 @@ func ParseAppManifest(path string) (*AppManifest, error) {
 		return nil, nil
 	}
 
-	appID, _ := strconv.ParseUint(appState.GetString("appid"), 10, 64)
+	appID, err := strconv.ParseUint(appState.GetString("appid"), 10, 64)
+	if err != nil || appID == 0 {
+		return nil, nil
+	}
 	stateFlags, _ := strconv.Atoi(appState.GetString("StateFlags"))
 	lastUpdated, _ := strconv.ParseInt(appState.GetString("LastUpdated"), 10, 64)
 	sizeOnDisk, _ := strconv.ParseInt(appState.GetString("SizeOnDisk"), 10, 64)
