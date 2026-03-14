@@ -1,9 +1,10 @@
 package commands
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/spf13/cobra"
 
@@ -40,8 +41,8 @@ func runList(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	sort.Slice(games, func(i, j int) bool {
-		return games[i].Name < games[j].Name
+	slices.SortFunc(games, func(a, b *game.Game) int {
+		return cmp.Compare(a.Name, b.Name)
 	})
 
 	if listJSON {

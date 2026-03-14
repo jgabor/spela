@@ -1,8 +1,9 @@
 package tui
 
 import (
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -237,30 +238,34 @@ func (m *SidebarModel) applyFiltersAndSort() {
 
 	switch m.sortMode {
 	case SortNameAsc:
-		sort.SliceStable(filtered, func(i, j int) bool {
-			return filtered[i].Name < filtered[j].Name
+		slices.SortStableFunc(filtered, func(a, b *game.Game) int {
+			return cmp.Compare(a.Name, b.Name)
 		})
 	case SortNameDesc:
-		sort.SliceStable(filtered, func(i, j int) bool {
-			return filtered[i].Name > filtered[j].Name
+		slices.SortStableFunc(filtered, func(a, b *game.Game) int {
+			return cmp.Compare(b.Name, a.Name)
 		})
 	case SortDLLsFirst:
-		sort.SliceStable(filtered, func(i, j int) bool {
-			iHas := len(filtered[i].DLLs) > 0
-			jHas := len(filtered[j].DLLs) > 0
-			if iHas != jHas {
-				return iHas
+		slices.SortStableFunc(filtered, func(a, b *game.Game) int {
+			aHas, bHas := len(a.DLLs) > 0, len(b.DLLs) > 0
+			if aHas != bHas {
+				if aHas {
+					return -1
+				}
+				return 1
 			}
-			return filtered[i].Name < filtered[j].Name
+			return cmp.Compare(a.Name, b.Name)
 		})
 	case SortProfileFirst:
-		sort.SliceStable(filtered, func(i, j int) bool {
-			iHas := hasProfileMap[filtered[i].AppID]
-			jHas := hasProfileMap[filtered[j].AppID]
-			if iHas != jHas {
-				return iHas
+		slices.SortStableFunc(filtered, func(a, b *game.Game) int {
+			aHas, bHas := hasProfileMap[a.AppID], hasProfileMap[b.AppID]
+			if aHas != bHas {
+				if aHas {
+					return -1
+				}
+				return 1
 			}
-			return filtered[i].Name < filtered[j].Name
+			return cmp.Compare(a.Name, b.Name)
 		})
 	}
 

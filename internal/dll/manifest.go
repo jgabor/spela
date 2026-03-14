@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"time"
 
 	"github.com/jgabor/spela/internal/xdg"
@@ -161,6 +161,6 @@ func (m *Manifest) ListDLLNames() []string {
 	for name := range m.DLLs {
 		names = append(names, name)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 	return names
 }
