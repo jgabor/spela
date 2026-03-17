@@ -31,3 +31,11 @@
 **Inspiration**: NVML ClocksThrottleReason bitmask API; confirmed exact constants via go doc (ClocksThrottleReasonHwThermalSlowdown=64, SwPowerCap=4, etc.)
 **Discovered**: Implementing directly instead of via worktree agent avoided all regressions from cycles 1-3. For focused single-file changes, direct implementation is faster and more reliable than worktree dispatch.
 **Next**: Overlay IPC protocol (mmap shared memory Go→Layer writer) or overlay configuration model (presets, colors, position) for profile integration
+
+## Cycle 5 — 2026-03-17 22:30
+
+**What**: Implemented overlay mmap IPC protocol — shared memory file with SPEL header, 64-byte state section, and seqlock synchronization for lock-free Go→Layer communication
+**Commit**: 9c759b2 feat(overlay): add mmap IPC protocol with seqlock synchronization
+**Inspiration**: io_uring ring buffer design (from overlay design doc); seqlock pattern from Linux kernel for single-writer/single-reader synchronization
+**Discovered**: Binary protocol with `unsafe` and atomics requires careful attention to field alignment and byte ordering. Power draw stored as milliwatts (uint32) on wire to avoid float in shared memory. Temperature as int32 to handle negative values.
+**Next**: Stats collector goroutine that periodically writes GPU+CPU metrics to the IPC file, or the C++ Vulkan layer proof of concept that reads from the mmap
