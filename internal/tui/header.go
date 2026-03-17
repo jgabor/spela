@@ -10,6 +10,7 @@ import (
 
 	"github.com/jgabor/spela/internal/cpu"
 	"github.com/jgabor/spela/internal/gpu"
+	"github.com/jgabor/spela/internal/overlay"
 )
 
 var logo = []string{
@@ -27,11 +28,13 @@ type headerTickMsg struct{}
 type metricsMsg struct {
 	gpuMetrics *gpu.GPUMetrics
 	cpuMetrics *cpu.CPUMetrics
+	alerts     []overlay.Alert
 }
 
 type HeaderModel struct {
 	gpuMetrics *gpu.GPUMetrics
 	cpuMetrics *cpu.CPUMetrics
+	alerts     []overlay.Alert
 	width      int
 }
 
@@ -58,7 +61,18 @@ func fetchMetrics() tea.Cmd {
 	return func() tea.Msg {
 		gpuMetrics, _ := gpu.GetGPUMetrics()
 		cpuMetrics, _ := cpu.GetCPUMetrics()
-		return metricsMsg{gpuMetrics: gpuMetrics, cpuMetrics: cpuMetrics}
+		var alerts []overlay.Alert
+		if gpuMetrics != nil {
+			input := overlay.AlertInput{
+				Temperature:   gpuMetrics.Temperature,
+				PowerDraw:     gpuMetrics.PowerDraw,
+				PowerLimit:    gpuMetrics.PowerLimit,
+				GraphicsClock: gpuMetrics.GraphicsClock,
+				FanSpeed:      gpuMetrics.FanSpeed,
+			}
+			alerts = overlay.Evaluate(input, overlay.DefaultThresholds())
+		}
+		return metricsMsg{gpuMetrics: gpuMetrics, cpuMetrics: cpuMetrics, alerts: alerts}
 	}
 }
 
@@ -69,6 +83,7 @@ func (m HeaderModel) Update(msg tea.Msg) (HeaderModel, tea.Cmd) {
 	case metricsMsg:
 		m.gpuMetrics = msg.gpuMetrics
 		m.cpuMetrics = msg.cpuMetrics
+		m.alerts = msg.alerts
 		return m, tickHeader()
 	}
 	return m, nil
@@ -89,10 +104,50 @@ func (m HeaderModel) View() string {
 	// Build metrics lines
 	var metricsLines []string
 
-	// Line 1: GPU temp, util, power
+	// Line 1: GPU temp, util, power (with alert coloring)
 	if m.gpuMetrics != nil {
 		g := m.gpuMetrics
-		line := labelStyle.Render("GPU: ") + valueStyle.Render(fmt.Sprintf("%d°C %d%% %.0fW", g.Temperature, g.Utilization, g.PowerDraw))
+
+		tempStyle := valueStyle
+		powerStyle := valueStyle
+		for _, a := range m.alerts {
+			if a.Type == overlay.AlertThermalThrottle {
+				if a.Severity == overlay.AlertCritical {
+					tempStyle = lipgloss.NewStyle().Foreground(t.Error)
+				} else {
+					tempStyle = lipgloss.NewStyle().Foreground(t.Warning)
+				}
+			}
+			if a.Type == overlay.AlertPowerLimit {
+				powerStyle = lipgloss.NewStyle().Foreground(t.Warning)
+			}
+		}
+
+		line := labelStyle.Render("GPU: ") +
+			tempStyle.Render(fmt.Sprintf("%d°C", g.Temperature)) +
+			valueStyle.Render(fmt.Sprintf(" %d%% ", g.Utilization)) +
+			powerStyle.Render(fmt.Sprintf("%.0fW", g.PowerDraw))
+
+		if g.FanSpeed > 0 {
+			line += valueStyle.Render(fmt.Sprintf(" %d%%fan", g.FanSpeed))
+		}
+
+		if highest := highestSeverityAlert(m.alerts); highest != nil {
+			var alertStyle lipgloss.Style
+			var icon string
+			switch highest.Severity {
+			case overlay.AlertCritical:
+				alertStyle = lipgloss.NewStyle().Foreground(t.Error)
+				icon = "✗"
+			case overlay.AlertWarning:
+				alertStyle = lipgloss.NewStyle().Foreground(t.Warning)
+				icon = "⚠"
+			}
+			if icon != "" {
+				line += " " + alertStyle.Render(icon+" "+alertLabel(highest))
+			}
+		}
+
 		metricsLines = append(metricsLines, line)
 	} else {
 		metricsLines = append(metricsLines, labelStyle.Render("GPU: ")+valueStyle.Render("N/A"))
@@ -176,3 +231,29 @@ func (m HeaderModel) View() string {
 
 func (m HeaderModel) GPUMetrics() *gpu.GPUMetrics { return m.gpuMetrics }
 func (m HeaderModel) CPUMetrics() *cpu.CPUMetrics { return m.cpuMetrics }
+
+func highestSeverityAlert(alerts []overlay.Alert) *overlay.Alert {
+	var highest *overlay.Alert
+	for i := range alerts {
+		if highest == nil || alerts[i].Severity > highest.Severity {
+			highest = &alerts[i]
+		}
+	}
+	return highest
+}
+
+func alertLabel(a *overlay.Alert) string {
+	switch a.Type {
+	case overlay.AlertThermalThrottle:
+		if a.Severity == overlay.AlertCritical {
+			return "Throttling"
+		}
+		return "High temp"
+	case overlay.AlertPowerLimit:
+		return "Power limited"
+	case overlay.AlertFanMaximum:
+		return "Fan max"
+	default:
+		return ""
+	}
+}

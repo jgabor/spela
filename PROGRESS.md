@@ -7,3 +7,11 @@
 **Inspiration**: go-nvml library patterns from NVIDIA/go-nvml examples; overlay design docs (docs/design/overlay.md, overlay-review.md) which require NVML for the planned in-game overlay
 **Discovered**: The agent worktree introduced regressions (broke ResetClocks error handling, regressed SplitSeq to Split) — applied changes manually to avoid these. Worktree approach needs careful diff review.
 **Next**: The overlay IPC protocol (mmap ring buffers) or the Go-side stats collector that will feed metrics to the overlay layer at high frequency
+
+## Cycle 2 — 2026-03-17 21:00
+
+**What**: Added GPU alert detection system — pure function evaluating metrics for thermal throttling, power limit saturation, and fan maximum conditions
+**Commit**: 7a2a6da feat(overlay): add GPU alert detection system
+**Inspiration**: NVML throttle reason bitmask API (nvmlClocksThrottleReasonHwThermalSlowdown); research on GPU monitoring best practices suggesting tighter alert thresholds (80°C warning, 85°C critical rather than waiting for driver thermal limit)
+**Discovered**: ISSUES.md was heavily stale — issues #1, #2, #3, #7 all already fixed in prior refactoring commits. Marked resolved and added new issue #9 for NVML setter privilege model decision (per-command pkexec vs privileged daemon). docs/ directory is in .gitignore — needed `git add -f`.
+**Next**: Integrate alerts into the TUI header (show warning indicators when GPU is throttling), or build the NVML throttle reason detection for more precise alerts
