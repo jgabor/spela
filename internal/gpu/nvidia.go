@@ -111,16 +111,31 @@ func getInfoSMI() (map[string]string, error) {
 	}, nil
 }
 
+// ThrottleReasons reports why the GPU is currently throttling.
+// Only populated when NVML is available.
+type ThrottleReasons struct {
+	ThermalHardware bool // HW thermal limit reached
+	ThermalSoftware bool // SW thermal cap triggered
+	PowerCap        bool // User-set power limit is constraining clocks
+	PowerBrake      bool // HW power brake (emergency)
+}
+
+// Throttling returns true if any throttle reason is active.
+func (r *ThrottleReasons) Throttling() bool {
+	return r != nil && (r.ThermalHardware || r.ThermalSoftware || r.PowerCap || r.PowerBrake)
+}
+
 type GPUMetrics struct {
-	Temperature   int
-	PowerDraw     float64
-	PowerLimit    float64
-	Utilization   int
-	MemoryUsed    int
-	MemoryTotal   int
-	GraphicsClock int
-	MemoryClock   int
-	FanSpeed      int
+	Temperature     int
+	PowerDraw       float64
+	PowerLimit      float64
+	Utilization     int
+	MemoryUsed      int
+	MemoryTotal     int
+	GraphicsClock   int
+	MemoryClock     int
+	FanSpeed        int
+	ThrottleReasons *ThrottleReasons // nil when NVML unavailable
 }
 
 func GetGPUMetrics() (*GPUMetrics, error) {

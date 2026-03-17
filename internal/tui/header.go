@@ -70,6 +70,10 @@ func fetchMetrics() tea.Cmd {
 				GraphicsClock: gpuMetrics.GraphicsClock,
 				FanSpeed:      gpuMetrics.FanSpeed,
 			}
+			if r := gpuMetrics.ThrottleReasons; r != nil {
+				input.ThrottleThermal = r.ThermalHardware || r.ThermalSoftware
+				input.ThrottlePower = r.PowerCap || r.PowerBrake
+			}
 			alerts = overlay.Evaluate(input, overlay.DefaultThresholds())
 		}
 		return metricsMsg{gpuMetrics: gpuMetrics, cpuMetrics: cpuMetrics, alerts: alerts}

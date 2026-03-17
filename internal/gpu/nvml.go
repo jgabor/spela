@@ -77,6 +77,15 @@ func getMetricsNVML() (*GPUMetrics, error) {
 		metrics.FanSpeed = int(fan)
 	}
 
+	if reasons, ret := nvmlDevice.GetCurrentClocksThrottleReasons(); ret == nvml.SUCCESS {
+		metrics.ThrottleReasons = &ThrottleReasons{
+			ThermalHardware: reasons&nvml.ClocksThrottleReasonHwThermalSlowdown != 0,
+			ThermalSoftware: reasons&nvml.ClocksThrottleReasonSwThermalSlowdown != 0,
+			PowerCap:        reasons&nvml.ClocksThrottleReasonSwPowerCap != 0,
+			PowerBrake:      reasons&nvml.ClocksThrottleReasonHwPowerBrakeSlowdown != 0,
+		}
+	}
+
 	return metrics, nil
 }
 

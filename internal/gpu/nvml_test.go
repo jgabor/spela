@@ -36,6 +36,32 @@ func TestNVMLMetrics(t *testing.T) {
 	if metrics.GraphicsClock <= 0 {
 		t.Errorf("unexpected graphics clock: %d", metrics.GraphicsClock)
 	}
+	if metrics.ThrottleReasons == nil {
+		t.Error("expected ThrottleReasons to be populated via NVML")
+	}
+}
+
+func TestThrottleReasonsThrottling(t *testing.T) {
+	tests := []struct {
+		name     string
+		reasons  *ThrottleReasons
+		expected bool
+	}{
+		{"nil", nil, false},
+		{"none active", &ThrottleReasons{}, false},
+		{"thermal hardware", &ThrottleReasons{ThermalHardware: true}, true},
+		{"thermal software", &ThrottleReasons{ThermalSoftware: true}, true},
+		{"power cap", &ThrottleReasons{PowerCap: true}, true},
+		{"power brake", &ThrottleReasons{PowerBrake: true}, true},
+		{"multiple", &ThrottleReasons{ThermalHardware: true, PowerCap: true}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.reasons.Throttling(); got != tt.expected {
+				t.Errorf("Throttling() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
 }
 
 func TestNVMLInfo(t *testing.T) {

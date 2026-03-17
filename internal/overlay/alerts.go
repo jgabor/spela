@@ -79,15 +79,31 @@ type AlertInput struct {
 	PowerLimit    float64 // watts
 	GraphicsClock int     // MHz
 	FanSpeed      int     // percentage 0-100
+
+	// Throttle reasons from NVML. When true, these provide driver-confirmed
+	// cause detection. When all false (nvidia-smi fallback), threshold-based
+	// inference is used instead.
+	ThrottleThermal bool // HW or SW thermal throttling active
+	ThrottlePower   bool // SW power cap or HW power brake active
 }
 
 // Evaluate analyzes GPU metrics and returns any active alerts.
 // It is a pure function with no side effects or state.
+//
+// When NVML throttle reasons are available (ThrottleThermal/ThrottlePower),
+// they take precedence over threshold-based inference.
 func Evaluate(input AlertInput, thresholds AlertThresholds) []Alert {
 	var alerts []Alert
 
 	// Thermal throttling detection
-	if input.Temperature >= thresholds.ThermalCritical {
+	if input.ThrottleThermal {
+		alerts = append(alerts, Alert{
+			Type:       AlertThermalThrottle,
+			Severity:   AlertCritical,
+			Message:    fmt.Sprintf("GPU thermal throttling at %d°C", input.Temperature),
+			Suggestion: "Improve case airflow or reduce power limit",
+		})
+	} else if input.Temperature >= thresholds.ThermalCritical {
 		alerts = append(alerts, Alert{
 			Type:       AlertThermalThrottle,
 			Severity:   AlertCritical,
@@ -104,7 +120,15 @@ func Evaluate(input AlertInput, thresholds AlertThresholds) []Alert {
 	}
 
 	// Power limit detection
-	if input.PowerLimit > 0 {
+	if input.ThrottlePower {
+		headroom := input.PowerLimit * 0.1
+		alerts = append(alerts, Alert{
+			Type:       AlertPowerLimit,
+			Severity:   AlertWarning,
+			Message:    fmt.Sprintf("GPU power-limited at %.0fW/%.0fW", input.PowerDraw, input.PowerLimit),
+			Suggestion: fmt.Sprintf("Increase power limit to %.0fW for potential FPS gain", input.PowerLimit+headroom),
+		})
+	} else if input.PowerLimit > 0 {
 		usagePct := (input.PowerDraw / input.PowerLimit) * 100
 		if usagePct >= thresholds.PowerMarginPct {
 			headroom := input.PowerLimit * 0.1

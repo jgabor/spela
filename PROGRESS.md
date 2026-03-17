@@ -15,3 +15,11 @@
 **Inspiration**: NVML throttle reason bitmask API (nvmlClocksThrottleReasonHwThermalSlowdown); research on GPU monitoring best practices suggesting tighter alert thresholds (80°C warning, 85°C critical rather than waiting for driver thermal limit)
 **Discovered**: ISSUES.md was heavily stale — issues #1, #2, #3, #7 all already fixed in prior refactoring commits. Marked resolved and added new issue #9 for NVML setter privilege model decision (per-command pkexec vs privileged daemon). docs/ directory is in .gitignore — needed `git add -f`.
 **Next**: Integrate alerts into the TUI header (show warning indicators when GPU is throttling), or build the NVML throttle reason detection for more precise alerts
+
+## Cycle 3 — 2026-03-17 21:30
+
+**What**: Integrated GPU alerts into TUI header — temperature/power colored by severity, fan speed shown via NVML, compact alert indicators for throttling/power limit
+**Commit**: 8bf8bfe feat(tui): integrate GPU alerts into header with colored metrics
+**Inspiration**: None needed (UI integration of existing components)
+**Discovered**: Sonnet worktree agent regressed bubbletea/lipgloss v2 imports to v1 and changed async metric fetching to synchronous (would block UI). Applied changes manually again. Agent worktrees consistently introduce regressions in areas outside their direct task scope.
+**Next**: NVML throttle reason detection (GetCurrentClocksThrottleReasons) for precise alerts, or overlay IPC protocol (mmap shared memory) as the next overlay foundation piece

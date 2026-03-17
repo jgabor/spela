@@ -131,6 +131,49 @@ func TestEvaluate(t *testing.T) {
 			expectedTypes:      []AlertType{AlertThermalThrottle},
 			expectedSeverities: []AlertSeverity{AlertCritical},
 		},
+		{
+			name: "NVML thermal throttle at low temperature",
+			input: AlertInput{
+				Temperature:     72,
+				PowerDraw:       200,
+				PowerLimit:      350,
+				FanSpeed:        60,
+				ThrottleThermal: true,
+			},
+			thresholds:         defaults,
+			expectedCount:      1,
+			expectedTypes:      []AlertType{AlertThermalThrottle},
+			expectedSeverities: []AlertSeverity{AlertCritical},
+		},
+		{
+			name: "NVML power throttle below threshold",
+			input: AlertInput{
+				Temperature:   65,
+				PowerDraw:     200,
+				PowerLimit:    350,
+				FanSpeed:      50,
+				ThrottlePower: true,
+			},
+			thresholds:         defaults,
+			expectedCount:      1,
+			expectedTypes:      []AlertType{AlertPowerLimit},
+			expectedSeverities: []AlertSeverity{AlertWarning},
+		},
+		{
+			name: "NVML thermal + power throttle",
+			input: AlertInput{
+				Temperature:     78,
+				PowerDraw:       340,
+				PowerLimit:      350,
+				FanSpeed:        90,
+				ThrottleThermal: true,
+				ThrottlePower:   true,
+			},
+			thresholds:         defaults,
+			expectedCount:      2,
+			expectedTypes:      []AlertType{AlertThermalThrottle, AlertPowerLimit},
+			expectedSeverities: []AlertSeverity{AlertCritical, AlertWarning},
+		},
 	}
 
 	for _, tt := range tests {
