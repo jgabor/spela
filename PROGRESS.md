@@ -23,3 +23,11 @@
 **Inspiration**: None needed (UI integration of existing components)
 **Discovered**: Sonnet worktree agent regressed bubbletea/lipgloss v2 imports to v1 and changed async metric fetching to synchronous (would block UI). Applied changes manually again. Agent worktrees consistently introduce regressions in areas outside their direct task scope.
 **Next**: NVML throttle reason detection (GetCurrentClocksThrottleReasons) for precise alerts, or overlay IPC protocol (mmap shared memory) as the next overlay foundation piece
+
+## Cycle 4 — 2026-03-17 22:00
+
+**What**: Added NVML throttle reason detection — driver-reported causes (thermal HW/SW, power cap, power brake) now inform alerts precisely instead of relying solely on temperature/power thresholds
+**Commit**: 9774163 feat(gpu): add NVML throttle reason detection for precise alerts
+**Inspiration**: NVML ClocksThrottleReason bitmask API; confirmed exact constants via go doc (ClocksThrottleReasonHwThermalSlowdown=64, SwPowerCap=4, etc.)
+**Discovered**: Implementing directly instead of via worktree agent avoided all regressions from cycles 1-3. For focused single-file changes, direct implementation is faster and more reliable than worktree dispatch.
+**Next**: Overlay IPC protocol (mmap shared memory Go→Layer writer) or overlay configuration model (presets, colors, position) for profile integration
