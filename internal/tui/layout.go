@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/dll"
@@ -36,6 +36,7 @@ type LayoutModel struct {
 	messageBar    MessageBarModel
 	help          HelpModel
 	optionsModal  OptionsModalModel
+	activeDialog  Dialog
 	config        *config.Config
 	db            *game.Database
 	showHelp      bool
@@ -87,19 +88,23 @@ func (m LayoutModel) Init() tea.Cmd {
 func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
+	// Route to active dialog first
+	if m.activeDialog != nil {
+		var cmd tea.Cmd
+		m.activeDialog, cmd = m.activeDialog.Update(msg)
+		if !m.activeDialog.Visible() {
+			m.activeDialog = nil
+		}
+		return m, cmd
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 		m.calculateDimensions()
 
-	case tea.KeyMsg:
-		if m.optionsModal.Visible() {
-			var cmd tea.Cmd
-			m.optionsModal, cmd = m.optionsModal.Update(msg)
-			return m, cmd
-		}
-
+	case tea.KeyPressMsg:
 		if m.showBatchMenu {
 			switch msg.String() {
 			case "esc", "q":
@@ -139,6 +144,7 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.focus == FocusSidebar && !m.sidebar.search.Focused() {
 				m.optionsModal.SetSize(m.width, m.height)
 				m.optionsModal.Open(m.config)
+				m.activeDialog = &m.optionsModal
 				return m, nil
 			}
 		case "ctrl+f":
@@ -206,6 +212,10 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case messageClearMsg:
 		m.messageBar, _ = m.messageBar.Update(msg)
+		return m, nil
+
+	case metricsMsg:
+		m.header, _ = m.header.Update(msg)
 		return m, nil
 
 	case dllUpdateMsg:
@@ -387,23 +397,29 @@ func (m *LayoutModel) calculateDimensions() {
 	m.messageBar.SetWidth(m.width)
 }
 
-func (m LayoutModel) View() string {
+func (m LayoutModel) View() tea.View {
 	if m.width == 0 || m.height == 0 {
-		return "Loading..."
+		return tea.NewView("Loading...")
 	}
 
-	if m.showBatchMenu {
-		return m.renderBatchOverlay()
+	var content string
+
+	if m.activeDialog != nil {
+		content = m.activeDialog.View()
+	} else if m.showBatchMenu {
+		content = m.renderBatchOverlay()
+	} else if m.showHelp {
+		content = m.renderHelpOverlay()
+	} else {
+		content = m.renderMain()
 	}
 
-	if m.showHelp {
-		return m.renderHelpOverlay()
-	}
+	v := tea.NewView(content)
+	v.AltScreen = true
+	return v
+}
 
-	if m.optionsModal.Visible() {
-		return m.renderOptionsOverlay()
-	}
-
+func (m LayoutModel) renderMain() string {
 	header := m.header.View()
 
 	// Calculate panel height: total height minus header, status bar, message bar, and borders (2 for top+bottom)
@@ -459,10 +475,6 @@ func (m LayoutModel) renderHelpOverlay() string {
 	return overlayStyle.Render(m.help.View())
 }
 
-func (m LayoutModel) renderOptionsOverlay() string {
-	return m.optionsModal.View()
-}
-
 type gameSelectedMsg struct {
 	game *game.Game
 }
@@ -491,7 +503,7 @@ func (m LayoutModel) rescanGames() tea.Cmd {
 }
 
 func Run(db *game.Database) error {
-	p := tea.NewProgram(NewLayout(db), tea.WithAltScreen())
+	p := tea.NewProgram(NewLayout(db))
 	_, err := p.Run()
 	return err
 }

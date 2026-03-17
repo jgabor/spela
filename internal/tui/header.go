@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/jgabor/spela/internal/cpu"
 	"github.com/jgabor/spela/internal/gpu"
@@ -23,6 +23,12 @@ var logo = []string{
 
 type headerTickMsg struct{}
 
+// metricsMsg delivers asynchronously fetched system metrics.
+type metricsMsg struct {
+	gpuMetrics *gpu.GPUMetrics
+	cpuMetrics *cpu.CPUMetrics
+}
+
 type HeaderModel struct {
 	gpuMetrics *gpu.GPUMetrics
 	cpuMetrics *cpu.CPUMetrics
@@ -30,22 +36,15 @@ type HeaderModel struct {
 }
 
 func NewHeader() HeaderModel {
-	m := HeaderModel{}
-	m.refreshMetrics()
-	return m
+	return HeaderModel{}
 }
 
 func (m *HeaderModel) SetWidth(width int) {
 	m.width = width
 }
 
-func (m *HeaderModel) refreshMetrics() {
-	m.gpuMetrics, _ = gpu.GetGPUMetrics()
-	m.cpuMetrics, _ = cpu.GetCPUMetrics()
-}
-
 func (m HeaderModel) Init() tea.Cmd {
-	return tickHeader()
+	return tea.Batch(fetchMetrics(), tickHeader())
 }
 
 func tickHeader() tea.Cmd {
@@ -54,10 +53,22 @@ func tickHeader() tea.Cmd {
 	})
 }
 
+// fetchMetrics returns a command that reads GPU/CPU metrics off the main loop.
+func fetchMetrics() tea.Cmd {
+	return func() tea.Msg {
+		gpuMetrics, _ := gpu.GetGPUMetrics()
+		cpuMetrics, _ := cpu.GetCPUMetrics()
+		return metricsMsg{gpuMetrics: gpuMetrics, cpuMetrics: cpuMetrics}
+	}
+}
+
 func (m HeaderModel) Update(msg tea.Msg) (HeaderModel, tea.Cmd) {
-	switch msg.(type) {
+	switch msg := msg.(type) {
 	case headerTickMsg:
-		m.refreshMetrics()
+		return m, fetchMetrics()
+	case metricsMsg:
+		m.gpuMetrics = msg.gpuMetrics
+		m.cpuMetrics = msg.cpuMetrics
 		return m, tickHeader()
 	}
 	return m, nil

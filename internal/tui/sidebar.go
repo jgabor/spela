@@ -6,8 +6,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/profile"
@@ -62,7 +63,7 @@ func NewSidebar(games []*game.Game) (SidebarModel, tea.Cmd) {
 	ti := textinput.New()
 	ti.Placeholder = "Search..."
 	ti.CharLimit = 30
-	ti.Width = 20
+	ti.SetWidth(20)
 
 	m := SidebarModel{
 		games:    games,
@@ -77,14 +78,14 @@ func NewSidebar(games []*game.Game) (SidebarModel, tea.Cmd) {
 func (m *SidebarModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
-	m.search.Width = width - 4
+	m.search.SetWidth(width - 4)
 }
 
 func (m SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if m.search.Focused() {
 			switch msg.String() {
 			case "enter", "esc":
@@ -112,8 +113,8 @@ func (m SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
 				}
 			}
 		case "/":
-			m.search.Focus()
-			return m, textinput.Blink
+			cmd = m.search.Focus()
+			return m, cmd
 		case "d":
 			m.filters.hasDLLs = !m.filters.hasDLLs
 			m.applyFiltersAndSort()
@@ -125,7 +126,7 @@ func (m SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
 			m.applyFiltersAndSort()
 		case "C":
 			m.clearFilters()
-		case " ":
+		case "space":
 			if m.cursor < len(m.filtered) {
 				item := m.filtered[m.cursor]
 				if item.kind != sidebarItemGame || item.game == nil {
@@ -375,9 +376,7 @@ func (m SidebarModel) View() string {
 		}
 
 		name := m.itemName(item)
-		if len(name) > maxNameWidth {
-			name = name[:maxNameWidth-3] + "..."
-		}
+		name = ansi.Truncate(name, maxNameWidth, "...")
 
 		line := fmt.Sprintf("%s%s", prefix, name)
 
@@ -505,6 +504,6 @@ type batchActionRequestMsg struct {
 }
 
 func (m SidebarModel) FocusSearch() (SidebarModel, tea.Cmd) {
-	m.search.Focus()
-	return m, textinput.Blink
+	cmd := m.search.Focus()
+	return m, cmd
 }

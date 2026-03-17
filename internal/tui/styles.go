@@ -1,25 +1,29 @@
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"image/color"
+
+	"charm.land/lipgloss/v2"
+)
 
 type Theme struct {
 	Name string
 
-	Primary     lipgloss.Color
-	Secondary   lipgloss.Color
-	Accent      lipgloss.Color
-	Text        lipgloss.Color
-	TextDim     lipgloss.Color
-	Background  lipgloss.Color
-	Border      lipgloss.Color
-	BorderFocus lipgloss.Color
+	Primary     color.Color
+	Secondary   color.Color
+	Accent      color.Color
+	Text        color.Color
+	TextDim     color.Color
+	Background  color.Color
+	Border      color.Color
+	BorderFocus color.Color
 
-	Success lipgloss.Color
-	Error   lipgloss.Color
-	Warning lipgloss.Color
+	Success color.Color
+	Error   color.Color
+	Warning color.Color
 
-	SelectionFg lipgloss.Color
-	SelectionBg lipgloss.Color
+	SelectionFg color.Color
+	SelectionBg color.Color
 }
 
 // Spela color palette (from logo)
@@ -225,7 +229,7 @@ func IndicatorStyle(state StateIndicator) lipgloss.Style {
 	}
 }
 
-func BorderColor(focused bool) lipgloss.Color {
+func BorderColor(focused bool) color.Color {
 	if focused {
 		return activeTheme.BorderFocus
 	}

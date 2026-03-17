@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/jgabor/spela/internal/config"
 )
@@ -47,6 +47,9 @@ type OptionsModalModel struct {
 	height         int
 }
 
+// Compile-time check that OptionsModalModel implements Dialog.
+var _ Dialog = (*OptionsModalModel)(nil)
+
 type optionsSavedMsg struct {
 	config *config.Config
 }
@@ -61,7 +64,7 @@ func NewOptionsModal() OptionsModalModel {
 	ti := textinput.New()
 	ti.Placeholder = "Enter path..."
 	ti.CharLimit = 256
-	ti.Width = 40
+	ti.SetWidth(40)
 
 	return OptionsModalModel{
 		sections:  buildOptionsSections(),
@@ -205,7 +208,8 @@ func (m OptionsModalModel) Visible() bool {
 	return m.visible
 }
 
-func (m OptionsModalModel) Update(msg tea.Msg) (OptionsModalModel, tea.Cmd) {
+// Update implements Dialog.
+func (m *OptionsModalModel) Update(msg tea.Msg) (Dialog, tea.Cmd) {
 	if !m.visible {
 		return m, nil
 	}
@@ -215,7 +219,7 @@ func (m OptionsModalModel) Update(msg tea.Msg) (OptionsModalModel, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "up", "k":
 			m.moveCursor(-1)
@@ -261,9 +265,9 @@ func (m *OptionsModalModel) startPathEditing() {
 	m.editingPath = true
 }
 
-func (m OptionsModalModel) updatePathEditing(msg tea.Msg) (OptionsModalModel, tea.Cmd) {
+func (m *OptionsModalModel) updatePathEditing(msg tea.Msg) (Dialog, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "enter":
 			opt := m.getCurrentOption()
@@ -471,7 +475,7 @@ func (m *OptionsModalModel) setConfigValue(key, value string) {
 	}
 }
 
-func (m OptionsModalModel) save() (OptionsModalModel, tea.Cmd) {
+func (m *OptionsModalModel) save() (Dialog, tea.Cmd) {
 	cfg := m.config
 	m.visible = false
 	m.modified = false
@@ -483,7 +487,8 @@ func (m OptionsModalModel) save() (OptionsModalModel, tea.Cmd) {
 	}
 }
 
-func (m OptionsModalModel) View() string {
+// View implements Dialog.
+func (m *OptionsModalModel) View() string {
 	if !m.visible {
 		return ""
 	}

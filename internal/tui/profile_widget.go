@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/profile"
@@ -468,7 +468,7 @@ func (m *ProfileWidgetModel) SetSize(width, height int) {
 
 func (m ProfileWidgetModel) Update(msg tea.Msg) (ProfileWidgetModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if m.editing {
 			return m.updateEditing(msg)
 		}
@@ -477,7 +477,7 @@ func (m ProfileWidgetModel) Update(msg tea.Msg) (ProfileWidgetModel, tea.Cmd) {
 	return m, nil
 }
 
-func (m ProfileWidgetModel) updateGrid(msg tea.KeyMsg) (ProfileWidgetModel, tea.Cmd) {
+func (m ProfileWidgetModel) updateGrid(msg tea.KeyPressMsg) (ProfileWidgetModel, tea.Cmd) {
 	cols := m.columnCount()
 	switch msg.String() {
 	case "up", "k":
@@ -520,7 +520,7 @@ func (m ProfileWidgetModel) updateGrid(msg tea.KeyMsg) (ProfileWidgetModel, tea.
 	return m, nil
 }
 
-func (m ProfileWidgetModel) updateEditing(msg tea.KeyMsg) (ProfileWidgetModel, tea.Cmd) {
+func (m ProfileWidgetModel) updateEditing(msg tea.KeyPressMsg) (ProfileWidgetModel, tea.Cmd) {
 	group := &m.groups[m.focusedGroup]
 
 	switch msg.String() {

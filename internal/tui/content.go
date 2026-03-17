@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
@@ -193,7 +193,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	case dlssPresetCancelledMsg:
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "L":
 			if m.game != nil && !m.defaultProfile && !m.launching {
@@ -620,7 +620,7 @@ func (m ContentModel) loadDLLTypes() tea.Cmd {
 
 func (m ContentModel) updateDLLInstall(msg tea.Msg) (ContentModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "esc", "q":
 			m.dllInstallState = DLLInstallNone
