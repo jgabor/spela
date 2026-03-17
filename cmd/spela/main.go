@@ -11,6 +11,7 @@ import (
 	"github.com/jgabor/spela/cmd/spela/commands"
 	"github.com/jgabor/spela/internal/env"
 	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/gpu"
 	"github.com/jgabor/spela/internal/launcher"
 	"github.com/jgabor/spela/internal/profile"
 )
@@ -110,6 +111,9 @@ func runWrapperMode(args []string) error {
 }
 
 func main() {
+	gpu.Init()
+	defer gpu.Shutdown()
+
 	args := os.Args[1:]
 	if launcher.IsWrapperMode(args) {
 		if err := runWrapperMode(args); err != nil {

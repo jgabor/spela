@@ -71,7 +71,27 @@ func ResetClocks() error {
 	return runNvidiaSMIElevated("-rmc")
 }
 
+// Init initializes the GPU subsystem. It tries NVML first for fast metric
+// access, falling back to nvidia-smi if NVML is unavailable.
+func Init() {
+	initNVML()
+}
+
+// Shutdown releases GPU subsystem resources.
+func Shutdown() {
+	if nvmlAvailable {
+		shutdownNVML()
+	}
+}
+
 func GetGPUInfo() (map[string]string, error) {
+	if nvmlAvailable {
+		return getInfoNVML()
+	}
+	return getInfoSMI()
+}
+
+func getInfoSMI() (map[string]string, error) {
 	out, err := runNvidiaSMI("--query-gpu=name,driver_version,memory.total,temperature.gpu,power.draw", "--format=csv,noheader,nounits")
 	if err != nil {
 		return nil, err
@@ -100,9 +120,17 @@ type GPUMetrics struct {
 	MemoryTotal   int
 	GraphicsClock int
 	MemoryClock   int
+	FanSpeed      int
 }
 
 func GetGPUMetrics() (*GPUMetrics, error) {
+	if nvmlAvailable {
+		return getMetricsNVML()
+	}
+	return getMetricsSMI()
+}
+
+func getMetricsSMI() (*GPUMetrics, error) {
 	out, err := runNvidiaSMI(
 		"--query-gpu=temperature.gpu,power.draw,power.limit,utilization.gpu,memory.used,memory.total,clocks.gr,clocks.mem",
 		"--format=csv,noheader,nounits",
