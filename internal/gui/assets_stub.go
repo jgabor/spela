@@ -1,4 +1,4 @@
-//go:build production && !embed_assets
+//go:build !embed_assets && !dev && (production || bindings)
 
 package gui
 
