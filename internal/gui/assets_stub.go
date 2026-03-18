@@ -1,4 +1,4 @@
-//go:build !embed_assets && !dev
+//go:build production && !embed_assets
 
 package gui
 

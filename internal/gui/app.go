@@ -1,3 +1,5 @@
+//go:build dev || production
+
 package gui
 
 import (
