@@ -39,3 +39,19 @@
 **Inspiration**: io_uring ring buffer design (from overlay design doc); seqlock pattern from Linux kernel for single-writer/single-reader synchronization
 **Discovered**: Binary protocol with `unsafe` and atomics requires careful attention to field alignment and byte ordering. Power draw stored as milliwatts (uint32) on wire to avoid float in shared memory. Temperature as int32 to handle negative values.
 **Next**: Stats collector goroutine that periodically writes GPU+CPU metrics to the IPC file, or the C++ Vulkan layer proof of concept that reads from the mmap
+
+## Cycle 6 — 2026-03-17 23:00
+
+**What**: Added stats collector goroutine — periodic `CollectFunc` → `WriteState` loop with immediate-write-on-start, clean shutdown, and domain-isolated callback design
+**Commit**: ce7b202 feat(overlay): add stats collector for periodic IPC writes
+**Inspiration**: None needed (standard goroutine + ticker pattern)
+**Discovered**: Domain isolation via `CollectFunc` callback keeps overlay package free of gpu/cpu imports while still allowing the caller to compose the full metrics→alerts→IPC pipeline. 4 timing-based tests all stable.
+**Next**: Wire the collector into the launcher (start collector when launching a game with overlay enabled, stop on exit), or pivot to a different vision direction (parity feature like Smooth Motion profile support)
+
+## Cycle 7 — 2026-03-17 23:30
+
+**What**: Wired overlay collector into launcher — when overlay is enabled in a game profile, the launcher creates an IPC file, starts a 500ms metrics collector, exports `SPELA_OVERLAY_IPC` env var, and cleans up on exit
+**Commit**: dbf2ca4 feat(overlay): wire collector into launcher for live game metrics
+**Inspiration**: None needed (integration of existing components)
+**Discovered**: The composition function that bridges gpu→overlay lives naturally in the launch command (orchestration layer), preserving domain isolation. Position string→uint8 mapping added to overlay package as `ParsePosition`.
+**Next**: Overlay configuration via profile CLI commands (`spela profile overlay --enabled --position top-right`), or the C++ Vulkan layer proof of concept that reads from the mmap IPC file
