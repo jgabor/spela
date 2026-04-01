@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
@@ -20,6 +21,14 @@ const (
 	DLLInstallSelectType
 	DLLInstallSelectVersion
 	DLLInstallDownloading
+)
+
+type ContentTab int
+
+const (
+	TabDLLs ContentTab = iota
+	TabProfile
+	TabLaunch
 )
 
 // Fixed heights for content sections to prevent layout shifts.
@@ -47,6 +56,7 @@ type ContentModel struct {
 	profile             *profile.Profile
 	profileWidget       ProfileWidgetModel
 	dlssPresetModal     DLSSPresetModalModel
+	activeTab           ContentTab
 	width               int
 	height              int
 	profileHeight       int
@@ -108,6 +118,7 @@ func NewContent(styles *Styles) ContentModel {
 func (m ContentModel) SetGame(g *game.Game) ContentModel {
 	m.game = g
 	m.defaultProfile = false
+	m.activeTab = TabDLLs
 	m.dllOperating = false
 	m.scrollOffset = 0
 	m.dllInstallState = DLLInstallNone
@@ -159,11 +170,13 @@ func (m ContentModel) profileSectionHeight() int {
 	if m.defaultProfile {
 		return max(m.height-3, 5)
 	}
-	extraLines := 0
-	if m.usingDefaultProfile {
-		extraLines = 1
-	}
-	return max(m.height-headerSectionHeight-dllSectionHeight-2-extraLines, 5)
+	return m.tabContentHeight()
+}
+
+func (m ContentModel) tabContentHeight() int {
+	// Total height minus game info header minus tab bar (2 lines: bar + blank).
+	used := headerSectionHeight + 2
+	return max(m.height-used, 5)
 }
 
 func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
@@ -196,6 +209,21 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyPressMsg:
+		// Tab switching (only when no modal/editing is active).
+		if m.game != nil && !m.defaultProfile && !m.profileWidget.Editing() {
+			switch msg.String() {
+			case "2":
+				m.activeTab = TabDLLs
+				return m, nil
+			case "3":
+				m.activeTab = TabProfile
+				return m, nil
+			case "4":
+				m.activeTab = TabLaunch
+				return m, nil
+			}
+		}
+
 		switch msg.String() {
 		case "L":
 			if m.game != nil && !m.defaultProfile && !m.launching {
@@ -376,9 +404,17 @@ func (m ContentModel) View() string {
 
 	b.WriteString(m.renderGameInfo())
 	b.WriteString("\n")
-	b.WriteString(m.renderDLLs())
-	b.WriteString("\n")
-	b.WriteString(m.renderProfile())
+	b.WriteString(m.renderTabBar())
+	b.WriteString("\n\n")
+
+	switch m.activeTab {
+	case TabDLLs:
+		b.WriteString(m.renderDLLs())
+	case TabProfile:
+		b.WriteString(m.renderProfile())
+	case TabLaunch:
+		b.WriteString(m.renderLaunch())
+	}
 
 	return b.String()
 }
@@ -492,12 +528,10 @@ func (m ContentModel) renderDLLs() string {
 
 	b.WriteString(sectionStyle.Render("DLL versions"))
 	b.WriteString("\n")
-	lines := 1 // section title
 
 	if len(m.game.DLLs) == 0 {
 		b.WriteString(s.Dim.Render("  No DLLs detected"))
 		b.WriteString("\n")
-		lines++
 	} else {
 		// Build DLL type -> version mapping using DLLType constants directly
 		dllVersions := make(map[game.DLLType]string)
@@ -518,7 +552,6 @@ func (m ContentModel) renderDLLs() string {
 			b.WriteString(s.Dim.Render(fmt.Sprintf("%-*s", columnWidth, col.columnName)))
 		}
 		b.WriteString("\n")
-		lines++
 
 		// Version row
 		b.WriteString("  ")
@@ -530,12 +563,10 @@ func (m ContentModel) renderDLLs() string {
 			b.WriteString(s.DLSS.Render(fmt.Sprintf("%-*s", columnWidth, version)))
 		}
 		b.WriteString("\n")
-		lines++
 
 		if m.dllOperating {
 			b.WriteString(s.Warning.Render("  ⟳ " + m.dllOperatingLabel))
 			b.WriteString("\n")
-			lines++
 		} else if s.ShowHints {
 			var actions []string
 			if m.hasUpdates {
@@ -551,15 +582,8 @@ func (m ContentModel) renderDLLs() string {
 			if len(actions) > 0 {
 				b.WriteString(s.RenderHint("  " + strings.Join(actions, " • ")))
 				b.WriteString("\n")
-				lines++
 			}
 		}
-	}
-
-	// Pad to fixed height
-	for lines < dllSectionHeight {
-		b.WriteString("\n")
-		lines++
 	}
 
 	return b.String()
@@ -571,8 +595,81 @@ func (m ContentModel) renderProfile() string {
 		b.WriteString(m.styles.Dim.Render("Using default profile values"))
 		b.WriteString("\n")
 	}
-	m.profileWidget.SetSize(m.width, m.profileHeight)
+	profileHeight := m.tabContentHeight()
+	if m.usingDefaultProfile {
+		profileHeight--
+	}
+	m.profileWidget.SetSize(m.width, profileHeight)
 	b.WriteString(m.profileWidget.View())
+	return b.String()
+}
+
+func (m ContentModel) renderTabBar() string {
+	tabs := []struct {
+		key   string
+		label string
+		tab   ContentTab
+	}{
+		{"2", "DLLs", TabDLLs},
+		{"3", "Profile", TabProfile},
+		{"4", "Launch", TabLaunch},
+	}
+
+	t := m.styles.Theme
+	var parts []string
+	for _, tab := range tabs {
+		if tab.tab == m.activeTab {
+			style := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
+			parts = append(parts, style.Render("["+tab.key+"]"+tab.label))
+		} else {
+			style := lipgloss.NewStyle().Foreground(t.TextDim)
+			parts = append(parts, style.Render("["+tab.key+"]"+tab.label))
+		}
+	}
+	return strings.Join(parts, "  ")
+}
+
+func (m ContentModel) renderLaunch() string {
+	s := m.styles
+	var b strings.Builder
+
+	if m.launching {
+		b.WriteString(s.Warning.Render("⟳ Launching game..."))
+		b.WriteString("\n")
+		return b.String()
+	}
+
+	b.WriteString(s.Title.Foreground(s.Theme.Secondary).Render("Launch"))
+	b.WriteString("\n\n")
+
+	if m.profile != nil {
+		if m.profile.DLSS.SRMode != "" {
+			fmt.Fprintf(&b, "  DLSS:     %s\n", m.profile.DLSS.SRMode)
+		}
+		if m.profile.GPU.PowerMizer != "" {
+			fmt.Fprintf(&b, "  Power:    %s\n", m.profile.GPU.PowerMizer)
+		}
+		if m.profile.GPU.ClockOffset != 0 {
+			fmt.Fprintf(&b, "  Clock:    +%dMHz\n", m.profile.GPU.ClockOffset)
+		}
+		if m.profile.CPU.Governor != "" {
+			fmt.Fprintf(&b, "  Governor: %s\n", m.profile.CPU.Governor)
+		}
+	}
+
+	if m.usingDefaultProfile {
+		b.WriteString("\n")
+		b.WriteString(s.Dim.Render("  Using default profile values"))
+	}
+
+	b.WriteString("\n\n")
+
+	hint := "Press L to launch"
+	if m.profile == nil {
+		hint += " (no profile — default settings)"
+	}
+	b.WriteString(s.RenderHint("  " + hint))
+
 	return b.String()
 }
 
