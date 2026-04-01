@@ -2,12 +2,12 @@ package profile
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 
 	"github.com/jgabor/spela/internal/cpu"
 	"github.com/jgabor/spela/internal/env"
+	"github.com/jgabor/spela/internal/logging"
 	"github.com/jgabor/spela/internal/privilege"
 	"github.com/jgabor/spela/internal/xdg"
 )
@@ -20,7 +20,7 @@ func (p *Profile) Apply(e *env.Environment) []func() {
 	cleanup = append(cleanup, p.applyGPU(e)...)
 
 	if hwCleanup, err := p.applyHardware(); err != nil {
-		log.Printf("Warning: failed to apply hardware settings: %v", err)
+		logging.Warn("failed to apply hardware settings", "error", err)
 	} else if hwCleanup != nil {
 		cleanup = append(cleanup, hwCleanup)
 	}
@@ -85,7 +85,7 @@ func (p *Profile) applyHardware() (func(), error) {
 			resetArgs = append(resetArgs, fmt.Sprintf("--cpu-smt=%s", value))
 		}
 		if _, err := privilege.ExecSelf(resetArgs...); err != nil {
-			log.Printf("Warning: failed to restore hardware settings: %v", err)
+			logging.Warn("failed to restore hardware settings", "error", err)
 		}
 	}
 

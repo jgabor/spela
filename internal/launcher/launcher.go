@@ -1,7 +1,6 @@
 package launcher
 
 import (
-	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -120,9 +119,9 @@ func (l *Launcher) runPreLaunchHooks() {
 	}
 
 	if l.Profile.Ludusavi.BackupOnLaunch && ludusavi.IsInstalled() {
-		log.Printf("Backing up saves for %s...", l.Game.Name)
+		logging.Info("backing up saves", "game", l.Game.Name)
 		if _, err := ludusavi.BackupGame(l.Game.Name); err != nil {
-			log.Printf("Warning: failed to backup saves: %v", err)
+			logging.Warn("failed to backup saves", "error", err)
 		}
 	}
 }
