@@ -9,11 +9,15 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/jgabor/spela/internal/env"
 	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/logging"
 	"github.com/jgabor/spela/internal/ludusavi"
+	"github.com/jgabor/spela/internal/overlay"
 	"github.com/jgabor/spela/internal/profile"
+	"github.com/jgabor/spela/internal/xdg"
 )
 
 type Launcher struct {
@@ -38,6 +42,41 @@ func New(g *game.Game) *Launcher {
 
 func (l *Launcher) OnCleanup(fn func()) {
 	l.cleanup = append(l.cleanup, fn)
+}
+
+// Prepare applies the profile settings, creates a restore point for
+// environment variables, registers all cleanup closures, and starts the
+// overlay collector if enabled. Call before Launch.
+func (l *Launcher) Prepare() {
+	restore := profile.NewRestorePoint()
+	restore.SaveAllProfileEnvVars()
+	l.OnCleanup(restore.Restore)
+
+	if l.Profile != nil {
+		cleanups := l.Profile.Apply(l.Environment)
+		for _, c := range cleanups {
+			l.OnCleanup(c)
+		}
+		l.setupOverlay()
+	}
+}
+
+func (l *Launcher) setupOverlay() {
+	if l.Profile == nil || !l.Profile.Overlay.Enabled || l.Game == nil {
+		return
+	}
+
+	collect := overlay.BuildGPUCollector(l.Profile.Overlay.Position)
+	ipcPath, cleanup, err := overlay.Setup(
+		l.Game.AppID, xdg.RuntimeDir(),
+		500*time.Millisecond, collect,
+	)
+	if err != nil {
+		logging.Warn("overlay collector failed to start", "error", err)
+		return
+	}
+	l.Environment.Set("SPELA_OVERLAY_IPC", ipcPath)
+	l.OnCleanup(cleanup)
 }
 
 func (l *Launcher) Launch(args []string) error {

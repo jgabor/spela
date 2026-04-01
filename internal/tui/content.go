@@ -732,20 +732,9 @@ func (m ContentModel) launchGame() tea.Cmd {
 
 		p, _ := profile.LoadEffective(g.AppID)
 
-		restore := profile.NewRestorePoint()
-		restore.SaveAllProfileEnvVars()
-
 		l := launcher.New(g)
 		l.Profile = p
-
-		l.OnCleanup(restore.Restore)
-
-		if p != nil {
-			cleanups := p.Apply(l.Environment)
-			for _, cleanup := range cleanups {
-				l.OnCleanup(cleanup)
-			}
-		}
+		l.Prepare()
 
 		steamURL := fmt.Sprintf("steam://rungameid/%d", g.AppID)
 		if err := l.Launch([]string{"steam", steamURL}); err != nil {
