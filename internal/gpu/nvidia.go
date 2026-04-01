@@ -52,19 +52,35 @@ func SetDigitalVibrance(level int) error {
 	return err
 }
 
-func SetGraphicsClockOffset(offset int) error {
-	return runNvidiaSMIElevated("-lgc", fmt.Sprintf("%d,%d", 0, 2100+offset))
+func LockGraphicsClocks(offset int) error {
+	maxMHz := 2100 + offset
+	if nvmlAvailable && privilege.IsRoot() {
+		return SetGpuLockedClocksNVML(0, uint32(maxMHz))
+	}
+	return runNvidiaSMIElevated("-lgc", fmt.Sprintf("%d,%d", 0, maxMHz))
 }
 
-func SetMemoryClockOffset(offset int) error {
-	return runNvidiaSMIElevated("-lmc", strconv.Itoa(offset))
+func LockMemoryClocks(offset int) error {
+	if nvmlAvailable && privilege.IsRoot() {
+		return SetMemoryLockedClocksNVML(0, uint32(offset))
+	}
+	return runNvidiaSMIElevated("-lmc", fmt.Sprintf("%d,%d", 0, offset))
 }
 
 func SetPowerLimit(watts int) error {
+	if nvmlAvailable && privilege.IsRoot() {
+		return SetPowerManagementLimitNVML(uint32(watts))
+	}
 	return runNvidiaSMIElevated("-pl", strconv.Itoa(watts))
 }
 
 func ResetClocks() error {
+	if nvmlAvailable && privilege.IsRoot() {
+		if err := ResetGpuLockedClocksNVML(); err != nil {
+			return err
+		}
+		return ResetMemoryLockedClocksNVML()
+	}
 	if err := runNvidiaSMIElevated("-rgc"); err != nil {
 		return err
 	}

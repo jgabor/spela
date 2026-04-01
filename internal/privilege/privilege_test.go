@@ -138,6 +138,21 @@ func TestExecAsRoot(t *testing.T) {
 	}
 }
 
+func TestExecSelfReturnsErrorWhenNotRoot(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("Test requires non-root privileges")
+	}
+
+	originalPath := os.Getenv("PATH")
+	defer func() { _ = os.Setenv("PATH", originalPath) }()
+
+	_ = os.Setenv("PATH", "/nonexistent")
+	_, err := ExecSelf("--version")
+	if err == nil {
+		t.Error("Expected error when pkexec not available")
+	}
+}
+
 func TestExecPolkitUnavailable(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("Test requires non-root privileges")

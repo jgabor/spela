@@ -191,6 +191,10 @@ export namespace gui {
 	    shaderCachePath: string;
 	    threadedOptimization: boolean;
 	    powerMizer: string;
+	    clockOffset: number;
+	    memoryOffset: number;
+	    governor: string;
+	    smt: string;
 	    enableHdr: boolean;
 	    enableWayland: boolean;
 	    enableNgxUpdater: boolean;
@@ -219,6 +223,10 @@ export namespace gui {
 	        this.shaderCachePath = source["shaderCachePath"];
 	        this.threadedOptimization = source["threadedOptimization"];
 	        this.powerMizer = source["powerMizer"];
+	        this.clockOffset = source["clockOffset"];
+	        this.memoryOffset = source["memoryOffset"];
+	        this.governor = source["governor"];
+	        this.smt = source["smt"];
 	        this.enableHdr = source["enableHdr"];
 	        this.enableWayland = source["enableWayland"];
 	        this.enableNgxUpdater = source["enableNgxUpdater"];

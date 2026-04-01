@@ -80,6 +80,39 @@
     { value: 'true', label: 'true' },
     { value: 'false', label: 'false' }
   ]
+  const clockOffsetOptions = [
+    { value: 0, label: '(default)' },
+    { value: -200, label: '-200 MHz' },
+    { value: -100, label: '-100 MHz' },
+    { value: -50, label: '-50 MHz' },
+    { value: 50, label: '+50 MHz' },
+    { value: 100, label: '+100 MHz' },
+    { value: 150, label: '+150 MHz' },
+    { value: 200, label: '+200 MHz' },
+    { value: 250, label: '+250 MHz' },
+    { value: 300, label: '+300 MHz' }
+  ]
+  const memoryOffsetOptions = [
+    { value: 0, label: '(default)' },
+    { value: -500, label: '-500 MHz' },
+    { value: -200, label: '-200 MHz' },
+    { value: 200, label: '+200 MHz' },
+    { value: 500, label: '+500 MHz' },
+    { value: 750, label: '+750 MHz' },
+    { value: 1000, label: '+1000 MHz' }
+  ]
+  const governorOptions = [
+    { value: '', label: '(default)' },
+    { value: 'performance', label: 'Performance' },
+    { value: 'powersave', label: 'Powersave' },
+    { value: 'schedutil', label: 'Schedutil' },
+    { value: 'ondemand', label: 'Ondemand' }
+  ]
+  const smtOptions = [
+    { value: '', label: '(default)' },
+    { value: 'true', label: 'Enabled' },
+    { value: 'false', label: 'Disabled' }
+  ]
 
   const emptyProfile = () => ({
     srMode: '',
@@ -92,6 +125,10 @@
     shaderCache: false,
     threadedOptimization: false,
     powerMizer: '',
+    clockOffset: 0,
+    memoryOffset: 0,
+    governor: '',
+    smt: '',
     enableHdr: false,
     enableWayland: false,
     enableNgxUpdater: false,
@@ -558,6 +595,48 @@
               options={powerMizerOptions}
             />
             <span class="hint">GPU power policy for the game.</span>
+          </div>
+
+          <div class="field">
+            <label for="clockOffset">Clock offset</label>
+            <Dropdown
+              bind:value={profile.clockOffset}
+              options={clockOffsetOptions}
+            />
+            <span class="hint">GPU core clock offset in MHz.</span>
+          </div>
+
+          <div class="field">
+            <label for="memoryOffset">Memory offset</label>
+            <Dropdown
+              bind:value={profile.memoryOffset}
+              options={memoryOffsetOptions}
+            />
+            <span class="hint">GPU memory clock offset in MHz.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section boxed">
+        <h2>CPU settings</h2>
+
+        <div class="form">
+          <div class="field">
+            <label for="governor">Governor</label>
+            <Dropdown
+              bind:value={profile.governor}
+              options={governorOptions}
+            />
+            <span class="hint">CPU frequency scaling governor for the game.</span>
+          </div>
+
+          <div class="field">
+            <label for="smt">SMT</label>
+            <Dropdown
+              bind:value={profile.smt}
+              options={smtOptions}
+            />
+            <span class="hint">Simultaneous multi-threading (hyperthreading).</span>
           </div>
         </div>
       </div>

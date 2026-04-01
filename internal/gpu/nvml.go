@@ -89,6 +89,67 @@ func getMetricsNVML() (*GPUMetrics, error) {
 	return metrics, nil
 }
 
+// SetGpuLockedClocksNVML sets the GPU clock range via NVML. Requires root.
+func SetGpuLockedClocksNVML(minMHz, maxMHz uint32) error {
+	if !nvmlAvailable {
+		return fmt.Errorf("NVML not available")
+	}
+	if ret := nvmlDevice.SetGpuLockedClocks(minMHz, maxMHz); ret != nvml.SUCCESS {
+		return fmt.Errorf("NVML SetGpuLockedClocks: %v", nvml.ErrorString(ret))
+	}
+	return nil
+}
+
+// SetMemoryLockedClocksNVML sets the memory clock range via NVML. Requires root.
+func SetMemoryLockedClocksNVML(minMHz, maxMHz uint32) error {
+	if !nvmlAvailable {
+		return fmt.Errorf("NVML not available")
+	}
+	if ret := nvmlDevice.SetMemoryLockedClocks(minMHz, maxMHz); ret != nvml.SUCCESS {
+		return fmt.Errorf("NVML SetMemoryLockedClocks: %v", nvml.ErrorString(ret))
+	}
+	return nil
+}
+
+// SetPowerManagementLimitNVML sets the power limit in watts via NVML. Requires root.
+func SetPowerManagementLimitNVML(watts uint32) error {
+	if !nvmlAvailable {
+		return fmt.Errorf("NVML not available")
+	}
+	milliwatts := watts * 1000
+	if ret := nvmlDevice.SetPowerManagementLimit(milliwatts); ret != nvml.SUCCESS {
+		return fmt.Errorf("NVML SetPowerManagementLimit: %v", nvml.ErrorString(ret))
+	}
+	return nil
+}
+
+// ResetGpuLockedClocksNVML resets GPU clocks to default via NVML. Requires root.
+func ResetGpuLockedClocksNVML() error {
+	if !nvmlAvailable {
+		return fmt.Errorf("NVML not available")
+	}
+	if ret := nvmlDevice.ResetGpuLockedClocks(); ret != nvml.SUCCESS {
+		return fmt.Errorf("NVML ResetGpuLockedClocks: %v", nvml.ErrorString(ret))
+	}
+	return nil
+}
+
+// ResetMemoryLockedClocksNVML resets memory clocks to default via NVML. Requires root.
+func ResetMemoryLockedClocksNVML() error {
+	if !nvmlAvailable {
+		return fmt.Errorf("NVML not available")
+	}
+	if ret := nvmlDevice.ResetMemoryLockedClocks(); ret != nvml.SUCCESS {
+		return fmt.Errorf("NVML ResetMemoryLockedClocks: %v", nvml.ErrorString(ret))
+	}
+	return nil
+}
+
+// NVMLAvailable reports whether NVML was initialized successfully.
+func NVMLAvailable() bool {
+	return nvmlAvailable
+}
+
 func getInfoNVML() (map[string]string, error) {
 	info := make(map[string]string)
 

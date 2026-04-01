@@ -3,9 +3,11 @@ package privilege
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -110,6 +112,21 @@ func execCommand(stdin io.Reader, cmd string, args ...string) *ExecResult {
 		Stderr:   stderr.String(),
 		ExitCode: exitCode,
 	}
+}
+
+// ExecSelf re-executes the current binary with the given arguments under
+// privilege escalation. This enables batching multiple privileged operations
+// into a single pkexec round-trip.
+func ExecSelf(args ...string) (*ExecResult, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine executable path: %w", err)
+	}
+	exe, err = filepath.EvalSymlinks(exe)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve executable path: %w", err)
+	}
+	return Exec(exe, args...)
 }
 
 func isAuthDismissed(result *ExecResult) bool {

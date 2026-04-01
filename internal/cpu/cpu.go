@@ -47,11 +47,25 @@ func GetAvailableGovernors() ([]Governor, error) {
 }
 
 func SetGovernor(gov Governor) error {
+	if privilege.IsRoot() {
+		return setGovernorDirect(gov)
+	}
 	cpuCount := GetCPUCount()
 	for i := range cpuCount {
 		path := fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/scaling_governor", i)
 		_, err := privilege.ExecWithInput(string(gov), "tee", path)
 		if err != nil {
+			return fmt.Errorf("failed to set governor for cpu%d: %w", i, err)
+		}
+	}
+	return nil
+}
+
+func setGovernorDirect(gov Governor) error {
+	cpuCount := GetCPUCount()
+	for i := range cpuCount {
+		path := fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/scaling_governor", i)
+		if err := os.WriteFile(path, []byte(string(gov)), 0o644); err != nil {
 			return fmt.Errorf("failed to set governor for cpu%d: %w", i, err)
 		}
 	}
@@ -70,6 +84,12 @@ func SetSMT(enabled bool) error {
 	value := "off"
 	if enabled {
 		value = "on"
+	}
+	if privilege.IsRoot() {
+		if err := os.WriteFile("/sys/devices/system/cpu/smt/control", []byte(value), 0o644); err != nil {
+			return fmt.Errorf("failed to set SMT: %w", err)
+		}
+		return nil
 	}
 	_, err := privilege.ExecWithInput(value, "tee", "/sys/devices/system/cpu/smt/control")
 	if err != nil {

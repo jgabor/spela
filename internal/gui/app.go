@@ -272,6 +272,10 @@ type ProfileInfo struct {
 	ShaderCachePath      string `json:"shaderCachePath"`
 	ThreadedOptimization bool   `json:"threadedOptimization"`
 	PowerMizer           string `json:"powerMizer"`
+	ClockOffset          int    `json:"clockOffset"`
+	MemoryOffset         int    `json:"memoryOffset"`
+	Governor             string `json:"governor"`
+	SMT                  string `json:"smt"`
 	EnableHDR            bool   `json:"enableHdr"`
 	EnableWayland        bool   `json:"enableWayland"`
 	EnableNGXUpdater     bool   `json:"enableNgxUpdater"`
@@ -301,6 +305,10 @@ func profileInfoFromProfile(p *profile.Profile, inheritedFromDefault bool) *Prof
 		ShaderCachePath:      p.GPU.ShaderCachePath,
 		ThreadedOptimization: p.GPU.ThreadedOptimization,
 		PowerMizer:           p.GPU.PowerMizer,
+		ClockOffset:          p.GPU.ClockOffset,
+		MemoryOffset:         p.GPU.MemoryOffset,
+		Governor:             p.CPU.Governor,
+		SMT:                  boolPtrToString(p.CPU.SMT),
 		EnableHDR:            p.Proton.EnableHDR,
 		EnableWayland:        p.Proton.EnableWayland,
 		EnableNGXUpdater:     p.Proton.EnableNGXUpdater,
@@ -330,6 +338,12 @@ func profileFromInfo(info ProfileInfo) *profile.Profile {
 			ShaderCachePath:      info.ShaderCachePath,
 			ThreadedOptimization: info.ThreadedOptimization,
 			PowerMizer:           info.PowerMizer,
+			ClockOffset:          info.ClockOffset,
+			MemoryOffset:         info.MemoryOffset,
+		},
+		CPU: profile.CPUSettings{
+			Governor: info.Governor,
+			SMT:      stringToBoolPtr(info.SMT),
 		},
 		Proton: profile.ProtonSettings{
 			EnableHDR:        info.EnableHDR,
@@ -339,6 +353,29 @@ func profileFromInfo(info ProfileInfo) *profile.Profile {
 		Ludusavi: profile.LudusaviSettings{
 			BackupOnLaunch: info.BackupOnLaunch,
 		},
+	}
+}
+
+func boolPtrToString(b *bool) string {
+	if b == nil {
+		return ""
+	}
+	if *b {
+		return "true"
+	}
+	return "false"
+}
+
+func stringToBoolPtr(s string) *bool {
+	switch s {
+	case "true":
+		b := true
+		return &b
+	case "false":
+		b := false
+		return &b
+	default:
+		return nil
 	}
 }
 

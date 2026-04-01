@@ -1,10 +1,14 @@
 package profile
 
 import (
+	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
+	"github.com/jgabor/spela/internal/cpu"
 	"github.com/jgabor/spela/internal/env"
+	"github.com/jgabor/spela/internal/privilege"
 	"github.com/jgabor/spela/internal/xdg"
 )
 
@@ -15,7 +19,77 @@ func (p *Profile) Apply(e *env.Environment) []func() {
 	cleanup = append(cleanup, p.applyDLSS(e)...)
 	cleanup = append(cleanup, p.applyGPU(e)...)
 
+	if hwCleanup, err := p.applyHardware(); err != nil {
+		log.Printf("Warning: failed to apply hardware settings: %v", err)
+	} else if hwCleanup != nil {
+		cleanup = append(cleanup, hwCleanup)
+	}
+
 	return cleanup
+}
+
+// needsHardwareApply reports whether the profile has any privileged hardware
+// settings that require elevation.
+func (p *Profile) needsHardwareApply() bool {
+	return p.GPU.ClockOffset != 0 ||
+		p.GPU.MemoryOffset != 0 ||
+		p.CPU.Governor != "" ||
+		p.CPU.SMT != nil
+}
+
+// applyHardware applies privileged GPU/CPU settings via a single pkexec
+// round-trip to spela apply-profile. Returns a cleanup function that restores
+// the previous settings on game exit.
+func (p *Profile) applyHardware() (func(), error) {
+	if !p.needsHardwareApply() {
+		return nil, nil
+	}
+
+	// Capture current state for restoration.
+	prevGovernor, _ := cpu.GetCurrentGovernor()
+	prevSMT, _ := cpu.GetSMTStatus()
+
+	args := []string{"apply-profile"}
+
+	if p.GPU.ClockOffset != 0 {
+		args = append(args, fmt.Sprintf("--gpu-clock-offset=%d", p.GPU.ClockOffset))
+	}
+	if p.GPU.MemoryOffset != 0 {
+		args = append(args, fmt.Sprintf("--gpu-memory-offset=%d", p.GPU.MemoryOffset))
+	}
+	if p.CPU.Governor != "" {
+		args = append(args, fmt.Sprintf("--cpu-governor=%s", p.CPU.Governor))
+	}
+	if p.CPU.SMT != nil {
+		value := "off"
+		if *p.CPU.SMT {
+			value = "on"
+		}
+		args = append(args, fmt.Sprintf("--cpu-smt=%s", value))
+	}
+
+	if _, err := privilege.ExecSelf(args...); err != nil {
+		return nil, fmt.Errorf("apply hardware settings: %w", err)
+	}
+
+	cleanup := func() {
+		resetArgs := []string{"apply-profile", "--reset"}
+		if p.CPU.Governor != "" && prevGovernor != "" {
+			resetArgs = append(resetArgs, fmt.Sprintf("--cpu-governor=%s", prevGovernor))
+		}
+		if p.CPU.SMT != nil {
+			value := "off"
+			if prevSMT {
+				value = "on"
+			}
+			resetArgs = append(resetArgs, fmt.Sprintf("--cpu-smt=%s", value))
+		}
+		if _, err := privilege.ExecSelf(resetArgs...); err != nil {
+			log.Printf("Warning: failed to restore hardware settings: %v", err)
+		}
+	}
+
+	return cleanup, nil
 }
 
 func (p *Profile) applyProton(e *env.Environment) []func() {

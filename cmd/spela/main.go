@@ -40,6 +40,7 @@ func init() {
 	rootCmd.AddCommand(commands.TUICmd)
 	rootCmd.AddCommand(commands.GUICmd)
 	rootCmd.AddCommand(commands.DenylistCmd)
+	rootCmd.AddCommand(commands.ApplyProfileCmd)
 }
 
 func runRoot(cmd *cobra.Command, args []string) error {

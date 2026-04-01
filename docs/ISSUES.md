@@ -51,9 +51,9 @@ These are also marked "coming soon" in the TUI, so parity is acceptable for now.
 
 ## Overlay
 
-### 9. NVML setter privilege model undecided
+### ~~9. NVML setter privilege model undecided~~ (Resolved)
 
-**Severity:** Medium
-**Context:** Overlay design review (`docs/design/overlay-review.md`, open question #2)
-
-Runtime GPU tuning via NVML setters requires root/CAP_SYS_ADMIN. Current approach uses per-command pkexec via nvidia-smi. The overlay needs lower-latency tuning. Decision needed: per-command pkexec, persistent privileged daemon, or CAP_SYS_ADMIN on the binary.
+Migrated to batched `pkexec spela apply-profile` with go-nvml setters + polkit policy.
+GPU setters use NVML directly when root (µs-level), CPU setters write sysfs directly.
+Single pkexec round-trip replaces 4× `pkexec nvidia-smi` (~2.6s → ~65ms cached).
+Polkit policy (`io.github.spela.apply-profile`) provides session-cached auth via `auth_admin_keep`.
