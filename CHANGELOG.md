@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Tab-based content views — DLLs, Profile, and Launch tabs with jump-key switching and full panel height
 - Header sparklines and gauges — rolling 20-character thermal sparklines for GPU/CPU, block gauges for VRAM/RAM
 - Context-sensitive keybinding bar with DisabledReason pattern — dimmed keys show why actions are unavailable
 - Sparkline and gauge renderers — per-character thermal coloring, sub-character gauge precision, metrics ring buffer

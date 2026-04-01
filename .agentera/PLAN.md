@@ -112,7 +112,7 @@ compositor in Task 7.
 ### Task 4: Tab-based content views
 
 **Depends on**: Task 3
-**Status**: □ pending
+**Status**: ■ complete
 **Scope note**: ContentModel decomposes into a tab coordinator with per-tab sub-models.
 Each tab sub-model owns its Update()/View(). The coordinator routes messages to the active
 tab and preserves inactive tab state.

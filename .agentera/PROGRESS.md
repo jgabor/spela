@@ -1,5 +1,13 @@
 # Progress
 
+## Cycle 25 — 2026-04-01 21:30
+
+**What**: Tab-based content views — [2]DLLs [3]Profile [4]Launch tab bar, each tab gets full panel height, Launch tab shows profile summary. Tab switching guarded during profile editing.
+**Commit**: TBD feat(tui): add tab-based content views with DLLs, Profile, and Launch tabs
+**Inspiration**: k9s tab switching, lazydocker detail-panel tabs, DESIGN.md tab-bar specification
+**Discovered**: Pragmatic approach (conditional rendering in ContentModel) satisfied all ACs without 792-line decomposition into separate model types. Profile widget state preserved across tab switches naturally since it stays in same struct.
+**Next**: Task 7 (compositor modals) is the last task before Task 8 (density modes + jump keys).
+
 ## Cycle 24 — 2026-04-01 21:00
 
 **What**: Parallel Tasks 5+6 — header sparklines/gauges with rolling buffers and dynamic width, plus context-sensitive keybinding bar with ContextKey/DisabledReason pattern and 18 tests
