@@ -88,7 +88,7 @@ Two-phase launch fix: first register cleanup closures in both GUI and TUI (immed
 ### Task 7: Add launcher package tests
 
 **Depends on**: Task 2
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN a launched process WHEN it exits THEN all cleanup closures execute in reverse registration order
 ▸ GIVEN a running game WHEN SIGTERM is received THEN the signal is forwarded to the child process

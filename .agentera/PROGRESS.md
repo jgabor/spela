@@ -48,6 +48,14 @@
 **Discovered**: Domain isolation via `CollectFunc` callback keeps overlay package free of gpu/cpu imports while still allowing the caller to compose the full metrics→alerts→IPC pipeline. 4 timing-based tests all stable.
 **Next**: Wire the collector into the launcher (start collector when launching a game with overlay enabled, stop on exit), or pivot to a different vision direction (parity feature like Smooth Motion profile support)
 
+## Cycle 14 — 2026-04-01 16:10
+
+**What**: Added 11 launcher tests — cleanup order, signal forwarding, overlay IPC lifecycle, wrapper parsing, game detection
+**Commit**: 9e8b4b3 test(launcher): add tests for cleanup order, signal forwarding, overlay IPC, and wrapper parsing
+**Inspiration**: None — standard Go process testing with goroutines and signals
+**Discovered**: Signal forwarding test works cleanly — signal.Notify intercepts SIGTERM in the test process without killing it
+**Next**: Task 8 (profile field registry — last plan task)
+
 ## Cycle 13 — 2026-04-01 15:55
 
 **What**: Added 10 CPU package tests with mock sysfs — governor read/write, SMT toggle, metrics, cpuinfo, affinity

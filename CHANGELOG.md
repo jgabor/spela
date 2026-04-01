@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Restore GPU clocks, CPU governor, and environment variables on game exit when launched from GUI or TUI
 - Overlay collector now starts for GUI and TUI launches (previously CLI-only)
 - All log output now routes through centralized slog logging for consistent level control
+- Test coverage added for config, cpu, and launcher packages
 
 ## [0.2.1] - 2026-03-13
 
