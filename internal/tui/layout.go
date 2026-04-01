@@ -169,7 +169,7 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
-		case "F5":
+		case "f5":
 			if m.densityMode == DensityCompact {
 				m.densityMode = DensityStandard
 			} else {
@@ -177,7 +177,7 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.calculateDimensions()
 			return m, nil
-		case "F11":
+		case "f11":
 			if m.densityMode == DensityFocused {
 				m.densityMode = DensityStandard
 			} else {
@@ -188,6 +188,21 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "1":
 			if !m.sidebarFocused && !m.sidebar.search.Focused() && m.densityMode != DensityFocused {
 				m.sidebarFocused = true
+				return m, nil
+			}
+		case "2", "3", "4":
+			// Global jump keys — switch to content tab from anywhere.
+			cm := m.contentModel()
+			if cm != nil && cm.game != nil && !cm.defaultProfile && !cm.profileWidget.Editing() {
+				m.sidebarFocused = false
+				switch msg.String() {
+				case "2":
+					cm.activeTab = TabDLLs
+				case "3":
+					cm.activeTab = TabProfile
+				case "4":
+					cm.activeTab = TabLaunch
+				}
 				return m, nil
 			}
 		case "?":
