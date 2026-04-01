@@ -1,9 +1,17 @@
 # Progress
 
+## Cycle 26 — 2026-04-01 22:00
+
+**What**: Completed Tasks 7+8 — compositor-based modal overlays with cascading z-indexed layers, plus density modes (standard/compact/focused) with F5/F11 toggles and jump-key panel titles [1]Games/[2]Details
+**Commit**: TBD feat(tui): add density modes and compositor modals (plan complete)
+**Inspiration**: lipgloss v2 Compositor/Layer/NewLayer API, btop toggle-panel density, lazygit cascading popup offsets
+**Discovered**: 6 merge conflicts between Task 7 (compositor) and Task 8 (density) in layout.go — both heavily modified View/render methods. Resolved by dispatching density mode for base layer, then applying compositor overlays. Plan archived — all 8 tasks complete.
+**Next**: Vision-driven work. GUI DLL progress indicator, overlay CLI commands, or Vulkan layer PoC.
+
 ## Cycle 25 — 2026-04-01 21:30
 
 **What**: Tab-based content views — [2]DLLs [3]Profile [4]Launch tab bar, each tab gets full panel height, Launch tab shows profile summary. Tab switching guarded during profile editing.
-**Commit**: TBD feat(tui): add tab-based content views with DLLs, Profile, and Launch tabs
+**Commit**: b99cb48 feat(tui): add tab-based content views with DLLs, Profile, and Launch tabs
 **Inspiration**: k9s tab switching, lazydocker detail-panel tabs, DESIGN.md tab-bar specification
 **Discovered**: Pragmatic approach (conditional rendering in ContentModel) satisfied all ACs without 792-line decomposition into separate model types. Profile widget state preserved across tab switches naturally since it stays in same struct.
 **Next**: Task 7 (compositor modals) is the last task before Task 8 (density modes + jump keys).

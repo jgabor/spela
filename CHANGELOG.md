@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Information density modes — standard, compact (F5), and focused (F11) with condensed header
+- Compositor-based modal overlays with z-indexed cascading stack
+- Jump-key panel titles — [1]Games, [2]DLLs, [3]Profile, [4]Launch for instant navigation
 - Tab-based content views — DLLs, Profile, and Launch tabs with jump-key switching and full panel height
 - Header sparklines and gauges — rolling 20-character thermal sparklines for GPU/CPU, block gauges for VRAM/RAM
 - Context-sensitive keybinding bar with DisabledReason pattern — dimmed keys show why actions are unavailable

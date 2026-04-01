@@ -153,7 +153,7 @@ is empty and sparklines render baseline characters until samples accumulate.
 ### Task 7: Compositor-based modal system
 
 **Depends on**: Task 3
-**Status**: □ pending
+**Status**: ■ complete
 **Scope note**: Migrates all three modal patterns to the compositor: (1) layout-level dialog
 guard from Task 3's navigation stack, (2) content-level modals (DLL install state machine,
 DLSS preset modal), and (3) the batch overlay. All become compositor layers with z-ordering.
@@ -166,7 +166,7 @@ DLSS preset modal), and (3) the batch overlay. All become compositor layers with
 ### Task 8: Information density modes and jump-key panel titles
 
 **Depends on**: Task 3, Task 4, Task 6, Task 7
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN standard density mode WHEN viewing the TUI THEN all panels are visible: header with logo and sparklines, sidebar, tabbed content, status bar
 ▸ GIVEN the user presses the compact mode toggle WHEN the layout updates THEN the header condenses to metrics-only (no logo) and sparklines hide, reclaiming vertical space

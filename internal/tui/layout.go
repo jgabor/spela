@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -12,13 +13,23 @@ import (
 	"github.com/jgabor/spela/internal/game"
 )
 
+// DensityMode controls the information density of the TUI layout.
+type DensityMode int
+
 const (
-	minSidebarWidth  = 25
-	maxSidebarWidth  = 50
-	sidebarRatio     = 0.30
-	statusBarHeight  = 1
-	messageBarHeight = 1
-	headerHeight     = 7 // 6 lines for logo + 1 for bottom border
+	DensityStandard DensityMode = iota
+	DensityCompact
+	DensityFocused
+)
+
+const (
+	minSidebarWidth     = 25
+	maxSidebarWidth     = 50
+	sidebarRatio        = 0.30
+	statusBarHeight     = 1
+	messageBarHeight    = 1
+	headerHeight        = 7 // 6 lines for logo + 1 for bottom border
+	compactHeaderHeight = 3 // 2 metric lines + 1 bottom border
 )
 
 type LayoutModel struct {
@@ -39,6 +50,7 @@ type LayoutModel struct {
 	batchCursor    int
 	batchMessage   string
 	sidebarFocused bool
+	densityMode    DensityMode
 	width          int
 	height         int
 	sidebarWidth   int
@@ -157,6 +169,27 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
+		case "F5":
+			if m.densityMode == DensityCompact {
+				m.densityMode = DensityStandard
+			} else {
+				m.densityMode = DensityCompact
+			}
+			m.calculateDimensions()
+			return m, nil
+		case "F11":
+			if m.densityMode == DensityFocused {
+				m.densityMode = DensityStandard
+			} else {
+				m.densityMode = DensityFocused
+			}
+			m.calculateDimensions()
+			return m, nil
+		case "1":
+			if !m.sidebarFocused && !m.sidebar.search.Focused() && m.densityMode != DensityFocused {
+				m.sidebarFocused = true
+				return m, nil
+			}
 		case "?":
 			m.showHelp = true
 			return m, nil
@@ -409,15 +442,28 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *LayoutModel) calculateDimensions() {
-	m.sidebarWidth = int(float64(m.width) * sidebarRatio)
-	m.sidebarWidth = max(m.sidebarWidth, minSidebarWidth)
-	m.sidebarWidth = min(m.sidebarWidth, maxSidebarWidth)
+	// Sidebar width adjusts in compact mode.
+	if m.densityMode == DensityCompact {
+		m.sidebarWidth = max(int(float64(m.width)*0.25), minSidebarWidth)
+	} else {
+		m.sidebarWidth = int(float64(m.width) * sidebarRatio)
+		m.sidebarWidth = max(m.sidebarWidth, minSidebarWidth)
+		m.sidebarWidth = min(m.sidebarWidth, maxSidebarWidth)
+	}
 
-	// Panel height: total minus header, status bar, message bar, and borders (2 for top+bottom)
-	panelHeight := max(m.height-statusBarHeight-messageBarHeight-headerHeight-2, 5)
+	// Panel height depends on header size.
+	headerH := headerHeight
+	switch m.densityMode {
+	case DensityCompact:
+		headerH = compactHeaderHeight
+	case DensityFocused:
+		headerH = 0
+	}
 
-	// Inner dimensions account for border (2) and padding
-	sidebarInnerWidth := m.sidebarWidth - 4 // -2 for borders, -2 for padding
+	panelHeight := max(m.height-statusBarHeight-messageBarHeight-headerH-2, 5)
+
+	// Inner dimensions account for border (2) and padding.
+	sidebarInnerWidth := m.sidebarWidth - 4
 
 	m.header.SetWidth(m.width)
 	m.sidebar.SetSize(sidebarInnerWidth, panelHeight)
@@ -428,12 +474,22 @@ func (m *LayoutModel) calculateDimensions() {
 
 // contentWidth returns the inner width available for the content area.
 func (m LayoutModel) contentWidth() int {
+	if m.densityMode == DensityFocused {
+		return m.width - 4
+	}
 	return m.width - m.sidebarWidth - 4
 }
 
 // contentHeight returns the inner height available for the content area.
 func (m LayoutModel) contentHeight() int {
-	return max(m.height-statusBarHeight-messageBarHeight-headerHeight-2, 5)
+	headerH := headerHeight
+	switch m.densityMode {
+	case DensityCompact:
+		headerH = compactHeaderHeight
+	case DensityFocused:
+		headerH = 0
+	}
+	return max(m.height-statusBarHeight-messageBarHeight-headerH-2, 5)
 }
 
 // contentModel returns the ContentModel from the current stack top.
@@ -504,32 +560,58 @@ func (m LayoutModel) View() tea.View {
 }
 
 func (m LayoutModel) renderMain() string {
+	switch m.densityMode {
+	case DensityFocused:
+		return m.renderFocused()
+	case DensityCompact:
+		return m.renderCompact()
+	default:
+		return m.renderStandard()
+	}
+}
+
+func (m LayoutModel) renderStandard() string {
+	t := m.styles.Theme
 	header := m.header.View()
 
-	// Calculate panel height: total height minus header, status bar, message bar, and borders (2 for top+bottom)
 	panelHeight := max(m.height-statusBarHeight-messageBarHeight-headerHeight-2, 5)
-
-	// Inner height is panel height minus the border lines
 	innerHeight := panelHeight
 
-	// Truncate sidebar and content views to fit within available height
 	sidebarView := truncateHeight(m.sidebar.View(), innerHeight)
 	contentView := truncateHeight(m.stack.Top().View(), innerHeight)
+
+	sidebarBorderColor := m.styles.BorderColor(m.sidebarFocused)
+	contentBorderColor := m.styles.BorderColor(!m.sidebarFocused)
 
 	sidebarStyle := lipgloss.NewStyle().
 		Width(m.sidebarWidth - 2).
 		Height(innerHeight).
 		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(m.styles.BorderColor(m.sidebarFocused))
+		BorderTop(false).
+		BorderForeground(sidebarBorderColor)
 
 	contentStyle := lipgloss.NewStyle().
 		Width(m.width - m.sidebarWidth - 2).
 		Height(innerHeight).
 		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(m.styles.BorderColor(!m.sidebarFocused))
+		BorderTop(false).
+		BorderForeground(contentBorderColor)
 
 	sidebar := sidebarStyle.Render(sidebarView)
 	content := contentStyle.Render(contentView)
+
+	// Build custom top borders with jump-key titles.
+	jumpKeyStyle := lipgloss.NewStyle().Foreground(t.Accent).Bold(true)
+	labelStyle := lipgloss.NewStyle().Foreground(t.TextDim)
+
+	sidebarTitle := jumpKeyStyle.Render("[1]") + labelStyle.Render(" Games")
+	contentTitle := jumpKeyStyle.Render("[2]") + labelStyle.Render(" Details")
+
+	sidebarTopBorder := buildTopBorder(sidebarTitle, m.sidebarWidth-2, sidebarBorderColor)
+	contentTopBorder := buildTopBorder(contentTitle, m.width-m.sidebarWidth-2, contentBorderColor)
+
+	sidebar = sidebarTopBorder + "\n" + sidebar
+	content = contentTopBorder + "\n" + content
 
 	mainArea := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
 
@@ -541,6 +623,84 @@ func (m LayoutModel) renderMain() string {
 	statusBar := m.statusBar.ViewWithHelp(crumbs + "  " + contextHelp)
 
 	return lipgloss.JoinVertical(lipgloss.Left, header, mainArea, messageBar, statusBar)
+}
+
+func (m LayoutModel) renderCompact() string {
+	t := m.styles.Theme
+	header := m.header.ViewCompact()
+
+	panelHeight := max(m.height-statusBarHeight-messageBarHeight-compactHeaderHeight-2, 5)
+	innerHeight := panelHeight
+
+	sidebarView := truncateHeight(m.sidebar.View(), innerHeight)
+	contentView := truncateHeight(m.stack.Top().View(), innerHeight)
+
+	sidebarBorderColor := m.styles.BorderColor(m.sidebarFocused)
+	contentBorderColor := m.styles.BorderColor(!m.sidebarFocused)
+
+	sidebarStyle := lipgloss.NewStyle().
+		Width(m.sidebarWidth - 2).
+		Height(innerHeight).
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderTop(false).
+		BorderForeground(sidebarBorderColor)
+
+	contentStyle := lipgloss.NewStyle().
+		Width(m.width - m.sidebarWidth - 2).
+		Height(innerHeight).
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderTop(false).
+		BorderForeground(contentBorderColor)
+
+	sidebar := sidebarStyle.Render(sidebarView)
+	content := contentStyle.Render(contentView)
+
+	// Jump-key titles.
+	jumpKeyStyle := lipgloss.NewStyle().Foreground(t.Accent).Bold(true)
+	labelStyle := lipgloss.NewStyle().Foreground(t.TextDim)
+
+	sidebarTitle := jumpKeyStyle.Render("[1]") + labelStyle.Render(" Games")
+	contentTitle := jumpKeyStyle.Render("[2]") + labelStyle.Render(" Details")
+
+	sidebarTopBorder := buildTopBorder(sidebarTitle, m.sidebarWidth-2, sidebarBorderColor)
+	contentTopBorder := buildTopBorder(contentTitle, m.width-m.sidebarWidth-2, contentBorderColor)
+
+	sidebar = sidebarTopBorder + "\n" + sidebar
+	content = contentTopBorder + "\n" + content
+
+	mainArea := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
+
+	messageBar := m.messageBar.View()
+
+	keys := ContextKeys(m.sidebarFocused, m.sidebar.search.Focused(), m.sidebar.InSelectMode(), m.contentModel(), m.styles.ShowHints)
+	contextHelp := RenderContextBar(keys, m.width/2, &m.styles.Theme)
+	crumbs := m.renderBreadcrumbs()
+	statusBar := m.statusBar.ViewWithHelp(crumbs + "  " + contextHelp)
+
+	return lipgloss.JoinVertical(lipgloss.Left, header, mainArea, messageBar, statusBar)
+}
+
+func (m LayoutModel) renderFocused() string {
+	contentHeight := max(m.height-statusBarHeight-messageBarHeight-2, 5)
+
+	contentView := truncateHeight(m.stack.Top().View(), contentHeight)
+
+	contentBorderColor := m.styles.BorderColor(true)
+
+	contentStyle := lipgloss.NewStyle().
+		Width(m.width - 2).
+		Height(contentHeight).
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(contentBorderColor)
+
+	content := contentStyle.Render(contentView)
+
+	messageBar := m.messageBar.View()
+
+	escHint := lipgloss.NewStyle().Foreground(m.styles.Theme.TextDim).Render("F11:exit focused  ?:help  q:quit")
+	statusBar := m.statusBar.ViewWithHelp(escHint)
+
+	return lipgloss.JoinVertical(lipgloss.Left, content, messageBar, statusBar)
 }
 
 // renderBreadcrumbs renders the navigation breadcrumb trail for the status bar.
@@ -562,6 +722,26 @@ func (m LayoutModel) renderBreadcrumbs() string {
 		}
 	}
 	return strings.Join(parts, "")
+}
+
+// buildTopBorder builds a rounded top border line with a styled title embedded.
+// The title is placed after the opening corner, and the remaining width is filled with dashes.
+func buildTopBorder(title string, totalWidth int, borderColor color.Color) string {
+	borderStyle := lipgloss.NewStyle().Foreground(borderColor)
+
+	cornerLeft := borderStyle.Render("╭")
+	cornerRight := borderStyle.Render("╮")
+	titleStr := " " + title + " "
+
+	titleVisualWidth := lipgloss.Width(titleStr)
+	// Fill remaining width: totalWidth - 1 (left corner) - titleWidth - 1 (right corner)
+	fillWidth := totalWidth - titleVisualWidth - 2
+	if fillWidth < 0 {
+		fillWidth = 0
+	}
+	fill := borderStyle.Render(strings.Repeat("─", fillWidth))
+
+	return cornerLeft + titleStr + fill + cornerRight
 }
 
 // truncateHeight limits content to a maximum number of lines.
