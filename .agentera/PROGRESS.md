@@ -48,6 +48,14 @@
 **Discovered**: Domain isolation via `CollectFunc` callback keeps overlay package free of gpu/cpu imports while still allowing the caller to compose the full metrics→alerts→IPC pipeline. 4 timing-based tests all stable.
 **Next**: Wire the collector into the launcher (start collector when launching a game with overlay enabled, stop on exit), or pivot to a different vision direction (parity feature like Smooth Motion profile support)
 
+## Cycle 19 — 2026-04-01 17:35
+
+**What**: Enhanced `spela gpu info` — shows power draw/limit/range, clocks, fan speed, utilization via NVML
+**Commit**: 1837027 feat(gpu): enhance gpu info with power limit range, clocks, fan, and utilization
+**Inspiration**: None — NVML API provides all data, just needed wiring
+**Discovered**: GetPowerManagementLimitConstraints returns min/max in milliwatts — useful for validating --power-limit values
+**Next**: Fan speed control, profile export/import, or HEALTH.md re-audit after 18 cycles of changes
+
 ## Cycle 18 — 2026-04-01 17:20
 
 **What**: Added GPU power limit to profile system — apply at launch, restore on exit, CLI flag, TUI field, GPU show display
