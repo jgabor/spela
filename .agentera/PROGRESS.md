@@ -1,9 +1,17 @@
 # Progress
 
+## Cycle 24 — 2026-04-01 21:00
+
+**What**: Parallel Tasks 5+6 — header sparklines/gauges with rolling buffers and dynamic width, plus context-sensitive keybinding bar with ContextKey/DisabledReason pattern and 18 tests
+**Commit**: 869355d feat(tui): add sparklines/gauges to header and context-sensitive keybinding bar
+**Inspiration**: btop sparkline density, lazygit DisabledReason pattern, lipgloss StyleRanges per-char coloring
+**Discovered**: Task 5 worktree branched before Task 3 — used removed Focus type. Manual merge resolution: replaced Focus enum with sidebarFocused bool in all ContextKeys calls and tests.
+**Next**: Tasks 4 (tabs) and 7 (compositor modals) remain. Task 8 blocked on both. Task 4 is the bigger structural change (content.go decomposition).
+
 ## Cycle 23 — 2026-04-01 20:30
 
 **What**: Replaced binary FocusSidebar/FocusContent with LIFO NavStack, StackEntry interface, breadcrumb rendering in status bar. ContentModel wrapped as StackEntry via contentEntry adapter.
-**Commit**: TBD refactor(tui): replace binary focus with navigation stack and breadcrumbs
+**Commit**: e5e5eb4 refactor(tui): replace binary focus with navigation stack and breadcrumbs
 **Inspiration**: Bubblon command-pattern (PushMsg/PopMsg as tea.Cmd), k9s Breadcrumbs observer, soft-serve Component interface
 **Discovered**: Layout Update() grew from 292→380 lines. Application messages (DLL/launch/profile) stay at layout level for cross-cutting concerns. Task 7 (compositor) should shrink it by extracting content-level modal routing.
 **Next**: Tasks 4, 5, 6, 7 all unblocked. Task 6 (header sparklines) has zero deps remaining. Task 4 (tabs) is highest structural impact.

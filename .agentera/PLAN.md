@@ -125,7 +125,7 @@ tab and preserves inactive tab state.
 ### Task 5: Context-sensitive keybinding bar
 
 **Depends on**: Task 3
-**Status**: □ pending
+**Status**: ■ complete
 **Scope note**: Requires a keybinding metadata model — each keybinding carries an
 active/dimmed/hidden state and an optional reason string. The navigation stack context
 provides which keybindings are relevant; domain state (e.g., "has backup") provides the
@@ -139,7 +139,7 @@ enable/disable condition.
 ### Task 6: Header metrics with sparklines and gauges
 
 **Depends on**: Task 1, Task 2
-**Status**: □ pending
+**Status**: ■ complete
 **Scope note**: A rolling sample buffer (ring buffer) stores recent metric values inside the
 TUI package. The buffer is populated on each 2-second metrics tick. At startup, the buffer
 is empty and sparklines render baseline characters until samples accumulate.
