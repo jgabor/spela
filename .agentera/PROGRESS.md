@@ -48,6 +48,14 @@
 **Discovered**: Domain isolation via `CollectFunc` callback keeps overlay package free of gpu/cpu imports while still allowing the caller to compose the full metrics→alerts→IPC pipeline. 4 timing-based tests all stable.
 **Next**: Wire the collector into the launcher (start collector when launching a game with overlay enabled, stop on exit), or pivot to a different vision direction (parity feature like Smooth Motion profile support)
 
+## Cycle 8 — 2026-04-01 14:35
+
+**What**: Fixed GUI and TUI launch paths to register cleanup closures — RestorePoint + p.Apply() cleanups now mirror CLI pattern
+**Commit**: b9456e2 fix(launch): register cleanup closures in GUI and TUI launch paths
+**Inspiration**: None — applied existing CLI pattern from commands/launch.go
+**Discovered**: TUI had the identical bug to GUI (both dropped p.Apply() return value). HEALTH.md only flagged GUI; adversarial plan review caught TUI.
+**Next**: Task 2 (consolidate launch orchestration) or parallel tasks 3-6 (logging, TUI styles, config/CPU tests)
+
 ## Cycle 7 — 2026-03-17 23:30
 
 **What**: Wired overlay collector into launcher — when overlay is enabled in a game profile, the launcher creates an IPC file, starts a 500ms metrics collector, exports `SPELA_OVERLAY_IPC` env var, and cleans up on exit
