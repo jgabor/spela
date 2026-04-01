@@ -277,6 +277,11 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.messageBar, _ = m.messageBar.Update(msg)
 		return m, nil
 
+	case flashTickMsg:
+		var cmd tea.Cmd
+		m.messageBar, cmd = m.messageBar.Update(msg)
+		return m, cmd
+
 	case metricsMsg:
 		// Already handled above in header update.
 		return m, tea.Batch(cmds...)

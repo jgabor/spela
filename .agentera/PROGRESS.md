@@ -1,9 +1,17 @@
 # Progress
 
+## Cycle 27 — 2026-04-01 22:30
+
+**What**: Added 300ms color flash animation on message bar — success operations flash green, errors flash red, then fade. Every SetMessage caller gets it for free.
+**Commit**: TBD feat(tui): add color flash animation on message bar for operation feedback
+**Inspiration**: lazygit toast flash pattern, k9s flash notifications with severity coloring
+**Discovered**: Only 2 files needed changes (messagebar.go + layout.go flashTickMsg routing). Flash phases via tea.Tick chain (100ms/phase x 3 phases = 300ms). Zero new deps.
+**Next**: Confirmation dialogs for destructive operations, or start on deferred items (huh forms, glamour help).
+
 ## Cycle 26 — 2026-04-01 22:00
 
 **What**: Completed Tasks 7+8 — compositor-based modal overlays with cascading z-indexed layers, plus density modes (standard/compact/focused) with F5/F11 toggles and jump-key panel titles [1]Games/[2]Details
-**Commit**: TBD feat(tui): add density modes and compositor modals (plan complete)
+**Commit**: 70249f9 feat(tui): add density modes, compositor modals, and jump-key panel titles
 **Inspiration**: lipgloss v2 Compositor/Layer/NewLayer API, btop toggle-panel density, lazygit cascading popup offsets
 **Discovered**: 6 merge conflicts between Task 7 (compositor) and Task 8 (density) in layout.go — both heavily modified View/render methods. Resolved by dispatching density mode for base layer, then applying compositor overlays. Plan archived — all 8 tasks complete.
 **Next**: Vision-driven work. GUI DLL progress indicator, overlay CLI commands, or Vulkan layer PoC.

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Color flash animation on message bar — 300ms green/red pulse for operation feedback
 - Information density modes — standard, compact (F5), and focused (F11) with condensed header
 - Compositor-based modal overlays with z-indexed cascading stack
 - Jump-key panel titles — [1]Games, [2]DLLs, [3]Profile, [4]Launch for instant navigation
