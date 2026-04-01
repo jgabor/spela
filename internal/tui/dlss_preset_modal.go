@@ -26,6 +26,7 @@ var dlssPresetOrder = []profile.DLSSPreset{
 }
 
 type DLSSPresetModalModel struct {
+	styles        *Styles
 	visible       bool
 	cursor        int
 	currentPreset profile.DLSSPreset
@@ -39,8 +40,8 @@ type dlssPresetSelectedMsg struct {
 
 type dlssPresetCancelledMsg struct{}
 
-func NewDLSSPresetModal() DLSSPresetModalModel {
-	return DLSSPresetModalModel{}
+func NewDLSSPresetModal(styles *Styles) DLSSPresetModalModel {
+	return DLSSPresetModalModel{styles: styles}
 }
 
 func (m *DLSSPresetModalModel) SetSize(width, height int) {
@@ -103,7 +104,8 @@ func (m DLSSPresetModalModel) View() string {
 		return ""
 	}
 
-	t := GetTheme()
+	s := m.styles
+	t := s.Theme
 
 	modalWidth := 70
 	modalHeight := len(dlssPresetOrder) + 12
@@ -116,21 +118,21 @@ func (m DLSSPresetModalModel) View() string {
 
 	var b strings.Builder
 
-	b.WriteString(titleStyle.Render("Select DLSS preset"))
+	b.WriteString(s.Title.Render("Select DLSS preset"))
 	b.WriteString("\n\n")
 
-	headerStyle := dimStyle.Bold(true)
+	headerStyle := s.Dim.Bold(true)
 	b.WriteString(headerStyle.Render(fmt.Sprintf("  %-10s %-12s %-14s", "Preset", "Version", "Technology")))
 	b.WriteString("\n")
 
 	for i, preset := range dlssPresetOrder {
 		cursor := "  "
-		style := normalStyle
-		valueStyle := dlssStyle
+		style := s.Normal
+		valueStyle := s.DLSS
 
 		if i == m.cursor {
 			cursor = "> "
-			style = selectedStyle
+			style = s.Selected
 		}
 
 		presetName := string(preset)
@@ -153,10 +155,10 @@ func (m DLSSPresetModalModel) View() string {
 	if currentPreset == profile.DLSSPresetDefault {
 		description = "Use game's default preset"
 	}
-	b.WriteString(dimStyle.Render(description))
+	b.WriteString(s.Dim.Render(description))
 	b.WriteString("\n")
 
-	if hint := RenderHint("\n\n" + "↑↓:navigate • enter:select • esc:cancel"); hint != "" {
+	if hint := s.RenderHint("\n\n" + "↑↓:navigate • enter:select • esc:cancel"); hint != "" {
 		b.WriteString(hint)
 	}
 

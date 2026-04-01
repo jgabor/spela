@@ -98,87 +98,104 @@ var LightTheme = Theme{
 	SelectionBg: lipgloss.Color("91"),  // Velvet Orchid
 }
 
-var (
-	activeTheme = DefaultTheme
-	showHints   = true
-)
+// Styles holds the active theme and all derived lipgloss styles.
+// Shared by pointer across all TUI models for consistent rendering.
+type Styles struct {
+	Theme     Theme
+	ShowHints bool
 
-func SetTheme(t Theme) {
-	activeTheme = t
-	rebuildStyles()
+	Title    lipgloss.Style
+	Selected lipgloss.Style
+	Normal   lipgloss.Style
+	Dim      lipgloss.Style
+	DLSS     lipgloss.Style
+	Error    lipgloss.Style
+	Success  lipgloss.Style
+	Warning  lipgloss.Style
 }
 
-func GetTheme() Theme {
-	return activeTheme
+// NewStyles creates a Styles instance from the given theme and hint preference.
+func NewStyles(theme Theme, showHints bool) *Styles {
+	s := &Styles{Theme: theme, ShowHints: showHints}
+	s.rebuild()
+	return s
 }
 
-func SetShowHints(show bool) {
-	showHints = show
+// SetTheme changes the active theme and rebuilds all derived styles.
+func (s *Styles) SetTheme(t Theme) {
+	s.Theme = t
+	s.rebuild()
 }
 
-func ShowHints() bool {
-	return showHints
+// SetShowHints updates the hint visibility preference.
+func (s *Styles) SetShowHints(show bool) {
+	s.ShowHints = show
 }
 
-func RenderHint(text string) string {
-	if !showHints {
-		return ""
-	}
-	return dimStyle.Render(text)
-}
+func (s *Styles) rebuild() {
+	t := s.Theme
 
-var (
-	titleStyle    lipgloss.Style
-	selectedStyle lipgloss.Style
-	normalStyle   lipgloss.Style
-	dimStyle      lipgloss.Style
-	dlssStyle     lipgloss.Style
-	errorStyle    lipgloss.Style
-	successStyle  lipgloss.Style
-	warningStyle  lipgloss.Style
-)
-
-func init() {
-	rebuildStyles()
-}
-
-func rebuildStyles() {
-	t := activeTheme
-
-	titleStyle = lipgloss.NewStyle().
+	s.Title = lipgloss.NewStyle().
 		Bold(true).
 		Foreground(t.Primary).
 		MarginBottom(1)
 
-	selectedStyle = lipgloss.NewStyle().
+	s.Selected = lipgloss.NewStyle().
 		Foreground(t.SelectionFg).
 		Background(t.SelectionBg).
 		Bold(true)
 
-	normalStyle = lipgloss.NewStyle().
+	s.Normal = lipgloss.NewStyle().
 		Foreground(t.Text)
 
-	dimStyle = lipgloss.NewStyle().
+	s.Dim = lipgloss.NewStyle().
 		Foreground(t.TextDim)
 
-	dlssStyle = lipgloss.NewStyle().
+	s.DLSS = lipgloss.NewStyle().
 		Foreground(t.Secondary)
 
-	errorStyle = lipgloss.NewStyle().
+	s.Error = lipgloss.NewStyle().
 		Foreground(t.Error)
 
-	successStyle = lipgloss.NewStyle().
+	s.Success = lipgloss.NewStyle().
 		Foreground(t.Success)
 
-	warningStyle = lipgloss.NewStyle().
+	s.Warning = lipgloss.NewStyle().
 		Foreground(t.Warning)
+}
 
-	cliPrimaryStyle = lipgloss.NewStyle().Foreground(t.Primary)
-	cliSecondaryStyle = lipgloss.NewStyle().Foreground(t.Secondary)
-	cliDimStyle = lipgloss.NewStyle().Foreground(t.TextDim)
-	cliSuccessStyle = lipgloss.NewStyle().Foreground(t.Success)
-	cliErrorStyle = lipgloss.NewStyle().Foreground(t.Error)
-	cliAccentStyle = lipgloss.NewStyle().Foreground(t.Accent)
+// RenderHint renders hint text in dim style, or returns empty if hints are disabled.
+func (s *Styles) RenderHint(text string) string {
+	if !s.ShowHints {
+		return ""
+	}
+	return s.Dim.Render(text)
+}
+
+// BorderColor returns the appropriate border color for the given focus state.
+func (s *Styles) BorderColor(focused bool) color.Color {
+	if focused {
+		return s.Theme.BorderFocus
+	}
+	return s.Theme.Border
+}
+
+// IndicatorStyle returns the style for a given state indicator.
+func (s *Styles) IndicatorStyle(state StateIndicator) lipgloss.Style {
+	switch state {
+	case StateModified:
+		return s.Warning
+	case StateActive:
+		return s.Success
+	case StateDisabled:
+		return s.Dim
+	case StateError:
+		return s.Error
+	case StateSuccess:
+		return s.Success
+	default:
+		return s.Normal
+	}
 }
 
 type StateIndicator int
@@ -212,38 +229,14 @@ func IndicatorIcon(state StateIndicator) string {
 	}
 }
 
-func IndicatorStyle(state StateIndicator) lipgloss.Style {
-	switch state {
-	case StateModified:
-		return warningStyle
-	case StateActive:
-		return successStyle
-	case StateDisabled:
-		return dimStyle
-	case StateError:
-		return errorStyle
-	case StateSuccess:
-		return successStyle
-	default:
-		return normalStyle
-	}
-}
-
-func BorderColor(focused bool) color.Color {
-	if focused {
-		return activeTheme.BorderFocus
-	}
-	return activeTheme.Border
-}
-
-// CLI color helper styles using the spela theme
+// CLI color helper styles — immutable, computed once from DefaultTheme.
 var (
-	cliPrimaryStyle   lipgloss.Style
-	cliSecondaryStyle lipgloss.Style
-	cliDimStyle       lipgloss.Style
-	cliSuccessStyle   lipgloss.Style
-	cliErrorStyle     lipgloss.Style
-	cliAccentStyle    lipgloss.Style
+	cliPrimaryStyle   = lipgloss.NewStyle().Foreground(DefaultTheme.Primary)
+	cliSecondaryStyle = lipgloss.NewStyle().Foreground(DefaultTheme.Secondary)
+	cliDimStyle       = lipgloss.NewStyle().Foreground(DefaultTheme.TextDim)
+	cliSuccessStyle   = lipgloss.NewStyle().Foreground(DefaultTheme.Success)
+	cliErrorStyle     = lipgloss.NewStyle().Foreground(DefaultTheme.Error)
+	cliAccentStyle    = lipgloss.NewStyle().Foreground(DefaultTheme.Accent)
 )
 
 func CLIPrimary(text string) string {

@@ -5,11 +5,12 @@ import (
 )
 
 type StatusBarModel struct {
-	width int
+	styles *Styles
+	width  int
 }
 
-func NewStatusBar() StatusBarModel {
-	return StatusBarModel{}
+func NewStatusBar(styles *Styles) StatusBarModel {
+	return StatusBarModel{styles: styles}
 }
 
 func (m *StatusBarModel) SetWidth(width int) {
@@ -21,7 +22,7 @@ func (m StatusBarModel) View() string {
 }
 
 func (m StatusBarModel) ViewWithHelp(contextHelp string) string {
-	t := GetTheme()
+	t := m.styles.Theme
 	style := lipgloss.NewStyle().
 		Foreground(t.TextDim).
 		Width(m.width).

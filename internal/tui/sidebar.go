@@ -47,6 +47,7 @@ type sidebarItem struct {
 }
 
 type SidebarModel struct {
+	styles     *Styles
 	games      []*game.Game
 	filtered   []sidebarItem
 	cursor     int
@@ -59,13 +60,14 @@ type SidebarModel struct {
 	selectMode bool
 }
 
-func NewSidebar(games []*game.Game) (SidebarModel, tea.Cmd) {
+func NewSidebar(games []*game.Game, styles *Styles) (SidebarModel, tea.Cmd) {
 	ti := textinput.New()
 	ti.Placeholder = "Search..."
 	ti.CharLimit = 30
 	ti.SetWidth(20)
 
 	m := SidebarModel{
+		styles:   styles,
 		games:    games,
 		search:   ti,
 		sortMode: SortNameAsc,
@@ -297,6 +299,7 @@ func (m *SidebarModel) applyFiltersAndSort() {
 }
 
 func (m SidebarModel) View() string {
+	s := m.styles
 	var b strings.Builder
 
 	titleLine := "Games"
@@ -305,7 +308,7 @@ func (m SidebarModel) View() string {
 	} else if m.sortMode != SortNameAsc {
 		titleLine += " [" + sortModeNames[m.sortMode] + "]"
 	}
-	b.WriteString(titleStyle.Render(titleLine))
+	b.WriteString(s.Title.Render(titleLine))
 	b.WriteString("\n")
 
 	if m.filters.IsActive() {
@@ -316,7 +319,7 @@ func (m SidebarModel) View() string {
 		if m.filters.hasProfile {
 			activeFilters = append(activeFilters, "◆Profile")
 		}
-		b.WriteString(dlssStyle.Render(strings.Join(activeFilters, " ")))
+		b.WriteString(s.DLSS.Render(strings.Join(activeFilters, " ")))
 		b.WriteString("\n")
 	}
 
@@ -326,7 +329,7 @@ func (m SidebarModel) View() string {
 	}
 
 	if len(m.filtered) == 0 {
-		b.WriteString(dimStyle.Render("No games found"))
+		b.WriteString(s.Dim.Render("No games found"))
 		return b.String()
 	}
 
@@ -353,7 +356,7 @@ func (m SidebarModel) View() string {
 	for i := start; i < end; i++ {
 		item := m.filtered[i]
 		prefix := "  "
-		style := normalStyle
+		style := s.Normal
 
 		if m.selectMode {
 			// In select mode: checkmark for selected, cursor for current unselected
@@ -365,13 +368,13 @@ func (m SidebarModel) View() string {
 				}
 			}
 			if i == m.cursor {
-				style = selectedStyle
+				style = s.Selected
 			}
 		} else {
 			// Normal mode: cursor for current item
 			if i == m.cursor {
 				prefix = "> "
-				style = selectedStyle
+				style = s.Selected
 			}
 		}
 
@@ -389,16 +392,16 @@ func (m SidebarModel) View() string {
 
 	if len(m.filtered) > visibleCount {
 		scrollInfo := fmt.Sprintf(" %d/%d", m.cursor+1, len(m.filtered))
-		b.WriteString(dimStyle.Render(scrollInfo))
+		b.WriteString(s.Dim.Render(scrollInfo))
 		b.WriteString("\n")
 	}
 
 	// Legend for status icons
-	legend := dlssStyle.Render("●") + dimStyle.Render(" DLLs  ") + dlssStyle.Render("◆") + dimStyle.Render(" profile")
+	legend := s.DLSS.Render("●") + s.Dim.Render(" DLLs  ") + s.DLSS.Render("◆") + s.Dim.Render(" profile")
 	b.WriteString(legend)
 	b.WriteString("\n")
-	if !m.selectMode && ShowHints() {
-		b.WriteString(dimStyle.Render("space:multi-select"))
+	if !m.selectMode && s.ShowHints {
+		b.WriteString(s.Dim.Render("space:multi-select"))
 	}
 
 	return b.String()
@@ -472,7 +475,7 @@ func (m SidebarModel) itemName(item sidebarItem) string {
 
 func (m SidebarModel) itemIndicator(item sidebarItem) string {
 	if item.kind == sidebarItemDefaultProfile {
-		return dimStyle.Render(" Default")
+		return m.styles.Dim.Render(" Default")
 	}
 	if item.game == nil {
 		return ""
@@ -488,7 +491,7 @@ func (m SidebarModel) itemIndicator(item sidebarItem) string {
 	if indicators == "" {
 		return ""
 	}
-	return dlssStyle.Render(indicators)
+	return m.styles.DLSS.Render(indicators)
 }
 
 func (m SidebarModel) SelectionCount() int {

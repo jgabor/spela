@@ -29,6 +29,7 @@ const (
 )
 
 type LayoutModel struct {
+	styles        *Styles
 	header        HeaderModel
 	sidebar       SidebarModel
 	content       ContentModel
@@ -56,24 +57,27 @@ func NewLayout(db *game.Database) LayoutModel {
 	if cfg == nil {
 		cfg = config.Default()
 	}
-	SetShowHints(cfg.ShowHints)
+
+	theme := DefaultTheme
 	switch cfg.Theme {
 	case "light":
-		SetTheme(LightTheme)
+		theme = LightTheme
 	case "dark":
-		SetTheme(DarkTheme)
+		theme = DarkTheme
 	}
+	styles := NewStyles(theme, cfg.ShowHints)
 
 	games := db.List()
-	sidebar, sidebarCmd := NewSidebar(games)
+	sidebar, sidebarCmd := NewSidebar(games, styles)
 	return LayoutModel{
-		header:       NewHeader(),
+		styles:       styles,
+		header:       NewHeader(styles),
 		sidebar:      sidebar,
-		content:      NewContent(),
-		statusBar:    NewStatusBar(),
-		messageBar:   NewMessageBar(),
-		help:         NewHelp(),
-		optionsModal: NewOptionsModal(),
+		content:      NewContent(styles),
+		statusBar:    NewStatusBar(styles),
+		messageBar:   NewMessageBar(styles),
+		help:         NewHelp(styles),
+		optionsModal: NewOptionsModal(styles),
 		config:       cfg,
 		db:           db,
 		focus:        FocusSidebar,
@@ -436,13 +440,13 @@ func (m LayoutModel) renderMain() string {
 		Width(m.sidebarWidth - 2).
 		Height(innerHeight).
 		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(BorderColor(m.focus == FocusSidebar))
+		BorderForeground(m.styles.BorderColor(m.focus == FocusSidebar))
 
 	contentStyle := lipgloss.NewStyle().
 		Width(m.width - m.sidebarWidth - 2).
 		Height(innerHeight).
 		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(BorderColor(m.focus == FocusContent))
+		BorderForeground(m.styles.BorderColor(m.focus == FocusContent))
 
 	sidebar := sidebarStyle.Render(sidebarView)
 	content := contentStyle.Render(contentView)
@@ -451,7 +455,7 @@ func (m LayoutModel) renderMain() string {
 
 	messageBar := m.messageBar.View()
 
-	contextHelp := ContextHelp(m.focus, m.sidebar.search.Focused(), m.sidebar.InSelectMode(), m.content.HasGameSelection())
+	contextHelp := ContextHelp(m.focus, m.sidebar.search.Focused(), m.sidebar.InSelectMode(), m.content.HasGameSelection(), m.styles.ShowHints)
 	statusBar := m.statusBar.ViewWithHelp(contextHelp)
 
 	return lipgloss.JoinVertical(lipgloss.Left, header, mainArea, messageBar, statusBar)
@@ -592,17 +596,17 @@ func (m LayoutModel) renderBatchOverlay() string {
 func (m LayoutModel) renderBatchMenu() string {
 	var b strings.Builder
 
-	batchTitleStyle := titleStyle.Foreground(GetTheme().Primary).MarginBottom(1)
+	s := m.styles
 
-	b.WriteString(batchTitleStyle.Render(fmt.Sprintf("Batch action (%d games)", len(m.batchGames))))
+	b.WriteString(s.Title.Render(fmt.Sprintf("Batch action (%d games)", len(m.batchGames))))
 	b.WriteString("\n\n")
 
 	for i, action := range batchActions {
 		cursor := "  "
-		style := normalStyle
+		style := s.Normal
 		if i == m.batchCursor {
 			cursor = "> "
-			style = selectedStyle
+			style = s.Selected
 		}
 		b.WriteString(style.Render(fmt.Sprintf("%s%s", cursor, action)))
 		b.WriteString("\n")
@@ -610,11 +614,11 @@ func (m LayoutModel) renderBatchMenu() string {
 
 	if m.batchMessage != "" {
 		b.WriteString("\n")
-		b.WriteString(successStyle.Render(m.batchMessage))
+		b.WriteString(s.Success.Render(m.batchMessage))
 		b.WriteString("\n")
 	}
 
-	if hint := RenderHint("\n\n↑/↓ select • enter execute • esc cancel"); hint != "" {
+	if hint := s.RenderHint("\n\n↑/↓ select • enter execute • esc cancel"); hint != "" {
 		b.WriteString(hint)
 	}
 

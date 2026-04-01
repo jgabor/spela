@@ -32,14 +32,15 @@ type metricsMsg struct {
 }
 
 type HeaderModel struct {
+	styles     *Styles
 	gpuMetrics *gpu.GPUMetrics
 	cpuMetrics *cpu.CPUMetrics
 	alerts     []overlay.Alert
 	width      int
 }
 
-func NewHeader() HeaderModel {
-	return HeaderModel{}
+func NewHeader(styles *Styles) HeaderModel {
+	return HeaderModel{styles: styles}
 }
 
 func (m *HeaderModel) SetWidth(width int) {
@@ -94,7 +95,7 @@ func (m HeaderModel) Update(msg tea.Msg) (HeaderModel, tea.Cmd) {
 }
 
 func (m HeaderModel) View() string {
-	t := GetTheme()
+	t := m.styles.Theme
 
 	logoStyle := lipgloss.NewStyle().
 		Foreground(t.Primary)

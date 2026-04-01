@@ -18,6 +18,7 @@ const (
 const messageClearDuration = 5 * time.Second
 
 type MessageBarModel struct {
+	styles      *Styles
 	message     string
 	messageType MessageType
 	timestamp   time.Time
@@ -28,8 +29,8 @@ type messageClearMsg struct {
 	timestamp time.Time
 }
 
-func NewMessageBar() MessageBarModel {
-	return MessageBarModel{}
+func NewMessageBar(styles *Styles) MessageBarModel {
+	return MessageBarModel{styles: styles}
 }
 
 func (m *MessageBarModel) SetWidth(width int) {
@@ -69,11 +70,11 @@ func (m MessageBarModel) View() string {
 	var style lipgloss.Style
 	switch m.messageType {
 	case MessageSuccess:
-		style = successStyle
+		style = m.styles.Success
 	case MessageError:
-		style = errorStyle
+		style = m.styles.Error
 	default:
-		style = dimStyle
+		style = m.styles.Dim
 	}
 
 	return style.Width(m.width).Padding(0, 1).Render(m.message)

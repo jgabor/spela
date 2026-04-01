@@ -62,6 +62,7 @@ type WidgetGroup struct {
 }
 
 type ProfileWidgetModel struct {
+	styles       *Styles
 	profile      *profile.Profile
 	saveTarget   ProfileSaveTarget
 	groups       []WidgetGroup
@@ -148,15 +149,15 @@ type profileSaveMsg struct {
 	err     error
 }
 
-func NewProfileWidget(g *game.Game, p *profile.Profile) ProfileWidgetModel {
-	return newProfileWidget(NewGameProfileSaveTarget(g.AppID), g.Name, p)
+func NewProfileWidget(g *game.Game, p *profile.Profile, styles *Styles) ProfileWidgetModel {
+	return newProfileWidget(NewGameProfileSaveTarget(g.AppID), g.Name, p, styles)
 }
 
-func NewDefaultProfileWidget(p *profile.Profile) ProfileWidgetModel {
-	return newProfileWidget(DefaultProfileSaveTarget(), "Default profile", p)
+func NewDefaultProfileWidget(p *profile.Profile, styles *Styles) ProfileWidgetModel {
+	return newProfileWidget(DefaultProfileSaveTarget(), "Default profile", p, styles)
 }
 
-func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Profile) ProfileWidgetModel {
+func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Profile, styles *Styles) ProfileWidgetModel {
 	if p == nil {
 		p = &profile.Profile{Name: name}
 	}
@@ -447,6 +448,7 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 	}
 
 	return ProfileWidgetModel{
+		styles:       styles,
 		profile:      p,
 		saveTarget:   saveTarget,
 		groups:       groups,
@@ -785,10 +787,10 @@ func (m ProfileWidgetModel) columnCount() int {
 }
 
 func (m ProfileWidgetModel) View() string {
+	s := m.styles
 	var b strings.Builder
 
-	t := GetTheme()
-	sectionStyle := titleStyle.Foreground(t.Secondary)
+	sectionStyle := s.Title.Foreground(s.Theme.Secondary)
 
 	b.WriteString(sectionStyle.Render("Profile"))
 	b.WriteString("\n")
@@ -804,14 +806,14 @@ func (m ProfileWidgetModel) View() string {
 	// Description of currently focused item
 	description := m.getCurrentDescription()
 	if description != "" {
-		b.WriteString(dimStyle.Render("  " + description))
+		b.WriteString(s.Dim.Render("  " + description))
 		b.WriteString("\n")
 	} else {
 		b.WriteString("\n") // Keep fixed height
 	}
 
 	if m.modified {
-		b.WriteString(RenderHint("  (modified) s:save"))
+		b.WriteString(s.RenderHint("  (modified) s:save"))
 		b.WriteString("\n")
 	}
 
@@ -821,7 +823,7 @@ func (m ProfileWidgetModel) View() string {
 	} else {
 		hint = "  ↑↓←→:navigate • enter:edit • s:save"
 	}
-	if h := RenderHint(hint); h != "" {
+	if h := s.RenderHint(hint); h != "" {
 		b.WriteString(h)
 		b.WriteString("\n")
 	}
@@ -892,7 +894,8 @@ func (m ProfileWidgetModel) renderTwoColumn(b *strings.Builder) {
 }
 
 func (m ProfileWidgetModel) renderWidgetBox(group WidgetGroup, isWidgetFocused bool, width int) string {
-	t := GetTheme()
+	s := m.styles
+	t := s.Theme
 
 	borderColor := t.Border
 	if isWidgetFocused {
@@ -908,7 +911,7 @@ func (m ProfileWidgetModel) renderWidgetBox(group WidgetGroup, isWidgetFocused b
 	var content strings.Builder
 
 	// Widget title
-	groupTitleStyle := titleStyle.Foreground(t.Secondary).MarginBottom(0)
+	groupTitleStyle := s.Title.Foreground(t.Secondary).MarginBottom(0)
 	content.WriteString(groupTitleStyle.Render(group.title))
 	content.WriteString("\n")
 
@@ -924,24 +927,25 @@ func (m ProfileWidgetModel) renderWidgetBox(group WidgetGroup, isWidgetFocused b
 }
 
 func (m ProfileWidgetModel) renderFieldToString(field WidgetField, isFieldFocused bool) string {
+	s := m.styles
 	prefix := "  "
-	style := normalStyle
-	valueStyle := dlssStyle
+	style := s.Normal
+	valueStyle := s.DLSS
 
 	if field.disabled {
 		line := fmt.Sprintf("%s%-14s: ", prefix, field.label)
-		return dimStyle.Render(line + "Coming soon")
+		return s.Dim.Render(line + "Coming soon")
 	}
 
 	if isFieldFocused {
 		prefix = "> "
-		style = selectedStyle
+		style = s.Selected
 	}
 
 	displayedValue := field.value
 	isUnknown := len(displayedValue) > 0 && displayedValue[0] == '?'
 	if isUnknown {
-		valueStyle = warningStyle
+		valueStyle = s.Warning
 	}
 
 	line := fmt.Sprintf("%s%-14s: ", prefix, field.label)
@@ -954,7 +958,7 @@ func (m ProfileWidgetModel) renderFieldToString(field WidgetField, isFieldFocuse
 		} else {
 			hint = " ←→:change"
 		}
-		result += dimStyle.Render(hint)
+		result += s.Dim.Render(hint)
 	}
 
 	return result

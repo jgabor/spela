@@ -34,6 +34,7 @@ type OptionsSection struct {
 }
 
 type OptionsModalModel struct {
+	styles         *Styles
 	config         *config.Config
 	originalConfig *config.Config
 	sections       []OptionsSection
@@ -60,13 +61,14 @@ type optionsSaveErrorMsg struct {
 	err error
 }
 
-func NewOptionsModal() OptionsModalModel {
+func NewOptionsModal(styles *Styles) OptionsModalModel {
 	ti := textinput.New()
 	ti.Placeholder = "Enter path..."
 	ti.CharLimit = 256
 	ti.SetWidth(40)
 
 	return OptionsModalModel{
+		styles:    styles,
 		sections:  buildOptionsSections(),
 		pathInput: ti,
 	}
@@ -457,16 +459,16 @@ func (m *OptionsModalModel) setConfigValue(key, value string) {
 		m.config.PreferredDLLSource = value
 	case "show_hints":
 		m.config.ShowHints = value == "true"
-		SetShowHints(m.config.ShowHints)
+		m.styles.SetShowHints(m.config.ShowHints)
 	case "theme":
 		m.config.Theme = value
 		switch value {
 		case "dark":
-			SetTheme(DarkTheme)
+			m.styles.SetTheme(DarkTheme)
 		case "light":
-			SetTheme(LightTheme)
+			m.styles.SetTheme(LightTheme)
 		default:
-			SetTheme(DefaultTheme)
+			m.styles.SetTheme(DefaultTheme)
 		}
 	case "compact_mode":
 		m.config.CompactMode = value == "true"
@@ -493,7 +495,8 @@ func (m *OptionsModalModel) View() string {
 		return ""
 	}
 
-	t := GetTheme()
+	s := m.styles
+	t := s.Theme
 
 	modalWidth := 54
 	modalHeight := m.calculateModalHeight()
@@ -506,26 +509,26 @@ func (m *OptionsModalModel) View() string {
 
 	var b strings.Builder
 
-	b.WriteString(titleStyle.Render("Options"))
+	b.WriteString(s.Title.Render("Options"))
 	b.WriteString("\n\n")
 
 	flatIndex := 0
 	currentFlat := m.flatIndex()
 
 	for _, section := range m.sections {
-		b.WriteString(dimStyle.Render(section.Title))
+		b.WriteString(s.Dim.Render(section.Title))
 		b.WriteString("\n")
 
 		for _, opt := range section.Options {
 			cursor := "  "
-			style := normalStyle
-			valueStyle := dlssStyle
+			style := s.Normal
+			valueStyle := s.DLSS
 
 			isCurrentOption := flatIndex == currentFlat
 
 			if isCurrentOption {
 				cursor = "> "
-				style = selectedStyle
+				style = s.Selected
 			}
 
 			label := fmt.Sprintf("%s%-22s: ", cursor, opt.Label)
@@ -545,12 +548,12 @@ func (m *OptionsModalModel) View() string {
 
 	currentOption := m.getCurrentOption()
 	if currentOption != nil {
-		b.WriteString(dimStyle.Render(currentOption.Description))
+		b.WriteString(s.Dim.Render(currentOption.Description))
 		b.WriteString("\n")
 	}
 
 	if m.modified {
-		b.WriteString(warningStyle.Render("(modified)"))
+		b.WriteString(s.Warning.Render("(modified)"))
 		b.WriteString("\n")
 	}
 
@@ -562,7 +565,7 @@ func (m *OptionsModalModel) View() string {
 	} else {
 		hint = "\n↑↓:navigate • ←→:change • s:save • esc:close"
 	}
-	if h := RenderHint(hint); h != "" {
+	if h := s.RenderHint(hint); h != "" {
 		b.WriteString(h)
 	}
 

@@ -41,6 +41,7 @@ var dllDisplayColumns = []struct {
 }
 
 type ContentModel struct {
+	styles              *Styles
 	game                *game.Game
 	defaultProfile      bool
 	profile             *profile.Profile
@@ -97,9 +98,10 @@ type dllTypesLoadedMsg struct {
 	types []string
 }
 
-func NewContent() ContentModel {
+func NewContent(styles *Styles) ContentModel {
 	return ContentModel{
-		dlssPresetModal: NewDLSSPresetModal(),
+		styles:          styles,
+		dlssPresetModal: NewDLSSPresetModal(styles),
 	}
 }
 
@@ -118,7 +120,7 @@ func (m ContentModel) SetGame(g *game.Game) ContentModel {
 		p, inherited := loadEffectiveProfile(g.AppID)
 		m.profile = p
 		m.usingDefaultProfile = inherited
-		m.profileWidget = NewProfileWidget(g, p)
+		m.profileWidget = NewProfileWidget(g, p, m.styles)
 		m.hasBackup = dll.BackupExists(g.AppID)
 	}
 
@@ -139,7 +141,7 @@ func (m ContentModel) SetDefaultProfile() ContentModel {
 
 	p, _ := profile.LoadDefault()
 	m.profile = p
-	m.profileWidget = NewDefaultProfileWidget(p)
+	m.profileWidget = NewDefaultProfileWidget(p, m.styles)
 	if m.profile == nil {
 		m.profile = m.profileWidget.profile
 	}
@@ -367,7 +369,7 @@ func (m ContentModel) View() string {
 	}
 
 	if m.game == nil {
-		return dimStyle.Render("Select a game from the sidebar")
+		return m.styles.Dim.Render("Select a game from the sidebar")
 	}
 
 	var b strings.Builder
@@ -384,7 +386,7 @@ func (m ContentModel) View() string {
 func (m ContentModel) renderDefaultProfile() string {
 	var b strings.Builder
 
-	b.WriteString(titleStyle.Render("Default profile"))
+	b.WriteString(m.styles.Title.Render("Default profile"))
 	b.WriteString("\n\n")
 	b.WriteString(m.renderProfile())
 
@@ -392,25 +394,26 @@ func (m ContentModel) renderDefaultProfile() string {
 }
 
 func (m ContentModel) renderDLLInstallDialog() string {
+	s := m.styles
 	var b strings.Builder
 
-	b.WriteString(titleStyle.Render("Install DLL"))
+	b.WriteString(s.Title.Render("Install DLL"))
 	b.WriteString("\n\n")
 
 	switch m.dllInstallState {
 	case DLLInstallSelectType:
-		b.WriteString(dimStyle.Render("Select DLL type:"))
+		b.WriteString(s.Dim.Render("Select DLL type:"))
 		b.WriteString("\n\n")
 
 		if len(m.dllTypes) == 0 {
-			b.WriteString(dimStyle.Render("Loading..."))
+			b.WriteString(s.Dim.Render("Loading..."))
 		} else {
 			for i, t := range m.dllTypes {
 				cursor := "  "
-				style := normalStyle
+				style := s.Normal
 				if i == m.dllTypeCursor {
 					cursor = "> "
-					style = selectedStyle
+					style = s.Selected
 				}
 				b.WriteString(style.Render(fmt.Sprintf("%s%s", cursor, strings.ToUpper(t))))
 				b.WriteString("\n")
@@ -418,22 +421,22 @@ func (m ContentModel) renderDLLInstallDialog() string {
 		}
 
 	case DLLInstallSelectVersion:
-		b.WriteString(dimStyle.Render(fmt.Sprintf("Select %s version:", strings.ToUpper(m.selectedDLLType))))
+		b.WriteString(s.Dim.Render(fmt.Sprintf("Select %s version:", strings.ToUpper(m.selectedDLLType))))
 		b.WriteString("\n\n")
 
 		if len(m.dllVersions) == 0 {
 			if m.dllVersionsLoaded {
-				b.WriteString(errorStyle.Render("No versions available"))
+				b.WriteString(s.Error.Render("No versions available"))
 			} else {
-				b.WriteString(dimStyle.Render("Loading..."))
+				b.WriteString(s.Dim.Render("Loading..."))
 			}
 		} else {
 			for i, v := range m.dllVersions {
 				cursor := "  "
-				style := normalStyle
+				style := s.Normal
 				if i == m.dllVersionCursor {
 					cursor = "> "
-					style = selectedStyle
+					style = s.Selected
 				}
 				label := v.Version
 				if i == 0 {
@@ -445,10 +448,10 @@ func (m ContentModel) renderDLLInstallDialog() string {
 		}
 
 	case DLLInstallDownloading:
-		b.WriteString(dimStyle.Render("Installing DLL..."))
+		b.WriteString(s.Dim.Render("Installing DLL..."))
 	}
 
-	if hint := RenderHint("\n\n↑/↓ select • enter confirm • esc cancel"); hint != "" {
+	if hint := s.RenderHint("\n\n↑/↓ select • enter confirm • esc cancel"); hint != "" {
 		b.WriteString(hint)
 	}
 
@@ -458,7 +461,7 @@ func (m ContentModel) renderDLLInstallDialog() string {
 func (m ContentModel) renderGameInfo() string {
 	var b strings.Builder
 
-	b.WriteString(titleStyle.Render(m.game.Name))
+	b.WriteString(m.styles.Title.Render(m.game.Name))
 	b.WriteString("\n\n")
 
 	lines := 2 // title + blank line
@@ -482,17 +485,17 @@ func (m ContentModel) renderGameInfo() string {
 }
 
 func (m ContentModel) renderDLLs() string {
+	s := m.styles
 	var b strings.Builder
 
-	t := GetTheme()
-	sectionStyle := titleStyle.Foreground(t.Secondary)
+	sectionStyle := s.Title.Foreground(s.Theme.Secondary)
 
 	b.WriteString(sectionStyle.Render("DLL versions"))
 	b.WriteString("\n")
 	lines := 1 // section title
 
 	if len(m.game.DLLs) == 0 {
-		b.WriteString(dimStyle.Render("  No DLLs detected"))
+		b.WriteString(s.Dim.Render("  No DLLs detected"))
 		b.WriteString("\n")
 		lines++
 	} else {
@@ -512,7 +515,7 @@ func (m ContentModel) renderDLLs() string {
 		// Header row
 		b.WriteString("  ")
 		for _, col := range dllDisplayColumns {
-			b.WriteString(dimStyle.Render(fmt.Sprintf("%-*s", columnWidth, col.columnName)))
+			b.WriteString(s.Dim.Render(fmt.Sprintf("%-*s", columnWidth, col.columnName)))
 		}
 		b.WriteString("\n")
 		lines++
@@ -524,16 +527,16 @@ func (m ContentModel) renderDLLs() string {
 			if version == "" {
 				version = "-"
 			}
-			b.WriteString(dlssStyle.Render(fmt.Sprintf("%-*s", columnWidth, version)))
+			b.WriteString(s.DLSS.Render(fmt.Sprintf("%-*s", columnWidth, version)))
 		}
 		b.WriteString("\n")
 		lines++
 
 		if m.dllOperating {
-			b.WriteString(warningStyle.Render("  ⟳ " + m.dllOperatingLabel))
+			b.WriteString(s.Warning.Render("  ⟳ " + m.dllOperatingLabel))
 			b.WriteString("\n")
 			lines++
-		} else if ShowHints() {
+		} else if s.ShowHints {
 			var actions []string
 			if m.hasUpdates {
 				actions = append(actions, "u:update")
@@ -546,7 +549,7 @@ func (m ContentModel) renderDLLs() string {
 			}
 
 			if len(actions) > 0 {
-				b.WriteString(RenderHint("  " + strings.Join(actions, " • ")))
+				b.WriteString(s.RenderHint("  " + strings.Join(actions, " • ")))
 				b.WriteString("\n")
 				lines++
 			}
@@ -565,7 +568,7 @@ func (m ContentModel) renderDLLs() string {
 func (m ContentModel) renderProfile() string {
 	var b strings.Builder
 	if m.usingDefaultProfile {
-		b.WriteString(dimStyle.Render("Using default profile values"))
+		b.WriteString(m.styles.Dim.Render("Using default profile values"))
 		b.WriteString("\n")
 	}
 	m.profileWidget.SetSize(m.width, m.profileHeight)

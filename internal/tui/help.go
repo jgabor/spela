@@ -17,13 +17,15 @@ type HelpBinding struct {
 }
 
 type HelpModel struct {
+	styles   *Styles
 	sections []HelpSection
 	width    int
 	height   int
 }
 
-func NewHelp() HelpModel {
+func NewHelp(styles *Styles) HelpModel {
 	return HelpModel{
+		styles: styles,
 		sections: []HelpSection{
 			{
 				Title: "Navigation",
@@ -100,19 +102,20 @@ func (m HelpModel) Update(msg tea.Msg) (HelpModel, tea.Cmd) {
 }
 
 func (m HelpModel) View() string {
-	t := GetTheme()
+	s := m.styles
+	t := s.Theme
 
-	helpTitleStyle := titleStyle.Foreground(t.Primary).MarginBottom(1)
+	helpTitleStyle := s.Title.Foreground(t.Primary).MarginBottom(1)
 
-	sectionStyle := normalStyle.
+	sectionStyle := s.Normal.
 		Foreground(t.Secondary).
 		Bold(true)
 
-	keyStyle := normalStyle.
+	keyStyle := s.Normal.
 		Foreground(t.Accent).
 		Width(10)
 
-	descStyle := normalStyle.
+	descStyle := s.Normal.
 		Foreground(t.Text)
 
 	var b strings.Builder
@@ -137,13 +140,13 @@ func (m HelpModel) View() string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(dimStyle.Render("Press ? or Esc to close"))
+	b.WriteString(s.Dim.Render("Press ? or Esc to close"))
 
 	return b.String()
 }
 
-func ContextHelp(focus Focus, searchFocused, selectMode, hasGameSelection bool) string {
-	if !ShowHints() {
+func ContextHelp(focus Focus, searchFocused, selectMode, hasGameSelection bool, showHints bool) string {
+	if !showHints {
 		return "?:help • q:quit"
 	}
 
