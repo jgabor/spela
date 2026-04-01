@@ -48,6 +48,14 @@
 **Discovered**: Domain isolation via `CollectFunc` callback keeps overlay package free of gpu/cpu imports while still allowing the caller to compose the full metrics→alerts→IPC pipeline. 4 timing-based tests all stable.
 **Next**: Wire the collector into the launcher (start collector when launching a game with overlay enabled, stop on exit), or pivot to a different vision direction (parity feature like Smooth Motion profile support)
 
+## Cycle 15 — 2026-04-01 16:30
+
+**What**: Replaced profile widget 54-case switch with field registry — 33 apply closures inline with field definitions
+**Commit**: b455621 refactor(tui): replace profile widget 54-case switch with field registry
+**Inspiration**: None — standard declarative registry pattern
+**Discovered**: Plan complete. All 8 foundation hardening tasks done. PLAN.md archived.
+**Next**: Vision-driven work — overlay CLI commands, Vulkan layer PoC, or remaining HEALTH.md warnings
+
 ## Cycle 14 — 2026-04-01 16:10
 
 **What**: Added 11 launcher tests — cleanup order, signal forwarding, overlay IPC lifecycle, wrapper parsing, game detection
