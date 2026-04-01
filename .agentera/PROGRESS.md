@@ -48,6 +48,14 @@
 **Discovered**: Domain isolation via `CollectFunc` callback keeps overlay package free of gpu/cpu imports while still allowing the caller to compose the full metrics→alerts→IPC pipeline. 4 timing-based tests all stable.
 **Next**: Wire the collector into the launcher (start collector when launching a game with overlay enabled, stop on exit), or pivot to a different vision direction (parity feature like Smooth Motion profile support)
 
+## Cycle 9 — 2026-04-01 14:50
+
+**What**: Consolidated launch orchestration into Launcher.Prepare() — single entry point for all interfaces with overlay IPC lifecycle
+**Commit**: f5eda95 refactor(launcher): consolidate launch orchestration into Prepare()
+**Inspiration**: None — structural refactoring applying existing patterns
+**Discovered**: Overlay now works for GUI/TUI launches too (previously CLI-only). Net -90 lines of duplicated code.
+**Next**: Task 3 (logging) or Tasks 4-6 (TUI styles, config/CPU tests)
+
 ## Cycle 8 — 2026-04-01 14:35
 
 **What**: Fixed GUI and TUI launch paths to register cleanup closures — RestorePoint + p.Apply() cleanups now mirror CLI pattern

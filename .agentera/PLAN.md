@@ -45,7 +45,7 @@ Two-phase launch fix: first register cleanup closures in both GUI and TUI (immed
 ### Task 2: Consolidate launch orchestration
 
 **Depends on**: Task 1
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN launch orchestration WHEN examining the launcher package THEN a single entry point serves all interfaces
 ▸ GIVEN a game launch WHEN overlay is enabled THEN IPC lifecycle works identically across CLI, TUI, and GUI

@@ -7,9 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Consolidate launch orchestration into single entry point for CLI, GUI, and TUI
+
 ### Fixed
 
 - Restore GPU clocks, CPU governor, and environment variables on game exit when launched from GUI or TUI
+- Overlay collector now starts for GUI and TUI launches (previously CLI-only)
 
 ## [0.2.1] - 2026-03-13
 
