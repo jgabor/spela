@@ -234,6 +234,98 @@ func (m HeaderModel) View() string {
 	return headerStyle.Render(content)
 }
 
+// ViewCompact renders a condensed 2-line header with metrics only (no logo).
+func (m HeaderModel) ViewCompact() string {
+	t := m.styles.Theme
+	labelStyle := lipgloss.NewStyle().Foreground(t.TextDim)
+	valueStyle := lipgloss.NewStyle().Foreground(t.Text)
+
+	var lines []string
+
+	// Line 1: GPU temp util power | CPU util freq
+	var line1 strings.Builder
+	if m.gpuMetrics != nil {
+		g := m.gpuMetrics
+		tempStyle := m.alertStyleFor(overlay.AlertThermalThrottle, valueStyle)
+		powerStyle := m.alertStyleFor(overlay.AlertPowerLimit, valueStyle)
+
+		line1.WriteString(labelStyle.Render("GPU "))
+		line1.WriteString(tempStyle.Render(fmt.Sprintf("%d\u00b0C", g.Temperature)))
+		line1.WriteString(valueStyle.Render(fmt.Sprintf(" %d%% ", g.Utilization)))
+		line1.WriteString(powerStyle.Render(fmt.Sprintf("%.0fW", g.PowerDraw)))
+	} else {
+		line1.WriteString(labelStyle.Render("GPU ") + valueStyle.Render("N/A"))
+	}
+	line1.WriteString("  ")
+	if m.cpuMetrics != nil {
+		c := m.cpuMetrics
+		line1.WriteString(labelStyle.Render("CPU "))
+		line1.WriteString(valueStyle.Render(fmt.Sprintf("%.0f%% %dMHz", c.Utilization, c.AverageFrequency)))
+	} else {
+		line1.WriteString(labelStyle.Render("CPU ") + valueStyle.Render("N/A"))
+	}
+	lines = append(lines, line1.String())
+
+	// Line 2: VRAM used/total | RAM used/total | alerts
+	var line2 strings.Builder
+	if m.gpuMetrics != nil {
+		g := m.gpuMetrics
+		vramUsed := float64(g.MemoryUsed) / 1024.0
+		vramTotal := float64(g.MemoryTotal) / 1024.0
+		line2.WriteString(labelStyle.Render("VRAM "))
+		line2.WriteString(valueStyle.Render(fmt.Sprintf("%.1f/%.1fG", vramUsed, vramTotal)))
+	}
+	line2.WriteString("  ")
+	if m.cpuMetrics != nil {
+		c := m.cpuMetrics
+		ramUsed := float64(c.RAMUsedMB) / 1024.0
+		ramTotal := float64(c.RAMTotalMB) / 1024.0
+		line2.WriteString(labelStyle.Render("RAM "))
+		line2.WriteString(valueStyle.Render(fmt.Sprintf("%.1f/%.1fG", ramUsed, ramTotal)))
+	}
+	if highest := highestSeverityAlert(m.alerts); highest != nil {
+		var icon string
+		var alertStyle lipgloss.Style
+		switch highest.Severity {
+		case overlay.AlertCritical:
+			icon = "\u2717"
+			alertStyle = lipgloss.NewStyle().Foreground(t.Error)
+		case overlay.AlertWarning:
+			icon = "\u26a0"
+			alertStyle = lipgloss.NewStyle().Foreground(t.Warning)
+		}
+		if icon != "" {
+			line2.WriteString("  " + alertStyle.Render(icon+" "+alertLabel(highest)))
+		}
+	}
+	lines = append(lines, line2.String())
+
+	content := strings.Join(lines, "\n")
+
+	headerStyle := lipgloss.NewStyle().
+		Width(m.width).
+		Padding(0, 1).
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderBottom(true).
+		BorderForeground(t.Border)
+
+	return headerStyle.Render(content)
+}
+
+// alertStyleFor returns a styled variant if any alert of the given type exists, else the fallback.
+func (m HeaderModel) alertStyleFor(alertType overlay.AlertType, fallback lipgloss.Style) lipgloss.Style {
+	t := m.styles.Theme
+	for _, a := range m.alerts {
+		if a.Type == alertType {
+			if a.Severity == overlay.AlertCritical {
+				return lipgloss.NewStyle().Foreground(t.Error)
+			}
+			return lipgloss.NewStyle().Foreground(t.Warning)
+		}
+	}
+	return fallback
+}
+
 func (m HeaderModel) GPUMetrics() *gpu.GPUMetrics { return m.gpuMetrics }
 func (m HeaderModel) CPUMetrics() *cpu.CPUMetrics { return m.cpuMetrics }
 
