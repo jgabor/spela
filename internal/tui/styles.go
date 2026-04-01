@@ -14,6 +14,7 @@ type Theme struct {
 	Accent      color.Color
 	Text        color.Color
 	TextDim     color.Color
+	TextMuted   color.Color
 	Background  color.Color
 	Border      color.Color
 	BorderFocus color.Color
@@ -24,6 +25,14 @@ type Theme struct {
 
 	SelectionFg color.Color
 	SelectionBg color.Color
+
+	// Thermal gradient stops (cool → hot → throttle).
+	ThermalCold     color.Color
+	ThermalCool     color.Color
+	ThermalWarm     color.Color
+	ThermalHot      color.Color
+	ThermalCritical color.Color
+	ThermalThrottle color.Color
 }
 
 // Spela color palette (from logo)
@@ -44,6 +53,7 @@ var DefaultTheme = Theme{
 	Accent:      lipgloss.Color("212"), // Pink Carnation
 	Text:        lipgloss.Color("255"), // Ghost White
 	TextDim:     lipgloss.Color("145"), // Light purple
+	TextMuted:   lipgloss.Color("240"), // Dark gray
 	Background:  lipgloss.Color("16"),  // Midnight Black
 	Border:      lipgloss.Color("91"),  // Velvet Orchid
 	BorderFocus: lipgloss.Color("133"), // Amethyst
@@ -54,6 +64,13 @@ var DefaultTheme = Theme{
 
 	SelectionFg: lipgloss.Color("255"), // Ghost White
 	SelectionBg: lipgloss.Color("53"),  // Dark Amethyst
+
+	ThermalCold:     lipgloss.Color("39"),  // Deep sky blue
+	ThermalCool:     lipgloss.Color("50"),  // Cyan
+	ThermalWarm:     lipgloss.Color("226"), // Yellow
+	ThermalHot:      lipgloss.Color("208"), // Orange
+	ThermalCritical: lipgloss.Color("196"), // Red
+	ThermalThrottle: lipgloss.Color("201"), // Magenta
 }
 
 // DarkTheme uses deeper blacks and adjusted contrast for OLED/dark environments.
@@ -65,6 +82,7 @@ var DarkTheme = Theme{
 	Accent:      lipgloss.Color("212"), // Pink Carnation
 	Text:        lipgloss.Color("253"), // Near-white
 	TextDim:     lipgloss.Color("240"), // Medium gray
+	TextMuted:   lipgloss.Color("237"), // Darker gray
 	Background:  lipgloss.Color("232"), // Deep charcoal (not quite black)
 	Border:      lipgloss.Color("55"),  // Deep violet
 	BorderFocus: lipgloss.Color("99"),  // Slate blue
@@ -75,6 +93,13 @@ var DarkTheme = Theme{
 
 	SelectionFg: lipgloss.Color("255"), // Ghost White
 	SelectionBg: lipgloss.Color("17"),  // Darkest blue
+
+	ThermalCold:     lipgloss.Color("33"),  // Blue
+	ThermalCool:     lipgloss.Color("44"),  // Dark cyan
+	ThermalWarm:     lipgloss.Color("220"), // Gold
+	ThermalHot:      lipgloss.Color("202"), // Dark orange
+	ThermalCritical: lipgloss.Color("160"), // Dark red
+	ThermalThrottle: lipgloss.Color("163"), // Dark magenta
 }
 
 // LightTheme uses light backgrounds with dark text for bright environments.
@@ -86,6 +111,7 @@ var LightTheme = Theme{
 	Accent:      lipgloss.Color("162"), // Deep pink
 	Text:        lipgloss.Color("235"), // Near-black
 	TextDim:     lipgloss.Color("243"), // Dark gray
+	TextMuted:   lipgloss.Color("249"), // Light gray
 	Background:  lipgloss.Color("255"), // Ghost White
 	Border:      lipgloss.Color("183"), // Light violet
 	BorderFocus: lipgloss.Color("91"),  // Velvet Orchid
@@ -96,6 +122,13 @@ var LightTheme = Theme{
 
 	SelectionFg: lipgloss.Color("255"), // Ghost White
 	SelectionBg: lipgloss.Color("91"),  // Velvet Orchid
+
+	ThermalCold:     lipgloss.Color("27"),  // Dark blue
+	ThermalCool:     lipgloss.Color("30"),  // Teal
+	ThermalWarm:     lipgloss.Color("178"), // Dark yellow
+	ThermalHot:      lipgloss.Color("166"), // Dark orange
+	ThermalCritical: lipgloss.Color("124"), // Dark red
+	ThermalThrottle: lipgloss.Color("125"), // Dark magenta
 }
 
 // Styles holds the active theme and all derived lipgloss styles.
