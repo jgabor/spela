@@ -49,6 +49,15 @@ var dllDisplayColumns = []struct {
 	{game.DLLTypeFSR, "FSR"},
 }
 
+// PendingAction identifies a destructive operation awaiting confirmation.
+type PendingAction int
+
+const (
+	PendingNone PendingAction = iota
+	PendingDLLUpdate
+	PendingDLLRestore
+)
+
 type ContentModel struct {
 	styles              *Styles
 	game                *game.Game
@@ -57,6 +66,8 @@ type ContentModel struct {
 	profileWidget       ProfileWidgetModel
 	dlssPresetModal     DLSSPresetModalModel
 	activeTab           ContentTab
+	confirmDestructive  bool
+	pendingAction       PendingAction
 	width               int
 	height              int
 	profileHeight       int
@@ -119,10 +130,11 @@ func (m ContentModel) Name() string {
 	return "Details"
 }
 
-func NewContent(styles *Styles) ContentModel {
+func NewContent(styles *Styles, confirmDestructive bool) ContentModel {
 	return ContentModel{
-		styles:          styles,
-		dlssPresetModal: NewDLSSPresetModal(styles),
+		styles:             styles,
+		confirmDestructive: confirmDestructive,
+		dlssPresetModal:    NewDLSSPresetModal(styles),
 	}
 }
 
@@ -206,6 +218,31 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		return m.updateDLLInstall(msg)
 	}
 
+	// Handle pending confirmation for destructive operations.
+	if m.pendingAction != PendingNone {
+		if msg, ok := msg.(tea.KeyPressMsg); ok {
+			switch msg.String() {
+			case "y", "Y":
+				action := m.pendingAction
+				m.pendingAction = PendingNone
+				switch action {
+				case PendingDLLUpdate:
+					m.dllOperating = true
+					m.dllOperatingLabel = "Updating DLLs..."
+					return m, m.updateDLLs()
+				case PendingDLLRestore:
+					m.dllOperating = true
+					m.dllOperatingLabel = "Restoring DLLs..."
+					return m, m.restoreDLLs()
+				}
+			default:
+				// Any other key cancels.
+				m.pendingAction = PendingNone
+			}
+			return m, nil
+		}
+	}
+
 	switch msg := msg.(type) {
 	case openDLSSPresetModalMsg:
 		m.dlssPresetModal.SetSize(m.width, m.height)
@@ -251,12 +288,20 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			}
 		case "u":
 			if m.game != nil && len(m.game.DLLs) > 0 && m.hasUpdates && !m.dllOperating {
+				if m.confirmDestructive {
+					m.pendingAction = PendingDLLUpdate
+					return m, nil
+				}
 				m.dllOperating = true
 				m.dllOperatingLabel = "Updating DLLs..."
 				return m, m.updateDLLs()
 			}
 		case "R":
 			if m.game != nil && m.hasBackup && !m.dllOperating {
+				if m.confirmDestructive {
+					m.pendingAction = PendingDLLRestore
+					return m, nil
+				}
 				m.dllOperating = true
 				m.dllOperatingLabel = "Restoring DLLs..."
 				return m, m.restoreDLLs()
@@ -387,7 +432,7 @@ func (m ContentModel) restoreDLLs() tea.Cmd {
 }
 
 func (m ContentModel) HasModalOpen() bool {
-	return m.dlssPresetModal.Visible() || m.dllInstallState != DLLInstallNone || m.profileWidget.Editing()
+	return m.dlssPresetModal.Visible() || m.dllInstallState != DLLInstallNone || m.profileWidget.Editing() || m.pendingAction != PendingNone
 }
 
 func (m ContentModel) HasGameSelection() bool {
@@ -575,7 +620,17 @@ func (m ContentModel) renderDLLs() string {
 		}
 		b.WriteString("\n")
 
-		if m.dllOperating {
+		if m.pendingAction != PendingNone {
+			var prompt string
+			switch m.pendingAction {
+			case PendingDLLUpdate:
+				prompt = "Update DLLs? [Y]es / any key to cancel"
+			case PendingDLLRestore:
+				prompt = "Restore original DLLs? [Y]es / any key to cancel"
+			}
+			b.WriteString(s.Warning.Render("  " + prompt))
+			b.WriteString("\n")
+		} else if m.dllOperating {
 			b.WriteString(s.Warning.Render("  ⟳ " + m.dllOperatingLabel))
 			b.WriteString("\n")
 		} else if s.ShowHints {

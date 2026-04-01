@@ -1,9 +1,17 @@
 # Progress
 
+## Cycle 28 — 2026-04-01 23:00
+
+**What**: Confirmation dialogs for destructive DLL operations — "Update DLLs? [Y]es / any key to cancel" prompt respects config.ConfirmDestructive flag (default: true)
+**Commit**: TBD feat(tui): add confirmation prompts for destructive DLL operations
+**Inspiration**: lazygit confirmation pattern, DESIGN.md confirmation-dialog spec
+**Discovered**: Config already had ConfirmDestructive=true by default and a TUI toggle in options — the flag just wasn't checked. PendingAction enum keeps the state machine simple.
+**Next**: Color flash animation (done), confirmation dialogs (done). Remaining deferred: mouse zones, huh forms, glamour help.
+
 ## Cycle 27 — 2026-04-01 22:30
 
 **What**: Added 300ms color flash animation on message bar — success operations flash green, errors flash red, then fade. Every SetMessage caller gets it for free.
-**Commit**: TBD feat(tui): add color flash animation on message bar for operation feedback
+**Commit**: 9997926 feat(tui): add color flash animation on message bar for operation feedback
 **Inspiration**: lazygit toast flash pattern, k9s flash notifications with severity coloring
 **Discovered**: Only 2 files needed changes (messagebar.go + layout.go flashTickMsg routing). Flash phases via tea.Tick chain (100ms/phase x 3 phases = 300ms). Zero new deps.
 **Next**: Confirmation dialogs for destructive operations, or start on deferred items (huh forms, glamour help).

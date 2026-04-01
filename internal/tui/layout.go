@@ -78,7 +78,7 @@ func NewLayout(db *game.Database) LayoutModel {
 		styles:         styles,
 		header:         NewHeader(styles),
 		sidebar:        sidebar,
-		stack:          NewNavStack(newContentEntry(NewContent(styles))),
+		stack:          NewNavStack(newContentEntry(NewContent(styles, cfg.ConfirmDestructive))),
 		statusBar:      NewStatusBar(styles),
 		messageBar:     NewMessageBar(styles),
 		help:           NewHelp(styles),
@@ -524,7 +524,7 @@ func (m LayoutModel) contentModel() *ContentModel {
 
 // contentEntryForGame creates a new content entry configured for the given game.
 func (m *LayoutModel) contentEntryForGame(g *game.Game) *contentEntry {
-	content := NewContent(m.styles)
+	content := NewContent(m.styles, m.config.ConfirmDestructive)
 	content = content.SetGame(g)
 	content.SetSize(m.contentWidth(), m.contentHeight())
 	return newContentEntry(content)
@@ -532,7 +532,7 @@ func (m *LayoutModel) contentEntryForGame(g *game.Game) *contentEntry {
 
 // contentEntryForDefaultProfile creates a new content entry configured for the default profile.
 func (m *LayoutModel) contentEntryForDefaultProfile() *contentEntry {
-	content := NewContent(m.styles)
+	content := NewContent(m.styles, m.config.ConfirmDestructive)
 	content = content.SetDefaultProfile()
 	content.SetSize(m.contentWidth(), m.contentHeight())
 	return newContentEntry(content)

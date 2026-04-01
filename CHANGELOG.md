@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Confirmation prompts for destructive DLL operations (update/restore) when confirm_destructive is enabled
 - Color flash animation on message bar — 300ms green/red pulse for operation feedback
 - Information density modes — standard, compact (F5), and focused (F11) with condensed header
 - Compositor-based modal overlays with z-indexed cascading stack
