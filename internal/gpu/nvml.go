@@ -170,7 +170,31 @@ func getInfoNVML() (map[string]string, error) {
 	}
 
 	if power, ret := nvmlDevice.GetPowerUsage(); ret == nvml.SUCCESS {
-		info["power"] = fmt.Sprintf("%.1f W", float64(power)/1000.0)
+		info["power_draw"] = fmt.Sprintf("%.1f W", float64(power)/1000.0)
+	}
+
+	if limit, ret := nvmlDevice.GetPowerManagementLimit(); ret == nvml.SUCCESS {
+		info["power_limit"] = fmt.Sprintf("%d W", limit/1000)
+	}
+
+	if minLimit, maxLimit, ret := nvmlDevice.GetPowerManagementLimitConstraints(); ret == nvml.SUCCESS {
+		info["power_range"] = fmt.Sprintf("%d–%d W", minLimit/1000, maxLimit/1000)
+	}
+
+	if clock, ret := nvmlDevice.GetClockInfo(nvml.CLOCK_GRAPHICS); ret == nvml.SUCCESS {
+		info["graphics_clock"] = fmt.Sprintf("%d MHz", clock)
+	}
+
+	if clock, ret := nvmlDevice.GetClockInfo(nvml.CLOCK_MEM); ret == nvml.SUCCESS {
+		info["memory_clock"] = fmt.Sprintf("%d MHz", clock)
+	}
+
+	if fan, ret := nvmlDevice.GetFanSpeed(); ret == nvml.SUCCESS {
+		info["fan_speed"] = fmt.Sprintf("%d%%", fan)
+	}
+
+	if util, ret := nvmlDevice.GetUtilizationRates(); ret == nvml.SUCCESS {
+		info["utilization"] = fmt.Sprintf("%d%%", util.Gpu)
 	}
 
 	return info, nil

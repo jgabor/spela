@@ -42,7 +42,34 @@ func runGPUInfo(cmd *cobra.Command, args []string) error {
 	fmt.Printf("%s  %s\n", tui.CLIDim("Driver:"), info["driver"])
 	fmt.Printf("%s  %s\n", tui.CLIDim("VRAM:"), tui.CLIAccent(info["memory"]))
 	fmt.Printf("%s  %s\n", tui.CLIDim("Temp:"), tui.CLIAccent(info["temperature"]))
-	fmt.Printf("%s  %s\n", tui.CLIDim("Power:"), tui.CLIAccent(info["power"]))
+
+	// Power section — enhanced with NVML data when available
+	if draw := info["power_draw"]; draw != "" {
+		fmt.Printf("%s  %s", tui.CLIDim("Power:"), tui.CLIAccent(draw))
+		if limit := info["power_limit"]; limit != "" {
+			fmt.Printf(" / %s limit", limit)
+		}
+		if r := info["power_range"]; r != "" {
+			fmt.Printf(" (%s range)", r)
+		}
+		fmt.Println()
+	} else if p := info["power"]; p != "" {
+		// nvidia-smi fallback
+		fmt.Printf("%s  %s\n", tui.CLIDim("Power:"), tui.CLIAccent(p))
+	}
+
+	if clock := info["graphics_clock"]; clock != "" {
+		fmt.Printf("%s  %s\n", tui.CLIDim("Core:"), tui.CLIAccent(clock))
+	}
+	if clock := info["memory_clock"]; clock != "" {
+		fmt.Printf("%s  %s\n", tui.CLIDim("Mem:"), tui.CLIAccent(clock))
+	}
+	if fan := info["fan_speed"]; fan != "" {
+		fmt.Printf("%s  %s\n", tui.CLIDim("Fan:"), tui.CLIAccent(fan))
+	}
+	if util := info["utilization"]; util != "" {
+		fmt.Printf("%s  %s\n", tui.CLIDim("Load:"), tui.CLIAccent(util))
+	}
 
 	return nil
 }
