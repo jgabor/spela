@@ -9,21 +9,50 @@ import (
 type Theme struct {
 	Name string
 
-	Primary     color.Color
-	Secondary   color.Color
-	Accent      color.Color
-	Text        color.Color
-	TextDim     color.Color
-	Background  color.Color
+	// Brand colors — identical across all themes.
+	Primary   color.Color
+	Secondary color.Color
+	Accent    color.Color
+
+	// Surface palette — background layers.
+	SurfaceBase      color.Color
+	SurfaceRaised    color.Color
+	SurfaceOverlay   color.Color
+	SurfaceHighlight color.Color
+
+	// Text palette — progressive dimming.
+	TextPrimary color.Color // high-contrast body text (alias: Text)
+	TextDim     color.Color // hints, timestamps — dimmer than old TextDim
+	TextMuted   color.Color // decorative borders, disabled elements
+
+	// Legacy aliases — kept during transition.
+	Text       color.Color // alias for TextPrimary
+	Background color.Color // alias for SurfaceBase
+
+	// Semantic colors.
 	Border      color.Color
 	BorderFocus color.Color
-
-	Success color.Color
-	Error   color.Color
-	Warning color.Color
+	Success     color.Color
+	Error       color.Color
+	Warning     color.Color
 
 	SelectionFg color.Color
 	SelectionBg color.Color
+
+	// Thermal gradient — six stops for temperature/load visualisation.
+	ThermalCold     color.Color // idle, below 30%
+	ThermalCool     color.Color // light load, 30-45%
+	ThermalWarm     color.Color // normal, 45-65%
+	ThermalHot      color.Color // elevated, 65-80%
+	ThermalCritical color.Color // high, 80-90%
+	ThermalThrottle color.Color // danger, 90%+
+
+	// Metric-specific tokens.
+	MetricGPUClock   color.Color
+	MetricCPUFreq    color.Color
+	MetricDLLCurrent color.Color
+	MetricDLLUpdate  color.Color
+	MetricDLLMissing color.Color
 }
 
 // Spela color palette (from logo)
@@ -39,63 +68,129 @@ type Theme struct {
 var DefaultTheme = Theme{
 	Name: "default",
 
-	Primary:     lipgloss.Color("133"), // Amethyst
-	Secondary:   lipgloss.Color("69"),  // Royal Blue
-	Accent:      lipgloss.Color("212"), // Pink Carnation
-	Text:        lipgloss.Color("255"), // Ghost White
-	TextDim:     lipgloss.Color("145"), // Light purple
-	Background:  lipgloss.Color("16"),  // Midnight Black
+	Primary:   lipgloss.Color("133"), // Amethyst
+	Secondary: lipgloss.Color("69"),  // Royal Blue
+	Accent:    lipgloss.Color("212"), // Pink Carnation
+
+	SurfaceBase:      lipgloss.Color("16"),  // Midnight Black
+	SurfaceRaised:    lipgloss.Color("234"), // Slightly lighter than base
+	SurfaceOverlay:   lipgloss.Color("236"), // Modal/overlay background
+	SurfaceHighlight: lipgloss.Color("238"), // Hover/active row
+
+	TextPrimary: lipgloss.Color("255"), // Ghost White
+	TextDim:     lipgloss.Color("245"), // Hints, timestamps
+	TextMuted:   lipgloss.Color("240"), // Decorative borders, disabled
+
+	Text:       lipgloss.Color("255"), // alias: TextPrimary
+	Background: lipgloss.Color("16"),  // alias: SurfaceBase
+
 	Border:      lipgloss.Color("91"),  // Velvet Orchid
 	BorderFocus: lipgloss.Color("133"), // Amethyst
-
-	Success: lipgloss.Color("114"),
-	Error:   lipgloss.Color("203"),
-	Warning: lipgloss.Color("215"),
+	Success:     lipgloss.Color("114"),
+	Error:       lipgloss.Color("203"),
+	Warning:     lipgloss.Color("215"),
 
 	SelectionFg: lipgloss.Color("255"), // Ghost White
 	SelectionBg: lipgloss.Color("53"),  // Dark Amethyst
+
+	ThermalCold:     lipgloss.Color("69"),  // #5F87FF
+	ThermalCool:     lipgloss.Color("75"),  // #5FAFFF
+	ThermalWarm:     lipgloss.Color("114"), // #87D787
+	ThermalHot:      lipgloss.Color("221"), // #FFD75F
+	ThermalCritical: lipgloss.Color("209"), // #FF875F
+	ThermalThrottle: lipgloss.Color("203"), // #FF5F5F
+
+	MetricGPUClock:   lipgloss.Color("75"),  // same as ThermalCool
+	MetricCPUFreq:    lipgloss.Color("141"), // #AF87FF
+	MetricDLLCurrent: lipgloss.Color("69"),  // brand secondary
+	MetricDLLUpdate:  lipgloss.Color("221"), // thermal hot
+	MetricDLLMissing: lipgloss.Color("245"), // text dim
 }
 
 // DarkTheme uses deeper blacks and adjusted contrast for OLED/dark environments.
 var DarkTheme = Theme{
 	Name: "dark",
 
-	Primary:     lipgloss.Color("133"), // Amethyst
-	Secondary:   lipgloss.Color("69"),  // Royal Blue
-	Accent:      lipgloss.Color("212"), // Pink Carnation
-	Text:        lipgloss.Color("253"), // Near-white
-	TextDim:     lipgloss.Color("240"), // Medium gray
-	Background:  lipgloss.Color("232"), // Deep charcoal (not quite black)
-	Border:      lipgloss.Color("55"),  // Deep violet
-	BorderFocus: lipgloss.Color("99"),  // Slate blue
+	Primary:   lipgloss.Color("133"), // Amethyst
+	Secondary: lipgloss.Color("69"),  // Royal Blue
+	Accent:    lipgloss.Color("212"), // Pink Carnation
 
-	Success: lipgloss.Color("71"),
-	Error:   lipgloss.Color("160"),
-	Warning: lipgloss.Color("172"),
+	SurfaceBase:      lipgloss.Color("232"), // Deep charcoal
+	SurfaceRaised:    lipgloss.Color("233"), // Slightly lighter
+	SurfaceOverlay:   lipgloss.Color("235"), // Modal/overlay
+	SurfaceHighlight: lipgloss.Color("237"), // Active row
+
+	TextPrimary: lipgloss.Color("253"), // Near-white
+	TextDim:     lipgloss.Color("243"), // Hints, timestamps
+	TextMuted:   lipgloss.Color("238"), // Decorative borders, disabled
+
+	Text:       lipgloss.Color("253"), // alias: TextPrimary
+	Background: lipgloss.Color("232"), // alias: SurfaceBase
+
+	Border:      lipgloss.Color("55"), // Deep violet
+	BorderFocus: lipgloss.Color("99"), // Slate blue
+	Success:     lipgloss.Color("71"),
+	Error:       lipgloss.Color("160"),
+	Warning:     lipgloss.Color("172"),
 
 	SelectionFg: lipgloss.Color("255"), // Ghost White
 	SelectionBg: lipgloss.Color("17"),  // Darkest blue
+
+	ThermalCold:     lipgloss.Color("69"),  // #5F87FF
+	ThermalCool:     lipgloss.Color("75"),  // #5FAFFF
+	ThermalWarm:     lipgloss.Color("114"), // #87D787
+	ThermalHot:      lipgloss.Color("221"), // #FFD75F
+	ThermalCritical: lipgloss.Color("209"), // #FF875F
+	ThermalThrottle: lipgloss.Color("203"), // #FF5F5F
+
+	MetricGPUClock:   lipgloss.Color("75"),
+	MetricCPUFreq:    lipgloss.Color("141"),
+	MetricDLLCurrent: lipgloss.Color("69"),
+	MetricDLLUpdate:  lipgloss.Color("221"),
+	MetricDLLMissing: lipgloss.Color("243"),
 }
 
 // LightTheme uses light backgrounds with dark text for bright environments.
 var LightTheme = Theme{
 	Name: "light",
 
-	Primary:     lipgloss.Color("91"),  // Velvet Orchid
-	Secondary:   lipgloss.Color("26"),  // Medium blue
-	Accent:      lipgloss.Color("162"), // Deep pink
-	Text:        lipgloss.Color("235"), // Near-black
-	TextDim:     lipgloss.Color("243"), // Dark gray
-	Background:  lipgloss.Color("255"), // Ghost White
+	Primary:   lipgloss.Color("91"),  // Velvet Orchid
+	Secondary: lipgloss.Color("26"),  // Medium blue
+	Accent:    lipgloss.Color("162"), // Deep pink
+
+	SurfaceBase:      lipgloss.Color("255"), // Ghost White
+	SurfaceRaised:    lipgloss.Color("254"), // Slightly dimmer
+	SurfaceOverlay:   lipgloss.Color("253"), // Modal/overlay
+	SurfaceHighlight: lipgloss.Color("252"), // Active row
+
+	TextPrimary: lipgloss.Color("235"), // Near-black
+	TextDim:     lipgloss.Color("243"), // Hints, timestamps
+	TextMuted:   lipgloss.Color("249"), // Decorative borders, disabled
+
+	Text:       lipgloss.Color("235"), // alias: TextPrimary
+	Background: lipgloss.Color("255"), // alias: SurfaceBase
+
 	Border:      lipgloss.Color("183"), // Light violet
 	BorderFocus: lipgloss.Color("91"),  // Velvet Orchid
-
-	Success: lipgloss.Color("28"),
-	Error:   lipgloss.Color("160"),
-	Warning: lipgloss.Color("130"),
+	Success:     lipgloss.Color("28"),
+	Error:       lipgloss.Color("160"),
+	Warning:     lipgloss.Color("130"),
 
 	SelectionFg: lipgloss.Color("255"), // Ghost White
 	SelectionBg: lipgloss.Color("91"),  // Velvet Orchid
+
+	ThermalCold:     lipgloss.Color("26"),  // Darker blue for light bg
+	ThermalCool:     lipgloss.Color("32"),  // Medium blue
+	ThermalWarm:     lipgloss.Color("28"),  // Forest green
+	ThermalHot:      lipgloss.Color("172"), // Orange
+	ThermalCritical: lipgloss.Color("166"), // Dark orange
+	ThermalThrottle: lipgloss.Color("160"), // Red
+
+	MetricGPUClock:   lipgloss.Color("32"),
+	MetricCPUFreq:    lipgloss.Color("91"),
+	MetricDLLCurrent: lipgloss.Color("26"),
+	MetricDLLUpdate:  lipgloss.Color("172"),
+	MetricDLLMissing: lipgloss.Color("243"),
 }
 
 // Styles holds the active theme and all derived lipgloss styles.
@@ -108,6 +203,7 @@ type Styles struct {
 	Selected lipgloss.Style
 	Normal   lipgloss.Style
 	Dim      lipgloss.Style
+	Muted    lipgloss.Style
 	DLSS     lipgloss.Style
 	Error    lipgloss.Style
 	Success  lipgloss.Style
@@ -150,6 +246,9 @@ func (s *Styles) rebuild() {
 
 	s.Dim = lipgloss.NewStyle().
 		Foreground(t.TextDim)
+
+	s.Muted = lipgloss.NewStyle().
+		Foreground(t.TextMuted)
 
 	s.DLSS = lipgloss.NewStyle().
 		Foreground(t.Secondary)

@@ -109,24 +109,12 @@ func (m HeaderModel) View() string {
 	// Build metrics lines
 	var metricsLines []string
 
-	// Line 1: GPU temp, util, power (with alert coloring)
+	// Line 1: GPU temp, util, power (with thermal gradient coloring)
 	if m.gpuMetrics != nil {
 		g := m.gpuMetrics
 
-		tempStyle := valueStyle
-		powerStyle := valueStyle
-		for _, a := range m.alerts {
-			if a.Type == overlay.AlertThermalThrottle {
-				if a.Severity == overlay.AlertCritical {
-					tempStyle = lipgloss.NewStyle().Foreground(t.Error)
-				} else {
-					tempStyle = lipgloss.NewStyle().Foreground(t.Warning)
-				}
-			}
-			if a.Type == overlay.AlertPowerLimit {
-				powerStyle = lipgloss.NewStyle().Foreground(t.Warning)
-			}
-		}
+		tempStyle := ThermalStyle(float64(g.Temperature), 30, 95, &t)
+		powerStyle := ThermalStyle(g.PowerDraw, 0, g.PowerLimit, &t)
 
 		line := labelStyle.Render("GPU: ") +
 			tempStyle.Render(fmt.Sprintf("%d°C", g.Temperature)) +
@@ -134,21 +122,27 @@ func (m HeaderModel) View() string {
 			powerStyle.Render(fmt.Sprintf("%.0fW", g.PowerDraw))
 
 		if g.FanSpeed > 0 {
-			line += valueStyle.Render(fmt.Sprintf(" %d%%fan", g.FanSpeed))
+			fanStyle := ThermalStyle(float64(g.FanSpeed), 0, 100, &t)
+			line += fanStyle.Render(fmt.Sprintf(" %d%%fan", g.FanSpeed))
 		}
 
 		if highest := highestSeverityAlert(m.alerts); highest != nil {
-			var alertStyle lipgloss.Style
 			var icon string
 			switch highest.Severity {
 			case overlay.AlertCritical:
-				alertStyle = lipgloss.NewStyle().Foreground(t.Error)
 				icon = "✗"
 			case overlay.AlertWarning:
-				alertStyle = lipgloss.NewStyle().Foreground(t.Warning)
 				icon = "⚠"
 			}
 			if icon != "" {
+				// Use thermal throttle color for critical, hot for warnings.
+				var alertColor float64
+				if highest.Severity == overlay.AlertCritical {
+					alertColor = 100
+				} else {
+					alertColor = 75
+				}
+				alertStyle := ThermalStyle(alertColor, 0, 100, &t)
 				line += " " + alertStyle.Render(icon+" "+alertLabel(highest))
 			}
 		}
