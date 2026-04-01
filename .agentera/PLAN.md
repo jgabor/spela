@@ -70,7 +70,7 @@ Two-phase launch fix: first register cleanup closures in both GUI and TUI (immed
 ### Task 5: Add config persistence tests
 
 **Depends on**: none
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN a config with all fields set WHEN written and read back THEN all values roundtrip identically
 ▸ GIVEN a missing config file WHEN loaded THEN defaults are returned without error

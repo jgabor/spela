@@ -48,6 +48,14 @@
 **Discovered**: Domain isolation via `CollectFunc` callback keeps overlay package free of gpu/cpu imports while still allowing the caller to compose the full metrics→alerts→IPC pipeline. 4 timing-based tests all stable.
 **Next**: Wire the collector into the launcher (start collector when launching a game with overlay enabled, stop on exit), or pivot to a different vision direction (parity feature like Smooth Motion profile support)
 
+## Cycle 12 — 2026-04-01 15:40
+
+**What**: Added config persistence tests — roundtrip, missing file defaults, malformed YAML error, deep clone
+**Commit**: 8176d77 test(config): add persistence tests for YAML roundtrip, missing file, and malformed input
+**Inspiration**: None — standard Go testing with t.TempDir and t.Setenv for XDG isolation
+**Discovered**: Nothing unexpected — config package is clean and well-structured
+**Next**: Task 6 (CPU tests) or Task 7 (launcher tests)
+
 ## Cycle 11 — 2026-04-01 15:25
 
 **What**: Replaced all TUI global mutable styles with a *Styles struct threaded through 11 model files; CLI helpers made immutable
