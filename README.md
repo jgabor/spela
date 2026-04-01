@@ -1,154 +1,124 @@
-<h1 align="center">
-  Spela
-</h1>
+# Spela
 
-<p align="center">
-  <a href="https://github.com/jgabor/spela/actions/workflows/ci.yml"><img src="https://github.com/jgabor/spela/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.com/jgabor/spela/releases/latest"><img src="https://img.shields.io/github/v/release/jgabor/spela?filter=v*" alt="Latest Release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/jgabor/spela" alt="License"></a>
-</p>
+Linux gaming optimization tool for NVIDIA GPUs. Manages DLSS DLLs, applies per-game
+GPU/CPU profiles, and launches games with the right environment — one tool replacing
+the MangoHud + LACT + DLSS Updater juggle.
 
-<p align="center">
-  <img src="assets/screenshot.png" alt="Spela screenshot" width="800">
-</p>
-
-<p align="center">
-  <a href="#features">Features</a> •
-  <a href="#installation">Installation</a> •
-  <a href="#usage">Usage</a> •
-  <a href="#configuration">Configuration</a>
-</p>
-
----
-
-**Spela** is a Linux gaming optimization tool that combines DLSS/DLL management with comprehensive per-game configuration. It solves the pain of maintaining game-specific settings and manually updating DLSS DLLs.
-
-## Features
-
-### 📦 DLL management
-
-- **Automatic DLSS updates:** Download and swap DLSS/XeSS/FSR DLLs with a single command
-- **Safe backups:** Original DLLs are backed up before any swap
-- **One-click restore:** Revert to original DLLs at any time
-- **Version tracking:** See current vs available DLL versions
-
-### 🎮 Per-game profiles
-
-- **Presets:** Performance, Balanced, and Quality presets out of the box
-- **Full DLSS control:** Configure DLSS-SR, DLSS-RR (Ray Reconstruction), and DLSS-FG (Frame Generation)
-- **Environment variables:** Automatically sets DXVK-NVAPI, Proton, and HDR variables
-- **Auto-restore:** Settings are restored when the game exits
-
-### ⚡ System tuning
-
-- **GPU:** Clock offsets, power limits, shader cache configuration
-- **CPU:** Governor control, SMT toggle, core affinity, SCX scheduler integration
-- **HDR:** Automatic HDR environment setup for Wayland
-
-### 🖥️ Multiple interfaces
-
-- **CLI:** Full-featured command-line interface
-- **TUI:** Interactive terminal UI with real-time monitoring
-- **GUI:** Native desktop application (Wails + Svelte)
-
-## Installation
-
-### Binary download
-
-Download the latest release from [GitHub Releases](https://github.com/jgabor/spela/releases/latest):
-
-```bash
-curl -L https://github.com/jgabor/spela/releases/latest/download/spela-linux-amd64 -o spela
-chmod +x spela
-sudo mv spela /usr/local/bin/
-```
+## Install
 
 ### AUR (Arch Linux)
 
 ```bash
-yay -S spela
+paru -S spela        # stable
+paru -S spela-git    # development
 ```
 
-### Go install
+### Build from source
 
-```bash
-go install github.com/jgabor/spela/cmd/spela@latest
-```
-
-### From source
-
-Requires Go 1.22+, bun, and mage:
+Requires Go 1.25+, Bun (for GUI frontend), NVIDIA driver, polkit.
 
 ```bash
 git clone https://github.com/jgabor/spela.git
 cd spela
-mage build
-mage install
+mage build     # builds binary with embedded frontend
+mage install   # installs to GOPATH/bin
 ```
 
-### Requirements
+## Quick start
 
-- Steam with Proton
-- **GPU support:**
-  - NVIDIA: fully supported
+### As a Steam launch option (wrapper mode)
 
-_AMD and Intel support planned._
+Set a game's launch options in Steam:
 
-## Usage
+```
+spela %command%
+```
 
-### Scan for games
+Spela detects the game, loads its profile (or the default profile), applies DLSS
+settings, GPU clocks, CPU governor, and environment variables, then launches the game.
+Everything is restored on exit.
+
+### CLI
 
 ```bash
-spela scan
-spela list --with-dlls
+spela scan                          # scan Steam libraries
+spela list                          # list detected games
+spela show 1091500                  # show game details (Cyberpunk 2077)
+spela dll check-updates             # check for newer DLSS DLLs
+spela dll update 1091500            # update DLLs for a game
+spela profile create 1091500        # create a game profile
+spela dlss set 1091500 --sr-mode quality --fg-enabled
+spela launch 1091500                # launch with profile applied
 ```
 
-### Update DLLs
+### TUI / GUI
 
 ```bash
-# Update all DLLs for a game
-spela dll update "Cyberpunk 2077"
-
-# Restore original DLLs
-spela dll restore "Cyberpunk 2077"
+spela tui    # interactive terminal UI
+spela gui    # graphical interface (Wails + Svelte)
 ```
 
-### Manage profiles
+## CLI commands
 
-```bash
-# Create a profile from preset
-spela profile create "Cyberpunk 2077" --preset performance
+| Command | Description |
+|---------|-------------|
+| `scan` | Scan Steam libraries for games |
+| `list` | List detected games |
+| `show` | Show game details |
+| `launch` | Launch a game with its profile |
+| `profile` | Manage game profiles (list, create, show, delete) |
+| `config` | Manage global configuration (show, set) |
+| `dll` | Manage game DLLs (list, check-updates, update, restore) |
+| `dlss` | Configure DLSS settings (show, set) |
+| `gpu` | GPU tuning and information (info, reset) |
+| `cpu` | CPU tuning and information (info, governor, smt) |
+| `tui` | Launch interactive TUI |
+| `gui` | Launch graphical interface |
+| `denylist` | Manage the DLL swap deny list (show, check, allow, deny) |
 
-# Edit profile settings
-spela profile edit "Cyberpunk 2077"
+## Profiles
 
-# Apply profile manually
-spela profile apply "Cyberpunk 2077"
+Per-game YAML profiles stored in `~/.config/spela/profiles/`. A profile controls:
+
+```yaml
+name: "Cyberpunk 2077 — Quality"
+
+dlss:
+  sr_mode: quality
+  sr_preset: E
+  fg_enabled: true
+  indicator: false
+
+gpu:
+  shader_cache: true
+  clock_offset: 150
+  memory_offset: 200
+
+cpu:
+  governor: performance
+  smt: true
+
+proton:
+  enable_wayland: true
+  enable_hdr: true
+
+overlay:
+  enabled: true
+  position: top-left
 ```
 
-### Launch games
-
-```bash
-# Launch with profile applied
-spela launch "Cyberpunk 2077"
-
-# Or use as Steam launch option
-# Set launch options to: spela %command%
-```
-
-### Interactive TUI
-
-```bash
-spela tui
-```
+Profiles compose with a default profile (`~/.config/spela/default.yaml`). Game-specific
+settings override defaults. `spela launch` applies the effective profile and restores
+everything on exit.
 
 ## Configuration
 
-Configuration files are stored following XDG Base Directory specification:
+Files follow XDG Base Directory specification:
 
 ```
 ~/.config/spela/
 ├── config.yaml           # Global settings
+├── default.yaml          # Default profile
 └── profiles/
     └── <app-id>.yaml     # Per-game profiles
 
@@ -160,44 +130,15 @@ Configuration files are stored following XDG Base Directory specification:
 └── manifest.json         # DLL version manifest
 ```
 
-### Profile example
+## System requirements
 
-```yaml
-name: Cyberpunk 2077
-preset: performance
-dlss:
-  sr_mode: performance
-  sr_override: true
-  frame_gen: true
-gpu:
-  clock_offset: 100
-  shader_cache: true
-cpu:
-  governor: performance
-  smt: true
-hdr: true
-wayland: true
-```
+- **NVIDIA GPU** with proprietary driver (`nvidia-utils`)
+- **polkit** for privileged operations (GPU clocks, CPU governor)
+- **Steam** with Proton-enabled games
+- **Linux** (Wayland recommended, X11 supported)
 
-## 🔧 Environment variables
+Optional: `ludusavi` for automatic save game backups on launch.
 
-Spela configures these environment variables when launching games:
-
-| Variable                                     | Description                     |
-| -------------------------------------------- | ------------------------------- |
-| `DXVK_NVAPI_DRS_NGX_DLSS_SR_MODE`            | DLSS Super Resolution mode      |
-| `DXVK_NVAPI_DRS_NGX_DLSS_SR_OVERRIDE`        | Force DLSS-SR override          |
-| `DXVK_NVAPI_DRS_NGX_DLSS_FG_OVERRIDE`        | Force Frame Generation override |
-| `DXVK_NVAPI_DRS_NGX_DLSSG_MULTI_FRAME_COUNT` | Multi-frame generation count    |
-| `PROTON_ENABLE_WAYLAND`                      | Enable Wayland support          |
-| `PROTON_ENABLE_HDR`                          | Enable HDR support              |
-| `PROTON_ENABLE_NGX_UPDATER`                  | Use NVIDIA's built-in updater   |
-| `__GL_SHADER_DISK_CACHE_PATH`                | Custom shader cache location    |
-
-## 📄 License
+## License
 
 MIT
-
-## Author
-
-Jonathan Gabor ([@jgabor](https://github.com/jgabor))

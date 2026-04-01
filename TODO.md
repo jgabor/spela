@@ -1,5 +1,11 @@
 # TODO
 
+## ⇶ Critical
+
+- [ ] GUI LaunchGame() bypasses cleanup pipeline — env not initialized, cleanups not collected, hardware state not restored on exit — `internal/gui/app.go:725-748`
+- [ ] Competing logging patterns — `log.Printf` in profile/apply.go and launcher/launcher.go bypasses centralized slog logging package
+- [ ] Global mutable state in TUI styles — `activeTheme`/`showHints` package globals create hidden coupling, untestable — `internal/tui/styles.go:101-116`
+
 ## ⇉ Degraded
 
 - [ ] DLSS-D column missing from GUI DLL display — `internal/gui/frontend/src/lib/GameDetail.svelte:404-416`
