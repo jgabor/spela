@@ -48,6 +48,14 @@
 **Discovered**: Domain isolation via `CollectFunc` callback keeps overlay package free of gpu/cpu imports while still allowing the caller to compose the full metrics→alerts→IPC pipeline. 4 timing-based tests all stable.
 **Next**: Wire the collector into the launcher (start collector when launching a game with overlay enabled, stop on exit), or pivot to a different vision direction (parity feature like Smooth Motion profile support)
 
+## Cycle 16 — 2026-04-01 16:45
+
+**What**: Added proton set/show CLI commands (HDR, Wayland, NGX updater) and completed GPU set flags (shader-cache, threaded-opt)
+**Commit**: 64e0181 feat(cli): add proton profile commands and complete GPU profile flags
+**Inspiration**: None — followed existing dlss/gpu/cpu set command patterns
+**Discovered**: GPU set had a subtle bug: --power-mizer didn't support "default" to clear — fixed while adding flags
+**Next**: Overlay/ludusavi CLI commands, or start on Vulkan overlay layer PoC
+
 ## Cycle 15 — 2026-04-01 16:30
 
 **What**: Replaced profile widget 54-case switch with field registry — 33 apply closures inline with field definitions

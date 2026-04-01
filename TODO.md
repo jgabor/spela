@@ -14,7 +14,7 @@
 
 ## ⇢ Annoying
 
-- [ ] No CLI commands for GPU/CPU/Overlay/Ludusavi profile settings — fields exist but no subcommands (also "coming soon" in TUI)
+- [ ] No CLI commands for overlay/ludusavi profile settings — overlay/backup fields have no CLI subcommands yet
 
 ## Resolved
 

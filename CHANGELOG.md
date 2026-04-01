@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `spela proton set/show` commands for per-game HDR, Wayland, NGX updater settings
+- GPU profile flags: `--shader-cache`, `--shader-cache-path`, `--threaded-opt`
+
 ### Changed
 
 - Consolidate launch orchestration into single entry point for CLI, GUI, and TUI
