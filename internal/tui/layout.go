@@ -455,7 +455,8 @@ func (m LayoutModel) renderMain() string {
 
 	messageBar := m.messageBar.View()
 
-	contextHelp := ContextHelp(m.focus, m.sidebar.search.Focused(), m.sidebar.InSelectMode(), m.content.HasGameSelection(), m.styles.ShowHints)
+	keys := ContextKeys(m.focus, m.sidebar.search.Focused(), m.sidebar.InSelectMode(), &m.content, m.styles.ShowHints)
+	contextHelp := RenderContextBar(keys, m.width/2, &m.styles.Theme)
 	statusBar := m.statusBar.ViewWithHelp(contextHelp)
 
 	return lipgloss.JoinVertical(lipgloss.Left, header, mainArea, messageBar, statusBar)
