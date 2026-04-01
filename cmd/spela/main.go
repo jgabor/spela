@@ -37,6 +37,7 @@ func init() {
 	rootCmd.AddCommand(commands.DLSSCmd)
 	rootCmd.AddCommand(commands.GPUCmd)
 	rootCmd.AddCommand(commands.CPUCmd)
+	rootCmd.AddCommand(commands.ProtonCmd)
 	rootCmd.AddCommand(commands.TUICmd)
 	rootCmd.AddCommand(commands.GUICmd)
 	rootCmd.AddCommand(commands.DenylistCmd)

@@ -14,6 +14,9 @@ var (
 	gpuSetClockOffset  int
 	gpuSetMemoryOffset int
 	gpuSetPowerMizer   string
+	gpuSetShaderCache  string
+	gpuSetCachePath    string
+	gpuSetThreadedOpt  string
 )
 
 var gpuSetCmd = &cobra.Command{
@@ -34,6 +37,9 @@ func init() {
 	gpuSetCmd.Flags().IntVar(&gpuSetClockOffset, "clock-offset", 0, "GPU core clock offset in MHz")
 	gpuSetCmd.Flags().IntVar(&gpuSetMemoryOffset, "memory-offset", 0, "GPU memory clock offset in MHz")
 	gpuSetCmd.Flags().StringVar(&gpuSetPowerMizer, "power-mizer", "", "GPU power mode (adaptive, max)")
+	gpuSetCmd.Flags().StringVar(&gpuSetShaderCache, "shader-cache", "", "Enable shader caching (true/false)")
+	gpuSetCmd.Flags().StringVar(&gpuSetCachePath, "shader-cache-path", "", "Custom shader cache path (use 'default' to clear)")
+	gpuSetCmd.Flags().StringVar(&gpuSetThreadedOpt, "threaded-opt", "", "Enable threaded optimization (true/false)")
 
 	GPUCmd.AddCommand(gpuSetCmd)
 	GPUCmd.AddCommand(gpuShowCmd)
@@ -71,7 +77,30 @@ func runGPUSet(cmd *cobra.Command, args []string) error {
 	}
 
 	if gpuSetPowerMizer != "" {
-		p.GPU.PowerMizer = gpuSetPowerMizer
+		if gpuSetPowerMizer == "default" {
+			p.GPU.PowerMizer = ""
+		} else {
+			p.GPU.PowerMizer = gpuSetPowerMizer
+		}
+		changed = true
+	}
+
+	if gpuSetShaderCache != "" {
+		p.GPU.ShaderCache = gpuSetShaderCache == "true" || gpuSetShaderCache == "1"
+		changed = true
+	}
+
+	if gpuSetCachePath != "" {
+		if gpuSetCachePath == "default" {
+			p.GPU.ShaderCachePath = ""
+		} else {
+			p.GPU.ShaderCachePath = gpuSetCachePath
+		}
+		changed = true
+	}
+
+	if gpuSetThreadedOpt != "" {
+		p.GPU.ThreadedOptimization = gpuSetThreadedOpt == "true" || gpuSetThreadedOpt == "1"
 		changed = true
 	}
 
