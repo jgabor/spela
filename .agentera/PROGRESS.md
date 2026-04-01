@@ -48,6 +48,14 @@
 **Discovered**: Domain isolation via `CollectFunc` callback keeps overlay package free of gpu/cpu imports while still allowing the caller to compose the full metrics→alerts→IPC pipeline. 4 timing-based tests all stable.
 **Next**: Wire the collector into the launcher (start collector when launching a game with overlay enabled, stop on exit), or pivot to a different vision direction (parity feature like Smooth Motion profile support)
 
+## Cycle 10 — 2026-04-01 15:05
+
+**What**: Replaced all log.Printf with structured logging.Warn/Info in profile/apply.go and launcher/launcher.go
+**Commit**: 47a4810 fix(logging): replace log.Printf with centralized slog logging
+**Inspiration**: None — mechanical replacement
+**Discovered**: Zero log.Printf remaining in entire codebase (verified via grep)
+**Next**: Task 4 (TUI global state) or Tasks 5-6 (config/CPU tests)
+
 ## Cycle 9 — 2026-04-01 14:50
 
 **What**: Consolidated launch orchestration into Launcher.Prepare() — single entry point for all interfaces with overlay IPC lifecycle

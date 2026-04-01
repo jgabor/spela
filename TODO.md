@@ -3,7 +3,7 @@
 ## ⇶ Critical
 
 - [x] ~~GUI/TUI launch bypasses cleanup pipeline~~ — fixed: both now register RestorePoint and cleanup closures
-- [ ] Competing logging patterns — `log.Printf` in profile/apply.go and launcher/launcher.go bypasses centralized slog logging package
+- [x] ~~Competing logging patterns~~ — fixed: all log.Printf replaced with centralized slog logging
 - [ ] Global mutable state in TUI styles — `activeTheme`/`showHints` package globals create hidden coupling, untestable — `internal/tui/styles.go:101-116`
 
 ## ⇉ Degraded

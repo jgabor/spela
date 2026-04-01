@@ -54,7 +54,7 @@ Two-phase launch fix: first register cleanup closures in both GUI and TUI (immed
 ### Task 3: Fix competing logging patterns
 
 **Depends on**: none
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN the codebase WHEN searched for direct log package usage THEN no non-test files use log.Printf
 ▸ GIVEN a game launch with logging WHEN examining output THEN all entries use structured slog format
