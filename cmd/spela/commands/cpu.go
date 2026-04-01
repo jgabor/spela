@@ -2,10 +2,12 @@ package commands
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/jgabor/spela/internal/cpu"
+	"github.com/jgabor/spela/internal/tui"
 )
 
 var CPUCmd = &cobra.Command{
@@ -46,14 +48,51 @@ func runCPUInfo(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Model:    %s\n", info["model"])
-	fmt.Printf("Cores:    %s\n", info["cores"])
-	fmt.Printf("Governor: %s\n", info["governor"])
-	fmt.Printf("SMT:      %s\n", info["smt"])
+	fmt.Printf("%s  %s\n", tui.CLIDim("CPU:"), tui.CLIPrimary(info["model"]))
+	fmt.Printf("%s  %s\n", tui.CLIDim("Cores:"), tui.CLIAccent(info["cores"]))
+
+	// Governor with available options
+	fmt.Printf("%s  %s", tui.CLIDim("Governor:"), tui.CLIAccent(info["governor"]))
+	if available, err := cpu.GetAvailableGovernors(); err == nil && len(available) > 0 {
+		names := make([]string, len(available))
+		for i, g := range available {
+			names[i] = string(g)
+		}
+		fmt.Printf(" (%s available)", strings.Join(names, ", "))
+	}
+	fmt.Println()
+
+	// SMT
+	smt := info["smt"]
+	switch smt {
+	case "true":
+		smt = "enabled"
+	case "false":
+		smt = "disabled"
+	}
+	fmt.Printf("%s  %s\n", tui.CLIDim("SMT:"), tui.CLIAccent(smt))
+
+	// Live metrics from GetCPUMetrics
+	metrics, metricsErr := cpu.GetCPUMetrics()
+	if metricsErr == nil && metrics != nil {
+		if metrics.AverageFrequency > 0 {
+			fmt.Printf("%s  %s\n", tui.CLIDim("Freq:"), tui.CLIAccent(fmt.Sprintf("%d MHz avg", metrics.AverageFrequency)))
+		}
+		if metrics.Utilization > 0 {
+			fmt.Printf("%s  %s\n", tui.CLIDim("Load:"), tui.CLIAccent(fmt.Sprintf("%.0f%%", metrics.Utilization)))
+		}
+		if metrics.RAMTotalMB > 0 {
+			fmt.Printf("%s  %s\n", tui.CLIDim("RAM:"), tui.CLIAccent(fmt.Sprintf("%d / %d MB", metrics.RAMUsedMB, metrics.RAMTotalMB)))
+		}
+	}
 
 	if cpu.SCXIsAvailable() {
 		active, _ := cpu.SCXStatus()
-		fmt.Printf("SCX:      %v\n", active)
+		status := "inactive"
+		if active {
+			status = "active"
+		}
+		fmt.Printf("%s  %s\n", tui.CLIDim("SCX:"), tui.CLIAccent(status))
 	}
 
 	return nil
