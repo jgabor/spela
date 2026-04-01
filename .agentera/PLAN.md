@@ -79,7 +79,7 @@ Two-phase launch fix: first register cleanup closures in both GUI and TUI (immed
 ### Task 6: Add CPU package tests
 
 **Depends on**: none
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN a mock sysfs tree WHEN SetGovernor is called THEN the correct file contains the expected value
 ▸ GIVEN SMT control WHEN toggled THEN the sysfs control file reflects the new state

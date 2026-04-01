@@ -48,6 +48,14 @@
 **Discovered**: Domain isolation via `CollectFunc` callback keeps overlay package free of gpu/cpu imports while still allowing the caller to compose the full metrics→alerts→IPC pipeline. 4 timing-based tests all stable.
 **Next**: Wire the collector into the launcher (start collector when launching a game with overlay enabled, stop on exit), or pivot to a different vision direction (parity feature like Smooth Motion profile support)
 
+## Cycle 13 — 2026-04-01 15:55
+
+**What**: Added 10 CPU package tests with mock sysfs — governor read/write, SMT toggle, metrics, cpuinfo, affinity
+**Commit**: 4460ca1 test(cpu): add tests with mock sysfs for governor, SMT, metrics, and affinity
+**Inspiration**: None — standard Go sysfs mock pattern with sysRoot override
+**Discovered**: Needed to add sysRoot var and sysPath() helper to make hardcoded /sys and /proc paths testable
+**Next**: Task 7 (launcher tests) or Task 8 (profile field registry)
+
 ## Cycle 12 — 2026-04-01 15:40
 
 **What**: Added config persistence tests — roundtrip, missing file defaults, malformed YAML error, deep clone
