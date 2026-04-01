@@ -12,6 +12,17 @@ import (
 	"github.com/jgabor/spela/internal/privilege"
 )
 
+// sysRoot overrides the filesystem root for sysfs/proc paths.
+// Empty uses real paths. Set in tests to use a temporary directory.
+var sysRoot string
+
+func sysPath(path string) string {
+	if sysRoot != "" {
+		return filepath.Join(sysRoot, path)
+	}
+	return path
+}
+
 type Governor string
 
 const (
@@ -26,7 +37,7 @@ func GetCPUCount() int {
 }
 
 func GetCurrentGovernor() (Governor, error) {
-	data, err := os.ReadFile("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")
+	data, err := os.ReadFile(sysPath("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"))
 	if err != nil {
 		return "", err
 	}
@@ -34,7 +45,7 @@ func GetCurrentGovernor() (Governor, error) {
 }
 
 func GetAvailableGovernors() ([]Governor, error) {
-	data, err := os.ReadFile("/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors")
+	data, err := os.ReadFile(sysPath("/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors"))
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +75,7 @@ func SetGovernor(gov Governor) error {
 func setGovernorDirect(gov Governor) error {
 	cpuCount := GetCPUCount()
 	for i := range cpuCount {
-		path := fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/scaling_governor", i)
+		path := sysPath(fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/scaling_governor", i))
 		if err := os.WriteFile(path, []byte(string(gov)), 0o644); err != nil {
 			return fmt.Errorf("failed to set governor for cpu%d: %w", i, err)
 		}
@@ -73,7 +84,7 @@ func setGovernorDirect(gov Governor) error {
 }
 
 func GetSMTStatus() (bool, error) {
-	data, err := os.ReadFile("/sys/devices/system/cpu/smt/active")
+	data, err := os.ReadFile(sysPath("/sys/devices/system/cpu/smt/active"))
 	if err != nil {
 		return false, err
 	}
@@ -86,13 +97,18 @@ func SetSMT(enabled bool) error {
 		value = "on"
 	}
 	if privilege.IsRoot() {
-		if err := os.WriteFile("/sys/devices/system/cpu/smt/control", []byte(value), 0o644); err != nil {
-			return fmt.Errorf("failed to set SMT: %w", err)
-		}
-		return nil
+		return setSMTDirect(value)
 	}
-	_, err := privilege.ExecWithInput(value, "tee", "/sys/devices/system/cpu/smt/control")
+	_, err := privilege.ExecWithInput(value, "tee", sysPath("/sys/devices/system/cpu/smt/control"))
 	if err != nil {
+		return fmt.Errorf("failed to set SMT: %w", err)
+	}
+	return nil
+}
+
+func setSMTDirect(value string) error {
+	path := sysPath("/sys/devices/system/cpu/smt/control")
+	if err := os.WriteFile(path, []byte(value), 0o644); err != nil {
 		return fmt.Errorf("failed to set SMT: %w", err)
 	}
 	return nil
@@ -104,7 +120,7 @@ func LaunchWithAffinity(affinity string, args []string) *exec.Cmd {
 }
 
 func GetCPUInfo() (map[string]string, error) {
-	data, err := os.ReadFile("/proc/cpuinfo")
+	data, err := os.ReadFile(sysPath("/proc/cpuinfo"))
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +204,7 @@ func GetCPUMetrics() (*CPUMetrics, error) {
 
 	var total int
 	for i := range cpuCount {
-		path := fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", i)
+		path := sysPath(fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", i))
 		data, err := os.ReadFile(path)
 		if err != nil {
 			continue
@@ -207,7 +223,7 @@ func GetCPUMetrics() (*CPUMetrics, error) {
 	metrics.SMTEnabled, _ = GetSMTStatus()
 
 	// Get RAM info from /proc/meminfo
-	if memData, err := os.ReadFile("/proc/meminfo"); err == nil {
+	if memData, err := os.ReadFile(sysPath("/proc/meminfo")); err == nil {
 		for line := range strings.SplitSeq(string(memData), "\n") {
 			if strings.HasPrefix(line, "MemTotal:") {
 				_, _ = fmt.Sscanf(line, "MemTotal: %d kB", &metrics.RAMTotalMB)
@@ -227,7 +243,7 @@ func GetCPUMetrics() (*CPUMetrics, error) {
 }
 
 func getCPUUtilization() float64 {
-	data, err := os.ReadFile("/proc/loadavg")
+	data, err := os.ReadFile(sysPath("/proc/loadavg"))
 	if err != nil {
 		return 0
 	}
