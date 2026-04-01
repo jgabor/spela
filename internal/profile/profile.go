@@ -103,6 +103,7 @@ type GPUSettings struct {
 	ThreadedOptimization bool   `yaml:"threaded_optimization,omitempty"`
 	ClockOffset          int    `yaml:"clock_offset,omitempty"`
 	MemoryOffset         int    `yaml:"memory_offset,omitempty"`
+	PowerLimit           int    `yaml:"power_limit,omitempty"`
 	PowerMizer           string `yaml:"power_mizer,omitempty"`
 }
 

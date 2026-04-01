@@ -83,9 +83,15 @@ func applySettings(cmd *cobra.Command) error {
 	return nil
 }
 
-func applyResetSettings(_ *cobra.Command) error {
+func applyResetSettings(cmd *cobra.Command) error {
 	if err := gpu.ResetClocks(); err != nil {
 		return fmt.Errorf("reset GPU clocks: %w", err)
+	}
+
+	if cmd.Flags().Changed("gpu-power-limit") && applyGPUPowerLimit > 0 {
+		if err := gpu.SetPowerLimit(applyGPUPowerLimit); err != nil {
+			return fmt.Errorf("restore GPU power limit: %w", err)
+		}
 	}
 
 	if applyCPUGovernor != "" {

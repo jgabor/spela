@@ -7,6 +7,7 @@ import (
 
 	"github.com/jgabor/spela/internal/cpu"
 	"github.com/jgabor/spela/internal/env"
+	"github.com/jgabor/spela/internal/gpu"
 	"github.com/jgabor/spela/internal/logging"
 	"github.com/jgabor/spela/internal/privilege"
 	"github.com/jgabor/spela/internal/xdg"
@@ -33,6 +34,7 @@ func (p *Profile) Apply(e *env.Environment) []func() {
 func (p *Profile) needsHardwareApply() bool {
 	return p.GPU.ClockOffset != 0 ||
 		p.GPU.MemoryOffset != 0 ||
+		p.GPU.PowerLimit > 0 ||
 		p.CPU.Governor != "" ||
 		p.CPU.SMT != nil
 }
@@ -48,6 +50,7 @@ func (p *Profile) applyHardware() (func(), error) {
 	// Capture current state for restoration.
 	prevGovernor, _ := cpu.GetCurrentGovernor()
 	prevSMT, _ := cpu.GetSMTStatus()
+	prevPowerLimit, _ := gpu.GetCurrentPowerLimit()
 
 	args := []string{"apply-profile"}
 
@@ -56,6 +59,9 @@ func (p *Profile) applyHardware() (func(), error) {
 	}
 	if p.GPU.MemoryOffset != 0 {
 		args = append(args, fmt.Sprintf("--gpu-memory-offset=%d", p.GPU.MemoryOffset))
+	}
+	if p.GPU.PowerLimit > 0 {
+		args = append(args, fmt.Sprintf("--gpu-power-limit=%d", p.GPU.PowerLimit))
 	}
 	if p.CPU.Governor != "" {
 		args = append(args, fmt.Sprintf("--cpu-governor=%s", p.CPU.Governor))
@@ -74,6 +80,9 @@ func (p *Profile) applyHardware() (func(), error) {
 
 	cleanup := func() {
 		resetArgs := []string{"apply-profile", "--reset"}
+		if p.GPU.PowerLimit > 0 && prevPowerLimit > 0 {
+			resetArgs = append(resetArgs, fmt.Sprintf("--gpu-power-limit=%d", prevPowerLimit))
+		}
 		if p.CPU.Governor != "" && prevGovernor != "" {
 			resetArgs = append(resetArgs, fmt.Sprintf("--cpu-governor=%s", prevGovernor))
 		}

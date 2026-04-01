@@ -405,6 +405,22 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 						}
 					},
 				},
+				{
+					label:       "Power limit",
+					key:         "power_limit",
+					value:       displayInt(p.GPU.PowerLimit),
+					options:     []string{"(default)", "150", "200", "250", "300", "350", "400", "450", "500", "600"},
+					description: "GPU power limit in watts",
+					apply: func(p *profile.Profile, v string, d bool) {
+						if d {
+							p.GPU.PowerLimit = 0
+						} else {
+							var n int
+							_, _ = fmt.Sscanf(v, "%d", &n)
+							p.GPU.PowerLimit = n
+						}
+					},
+				},
 			},
 		},
 		{

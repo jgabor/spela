@@ -67,6 +67,15 @@ func LockMemoryClocks(offset int) error {
 	return runNvidiaSMIElevated("-lmc", fmt.Sprintf("%d,%d", 0, offset))
 }
 
+// GetCurrentPowerLimit returns the GPU power limit in watts via metrics.
+func GetCurrentPowerLimit() (int, error) {
+	m, err := GetGPUMetrics()
+	if err != nil {
+		return 0, err
+	}
+	return int(m.PowerLimit), nil
+}
+
 func SetPowerLimit(watts int) error {
 	if nvmlAvailable && privilege.IsRoot() {
 		return SetPowerManagementLimitNVML(uint32(watts))
