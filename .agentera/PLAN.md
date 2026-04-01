@@ -87,7 +87,7 @@ Modules affected: `internal/tui/` exclusively (12 existing files, 3-4 new files)
 ### Task 2: Sparkline and gauge renderers
 
 **Depends on**: none
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN a buffer of 20 metric samples WHEN rendered as a sparkline THEN the output is exactly 20 characters wide using eighth-block characters (▁▂▃▄▅▆▇█)
 ▸ GIVEN a gauge at 53% with width 12 WHEN rendered THEN the output shows filled and empty block characters proportional to the value with percentage label

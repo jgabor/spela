@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Sparkline and gauge renderers — per-character thermal coloring, sub-character gauge precision, metrics ring buffer
 - Thermal color gradient system for TUI metrics — continuous blue-to-red coloring based on metric severity
 - Expanded theme token system with surface palette, text hierarchy, and metric-specific colors
 - `spela proton set/show` commands for per-game HDR, Wayland, NGX updater settings

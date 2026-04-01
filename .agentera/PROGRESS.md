@@ -1,9 +1,17 @@
 # Progress
 
+## Cycle 22 — 2026-04-01 20:00
+
+**What**: Added sparkline and gauge renderers with metrics ring buffer — per-character thermal coloring via lipgloss StyleRanges, sub-character gauge precision, 26 tests
+**Commit**: 6dd98fc feat(tui): add sparkline and gauge renderers with metrics buffer
+**Inspiration**: INSPIRERA deep dive on ntcharts sparkline algorithm, lipgloss StyleRanges API, left-block Unicode sub-character precision
+**Discovered**: Worktree branched before Task 1 merge — created duplicate thermal.go/styles.go changes. Resolved by keeping main's versions. Also duplicate TestNormalizeAndClamp between files — removed from sparkline_test.go.
+**Next**: Task 3 (navigation stack) is the architectural centerpiece — unblocked and highest priority. Task 6 (header metrics) is also unblocked now that Tasks 1+2 are done.
+
 ## Cycle 21 — 2026-04-01 19:30
 
 **What**: Added thermal gradient system and expanded Theme struct from 14 to 37 fields — surface palette, text hierarchy, 6 thermal stops, metric tokens. Header now renders GPU temp/power/fan with continuous thermal coloring.
-**Commit**: TBD feat(tui): add thermal gradient system and expanded theme tokens
+**Commit**: 50bdd0c feat(tui): add thermal gradient system and expanded theme tokens
 **Inspiration**: INSPIRERA analysis of btop (braille graphs, thermal gradients), k9s (Oklch perceptual color), DESIGN.md thermal gradient specification
 **Discovered**: Worktree agent generated Go 1.21-style loop variable copies (`theme := theme`) — Go 1.25 doesn't need these. Fixed post-merge. Otherwise clean implementation.
 **Next**: Task 2 (sparkline/gauge renderers) and Task 3 (navigation stack) are both unblocked
