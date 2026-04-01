@@ -48,6 +48,14 @@
 **Discovered**: Domain isolation via `CollectFunc` callback keeps overlay package free of gpu/cpu imports while still allowing the caller to compose the full metrics→alerts→IPC pipeline. 4 timing-based tests all stable.
 **Next**: Wire the collector into the launcher (start collector when launching a game with overlay enabled, stop on exit), or pivot to a different vision direction (parity feature like Smooth Motion profile support)
 
+## Cycle 18 — 2026-04-01 17:20
+
+**What**: Added GPU power limit to profile system — apply at launch, restore on exit, CLI flag, TUI field, GPU show display
+**Commit**: 7dd494c feat(profile): add per-game GPU power limit to profile system
+**Inspiration**: None — followed existing clock offset pattern through all layers
+**Discovered**: apply-profile already had --gpu-power-limit flag but profile struct didn't have the field. Reset path also existed but wasn't handling power limit restore.
+**Next**: Fan speed control via NVML, or GPU info improvements (show current power limit/range)
+
 ## Cycle 17 — 2026-04-01 17:00
 
 **What**: Updated all transitive dependencies (x/crypto +16, x/net +17, wails v2.12, bubbles v2.1). Marked stale TODO entry.

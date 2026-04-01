@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `spela proton set/show` commands for per-game HDR, Wayland, NGX updater settings
+- Per-game GPU power limit profile support with apply-at-launch and restore-on-exit
 - GPU profile flags: `--shader-cache`, `--shader-cache-path`, `--threaded-opt`
 
 ### Changed
