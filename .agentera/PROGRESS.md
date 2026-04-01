@@ -1,5 +1,13 @@
 # Progress
 
+## Cycle 23 — 2026-04-01 20:30
+
+**What**: Replaced binary FocusSidebar/FocusContent with LIFO NavStack, StackEntry interface, breadcrumb rendering in status bar. ContentModel wrapped as StackEntry via contentEntry adapter.
+**Commit**: TBD refactor(tui): replace binary focus with navigation stack and breadcrumbs
+**Inspiration**: Bubblon command-pattern (PushMsg/PopMsg as tea.Cmd), k9s Breadcrumbs observer, soft-serve Component interface
+**Discovered**: Layout Update() grew from 292→380 lines. Application messages (DLL/launch/profile) stay at layout level for cross-cutting concerns. Task 7 (compositor) should shrink it by extracting content-level modal routing.
+**Next**: Tasks 4, 5, 6, 7 all unblocked. Task 6 (header sparklines) has zero deps remaining. Task 4 (tabs) is highest structural impact.
+
 ## Cycle 22 — 2026-04-01 20:00
 
 **What**: Added sparkline and gauge renderers with metrics ring buffer — per-character thermal coloring via lipgloss StyleRanges, sub-character gauge precision, 26 tests

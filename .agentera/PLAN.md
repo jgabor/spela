@@ -97,7 +97,7 @@ Modules affected: `internal/tui/` exclusively (12 existing files, 3-4 new files)
 ### Task 3: Navigation stack replacing binary focus
 
 **Depends on**: none
-**Status**: □ pending
+**Status**: ■ complete
 **Scope note**: This task migrates layout-level focus routing only (FocusSidebar/FocusContent
 enum, activeDialog guard, help overlay, batch menu intercept). Content-level modal patterns
 (DLL install state machine, DLSS preset modal, profileWidget.Editing()) are migrated to the
@@ -182,3 +182,8 @@ DLSS preset modal), and (3) the batch overlay. All become compositor layers with
 ▸ GIVEN any point during the 8-task execution WHEN the TUI is launched THEN it is functional — no task leaves the TUI in a broken intermediate state
 
 ## Surprises
+
+- **Task 3**: Layout Update() grew from 292 to 380 lines despite the navigation stack. The
+  application message handlers (DLL ops, launch, profile save, rescan) remain at layout level
+  because they affect cross-cutting concerns (message bar, game database). Task 7 (compositor)
+  should extract content-level modal routing, which will reduce Update() significantly.
