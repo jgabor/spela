@@ -48,6 +48,14 @@
 **Discovered**: Domain isolation via `CollectFunc` callback keeps overlay package free of gpu/cpu imports while still allowing the caller to compose the full metrics→alerts→IPC pipeline. 4 timing-based tests all stable.
 **Next**: Wire the collector into the launcher (start collector when launching a game with overlay enabled, stop on exit), or pivot to a different vision direction (parity feature like Smooth Motion profile support)
 
+## Cycle 17 — 2026-04-01 17:00
+
+**What**: Updated all transitive dependencies (x/crypto +16, x/net +17, wails v2.12, bubbles v2.1). Marked stale TODO entry.
+**Commit**: 03e273e chore(deps): update transitive dependencies
+**Inspiration**: None — security hygiene
+**Discovered**: TODO "DLSS-D column missing" was stale — column already exists in GameDetail.svelte
+**Next**: Vulkan overlay layer PoC, or GUI DLL progress indicator, or overlay/ludusavi CLI commands
+
 ## Cycle 16 — 2026-04-01 16:45
 
 **What**: Added proton set/show CLI commands (HDR, Wayland, NGX updater) and completed GPU set flags (shader-cache, threaded-opt)

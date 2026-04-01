@@ -8,7 +8,7 @@
 
 ## ⇉ Degraded
 
-- [ ] DLSS-D column missing from GUI DLL display — `internal/gui/frontend/src/lib/GameDetail.svelte:404-416`
+- [x] ~~DLSS-D column missing from GUI DLL display~~ — already present in GameDetail.svelte (stale entry)
 - [ ] No DLL operation progress indicator in GUI — `internal/gui/frontend/src/lib/GameDetail.svelte`
 - [ ] DLL operation error messages incomplete in GUI — database save errors not surfaced
 
