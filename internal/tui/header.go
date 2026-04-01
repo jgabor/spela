@@ -37,10 +37,22 @@ type HeaderModel struct {
 	cpuMetrics *cpu.CPUMetrics
 	alerts     []overlay.Alert
 	width      int
+
+	// Rolling metrics buffers for sparkline rendering.
+	tempBuffer  *MetricsBuffer
+	utilBuffer  *MetricsBuffer
+	powerBuffer *MetricsBuffer
+	cpuBuffer   *MetricsBuffer
 }
 
 func NewHeader(styles *Styles) HeaderModel {
-	return HeaderModel{styles: styles}
+	return HeaderModel{
+		styles:      styles,
+		tempBuffer:  NewMetricsBuffer(20),
+		utilBuffer:  NewMetricsBuffer(20),
+		powerBuffer: NewMetricsBuffer(20),
+		cpuBuffer:   NewMetricsBuffer(20),
+	}
 }
 
 func (m *HeaderModel) SetWidth(width int) {
@@ -89,6 +101,14 @@ func (m HeaderModel) Update(msg tea.Msg) (HeaderModel, tea.Cmd) {
 		m.gpuMetrics = msg.gpuMetrics
 		m.cpuMetrics = msg.cpuMetrics
 		m.alerts = msg.alerts
+		if msg.gpuMetrics != nil {
+			m.tempBuffer.Push(float64(msg.gpuMetrics.Temperature))
+			m.utilBuffer.Push(float64(msg.gpuMetrics.Utilization))
+			m.powerBuffer.Push(msg.gpuMetrics.PowerDraw)
+		}
+		if msg.cpuMetrics != nil {
+			m.cpuBuffer.Push(msg.cpuMetrics.Utilization)
+		}
 		return m, tickHeader()
 	}
 	return m, nil
@@ -106,25 +126,47 @@ func (m HeaderModel) View() string {
 	valueStyle := lipgloss.NewStyle().
 		Foreground(t.Text)
 
+	freqStyle := lipgloss.NewStyle().
+		Foreground(t.MetricCPUFreq)
+
+	// Determine sparkline width based on available space.
+	logoWidth := lipgloss.Width(logo[0])
+	sparklineWidth := 20
+	metricsAvail := m.width - logoWidth - 10 // 10 for padding/spacing
+	if metricsAvail < 50 {
+		sparklineWidth = 10
+	}
+	if metricsAvail < 35 {
+		sparklineWidth = 0
+	}
+
+	gaugeWidth := 12
+
 	// Build metrics lines
 	var metricsLines []string
 
-	// Line 1: GPU temp, util, power (with thermal gradient coloring)
+	// Line 1: GPU temp, sparkline, util, power, alert
 	if m.gpuMetrics != nil {
 		g := m.gpuMetrics
 
 		tempStyle := ThermalStyle(float64(g.Temperature), 30, 95, &t)
-		powerStyle := ThermalStyle(g.PowerDraw, 0, g.PowerLimit, &t)
+		powerRatio := g.PowerDraw
+		if g.PowerLimit > 0 {
+			powerRatio = g.PowerDraw / g.PowerLimit * 100
+		}
+		powerStyle := ThermalStyle(powerRatio, 0, 100, &t)
 
 		line := labelStyle.Render("GPU: ") +
-			tempStyle.Render(fmt.Sprintf("%d°C", g.Temperature)) +
-			valueStyle.Render(fmt.Sprintf(" %d%% ", g.Utilization)) +
-			powerStyle.Render(fmt.Sprintf("%.0fW", g.PowerDraw))
+			tempStyle.Render(fmt.Sprintf("%d°C", g.Temperature))
 
-		if g.FanSpeed > 0 {
-			fanStyle := ThermalStyle(float64(g.FanSpeed), 0, 100, &t)
-			line += fanStyle.Render(fmt.Sprintf(" %d%%fan", g.FanSpeed))
+		if sparklineWidth > 0 {
+			line += " " + RenderSparkline(m.tempBuffer.Values(), sparklineWidth, 30, 95, &t)
 		}
+
+		line += "  " +
+			valueStyle.Render(fmt.Sprintf("%d%%", g.Utilization)) +
+			" " +
+			powerStyle.Render(fmt.Sprintf("%.0fW", g.PowerDraw))
 
 		if highest := highestSeverityAlert(m.alerts); highest != nil {
 			var icon string
@@ -135,7 +177,6 @@ func (m HeaderModel) View() string {
 				icon = "⚠"
 			}
 			if icon != "" {
-				// Use thermal throttle color for critical, hot for warnings.
 				var alertColor float64
 				if highest.Severity == overlay.AlertCritical {
 					alertColor = 100
@@ -152,39 +193,55 @@ func (m HeaderModel) View() string {
 		metricsLines = append(metricsLines, labelStyle.Render("GPU: ")+valueStyle.Render("N/A"))
 	}
 
-	// Line 2: VRAM
+	// Line 2: VRAM gauge
 	if m.gpuMetrics != nil {
 		g := m.gpuMetrics
 		vramUsedGB := float64(g.MemoryUsed) / 1024.0
 		vramTotalGB := float64(g.MemoryTotal) / 1024.0
-		line := labelStyle.Render("VRAM: ") + valueStyle.Render(fmt.Sprintf("%.1f/%.1f GB", vramUsedGB, vramTotalGB))
+		gauge := RenderGauge(float64(g.MemoryUsed), 0, float64(g.MemoryTotal), gaugeWidth, &t)
+		line := labelStyle.Render("VRAM: ") +
+			gauge +
+			"  " +
+			valueStyle.Render(fmt.Sprintf("%.1f/%.1f GB", vramUsedGB, vramTotalGB))
 		metricsLines = append(metricsLines, line)
 	} else {
 		metricsLines = append(metricsLines, labelStyle.Render("VRAM: ")+valueStyle.Render("N/A"))
 	}
 
-	// Line 3: CPU util and freq
+	// Line 3: CPU util, sparkline, freq
 	if m.cpuMetrics != nil {
 		c := m.cpuMetrics
-		line := labelStyle.Render("CPU: ") + valueStyle.Render(fmt.Sprintf("%.0f%% %dMHz", c.Utilization, c.AverageFrequency))
+
+		utilStyle := ThermalStyle(c.Utilization, 0, 100, &t)
+		line := labelStyle.Render("CPU: ") +
+			utilStyle.Render(fmt.Sprintf("%.0f%%", c.Utilization))
+
+		if sparklineWidth > 0 {
+			line += " " + RenderSparkline(m.cpuBuffer.Values(), sparklineWidth, 0, 100, &t)
+		}
+
+		line += "  " + freqStyle.Render(fmt.Sprintf("%dMHz", c.AverageFrequency))
 		metricsLines = append(metricsLines, line)
 	} else {
 		metricsLines = append(metricsLines, labelStyle.Render("CPU: ")+valueStyle.Render("N/A"))
 	}
 
-	// Line 4: RAM
+	// Line 4: RAM gauge
 	if m.cpuMetrics != nil {
 		c := m.cpuMetrics
 		ramUsedGB := float64(c.RAMUsedMB) / 1024.0
 		ramTotalGB := float64(c.RAMTotalMB) / 1024.0
-		line := labelStyle.Render("RAM: ") + valueStyle.Render(fmt.Sprintf("%.1f/%.1f GB", ramUsedGB, ramTotalGB))
+		gauge := RenderGauge(float64(c.RAMUsedMB), 0, float64(c.RAMTotalMB), gaugeWidth, &t)
+		line := labelStyle.Render("RAM: ") +
+			gauge +
+			"  " +
+			valueStyle.Render(fmt.Sprintf("%.1f/%.1f GB", ramUsedGB, ramTotalGB))
 		metricsLines = append(metricsLines, line)
 	} else {
 		metricsLines = append(metricsLines, labelStyle.Render("RAM: ")+valueStyle.Render("N/A"))
 	}
 
-	// Calculate widths
-	logoWidth := lipgloss.Width(logo[0])
+	// Calculate widths for layout spacing.
 	metricsWidth := 0
 	for _, line := range metricsLines {
 		w := lipgloss.Width(line)
