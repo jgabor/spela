@@ -467,17 +467,36 @@ func (m LayoutModel) View() tea.View {
 		return tea.NewView("Loading...")
 	}
 
-	var content string
+	// Main content always renders as the base layer.
+	mainContent := m.renderMain()
+	mainLayer := lipgloss.NewLayer(mainContent)
+
+	compositor := lipgloss.NewCompositor(mainLayer)
+
+	// Track how many modal layers are active for cascading offsets.
+	modalCount := 0
+
+	if m.showHelp {
+		helpContent := m.renderHelpContent()
+		helpLayer := m.positionModalLayer(helpContent, "help", 10, modalCount)
+		compositor.AddLayers(helpLayer)
+		modalCount++
+	}
+
+	if m.showBatchMenu {
+		batchContent := m.renderBatchContent()
+		batchLayer := m.positionModalLayer(batchContent, "batch", 20, modalCount)
+		compositor.AddLayers(batchLayer)
+		modalCount++
+	}
 
 	if m.activeDialog != nil {
-		content = m.activeDialog.View()
-	} else if m.showBatchMenu {
-		content = m.renderBatchOverlay()
-	} else if m.showHelp {
-		content = m.renderHelpOverlay()
-	} else {
-		content = m.renderMain()
+		dialogContent := m.activeDialog.View()
+		dialogLayer := m.positionModalLayer(dialogContent, "dialog", 30, modalCount)
+		compositor.AddLayers(dialogLayer)
 	}
+
+	content := compositor.Render()
 
 	v := tea.NewView(content)
 	v.AltScreen = true
@@ -554,13 +573,68 @@ func truncateHeight(content string, maxLines int) string {
 	return strings.Join(lines[:maxLines], "\n")
 }
 
-func (m LayoutModel) renderHelpOverlay() string {
-	overlayStyle := lipgloss.NewStyle().
-		Width(m.width).
-		Height(m.height).
-		Padding(2, 4)
+func (m LayoutModel) renderHelpContent() string {
+	return m.renderModalBox("", m.help.View(), 0.55)
+}
 
-	return overlayStyle.Render(m.help.View())
+// Modal rendering constants.
+const (
+	cascadeOffsetX = 2
+	cascadeOffsetY = 1
+	minModalWidth  = 40
+	maxModalWidth  = 70
+)
+
+// renderModalBox wraps content in a bordered, styled modal box.
+// When title is non-empty it is rendered as a bold header above the content.
+func (m LayoutModel) renderModalBox(title, content string, widthRatio float64) string {
+	t := m.styles.Theme
+	modalWidth := int(float64(m.width) * widthRatio)
+	modalWidth = max(modalWidth, minModalWidth)
+	modalWidth = min(modalWidth, maxModalWidth)
+
+	modalStyle := lipgloss.NewStyle().
+		Width(modalWidth).
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(t.Primary).
+		Padding(1, 2)
+
+	var body string
+	if title != "" {
+		titleStyle := lipgloss.NewStyle().
+			Foreground(t.Primary).
+			Bold(true)
+		body = titleStyle.Render(title) + "\n\n" + content
+	} else {
+		body = content
+	}
+
+	return modalStyle.Render(body)
+}
+
+// positionModalLayer creates a centered Layer for a modal string, applying a
+// cascading offset based on how many modals are already stacked.
+func (m LayoutModel) positionModalLayer(content, id string, zIndex, stackIndex int) *lipgloss.Layer {
+	layer := lipgloss.NewLayer(content)
+	contentWidth := lipgloss.Width(content)
+	contentHeight := lipgloss.Height(content)
+
+	x := centerX(m.width, contentWidth) + stackIndex*cascadeOffsetX
+	y := centerY(m.height, contentHeight) + stackIndex*cascadeOffsetY
+
+	return layer.
+		X(x).
+		Y(y).
+		Z(zIndex).
+		ID(id)
+}
+
+func centerX(totalWidth, contentWidth int) int {
+	return max((totalWidth-contentWidth)/2, 0)
+}
+
+func centerY(totalHeight, contentHeight int) int {
+	return max((totalHeight-contentHeight)/2, 0)
 }
 
 type gameSelectedMsg struct {
@@ -668,13 +742,8 @@ func executeBatchDLLUpdate(games []*game.Game) batchCompleteMsg {
 	}
 }
 
-func (m LayoutModel) renderBatchOverlay() string {
-	overlayStyle := lipgloss.NewStyle().
-		Width(m.width).
-		Height(m.height).
-		Padding(2, 4)
-
-	return overlayStyle.Render(m.renderBatchMenu())
+func (m LayoutModel) renderBatchContent() string {
+	return m.renderModalBox("", m.renderBatchMenu(), 0.40)
 }
 
 func (m LayoutModel) renderBatchMenu() string {
