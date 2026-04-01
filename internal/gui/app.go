@@ -733,10 +733,20 @@ func (a *App) LaunchGame(appID uint64) error {
 	}
 
 	p, _ := profile.LoadEffective(appID)
+
+	restore := profile.NewRestorePoint()
+	restore.SaveAllProfileEnvVars()
+
 	l := launcher.New(g)
 	l.Profile = p
+
+	l.OnCleanup(restore.Restore)
+
 	if p != nil {
-		p.Apply(l.Environment)
+		cleanups := p.Apply(l.Environment)
+		for _, cleanup := range cleanups {
+			l.OnCleanup(cleanup)
+		}
 	}
 
 	steamURL := fmt.Sprintf("steam://rungameid/%d", appID)
