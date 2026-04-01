@@ -1,5 +1,13 @@
 # Progress
 
+## Cycle 21 — 2026-04-01 19:30
+
+**What**: Added thermal gradient system and expanded Theme struct from 14 to 37 fields — surface palette, text hierarchy, 6 thermal stops, metric tokens. Header now renders GPU temp/power/fan with continuous thermal coloring.
+**Commit**: TBD feat(tui): add thermal gradient system and expanded theme tokens
+**Inspiration**: INSPIRERA analysis of btop (braille graphs, thermal gradients), k9s (Oklch perceptual color), DESIGN.md thermal gradient specification
+**Discovered**: Worktree agent generated Go 1.21-style loop variable copies (`theme := theme`) — Go 1.25 doesn't need these. Fixed post-merge. Otherwise clean implementation.
+**Next**: Task 2 (sparkline/gauge renderers) and Task 3 (navigation stack) are both unblocked
+
 ## Cycle 1 — 2026-03-17 20:15
 
 **What**: Added go-nvml backend for GPU metrics, replacing nvidia-smi CLI shelling with direct NVML API calls (~50x faster)

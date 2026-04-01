@@ -40,7 +40,6 @@ func allThemes() []Theme {
 
 func TestThermalColorExactStopBoundaries(t *testing.T) {
 	for _, theme := range allThemes() {
-		theme := theme
 		t.Run(theme.Name, func(t *testing.T) {
 			// Map each stop ratio to its expected theme color.
 			expectations := []struct {
@@ -72,7 +71,6 @@ func TestThermalColorExactStopBoundaries(t *testing.T) {
 
 func TestThermalColorBelowMinClampsToThermalCold(t *testing.T) {
 	for _, theme := range allThemes() {
-		theme := theme
 		t.Run(theme.Name, func(t *testing.T) {
 			got := ThermalColor(-50, 0, 100, &theme)
 			if !colorsEqual(got, theme.ThermalCold) {
@@ -85,7 +83,6 @@ func TestThermalColorBelowMinClampsToThermalCold(t *testing.T) {
 
 func TestThermalColorAboveMaxClampsToThermalThrottle(t *testing.T) {
 	for _, theme := range allThemes() {
-		theme := theme
 		t.Run(theme.Name, func(t *testing.T) {
 			got := ThermalColor(200, 0, 100, &theme)
 			if !colorsEqual(got, theme.ThermalThrottle) {
@@ -100,7 +97,6 @@ func TestThermalColorMidRangeInterpolation(t *testing.T) {
 	// 15% is halfway between Cold (0%) and Cool (30%).
 	// The result must not equal either stop exactly (unless they happen to be identical).
 	for _, theme := range allThemes() {
-		theme := theme
 		t.Run(theme.Name, func(t *testing.T) {
 			got := ThermalColor(15, 0, 100, &theme)
 
@@ -135,7 +131,6 @@ func TestThermalColorMinEqualsMax(t *testing.T) {
 	// When min == max the function should not panic and should return ThermalCold
 	// (the normalizeAndClamp function returns 0.0 in this case).
 	for _, theme := range allThemes() {
-		theme := theme
 		t.Run(theme.Name, func(t *testing.T) {
 			got := ThermalColor(50, 50, 50, &theme)
 			if !colorsEqual(got, theme.ThermalCold) {
@@ -149,7 +144,6 @@ func TestThermalColorMinEqualsMax(t *testing.T) {
 func TestThermalColorMinGreaterThanMax(t *testing.T) {
 	// When min > max, treat identically to min == max: clamp to cold.
 	for _, theme := range allThemes() {
-		theme := theme
 		t.Run(theme.Name, func(t *testing.T) {
 			got := ThermalColor(50, 100, 0, &theme)
 			if !colorsEqual(got, theme.ThermalCold) {
@@ -162,7 +156,6 @@ func TestThermalColorMinGreaterThanMax(t *testing.T) {
 
 func TestThermalStyleReturnsValidStyle(t *testing.T) {
 	for _, theme := range allThemes() {
-		theme := theme
 		t.Run(theme.Name, func(t *testing.T) {
 			style := ThermalStyle(60, 0, 100, &theme)
 			rendered := style.Render("60%")

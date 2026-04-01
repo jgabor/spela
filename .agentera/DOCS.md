@@ -23,6 +23,7 @@ versioning:
 | PROGRESS.md   | .agentera/PROGRESS.md  | realisera              |
 | HEALTH.md     | .agentera/HEALTH.md    | inspektera             |
 | DOCS.md       | .agentera/DOCS.md      | dokumentera            |
+| DESIGN.md     | .agentera/DESIGN.md    | visualisera            |
 
 ## Index
 
