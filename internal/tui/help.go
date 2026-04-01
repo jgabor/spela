@@ -145,7 +145,7 @@ func (m HelpModel) View() string {
 	return b.String()
 }
 
-func ContextHelp(focus Focus, searchFocused, selectMode, hasGameSelection bool, showHints bool) string {
+func ContextHelp(sidebarFocused bool, searchFocused, selectMode, hasGameSelection bool, showHints bool) string {
 	if !showHints {
 		return "?:help • q:quit"
 	}
@@ -156,7 +156,7 @@ func ContextHelp(focus Focus, searchFocused, selectMode, hasGameSelection bool, 
 		hints = []string{"type:filter", "enter/esc:done"}
 	} else if selectMode {
 		hints = []string{"↑↓:navigate", "space:toggle", "a:all", "A:none", "enter:batch", "esc:exit"}
-	} else if focus == FocusSidebar {
+	} else if sidebarFocused {
 		hints = []string{"↑↓:navigate", "/:search", "d:DLLs", "p:profile", "s:sort", "r:rescan", "enter:select"}
 	} else {
 		hints = []string{"↑↓:navigate", "←→:change", "s:save"}

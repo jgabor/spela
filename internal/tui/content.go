@@ -98,6 +98,17 @@ type dllTypesLoadedMsg struct {
 	types []string
 }
 
+// Name returns the display name for breadcrumb rendering.
+func (m ContentModel) Name() string {
+	if m.defaultProfile {
+		return "Default Profile"
+	}
+	if m.game != nil {
+		return m.game.Name
+	}
+	return "Details"
+}
+
 func NewContent(styles *Styles) ContentModel {
 	return ContentModel{
 		styles:          styles,

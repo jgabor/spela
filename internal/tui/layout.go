@@ -12,13 +12,6 @@ import (
 	"github.com/jgabor/spela/internal/game"
 )
 
-type Focus int
-
-const (
-	FocusSidebar Focus = iota
-	FocusContent
-)
-
 const (
 	minSidebarWidth  = 25
 	maxSidebarWidth  = 50
@@ -29,27 +22,27 @@ const (
 )
 
 type LayoutModel struct {
-	styles        *Styles
-	header        HeaderModel
-	sidebar       SidebarModel
-	content       ContentModel
-	statusBar     StatusBarModel
-	messageBar    MessageBarModel
-	help          HelpModel
-	optionsModal  OptionsModalModel
-	activeDialog  Dialog
-	config        *config.Config
-	db            *game.Database
-	showHelp      bool
-	showBatchMenu bool
-	batchGames    []*game.Game
-	batchCursor   int
-	batchMessage  string
-	focus         Focus
-	width         int
-	height        int
-	sidebarWidth  int
-	initCmd       tea.Cmd
+	styles         *Styles
+	header         HeaderModel
+	sidebar        SidebarModel
+	stack          NavStack
+	statusBar      StatusBarModel
+	messageBar     MessageBarModel
+	help           HelpModel
+	optionsModal   OptionsModalModel
+	activeDialog   Dialog
+	config         *config.Config
+	db             *game.Database
+	showHelp       bool
+	showBatchMenu  bool
+	batchGames     []*game.Game
+	batchCursor    int
+	batchMessage   string
+	sidebarFocused bool
+	width          int
+	height         int
+	sidebarWidth   int
+	initCmd        tea.Cmd
 }
 
 func NewLayout(db *game.Database) LayoutModel {
@@ -70,18 +63,18 @@ func NewLayout(db *game.Database) LayoutModel {
 	games := db.List()
 	sidebar, sidebarCmd := NewSidebar(games, styles)
 	return LayoutModel{
-		styles:       styles,
-		header:       NewHeader(styles),
-		sidebar:      sidebar,
-		content:      NewContent(styles),
-		statusBar:    NewStatusBar(styles),
-		messageBar:   NewMessageBar(styles),
-		help:         NewHelp(styles),
-		optionsModal: NewOptionsModal(styles),
-		config:       cfg,
-		db:           db,
-		focus:        FocusSidebar,
-		initCmd:      sidebarCmd,
+		styles:         styles,
+		header:         NewHeader(styles),
+		sidebar:        sidebar,
+		stack:          NewNavStack(newContentEntry(NewContent(styles))),
+		statusBar:      NewStatusBar(styles),
+		messageBar:     NewMessageBar(styles),
+		help:           NewHelp(styles),
+		optionsModal:   NewOptionsModal(styles),
+		config:         cfg,
+		db:             db,
+		sidebarFocused: true,
+		initCmd:        sidebarCmd,
 	}
 }
 
@@ -92,7 +85,28 @@ func (m LayoutModel) Init() tea.Cmd {
 func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
-	// Route to active dialog first
+	// Always update header (metrics ticks).
+	header, headerCmd := m.header.Update(msg)
+	m.header = header
+	cmds = append(cmds, headerCmd)
+
+	// Handle navigation messages from stack entries.
+	switch msg := msg.(type) {
+	case pushMsg:
+		msg.entry.SetSize(m.contentWidth(), m.contentHeight())
+		m.stack.Push(msg.entry)
+		m.sidebarFocused = false
+		return m, nil
+	case popMsg:
+		m.stack.Pop()
+		m.stack.Top().SetSize(m.contentWidth(), m.contentHeight())
+		if msg.result != nil {
+			return m.Update(msg.result)
+		}
+		return m, nil
+	}
+
+	// Route to active dialog first (intercepts all input).
 	if m.activeDialog != nil {
 		var cmd tea.Cmd
 		m.activeDialog, cmd = m.activeDialog.Update(msg)
@@ -102,11 +116,13 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
+	// Handle global overlays and keys.
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 		m.calculateDimensions()
+		return m, tea.Batch(cmds...)
 
 	case tea.KeyPressMsg:
 		if m.showBatchMenu {
@@ -145,61 +161,71 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showHelp = true
 			return m, nil
 		case "o":
-			if m.focus == FocusSidebar && !m.sidebar.search.Focused() {
+			if m.sidebarFocused && !m.sidebar.search.Focused() {
 				m.optionsModal.SetSize(m.width, m.height)
 				m.optionsModal.Open(m.config)
 				m.activeDialog = &m.optionsModal
 				return m, nil
 			}
 		case "ctrl+f":
-			m.focus = FocusSidebar
+			m.sidebarFocused = true
 			var cmd tea.Cmd
 			m.sidebar, cmd = m.sidebar.FocusSearch()
 			return m, cmd
 		case "q":
-			if m.focus == FocusSidebar && !m.sidebar.search.Focused() {
+			if m.sidebarFocused && !m.sidebar.search.Focused() {
 				return m, tea.Quit
-			} else if m.focus == FocusContent && !m.content.HasModalOpen() {
-				m.focus = FocusSidebar
+			}
+			if !m.sidebarFocused && !m.contentModel().HasModalOpen() {
+				if m.stack.Depth() > 1 {
+					m.stack.Pop()
+					return m, nil
+				}
+				m.sidebarFocused = true
 				return m, nil
 			}
 		case "esc":
-			if m.focus == FocusContent && !m.content.HasModalOpen() {
-				m.focus = FocusSidebar
+			if !m.sidebarFocused && !m.contentModel().HasModalOpen() {
+				if m.stack.Depth() > 1 {
+					m.stack.Pop()
+					return m, nil
+				}
+				m.sidebarFocused = true
 				return m, nil
 			}
 		case "tab":
-			if m.focus == FocusSidebar {
-				m.focus = FocusContent
-			} else {
-				m.focus = FocusSidebar
-			}
+			m.sidebarFocused = !m.sidebarFocused
 			return m, nil
 		case "r":
-			if m.focus == FocusSidebar && !m.sidebar.search.Focused() {
+			if m.sidebarFocused && !m.sidebar.search.Focused() {
 				messageCmd := m.messageBar.SetMessage("Rescanning games...", MessageInfo)
 				return m, tea.Batch(messageCmd, m.rescanGames())
 			}
 		}
 	}
 
+	// Route application messages that affect multiple components.
 	switch msg := msg.(type) {
 	case gameSelectedMsg:
-		m.content = m.content.SetGame(msg.game)
-		return m, m.content.LoadDLLUpdates()
+		entry := m.contentEntryForGame(msg.game)
+		m.stack.Replace(entry)
+		return m, entry.model.LoadDLLUpdates()
 
 	case gameConfirmedMsg:
-		m.content = m.content.SetGame(msg.game)
-		m.focus = FocusContent
-		return m, m.content.LoadDLLUpdates()
+		entry := m.contentEntryForGame(msg.game)
+		m.stack.Replace(entry)
+		m.sidebarFocused = false
+		return m, entry.model.LoadDLLUpdates()
 
 	case defaultProfileSelectedMsg:
-		m.content = m.content.SetDefaultProfile()
+		entry := m.contentEntryForDefaultProfile()
+		m.stack.Replace(entry)
 		return m, nil
 
 	case defaultProfileConfirmedMsg:
-		m.content = m.content.SetDefaultProfile()
-		m.focus = FocusContent
+		entry := m.contentEntryForDefaultProfile()
+		m.stack.Replace(entry)
+		m.sidebarFocused = false
 		return m, nil
 
 	case batchActionRequestMsg:
@@ -219,8 +245,8 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case metricsMsg:
-		m.header, _ = m.header.Update(msg)
-		return m, nil
+		// Already handled above in header update.
+		return m, tea.Batch(cmds...)
 
 	case dllUpdateMsg:
 		var msgType MessageType
@@ -237,8 +263,8 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			msgType = MessageError
 		}
 		messageCmd := m.messageBar.SetMessage(message, msgType)
-		var contentCmd tea.Cmd
-		m.content, contentCmd = m.content.Update(msg)
+		updated, contentCmd := m.stack.Top().Update(msg)
+		m.stack.Replace(updated)
 		return m, tea.Batch(messageCmd, contentCmd)
 
 	case dllRestoreMsg:
@@ -247,11 +273,10 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.success {
 			message = "Original DLLs restored!"
 			msgType = MessageSuccess
-			// Re-scan DLLs to update versions after restore
-			if m.content.game != nil {
-				detected, err := dll.ScanDirectory(m.content.game.InstallDir)
+			if cm := m.contentModel(); cm.game != nil {
+				detected, err := dll.ScanDirectory(cm.game.InstallDir)
 				if err == nil {
-					m.content.game.DLLs = detected
+					cm.game.DLLs = detected
 				}
 			}
 			if err := m.db.Save(); err != nil {
@@ -263,8 +288,8 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			msgType = MessageError
 		}
 		messageCmd := m.messageBar.SetMessage(message, msgType)
-		var contentCmd tea.Cmd
-		m.content, contentCmd = m.content.Update(msg)
+		updated, contentCmd := m.stack.Top().Update(msg)
+		m.stack.Replace(updated)
 		return m, tea.Batch(messageCmd, contentCmd)
 
 	case dllInstallMsg:
@@ -282,22 +307,23 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			msgType = MessageError
 		}
 		messageCmd := m.messageBar.SetMessage(message, msgType)
-		var contentCmd tea.Cmd
-		m.content, contentCmd = m.content.Update(msg)
+		updated, contentCmd := m.stack.Top().Update(msg)
+		m.stack.Replace(updated)
 		return m, tea.Batch(messageCmd, contentCmd)
 
 	case dllTypesLoadedMsg:
-		var contentCmd tea.Cmd
-		m.content, contentCmd = m.content.Update(msg)
+		updated, contentCmd := m.stack.Top().Update(msg)
+		m.stack.Replace(updated)
 		return m, contentCmd
 
 	case dllVersionsLoadedMsg:
-		var contentCmd tea.Cmd
-		m.content, contentCmd = m.content.Update(msg)
+		updated, contentCmd := m.stack.Top().Update(msg)
+		m.stack.Replace(updated)
 		return m, contentCmd
 
 	case dllUpdatesCheckedMsg:
-		m.content, _ = m.content.Update(msg)
+		updated, _ := m.stack.Top().Update(msg)
+		m.stack.Replace(updated)
 		return m, nil
 
 	case launchGameMsg:
@@ -311,8 +337,8 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			msgType = MessageError
 		}
 		messageCmd := m.messageBar.SetMessage(message, msgType)
-		var contentCmd tea.Cmd
-		m.content, contentCmd = m.content.Update(msg)
+		updated, contentCmd := m.stack.Top().Update(msg)
+		m.stack.Replace(updated)
 		return m, tea.Batch(messageCmd, contentCmd)
 
 	case rescanGamesMsg:
@@ -328,12 +354,14 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			MessageSuccess,
 		)
 		var contentCmd tea.Cmd
-		if m.content.game != nil && !m.content.defaultProfile {
-			if refreshed := msg.db.GetGame(m.content.game.AppID); refreshed != nil {
-				m.content = m.content.SetGame(refreshed)
-				contentCmd = m.content.LoadDLLUpdates()
+		if cm := m.contentModel(); cm.game != nil && !cm.defaultProfile {
+			if refreshed := msg.db.GetGame(cm.game.AppID); refreshed != nil {
+				entry := m.contentEntryForGame(refreshed)
+				m.stack.Replace(entry)
+				contentCmd = entry.model.LoadDLLUpdates()
 			} else {
-				m.content = m.content.SetGame(nil)
+				entry := m.contentEntryForGame(nil)
+				m.stack.Replace(entry)
 			}
 		}
 		return m, tea.Batch(messageCmd, contentCmd)
@@ -349,7 +377,8 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			msgType = MessageError
 		}
 		cmd := m.messageBar.SetMessage(message, msgType)
-		m.content, _ = m.content.Update(msg)
+		updated, _ := m.stack.Top().Update(msg)
+		m.stack.Replace(updated)
 		return m, cmd
 
 	case optionsSavedMsg:
@@ -365,19 +394,16 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.focus == FocusSidebar {
+	// Route input to focused component.
+	if m.sidebarFocused {
 		var cmd tea.Cmd
 		m.sidebar, cmd = m.sidebar.Update(msg)
 		cmds = append(cmds, cmd)
 	} else {
-		var cmd tea.Cmd
-		m.content, cmd = m.content.Update(msg)
+		updated, cmd := m.stack.Top().Update(msg)
+		m.stack.Replace(updated)
 		cmds = append(cmds, cmd)
 	}
-
-	var headerCmd tea.Cmd
-	m.header, headerCmd = m.header.Update(msg)
-	cmds = append(cmds, headerCmd)
 
 	return m, tea.Batch(cmds...)
 }
@@ -392,13 +418,48 @@ func (m *LayoutModel) calculateDimensions() {
 
 	// Inner dimensions account for border (2) and padding
 	sidebarInnerWidth := m.sidebarWidth - 4 // -2 for borders, -2 for padding
-	contentInnerWidth := m.width - m.sidebarWidth - 4
 
 	m.header.SetWidth(m.width)
 	m.sidebar.SetSize(sidebarInnerWidth, panelHeight)
-	m.content.SetSize(contentInnerWidth, panelHeight)
+	m.stack.Top().SetSize(m.contentWidth(), m.contentHeight())
 	m.statusBar.SetWidth(m.width)
 	m.messageBar.SetWidth(m.width)
+}
+
+// contentWidth returns the inner width available for the content area.
+func (m LayoutModel) contentWidth() int {
+	return m.width - m.sidebarWidth - 4
+}
+
+// contentHeight returns the inner height available for the content area.
+func (m LayoutModel) contentHeight() int {
+	return max(m.height-statusBarHeight-messageBarHeight-headerHeight-2, 5)
+}
+
+// contentModel returns the ContentModel from the current stack top.
+// This is a convenience accessor for layout-level logic that needs
+// to inspect content state (e.g. game, defaultProfile, HasModalOpen).
+func (m LayoutModel) contentModel() *ContentModel {
+	if entry, ok := m.stack.Top().(*contentEntry); ok {
+		return &entry.model
+	}
+	return nil
+}
+
+// contentEntryForGame creates a new content entry configured for the given game.
+func (m *LayoutModel) contentEntryForGame(g *game.Game) *contentEntry {
+	content := NewContent(m.styles)
+	content = content.SetGame(g)
+	content.SetSize(m.contentWidth(), m.contentHeight())
+	return newContentEntry(content)
+}
+
+// contentEntryForDefaultProfile creates a new content entry configured for the default profile.
+func (m *LayoutModel) contentEntryForDefaultProfile() *contentEntry {
+	content := NewContent(m.styles)
+	content = content.SetDefaultProfile()
+	content.SetSize(m.contentWidth(), m.contentHeight())
+	return newContentEntry(content)
 }
 
 func (m LayoutModel) View() tea.View {
@@ -434,19 +495,19 @@ func (m LayoutModel) renderMain() string {
 
 	// Truncate sidebar and content views to fit within available height
 	sidebarView := truncateHeight(m.sidebar.View(), innerHeight)
-	contentView := truncateHeight(m.content.View(), innerHeight)
+	contentView := truncateHeight(m.stack.Top().View(), innerHeight)
 
 	sidebarStyle := lipgloss.NewStyle().
 		Width(m.sidebarWidth - 2).
 		Height(innerHeight).
 		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(m.styles.BorderColor(m.focus == FocusSidebar))
+		BorderForeground(m.styles.BorderColor(m.sidebarFocused))
 
 	contentStyle := lipgloss.NewStyle().
 		Width(m.width - m.sidebarWidth - 2).
 		Height(innerHeight).
 		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(m.styles.BorderColor(m.focus == FocusContent))
+		BorderForeground(m.styles.BorderColor(!m.sidebarFocused))
 
 	sidebar := sidebarStyle.Render(sidebarView)
 	content := contentStyle.Render(contentView)
@@ -455,10 +516,34 @@ func (m LayoutModel) renderMain() string {
 
 	messageBar := m.messageBar.View()
 
-	contextHelp := ContextHelp(m.focus, m.sidebar.search.Focused(), m.sidebar.InSelectMode(), m.content.HasGameSelection(), m.styles.ShowHints)
-	statusBar := m.statusBar.ViewWithHelp(contextHelp)
+	cm := m.contentModel()
+	hasGameSelection := cm != nil && cm.HasGameSelection()
+	contextHelp := ContextHelp(m.sidebarFocused, m.sidebar.search.Focused(), m.sidebar.InSelectMode(), hasGameSelection, m.styles.ShowHints)
+	crumbs := m.renderBreadcrumbs()
+	statusBar := m.statusBar.ViewWithHelp(crumbs + "  " + contextHelp)
 
 	return lipgloss.JoinVertical(lipgloss.Left, header, mainArea, messageBar, statusBar)
+}
+
+// renderBreadcrumbs renders the navigation breadcrumb trail for the status bar.
+func (m LayoutModel) renderBreadcrumbs() string {
+	crumbs := m.stack.Breadcrumbs()
+	t := m.styles.Theme
+	activeStyle := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
+	trailStyle := lipgloss.NewStyle().Foreground(t.TextDim)
+	sepStyle := lipgloss.NewStyle().Foreground(t.Border)
+
+	parts := make([]string, 0, len(crumbs)*2+1)
+	parts = append(parts, trailStyle.Render("spela"))
+	for i, name := range crumbs {
+		parts = append(parts, sepStyle.Render(" > "))
+		if i == len(crumbs)-1 {
+			parts = append(parts, activeStyle.Render(name))
+		} else {
+			parts = append(parts, trailStyle.Render(name))
+		}
+	}
+	return strings.Join(parts, "")
 }
 
 // truncateHeight limits content to a maximum number of lines.
