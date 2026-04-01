@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `spela proton set/show` commands for per-game HDR, Wayland, NGX updater settings
 - Per-game GPU power limit profile support with apply-at-launch and restore-on-exit
 - Enhanced `spela gpu info` with power limit range, clocks, fan speed, and GPU utilization
+- Enhanced `spela cpu info` with frequencies, load, RAM, available governors, and SCX status
 - GPU profile flags: `--shader-cache`, `--shader-cache-path`, `--threaded-opt`
 
 ### Changed

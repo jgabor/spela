@@ -48,6 +48,14 @@
 **Discovered**: Domain isolation via `CollectFunc` callback keeps overlay package free of gpu/cpu imports while still allowing the caller to compose the full metrics→alerts→IPC pipeline. 4 timing-based tests all stable.
 **Next**: Wire the collector into the launcher (start collector when launching a game with overlay enabled, stop on exit), or pivot to a different vision direction (parity feature like Smooth Motion profile support)
 
+## Cycle 20 — 2026-04-01 17:50
+
+**What**: Enhanced `spela cpu info` — shows available governors, average frequency, CPU load, RAM usage, SCX status with colored output
+**Commit**: 4773a28 feat(cli): enhance cpu info with frequencies, load, RAM, available governors, and SCX status
+**Inspiration**: None — mirrors gpu info enhancement pattern
+**Discovered**: Linter auto-converted if/else chain to tagged switch on SMT value. GetCPUMetrics reads from /proc/loadavg for utilization.
+**Next**: Profile export/import, fan speed control, or GUI DLL progress indicator
+
 ## Cycle 19 — 2026-04-01 17:35
 
 **What**: Enhanced `spela gpu info` — shows power draw/limit/range, clocks, fan speed, utilization via NVML
