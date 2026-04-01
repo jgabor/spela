@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Consolidate launch orchestration into single entry point for CLI, GUI, and TUI
+- TUI theme and styles passed through model tree instead of global state
 
 ### Fixed
 

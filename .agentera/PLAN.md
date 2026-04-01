@@ -62,7 +62,7 @@ Two-phase launch fix: first register cleanup closures in both GUI and TUI (immed
 ### Task 4: Fix TUI global mutable state
 
 **Depends on**: none
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN TUI styles WHEN inspecting package-level declarations THEN no mutable global variables exist
 ▸ GIVEN the theme changed via options WHEN the TUI re-renders THEN all components reflect the new theme without restart
