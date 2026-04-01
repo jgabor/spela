@@ -516,9 +516,8 @@ func (m LayoutModel) renderMain() string {
 
 	messageBar := m.messageBar.View()
 
-	cm := m.contentModel()
-	hasGameSelection := cm != nil && cm.HasGameSelection()
-	contextHelp := ContextHelp(m.sidebarFocused, m.sidebar.search.Focused(), m.sidebar.InSelectMode(), hasGameSelection, m.styles.ShowHints)
+	keys := ContextKeys(m.sidebarFocused, m.sidebar.search.Focused(), m.sidebar.InSelectMode(), m.contentModel(), m.styles.ShowHints)
+	contextHelp := RenderContextBar(keys, m.width/2, &m.styles.Theme)
 	crumbs := m.renderBreadcrumbs()
 	statusBar := m.statusBar.ViewWithHelp(crumbs + "  " + contextHelp)
 

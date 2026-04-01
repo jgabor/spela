@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 type HelpSection struct {
@@ -145,27 +146,187 @@ func (m HelpModel) View() string {
 	return b.String()
 }
 
-func ContextHelp(sidebarFocused bool, searchFocused, selectMode, hasGameSelection bool, showHints bool) string {
+// ContextKey represents a keybinding with its current state.
+type ContextKey struct {
+	Key     string // display text for the key (e.g., "u", "R", "tab")
+	Action  string // short description (e.g., "update", "restore", "sidebar")
+	Enabled bool   // false = dimmed with reason
+	Reason  string // shown when disabled (e.g., "no backup")
+}
+
+// globalKeys are always appended to every context key set.
+var globalKeys = []ContextKey{
+	{Key: "?", Action: "help", Enabled: true},
+	{Key: "o", Action: "options", Enabled: true},
+	{Key: "q", Action: "quit", Enabled: true},
+}
+
+// ContextKeys returns the keybindings relevant to the current context.
+func ContextKeys(sidebarFocused bool, searchFocused, selectMode bool, content *ContentModel, showHints bool) []ContextKey {
 	if !showHints {
-		return "?:help • q:quit"
+		return globalKeys
 	}
 
-	var hints []string
+	var keys []ContextKey
 
-	if searchFocused {
-		hints = []string{"type:filter", "enter/esc:done"}
-	} else if selectMode {
-		hints = []string{"↑↓:navigate", "space:toggle", "a:all", "A:none", "enter:batch", "esc:exit"}
-	} else if sidebarFocused {
-		hints = []string{"↑↓:navigate", "/:search", "d:DLLs", "p:profile", "s:sort", "r:rescan", "enter:select"}
-	} else {
-		hints = []string{"↑↓:navigate", "←→:change", "s:save"}
-		if hasGameSelection {
-			hints = append(hints, "L:launch", "i:install", "u:update", "R:restore")
+	switch {
+	case searchFocused:
+		keys = []ContextKey{
+			{Key: "type", Action: "filter", Enabled: true},
+			{Key: "enter", Action: "done", Enabled: true},
+			{Key: "esc", Action: "cancel", Enabled: true},
 		}
-		hints = append(hints, "tab:sidebar")
+
+	case selectMode:
+		keys = []ContextKey{
+			{Key: "↑↓", Action: "navigate", Enabled: true},
+			{Key: "space", Action: "toggle", Enabled: true},
+			{Key: "a", Action: "all", Enabled: true},
+			{Key: "A", Action: "none", Enabled: true},
+			{Key: "enter", Action: "batch", Enabled: true},
+			{Key: "esc", Action: "exit", Enabled: true},
+		}
+
+	case sidebarFocused:
+		keys = []ContextKey{
+			{Key: "↑↓", Action: "navigate", Enabled: true},
+			{Key: "/", Action: "search", Enabled: true},
+			{Key: "d", Action: "DLLs", Enabled: true},
+			{Key: "p", Action: "profile", Enabled: true},
+			{Key: "s", Action: "sort", Enabled: true},
+			{Key: "r", Action: "rescan", Enabled: true},
+			{Key: "enter", Action: "select", Enabled: true},
+		}
+
+	default: // content focused
+		keys = []ContextKey{
+			{Key: "↑↓", Action: "navigate", Enabled: true},
+			{Key: "←→", Action: "change", Enabled: true},
+			{Key: "s", Action: "save", Enabled: true},
+		}
+
+		if content != nil && content.game != nil {
+			keys = append(keys,
+				ContextKey{Key: "L", Action: "launch", Enabled: !content.launching, Reason: "launching"},
+				ContextKey{Key: "i", Action: "install", Enabled: !content.dllOperating, Reason: "busy"},
+				ContextKey{
+					Key: "u", Action: "update",
+					Enabled: content.hasUpdates && content.hasBackup && !content.dllOperating,
+					Reason:  reasonForUpdate(content),
+				},
+				ContextKey{
+					Key: "R", Action: "restore",
+					Enabled: content.hasBackup && !content.dllOperating,
+					Reason:  "no backup",
+				},
+			)
+		}
+
+		keys = append(keys, ContextKey{Key: "tab", Action: "sidebar", Enabled: true})
 	}
 
-	hints = append(hints, "?:help", "o:options", "q:quit")
-	return strings.Join(hints, " • ")
+	keys = append(keys, globalKeys...)
+	return keys
+}
+
+// reasonForUpdate returns the most relevant reason why the update key is disabled.
+func reasonForUpdate(content *ContentModel) string {
+	if content.dllOperating {
+		return "busy"
+	}
+	if !content.hasUpdates {
+		return "up to date"
+	}
+	if !content.hasBackup {
+		return "no backup"
+	}
+	return ""
+}
+
+// contextKeySeparator is placed between rendered keys in the bar.
+const contextKeySeparator = "  "
+
+// RenderContextBar renders the keybinding bar from a slice of ContextKeys.
+func RenderContextBar(keys []ContextKey, width int, theme *Theme) string {
+	if len(keys) == 0 || width <= 0 {
+		return ""
+	}
+
+	keyStyle := lipgloss.NewStyle().Foreground(theme.Accent)
+	actionStyle := lipgloss.NewStyle().Foreground(theme.TextDim)
+	disabledStyle := lipgloss.NewStyle().Foreground(theme.Border)
+
+	renderKey := func(ck ContextKey) string {
+		if ck.Enabled {
+			return keyStyle.Render(ck.Key) + actionStyle.Render(":"+ck.Action)
+		}
+		text := ck.Key + ":" + ck.Action
+		if ck.Reason != "" {
+			text += " (" + ck.Reason + ")"
+		}
+		return disabledStyle.Render(text)
+	}
+
+	globalCount := len(globalKeys)
+	if globalCount > len(keys) {
+		globalCount = len(keys)
+	}
+	contextKeys := keys[:len(keys)-globalCount]
+	suffixKeys := keys[len(keys)-globalCount:]
+
+	suffixParts := make([]string, len(suffixKeys))
+	for i, k := range suffixKeys {
+		suffixParts[i] = renderKey(k)
+	}
+	suffix := strings.Join(suffixParts, contextKeySeparator)
+	suffixWidth := lipgloss.Width(suffix)
+
+	if suffixWidth >= width {
+		return suffix
+	}
+
+	ellipsis := "..."
+	ellipsisWidth := len(ellipsis)
+	budget := width - suffixWidth - len(contextKeySeparator)
+
+	var rendered []string
+	usedWidth := 0
+	truncated := false
+
+	for i, ck := range contextKeys {
+		part := renderKey(ck)
+		partWidth := lipgloss.Width(part)
+
+		separatorWidth := 0
+		if i > 0 {
+			separatorWidth = len(contextKeySeparator)
+		}
+
+		needed := partWidth + separatorWidth
+		remaining := len(contextKeys) - i - 1
+		reserveEllipsis := 0
+		if remaining > 0 {
+			reserveEllipsis = ellipsisWidth + len(contextKeySeparator)
+		}
+
+		if usedWidth+needed+reserveEllipsis > budget && remaining > 0 {
+			truncated = true
+			break
+		}
+
+		if usedWidth+needed > budget {
+			truncated = true
+			break
+		}
+
+		rendered = append(rendered, part)
+		usedWidth += needed
+	}
+
+	if truncated {
+		rendered = append(rendered, ellipsis)
+	}
+
+	rendered = append(rendered, suffix)
+	return strings.Join(rendered, contextKeySeparator)
 }
