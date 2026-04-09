@@ -177,32 +177,6 @@ func TestRenderGauge_ContainsPercentage(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// RenderGaugeMini tests
-// ---------------------------------------------------------------------------
-
-func TestRenderGaugeMini_NoBracketsOrPercentage(t *testing.T) {
-	out := RenderGaugeMini(50, 0, 100, 10, testTheme)
-	raw := stripANSI(out)
-	if strings.Contains(raw, "[") || strings.Contains(raw, "]") || strings.Contains(raw, "%") {
-		t.Errorf("mini gauge should have no brackets or percentage, got %q", raw)
-	}
-}
-
-func TestRenderGaugeMini_WidthZero(t *testing.T) {
-	out := RenderGaugeMini(50, 0, 100, 0, testTheme)
-	if out != "" {
-		t.Errorf("mini gauge width 0 should return empty, got %q", out)
-	}
-}
-
-func TestRenderGaugeMini_CorrectVisibleWidth(t *testing.T) {
-	out := RenderGaugeMini(50, 0, 100, 15, testTheme)
-	if w := lipgloss.Width(out); w != 15 {
-		t.Errorf("mini gauge should be 15 wide, got %d", w)
-	}
-}
-
-// ---------------------------------------------------------------------------
 // MetricsBuffer tests
 // ---------------------------------------------------------------------------
 

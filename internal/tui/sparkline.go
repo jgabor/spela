@@ -93,15 +93,6 @@ func RenderGauge(value, min, max float64, width int, theme *Theme) string {
 	return "[" + bar + "] " + percentage
 }
 
-// RenderGaugeMini renders a compact gauge without brackets or percentage text.
-// Used in compact density mode. Width <= 0 returns an empty string.
-func RenderGaugeMini(value, min, max float64, width int, theme *Theme) string {
-	if width <= 0 {
-		return ""
-	}
-	return renderGaugeBar(value, min, max, width, theme)
-}
-
 // renderGaugeBar builds the interior of a gauge (filled + partial + empty).
 func renderGaugeBar(value, min, max float64, width int, theme *Theme) string {
 	ratio := normalizeAndClamp(value, min, max)

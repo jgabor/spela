@@ -20,12 +20,6 @@ func GetDLLCachePath(name, version string) string {
 	return xdg.CachePath(filepath.Join("dlls", name, version+".dll"))
 }
 
-func IsCached(name, version string) bool {
-	cachePath := GetDLLCachePath(name, version)
-	_, err := os.Stat(cachePath)
-	return err == nil
-}
-
 func DownloadDLL(dll *DLL, dllName string) (string, error) {
 	return DownloadDLLWithProgress(dll, dllName, nil)
 }
@@ -100,48 +94,4 @@ func (pw *progressWriter) Write(p []byte) (int, error) {
 	pw.downloaded += int64(n)
 	pw.progress(pw.downloaded, pw.total)
 	return n, err
-}
-
-func GetOrDownloadDLL(manifest *Manifest, dllName, version string) (string, error) {
-	var dll *DLL
-
-	if version == "" || version == "latest" {
-		dll = manifest.GetLatestDLL(dllName)
-	} else {
-		dll = manifest.GetDLLVersion(dllName, version)
-	}
-
-	if dll == nil {
-		return "", fmt.Errorf("DLL not found: %s %s", dllName, version)
-	}
-
-	if IsCached(dllName, dll.Version) {
-		return GetDLLCachePath(dllName, dll.Version), nil
-	}
-
-	return DownloadDLL(dll, dllName)
-}
-
-func ClearCache() error {
-	cachePath := xdg.CachePath("dlls")
-	return os.RemoveAll(cachePath)
-}
-
-func GetCacheSize() (int64, error) {
-	cachePath := xdg.CachePath("dlls")
-	var size int64
-
-	err := filepath.WalkDir(cachePath, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		if !d.IsDir() {
-			if info, err := d.Info(); err == nil {
-				size += info.Size()
-			}
-		}
-		return nil
-	})
-
-	return size, err
 }

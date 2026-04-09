@@ -309,32 +309,12 @@ const (
 	StateSuccess
 )
 
-func IndicatorIcon(state StateIndicator) string {
-	switch state {
-	case StateModified:
-		return "●"
-	case StateActive:
-		return "▶"
-	case StateDisabled:
-		return "○"
-	case StateLoading:
-		return "⟳"
-	case StateError:
-		return "✗"
-	case StateSuccess:
-		return "✓"
-	default:
-		return ""
-	}
-}
-
 // CLI color helper styles — immutable, computed once from DefaultTheme.
 var (
 	cliPrimaryStyle   = lipgloss.NewStyle().Foreground(DefaultTheme.Primary)
 	cliSecondaryStyle = lipgloss.NewStyle().Foreground(DefaultTheme.Secondary)
 	cliDimStyle       = lipgloss.NewStyle().Foreground(DefaultTheme.TextDim)
 	cliSuccessStyle   = lipgloss.NewStyle().Foreground(DefaultTheme.Success)
-	cliErrorStyle     = lipgloss.NewStyle().Foreground(DefaultTheme.Error)
 	cliAccentStyle    = lipgloss.NewStyle().Foreground(DefaultTheme.Accent)
 )
 
@@ -352,10 +332,6 @@ func CLIDim(text string) string {
 
 func CLISuccess(text string) string {
 	return cliSuccessStyle.Render(text)
-}
-
-func CLIError(text string) string {
-	return cliErrorStyle.Render(text)
 }
 
 func CLIAccent(text string) string {

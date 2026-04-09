@@ -35,7 +35,7 @@ Two passes. First pass removes the ludusavi feature top-to-bottom: package, stru
 ### Task 1: Remove ludusavi package and all integration points
 
 **Depends on**: none
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN the codebase WHEN searching for "ludusavi" case-insensitively THEN no references exist outside git history, CHANGELOG.md, and .agentera/ operational files
 ▸ GIVEN a game profile YAML file containing a `ludusavi:` section WHEN loaded by spela THEN the profile loads without error and the ludusavi section is silently ignored

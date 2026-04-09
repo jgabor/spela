@@ -145,11 +145,6 @@ func ResetMemoryLockedClocksNVML() error {
 	return nil
 }
 
-// NVMLAvailable reports whether NVML was initialized successfully.
-func NVMLAvailable() bool {
-	return nvmlAvailable
-}
-
 func getInfoNVML() (map[string]string, error) {
 	info := make(map[string]string)
 

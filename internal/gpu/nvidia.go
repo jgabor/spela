@@ -10,48 +10,6 @@ import (
 	"github.com/jgabor/spela/internal/privilege"
 )
 
-type NVIDIASettings struct {
-	ThreadedOptimization bool
-	DigitalVibrance      int
-	PowerMizerMode       int
-}
-
-type NVIDIASMISettings struct {
-	TargetTemp          int
-	GraphicsClockOffset int
-	MemoryClockOffset   int
-}
-
-func GetNVIDIASettings() (*NVIDIASettings, error) {
-	settings := &NVIDIASettings{}
-
-	out, err := runNvidiaSettings("-q", "[gpu:0]/GPUPowerMizerMode")
-	if err == nil {
-		if val := parseNvidiaSettingsValue(out); val != "" {
-			settings.PowerMizerMode, _ = strconv.Atoi(val)
-		}
-	}
-
-	out, err = runNvidiaSettings("-q", "[gpu:0]/DigitalVibrance")
-	if err == nil {
-		if val := parseNvidiaSettingsValue(out); val != "" {
-			settings.DigitalVibrance, _ = strconv.Atoi(val)
-		}
-	}
-
-	return settings, nil
-}
-
-func SetPowerMizerMode(mode int) error {
-	_, err := runNvidiaSettings("-a", fmt.Sprintf("[gpu:0]/GPUPowerMizerMode=%d", mode))
-	return err
-}
-
-func SetDigitalVibrance(level int) error {
-	_, err := runNvidiaSettings("-a", fmt.Sprintf("[gpu:0]/DigitalVibrance=%d", level))
-	return err
-}
-
 func LockGraphicsClocks(offset int) error {
 	maxMHz := 2100 + offset
 	if nvmlAvailable && privilege.IsRoot() {
@@ -197,15 +155,6 @@ func getMetricsSMI() (*GPUMetrics, error) {
 	return metrics, nil
 }
 
-func runNvidiaSettings(args ...string) (string, error) {
-	cmd := exec.Command("nvidia-settings", args...)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-	err := cmd.Run()
-	return out.String(), err
-}
-
 func runNvidiaSMI(args ...string) (string, error) {
 	cmd := exec.Command("nvidia-smi", args...)
 	var out bytes.Buffer
@@ -220,18 +169,6 @@ func runNvidiaSMIElevated(args ...string) error {
 	return err
 }
 
-func parseNvidiaSettingsValue(output string) string {
-	for line := range strings.SplitSeq(output, "\n") {
-		if strings.Contains(line, "):") {
-			parts := strings.Split(line, ":")
-			if len(parts) >= 2 {
-				return strings.TrimSpace(strings.TrimSuffix(parts[len(parts)-1], "."))
-			}
-		}
-	}
-	return ""
-}
-
 type GPUGeneration int
 
 const (
@@ -241,46 +178,3 @@ const (
 	GPUGenerationAdaLovelace
 	GPUGenerationBlackwell
 )
-
-func (g GPUGeneration) SupportsFP8() bool {
-	return g >= GPUGenerationAdaLovelace
-}
-
-func (g GPUGeneration) String() string {
-	switch g {
-	case GPUGenerationTuring:
-		return "Turing (RTX 20)"
-	case GPUGenerationAmpere:
-		return "Ampere (RTX 30)"
-	case GPUGenerationAdaLovelace:
-		return "Ada Lovelace (RTX 40)"
-	case GPUGenerationBlackwell:
-		return "Blackwell (RTX 50)"
-	default:
-		return "Unknown"
-	}
-}
-
-func GetGPUGeneration() (GPUGeneration, error) {
-	info, err := GetGPUInfo()
-	if err != nil {
-		return GPUGenerationUnknown, err
-	}
-	return parseGPUGeneration(info["name"]), nil
-}
-
-func parseGPUGeneration(name string) GPUGeneration {
-	name = strings.ToLower(name)
-	switch {
-	case strings.Contains(name, "rtx 20"), strings.Contains(name, "rtx20"):
-		return GPUGenerationTuring
-	case strings.Contains(name, "rtx 30"), strings.Contains(name, "rtx30"):
-		return GPUGenerationAmpere
-	case strings.Contains(name, "rtx 40"), strings.Contains(name, "rtx40"):
-		return GPUGenerationAdaLovelace
-	case strings.Contains(name, "rtx 50"), strings.Contains(name, "rtx50"):
-		return GPUGenerationBlackwell
-	default:
-		return GPUGenerationUnknown
-	}
-}

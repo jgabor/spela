@@ -60,11 +60,3 @@ func ParseAppManifest(path string) (*AppManifest, error) {
 func (m *AppManifest) IsFullyInstalled() bool {
 	return m.StateFlags == 4
 }
-
-func (m *AppManifest) CompatDataPath() string {
-	return filepath.Join(m.LibraryPath, "steamapps", "compatdata", strconv.FormatUint(m.AppID, 10))
-}
-
-func (m *AppManifest) PrefixPath() string {
-	return filepath.Join(m.CompatDataPath(), "pfx", "drive_c")
-}

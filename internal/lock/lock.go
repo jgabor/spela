@@ -68,19 +68,6 @@ func Release() error {
 	return os.Remove(lockPath())
 }
 
-func IsHeld() (bool, int) {
-	pid, err := readPID(lockPath())
-	if err != nil {
-		return false, 0
-	}
-
-	if !processExists(pid) {
-		return false, 0
-	}
-
-	return true, pid
-}
-
 func readPID(path string) (int, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {

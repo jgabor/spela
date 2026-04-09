@@ -34,12 +34,6 @@ func (r *RestorePoint) SaveEnv(keys ...string) {
 	}
 }
 
-func (r *RestorePoint) AddCleanup(fn func()) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.cleanups = append(r.cleanups, fn)
-}
-
 func (r *RestorePoint) Restore() {
 	r.mu.Lock()
 	defer r.mu.Unlock()

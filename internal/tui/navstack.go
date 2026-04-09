@@ -79,20 +79,6 @@ type popMsg struct {
 	result tea.Msg
 }
 
-// Push returns a command that requests pushing an entry onto the stack.
-func Push(entry StackEntry) tea.Cmd {
-	return func() tea.Msg { return pushMsg{entry: entry} }
-}
-
-// Pop returns a message that requests popping the top entry from the stack.
-func Pop() tea.Msg { return popMsg{} }
-
-// PopWith returns a command that pops the top entry and re-processes
-// a result message through the parent.
-func PopWith(result tea.Msg) tea.Cmd {
-	return func() tea.Msg { return popMsg{result: result} }
-}
-
 // contentEntry wraps ContentModel to implement StackEntry.
 type contentEntry struct {
 	model ContentModel

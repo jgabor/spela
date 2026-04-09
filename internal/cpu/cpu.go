@@ -156,36 +156,10 @@ func SCXIsAvailable() bool {
 	return err == nil
 }
 
-func SCXStart(scheduler string) error {
-	cmd := exec.Command("systemctl", "start", "scx.service")
-	return cmd.Run()
-}
-
-func SCXStop() error {
-	cmd := exec.Command("systemctl", "stop", "scx.service")
-	return cmd.Run()
-}
-
 func SCXStatus() (bool, error) {
 	cmd := exec.Command("systemctl", "is-active", "scx.service")
 	err := cmd.Run()
 	return err == nil, nil
-}
-
-func GetSchedulers() ([]string, error) {
-	entries, err := filepath.Glob("/usr/bin/scx_*")
-	if err != nil {
-		return nil, err
-	}
-
-	var schedulers []string
-	for _, e := range entries {
-		name := filepath.Base(e)
-		if after, ok := strings.CutPrefix(name, "scx_"); ok {
-			schedulers = append(schedulers, after)
-		}
-	}
-	return schedulers, nil
 }
 
 type CPUMetrics struct {

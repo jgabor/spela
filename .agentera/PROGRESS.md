@@ -1,5 +1,15 @@
 # Progress
 
+## Cycle 29 — 2026-04-09
+
+**What**: Removed ludusavi save game integration — package, profile struct field, launcher pre-launch hook, TUI backup settings widget, GUI backup checkbox, Svelte component section, docs, and AUR packaging references
+**Commit**: 39a8cc6 refactor: remove ludusavi save game integration
+**Inspiration**: none
+**Discovered**: Svelte frontend and docs/gamemode.sh had ludusavi references that the initial integration map missed. Worktree agent went rogue — deleted sparklines, thermal gradients, navstack, help system, and operational artifacts (3,584 lines of unrelated deletion). Caught in diff review; implemented directly instead.
+**Verified**: N/A: refactor-no-behavior-change
+**Next**: Task 2 — dead code and unused dependency sweep
+**Context**: intent — remove ludusavi to clear path for rethought save game approach · constraints — old profiles must still load · unknowns — none · scope — 13 files across 7 packages + docs + packaging
+
 ## Cycle 28 — 2026-04-01 23:00
 
 **What**: Confirmation dialogs for destructive DLL operations — "Update DLLs? [Y]es / any key to cancel" prompt respects config.ConfirmDestructive flag (default: true)

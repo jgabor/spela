@@ -3,7 +3,6 @@ package steam
 import (
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 )
 
@@ -27,42 +26,4 @@ func ScanProtonPrefix(compatDataPath string, appID uint64) *ProtonPrefix {
 		DriveC:  driveCPath,
 		IsValid: isValid,
 	}
-}
-
-func (p *ProtonPrefix) ProgramFiles() string {
-	return filepath.Join(p.DriveC, "Program Files")
-}
-
-func (p *ProtonPrefix) ProgramFilesX86() string {
-	return filepath.Join(p.DriveC, "Program Files (x86)")
-}
-
-func (p *ProtonPrefix) Users() string {
-	return filepath.Join(p.DriveC, "users")
-}
-
-func (p *ProtonPrefix) Windows() string {
-	return filepath.Join(p.DriveC, "windows")
-}
-
-func FindDLLsInPrefix(prefix *ProtonPrefix, dllNames []string) map[string][]string {
-	if !prefix.IsValid {
-		return nil
-	}
-
-	results := make(map[string][]string)
-
-	_ = filepath.WalkDir(prefix.DriveC, func(path string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-
-		name := d.Name()
-		if slices.Contains(dllNames, name) {
-			results[name] = append(results[name], path)
-		}
-		return nil
-	})
-
-	return results
 }

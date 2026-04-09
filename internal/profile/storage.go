@@ -111,15 +111,6 @@ func Delete(appID uint64) error {
 	return err
 }
 
-func DeleteDefault() error {
-	path := defaultProfilePath()
-	err := os.Remove(path)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
-	}
-	return err
-}
-
 func List() (map[uint64]*Profile, error) {
 	dir := profilesDir()
 	entries, err := os.ReadDir(dir)

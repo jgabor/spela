@@ -152,11 +152,6 @@ func RestoreBackup(appID uint64) error {
 	return nil
 }
 
-func DeleteBackup(appID uint64) error {
-	backupDir := GetBackupDir(appID)
-	return os.RemoveAll(backupDir)
-}
-
 func SwapDLL(appID uint64, gameName string, dlls []GameDLL, dllName, cachePath string) error {
 	var targetPath string
 	for _, dll := range dlls {

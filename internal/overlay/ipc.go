@@ -219,11 +219,6 @@ func (f *IPCFile) Close() error {
 	return nil
 }
 
-// Path returns the file path of the IPC file.
-func (f *IPCFile) Path() string {
-	return f.file.Name()
-}
-
 func (f *IPCFile) writeHeader() {
 	binary.LittleEndian.PutUint32(f.data[0:4], ipcMagic)
 	binary.LittleEndian.PutUint16(f.data[4:6], ipcVersion)
