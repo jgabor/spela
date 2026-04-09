@@ -1,6 +1,6 @@
 # Plan: Ludusavi Removal and Dead Code Sweep
 
-<!-- Level: full · Created: 2026-04-09 · Status: active -->
+<!-- Level: full · Created: 2026-04-09 · Status: complete -->
 <!-- Reviewed: skipped (user-approved scope, removal-only plan) -->
 
 ## What
@@ -46,7 +46,7 @@ Two passes. First pass removes the ludusavi feature top-to-bottom: package, stru
 ### Task 2: Dead code and unused dependency sweep
 
 **Depends on**: Task 1
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN the codebase WHEN dead code analysis runs THEN the dead function count is measurably lower than the 16.6% baseline from Audit 1
 ▸ GIVEN go.mod WHEN checked for direct dependencies THEN every direct dependency has at least one import in non-test Go files, or is a build tool dependency
@@ -56,7 +56,7 @@ Two passes. First pass removes the ludusavi feature top-to-bottom: package, stru
 ### Task 3: Plan-level freshness checkpoint
 
 **Depends on**: Task 1, Task 2
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN this plan's work has shipped WHEN CHANGELOG.md is checked THEN it has entries under [Unreleased] covering the ludusavi removal and dead code sweep
 ▸ GIVEN this plan is otherwise complete WHEN PROGRESS.md is checked THEN it has a cycle entry summarizing the plan and listing commits

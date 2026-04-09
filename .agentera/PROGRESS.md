@@ -1,5 +1,23 @@
 # Progress
 
+## Cycle 31 — 2026-04-09 (plan summary: Ludusavi Removal and Dead Code Sweep)
+
+**What**: Completed 3-task plan — removed ludusavi save game integration (package, profile, launcher, TUI, GUI, Svelte, docs, packaging) and swept 49 dead functions across 16 files plus unused mangohud config, self-updater package, and samber/lo dependency. Net -1,000 lines, -4 files. Dead code 16.6% → 14.3%.
+**Commits**: 39a8cc6 refactor: remove ludusavi save game integration · 0687920 refactor: remove dead code and unused dependencies
+**Discovered**: Worktree agents unreliable for this codebase (Cycle 29 agent deleted 3,584 lines of unrelated code). logging.go collapsed to single Warn function after ludusavi removal killed last Info caller. Architecture grade improved C → B. HEALTH.md Audit 1 dead code finding (16.6%) partially resolved — now 14.3%.
+**Verified**: N/A: chore-build-config
+**Next**: Vision-driven work. GUI DLL progress indicator (degraded), overlay CLI commands (annoying), or Vulkan layer PoC (vision direction).
+
+## Cycle 30 — 2026-04-09
+
+**What**: Dead code sweep — removed 49 unreachable functions across 16 files, deleted mangohud.go and entire update package, removed samber/lo unused dep. Dead code 16.4% → 14.3% (sentrux), 49 → 0 (deadcode -test).
+**Commit**: 0687920 refactor: remove dead code and unused dependencies
+**Inspiration**: none
+**Discovered**: nvidia_test.go and sparkline_test.go had tests for dead functions — removed too. GPUGeneration type/constants kept but methods and parser removed. logging.go collapsed to just Warn. Architecture grade improved C → B (sentrux).
+**Verified**: N/A: refactor-no-behavior-change
+**Next**: Task 3 — plan-level freshness checkpoint
+**Context**: intent — reduce dead code from 16.6% baseline per HEALTH.md Audit 1 · constraints — preserve test-only exports · unknowns — none · scope — 16 files across 13 packages + go.mod
+
 ## Cycle 29 — 2026-04-09
 
 **What**: Removed ludusavi save game integration — package, profile struct field, launcher pre-launch hook, TUI backup settings widget, GUI backup checkbox, Svelte component section, docs, and AUR packaging references

@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Remove ludusavi save game integration (feature to be rethought)
+- Remove 49 dead functions, unused mangohud config, self-updater package, and samber/lo dependency
 - TUI navigation: replaced binary focus system with LIFO navigation stack, breadcrumb trail, and stack-based message routing
 - Update transitive dependencies (x/crypto, x/net, x/text, wails, bubbles, echo)
 - Consolidate launch orchestration into single entry point for CLI, GUI, and TUI

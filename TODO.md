@@ -23,3 +23,5 @@
 - [x] ~~Missing profile fields~~ — fixed in prior refactoring
 - [x] ~~Incomplete DLSS set command flags~~ — fixed in prior refactoring
 - [x] ~~NVML setter privilege model undecided~~ — migrated to batched pkexec apply-profile with go-nvml setters
+- [x] ~~Ludusavi save game integration~~ — removed entirely in 39a8cc6; feature to be rethought
+- [x] ~~Dead code accumulation (16.6%)~~ — swept to 14.3% in 0687920; 49 functions, 3 files, 1 dep removed

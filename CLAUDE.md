@@ -30,7 +30,6 @@ mage install  # Install to GOPATH/bin
 - `internal/profile/` - Per-game YAML profiles, apply/restore with cleanup closures
 - `internal/steam/` - Steam library detection, VDF parsing
 - `internal/tui/` - Bubbletea v2 interactive terminal UI
-- `internal/update/` - Self-update checking
 - `internal/xdg/` - XDG Base Directory path resolution
 - `data/polkit/` - Polkit policy for privileged operations
 - `docs/` - Design documents and reference material
