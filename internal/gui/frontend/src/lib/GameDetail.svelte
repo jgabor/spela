@@ -665,17 +665,6 @@
         </div>
       </div>
 
-      <div class="section boxed">
-        <h2>Backup settings</h2>
-
-        <div class="form">
-          <div class="field checkbox">
-            <input type="checkbox" id="backupOnLaunch" bind:checked={profile.backupOnLaunch} />
-            <label for="backupOnLaunch">Save backup</label>
-            <span class="hint">Backup saves when launching via Ludusavi.</span>
-          </div>
-        </div>
-      </div>
     </div>
 
     <div class="actions">

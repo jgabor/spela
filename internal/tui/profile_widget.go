@@ -608,32 +608,6 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 				},
 			},
 		},
-		{
-			title: "Backup settings",
-			fields: []WidgetField{
-				{
-					label:       "Backup on launch",
-					key:         "backup_on_launch",
-					value:       displayBool(p.Ludusavi.BackupOnLaunch),
-					options:     []string{"(default)", "true", "false"},
-					description: "Backup saves on launch",
-					apply: func(p *profile.Profile, v string, d bool) {
-						p.Ludusavi.BackupOnLaunch = v == "true"
-					},
-				},
-				{
-					label:       "Restore on launch",
-					key:         "restore_on_launch",
-					value:       displayBool(p.Ludusavi.RestoreOnLaunch),
-					options:     []string{"(default)", "true", "false"},
-					description: "Restore saves on launch",
-					disabled:    true,
-					apply: func(p *profile.Profile, v string, d bool) {
-						p.Ludusavi.RestoreOnLaunch = v == "true"
-					},
-				},
-			},
-		},
 	}
 
 	return ProfileWidgetModel{
@@ -905,8 +879,6 @@ func (m ProfileWidgetModel) getCurrentDescription() string {
 		return "Proton compatibility layer settings"
 	case "Overlay settings":
 		return "Performance overlay display settings"
-	case "Backup settings":
-		return "Game save backup settings via Ludusavi"
 	}
 	return ""
 }

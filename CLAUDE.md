@@ -25,7 +25,6 @@ mage install  # Install to GOPATH/bin
 - `internal/launcher/` - Game launch orchestration, signal forwarding, cleanup
 - `internal/lock/` - File-based process locking
 - `internal/logging/` - Centralized slog-based logging
-- `internal/ludusavi/` - Ludusavi save game backup integration
 - `internal/overlay/` - Overlay IPC protocol (mmap + seqlock), alert detection, stats collector
 - `internal/privilege/` - Polkit (pkexec) privilege escalation, batched apply-profile
 - `internal/profile/` - Per-game YAML profiles, apply/restore with cleanup closures

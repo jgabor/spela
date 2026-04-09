@@ -159,7 +159,6 @@ case $1 in
   *)
     enable &> /dev/null \
       && echo "$(date +'%FT%T') Running: mangohud $*" | tee -a ~/logs/gamemode.log
-    # ludusavi --config "$HOME"/.config/ludusavi wrap --gui --infer steam --
     mangohud "${@}"
     ;;
 esac

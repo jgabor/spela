@@ -1,5 +1,47 @@
 # Health
 
+## Audit 2 — 2026-04-01 (targeted: user-reported TUI bugs)
+
+**Dimensions assessed**: Pattern consistency (TUI key handling)
+**Findings**: 2 critical, 0 warnings, 2 info
+**Overall trajectory**: ⮉ improving vs Audit 1 (TUI structural debt addressed by 8-task plan)
+**Grades**: Patterns [C+] (up from C — key handling still inconsistent but improving)
+
+### Patterns: C+
+
+#### ⇶ Jump keys 2/3/4 not global — critical (confidence: 100)
+
+- **Location**: `internal/tui/layout.go:188` (key "1" handled globally), `internal/tui/content.go:226-234` (keys "2"/"3"/"4" handled content-locally)
+- **Evidence**: Key "1" was a global layout-level handler; keys "2"/"3"/"4" were inside ContentModel.Update(), unreachable when sidebarFocused=true
+- **Impact**: Tab switching only worked after pressing Tab or 1 first — violated DESIGN.md spec for global jump keys
+- **Suggested action**: Handle 2/3/4 at layout level alongside 1
+- **Resolution**: Fixed in `697fc97` — 2/3/4 now global jump keys at layout level
+
+#### ⇶ F-key string matching case mismatch — critical (confidence: 100)
+
+- **Location**: `internal/tui/layout.go:172-187`
+- **Evidence**: Code matched `"F5"` and `"F11"` (uppercase). bubbletea v2 (via ultraviolet) reports function keys as lowercase: `KeyF5: "f5"` at `ultraviolet/key.go:515`
+- **Impact**: Density mode toggles (compact/focused) completely non-functional
+- **Resolution**: Fixed in `697fc97` — changed to `"f5"` and `"f11"`
+
+#### ⇢ Tab bar visibility confusion — info (confidence: 70)
+
+- **Location**: `internal/tui/content.go:441-455`
+- **Evidence**: Tab bar only renders when `m.game != nil`. Before selecting a game, content shows "Select a game from the sidebar" with no tabs.
+- **Impact**: User expected tabs to always be visible. Arguably correct behavior — tabs are meaningless without a game context.
+
+#### ⇢ Theme application — info (confidence: 40)
+
+- **Location**: `internal/tui/styles.go` (all three themes)
+- **Evidence**: All theme fields correctly defined and wired. Could not reproduce a visual defect. May be terminal color profile mismatch or user expectation vs. actual palette.
+- **Impact**: Unresolved — needs user clarification on what specifically looks wrong.
+
+### Trends vs Audit 1
+
+- **Improved**: TUI architecture significantly improved by 8-task visual transformation plan (nav stack, tabs, sparklines, compositor modals, density modes)
+- **New findings**: Two critical key-handling bugs introduced during the transformation — both fixed same session
+- **Resolved from Audit 1**: Global mutable TUI styles (was critical), launch cleanup pipeline (was critical), competing logging patterns (was critical), profile widget 54-case switch (was critical)
+
 ## Audit 1 — 2026-04-01
 
 **Dimensions assessed**: Architecture, Patterns, Coupling, Complexity, Tests, Dependencies

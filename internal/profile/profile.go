@@ -58,17 +58,11 @@ const (
 type Profile struct {
 	Name string `yaml:"name,omitempty"`
 
-	DLSS     DLSSSettings     `yaml:"dlss,omitempty"`
-	GPU      GPUSettings      `yaml:"gpu,omitempty"`
-	CPU      CPUSettings      `yaml:"cpu,omitempty"`
-	Proton   ProtonSettings   `yaml:"proton,omitempty"`
-	Ludusavi LudusaviSettings `yaml:"ludusavi,omitempty"`
-	Overlay  OverlaySettings  `yaml:"overlay,omitempty"`
-}
-
-type LudusaviSettings struct {
-	BackupOnLaunch  bool `yaml:"backup_on_launch,omitempty"`
-	RestoreOnLaunch bool `yaml:"restore_on_launch,omitempty"`
+	DLSS    DLSSSettings    `yaml:"dlss,omitempty"`
+	GPU     GPUSettings     `yaml:"gpu,omitempty"`
+	CPU     CPUSettings     `yaml:"cpu,omitempty"`
+	Proton  ProtonSettings  `yaml:"proton,omitempty"`
+	Overlay OverlaySettings `yaml:"overlay,omitempty"`
 }
 
 type OverlaySettings struct {

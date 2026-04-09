@@ -14,7 +14,7 @@
 
 ## ⇢ Annoying
 
-- [ ] No CLI commands for overlay/ludusavi profile settings — overlay/backup fields have no CLI subcommands yet
+- [ ] No CLI commands for overlay profile settings — overlay fields have no CLI subcommands yet
 
 ## Resolved
 

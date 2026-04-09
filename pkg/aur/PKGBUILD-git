@@ -11,7 +11,6 @@ makedepends=('go>=1.22' 'bun' 'git')
 optdepends=(
     'nvidia-settings: GPU settings control'
     'polkit: Privileged operations support'
-    'ludusavi: Game save backup integration'
 )
 provides=('spela')
 conflicts=('spela')

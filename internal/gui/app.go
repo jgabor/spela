@@ -279,8 +279,7 @@ type ProfileInfo struct {
 	EnableHDR            bool   `json:"enableHdr"`
 	EnableWayland        bool   `json:"enableWayland"`
 	EnableNGXUpdater     bool   `json:"enableNgxUpdater"`
-	BackupOnLaunch       bool   `json:"backupOnLaunch"`
-	InheritedFromDefault bool   `json:"inheritedFromDefault"`
+	InheritedFromDefault bool `json:"inheritedFromDefault"`
 }
 
 func profileInfoFromProfile(p *profile.Profile, inheritedFromDefault bool) *ProfileInfo {
@@ -312,7 +311,6 @@ func profileInfoFromProfile(p *profile.Profile, inheritedFromDefault bool) *Prof
 		EnableHDR:            p.Proton.EnableHDR,
 		EnableWayland:        p.Proton.EnableWayland,
 		EnableNGXUpdater:     p.Proton.EnableNGXUpdater,
-		BackupOnLaunch:       p.Ludusavi.BackupOnLaunch,
 		InheritedFromDefault: inheritedFromDefault,
 	}
 }
@@ -349,9 +347,6 @@ func profileFromInfo(info ProfileInfo) *profile.Profile {
 			EnableHDR:        info.EnableHDR,
 			EnableWayland:    info.EnableWayland,
 			EnableNGXUpdater: info.EnableNGXUpdater,
-		},
-		Ludusavi: profile.LudusaviSettings{
-			BackupOnLaunch: info.BackupOnLaunch,
 		},
 	}
 }

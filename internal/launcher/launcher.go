@@ -13,7 +13,6 @@ import (
 	"github.com/jgabor/spela/internal/env"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/logging"
-	"github.com/jgabor/spela/internal/ludusavi"
 	"github.com/jgabor/spela/internal/overlay"
 	"github.com/jgabor/spela/internal/profile"
 	"github.com/jgabor/spela/internal/xdg"
@@ -83,8 +82,6 @@ func (l *Launcher) Launch(args []string) error {
 		return nil
 	}
 
-	l.runPreLaunchHooks()
-
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -111,19 +108,6 @@ func (l *Launcher) Launch(args []string) error {
 
 	l.runCleanup()
 	return err
-}
-
-func (l *Launcher) runPreLaunchHooks() {
-	if l.Profile == nil || l.Game == nil {
-		return
-	}
-
-	if l.Profile.Ludusavi.BackupOnLaunch && ludusavi.IsInstalled() {
-		logging.Info("backing up saves", "game", l.Game.Name)
-		if _, err := ludusavi.BackupGame(l.Game.Name); err != nil {
-			logging.Warn("failed to backup saves", "error", err)
-		}
-	}
 }
 
 func (l *Launcher) runCleanup() {

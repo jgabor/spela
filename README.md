@@ -137,8 +137,6 @@ Files follow XDG Base Directory specification:
 - **Steam** with Proton-enabled games
 - **Linux** (Wayland recommended, X11 supported)
 
-Optional: `ludusavi` for automatic save game backups on launch.
-
 ## License
 
 MIT
