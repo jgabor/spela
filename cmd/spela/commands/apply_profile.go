@@ -14,6 +14,7 @@ var (
 	applyGPUClockOffset  int
 	applyGPUMemoryOffset int
 	applyGPUPowerLimit   int
+	applyGPUFanSpeed     int
 	applyCPUGovernor     string
 	applyCPUSMT          string
 	applyReset           bool
@@ -32,6 +33,7 @@ func init() {
 	ApplyProfileCmd.Flags().IntVar(&applyGPUClockOffset, "gpu-clock-offset", 0, "GPU graphics clock offset (MHz)")
 	ApplyProfileCmd.Flags().IntVar(&applyGPUMemoryOffset, "gpu-memory-offset", 0, "GPU memory clock (MHz)")
 	ApplyProfileCmd.Flags().IntVar(&applyGPUPowerLimit, "gpu-power-limit", 0, "GPU power limit (watts)")
+	ApplyProfileCmd.Flags().IntVar(&applyGPUFanSpeed, "gpu-fan-speed", 0, "GPU fan speed percentage (0=auto)")
 	ApplyProfileCmd.Flags().StringVar(&applyCPUGovernor, "cpu-governor", "", "CPU frequency governor")
 	ApplyProfileCmd.Flags().StringVar(&applyCPUSMT, "cpu-smt", "", "CPU SMT control (on/off)")
 	ApplyProfileCmd.Flags().BoolVar(&applyReset, "reset", false, "Reset GPU clocks to default")
@@ -68,6 +70,12 @@ func applySettings(cmd *cobra.Command) error {
 		}
 	}
 
+	if cmd.Flags().Changed("gpu-fan-speed") && applyGPUFanSpeed > 0 {
+		if err := gpu.SetFanSpeed(applyGPUFanSpeed); err != nil {
+			return fmt.Errorf("set GPU fan speed: %w", err)
+		}
+	}
+
 	if applyCPUGovernor != "" {
 		if err := cpu.SetGovernor(cpu.Governor(applyCPUGovernor)); err != nil {
 			return fmt.Errorf("set CPU governor: %w", err)
@@ -91,6 +99,18 @@ func applyResetSettings(cmd *cobra.Command) error {
 	if cmd.Flags().Changed("gpu-power-limit") && applyGPUPowerLimit > 0 {
 		if err := gpu.SetPowerLimit(applyGPUPowerLimit); err != nil {
 			return fmt.Errorf("restore GPU power limit: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed("gpu-fan-speed") {
+		if applyGPUFanSpeed == 0 {
+			if err := gpu.ResetFanSpeed(); err != nil {
+				return fmt.Errorf("reset GPU fan speed: %w", err)
+			}
+		} else {
+			if err := gpu.SetFanSpeed(applyGPUFanSpeed); err != nil {
+				return fmt.Errorf("restore GPU fan speed: %w", err)
+			}
 		}
 	}
 

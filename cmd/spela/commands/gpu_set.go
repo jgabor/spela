@@ -14,6 +14,7 @@ var (
 	gpuSetClockOffset  int
 	gpuSetMemoryOffset int
 	gpuSetPowerLimit   int
+	gpuSetFanSpeed     int
 	gpuSetPowerMizer   string
 	gpuSetShaderCache  string
 	gpuSetCachePath    string
@@ -38,6 +39,7 @@ func init() {
 	gpuSetCmd.Flags().IntVar(&gpuSetClockOffset, "clock-offset", 0, "GPU core clock offset in MHz")
 	gpuSetCmd.Flags().IntVar(&gpuSetMemoryOffset, "memory-offset", 0, "GPU memory clock offset in MHz")
 	gpuSetCmd.Flags().IntVar(&gpuSetPowerLimit, "power-limit", 0, "GPU power limit in watts")
+	gpuSetCmd.Flags().IntVar(&gpuSetFanSpeed, "fan-speed", 0, "GPU fan speed percentage (0 to clear)")
 	gpuSetCmd.Flags().StringVar(&gpuSetPowerMizer, "power-mizer", "", "GPU power mode (adaptive, max)")
 	gpuSetCmd.Flags().StringVar(&gpuSetShaderCache, "shader-cache", "", "Enable shader caching (true/false)")
 	gpuSetCmd.Flags().StringVar(&gpuSetCachePath, "shader-cache-path", "", "Custom shader cache path (use 'default' to clear)")
@@ -80,6 +82,11 @@ func runGPUSet(cmd *cobra.Command, args []string) error {
 
 	if cmd.Flags().Changed("power-limit") {
 		p.GPU.PowerLimit = gpuSetPowerLimit
+		changed = true
+	}
+
+	if cmd.Flags().Changed("fan-speed") {
+		p.GPU.FanSpeed = gpuSetFanSpeed
 		changed = true
 	}
 
@@ -148,6 +155,7 @@ func runGPUShow(cmd *cobra.Command, args []string) error {
 	fmt.Printf("%s  %s\n", tui.CLIDim("Clock offset:"), displayGPUInt(p.GPU.ClockOffset))
 	fmt.Printf("%s  %s\n", tui.CLIDim("Memory offset:"), displayGPUInt(p.GPU.MemoryOffset))
 	fmt.Printf("%s  %s\n", tui.CLIDim("Power limit:"), displayGPUInt(p.GPU.PowerLimit))
+	fmt.Printf("%s  %s\n", tui.CLIDim("Fan speed:"), displayGPUPercent(p.GPU.FanSpeed))
 	fmt.Printf("%s  %s\n", tui.CLIDim("Power mode:"), displayGPUString(p.GPU.PowerMizer))
 	fmt.Printf("%s  %v\n", tui.CLIDim("Shader cache:"), p.GPU.ShaderCache)
 	fmt.Printf("%s  %v\n", tui.CLIDim("Threaded opt:"), p.GPU.ThreadedOptimization)
@@ -160,6 +168,13 @@ func displayGPUInt(v int) string {
 		return "(default)"
 	}
 	return fmt.Sprintf("%d", v)
+}
+
+func displayGPUPercent(v int) string {
+	if v == 0 {
+		return "(auto)"
+	}
+	return fmt.Sprintf("%d%%", v)
 }
 
 func displayGPUString(v string) string {

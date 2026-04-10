@@ -177,6 +177,7 @@ func runProfileShow(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  %s  %d\n", tui.CLIDim("Clock offset:"), p.GPU.ClockOffset)
 	fmt.Printf("  %s  %d\n", tui.CLIDim("Memory offset:"), p.GPU.MemoryOffset)
 	fmt.Printf("  %s  %s\n", tui.CLIDim("Power limit:"), profileInt(p.GPU.PowerLimit, "W"))
+	fmt.Printf("  %s  %s\n", tui.CLIDim("Fan speed:"), profilePercent(p.GPU.FanSpeed))
 	fmt.Printf("  %s  %s\n", tui.CLIDim("PowerMizer:"), profileVal(p.GPU.PowerMizer))
 
 	// CPU
@@ -214,6 +215,13 @@ func profileVal(s string) string {
 		return "(default)"
 	}
 	return s
+}
+
+func profilePercent(v int) string {
+	if v == 0 {
+		return "(auto)"
+	}
+	return strconv.Itoa(v) + "%"
 }
 
 func profileInt(v int, unit string) string {

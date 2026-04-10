@@ -99,6 +99,7 @@ type GPUSettings struct {
 	MemoryOffset         int    `yaml:"memory_offset,omitempty"`
 	PowerLimit           int    `yaml:"power_limit,omitempty"`
 	PowerMizer           string `yaml:"power_mizer,omitempty"`
+	FanSpeed             int    `yaml:"fan_speed,omitempty"`
 }
 
 type CPUSettings struct {

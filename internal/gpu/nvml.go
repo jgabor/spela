@@ -145,6 +145,28 @@ func ResetMemoryLockedClocksNVML() error {
 	return nil
 }
 
+// SetFanSpeedNVML sets the fan speed as a percentage via NVML. Requires root.
+func SetFanSpeedNVML(fanIndex, speed int) error {
+	if !nvmlAvailable {
+		return fmt.Errorf("NVML not available")
+	}
+	if ret := nvmlDevice.SetFanSpeed_v2(fanIndex, speed); ret != nvml.SUCCESS {
+		return fmt.Errorf("NVML SetFanSpeed_v2: %v", nvml.ErrorString(ret))
+	}
+	return nil
+}
+
+// ResetFanSpeedNVML resets the fan speed to default (auto) via NVML. Requires root.
+func ResetFanSpeedNVML(fanIndex int) error {
+	if !nvmlAvailable {
+		return fmt.Errorf("NVML not available")
+	}
+	if ret := nvmlDevice.SetDefaultFanSpeed_v2(fanIndex); ret != nvml.SUCCESS {
+		return fmt.Errorf("NVML SetDefaultFanSpeed_v2: %v", nvml.ErrorString(ret))
+	}
+	return nil
+}
+
 func getInfoNVML() (map[string]string, error) {
 	info := make(map[string]string)
 

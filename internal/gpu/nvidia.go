@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/NVIDIA/go-nvml/pkg/nvml"
+
 	"github.com/jgabor/spela/internal/privilege"
 )
 
@@ -52,6 +54,41 @@ func ResetClocks() error {
 		return err
 	}
 	return runNvidiaSMIElevated("-rmc")
+}
+
+// SetFanSpeed sets the GPU fan speed as a percentage (0-100). Requires root.
+// Sets all fans to the same speed.
+func SetFanSpeed(speed int) error {
+	if !nvmlAvailable || !privilege.IsRoot() {
+		return fmt.Errorf("NVML fan speed control requires root and NVML")
+	}
+	numFans, ret := nvmlDevice.GetNumFans()
+	if ret != nvml.SUCCESS || numFans == 0 {
+		numFans = 1
+	}
+	for i := 0; i < numFans; i++ {
+		if err := SetFanSpeedNVML(i, speed); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ResetFanSpeed resets all GPU fans to default (automatic) control. Requires root.
+func ResetFanSpeed() error {
+	if !nvmlAvailable || !privilege.IsRoot() {
+		return fmt.Errorf("NVML fan speed control requires root and NVML")
+	}
+	numFans, ret := nvmlDevice.GetNumFans()
+	if ret != nvml.SUCCESS || numFans == 0 {
+		numFans = 1
+	}
+	for i := 0; i < numFans; i++ {
+		if err := ResetFanSpeedNVML(i); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Init initializes the GPU subsystem. It tries NVML first for fast metric

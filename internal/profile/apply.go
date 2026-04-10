@@ -35,6 +35,7 @@ func (p *Profile) needsHardwareApply() bool {
 	return p.GPU.ClockOffset != 0 ||
 		p.GPU.MemoryOffset != 0 ||
 		p.GPU.PowerLimit > 0 ||
+		p.GPU.FanSpeed > 0 ||
 		p.CPU.Governor != "" ||
 		p.CPU.SMT != nil
 }
@@ -63,6 +64,9 @@ func (p *Profile) applyHardware() (func(), error) {
 	if p.GPU.PowerLimit > 0 {
 		args = append(args, fmt.Sprintf("--gpu-power-limit=%d", p.GPU.PowerLimit))
 	}
+	if p.GPU.FanSpeed > 0 {
+		args = append(args, fmt.Sprintf("--gpu-fan-speed=%d", p.GPU.FanSpeed))
+	}
 	if p.CPU.Governor != "" {
 		args = append(args, fmt.Sprintf("--cpu-governor=%s", p.CPU.Governor))
 	}
@@ -82,6 +86,9 @@ func (p *Profile) applyHardware() (func(), error) {
 		resetArgs := []string{"apply-profile", "--reset"}
 		if p.GPU.PowerLimit > 0 && prevPowerLimit > 0 {
 			resetArgs = append(resetArgs, fmt.Sprintf("--gpu-power-limit=%d", prevPowerLimit))
+		}
+		if p.GPU.FanSpeed > 0 {
+			resetArgs = append(resetArgs, "--gpu-fan-speed=0") // 0 signals reset to auto
 		}
 		if p.CPU.Governor != "" && prevGovernor != "" {
 			resetArgs = append(resetArgs, fmt.Sprintf("--cpu-governor=%s", prevGovernor))
