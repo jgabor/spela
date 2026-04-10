@@ -13,6 +13,14 @@ import (
 	"github.com/jgabor/spela/internal/xdg"
 )
 
+// ApplyEnv applies only environment variable settings from the profile,
+// without touching hardware or creating cleanup closures. Used by dry-run.
+func (p *Profile) ApplyEnv(e *env.Environment) {
+	p.applyProton(e)
+	p.applyDLSS(e)
+	p.applyGPU(e)
+}
+
 func (p *Profile) Apply(e *env.Environment) []func() {
 	var cleanup []func()
 
