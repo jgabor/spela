@@ -1,5 +1,81 @@
 # Progress
 
+## Cycle 38 — 2026-04-10 (plan summary: TUI End-to-End Test Harness)
+
+**Phase**: build
+**What**: Completed 7-task plan — TUI end-to-end test harness with injectable Services struct, model factories, key-sequence helpers, and 99 state machine tests across 6 test files covering layout (30 tests), sidebar (19), content/DLL (24), profile widget/disabled fields (16), plus factory smoke tests (10). Services DI for synchronous I/O enables pure state-machine testing without filesystem or hardware.
+**Commits**: ab97dba refactor(tui): introduce Services struct for dependency injection · 996519c test(tui): add test helpers and model factories · 2b4c351 test(tui): add layout, navigation, and modal state machine tests · ce5a138 test(tui): add sidebar state machine tests · 3ea0a4e test(tui): add content and DLL operation state machine tests · b7e3c3c test(tui): add profile widget and disabled field contract tests · 9a1a816 chore: plan-level freshness checkpoint
+**Discovered**: HEALTH.md Tests: C finding for TUI partially resolved — TUI package now has 99 model/Update tests (up from 0). Worktree agents consistently branched from pre-Services revision; direct implementation was more reliable for test code. SidebarModel and ContentModel aren't tea.Model implementations — tests call Update directly. Structural disabled-field iteration pattern is resilient to field additions.
+**Verified**: N/A: docs-only
+**Next**: Vision-driven work. GUI DLL progress indicator (degraded), overlay CLI commands (annoying), or Vulkan layer PoC (vision direction).
+**Context**: intent — freshness checkpoint: CHANGELOG, TODO, PROGRESS updates for plan completion · constraints — none · unknowns — none · scope — operational artifacts only
+
+## Cycle 37 — 2026-04-10
+
+**Phase**: build
+**What**: 16 profile widget tests — structural iteration over all 9 disabled fields (nav skip, input rejection, "Coming soon" rendering), edge cases (all-disabled Overlay group, last-enabled CPU field clamp), value cycling, save/esc, grid-enter first-non-disabled.
+**Commit**: b7e3c3c test(tui): add profile widget and disabled field contract tests
+**Inspiration**: none
+**Discovered**: The structural test pattern (iterate groups/fields, test only `disabled: true`) is resilient to field additions — if a new disabled field is added, it gets tested automatically. The Overlay group being entirely disabled creates a clean edge case: enter editing lands on field 0, and all navigation stays put.
+**Verified**: N/A: test-only
+**Next**: Task 7 (freshness checkpoint) is the final task — all feature tasks are complete.
+**Context**: intent — test disabled field contracts per Task 6 acceptance · constraints — structural iteration, proportionality + 3 edge cases · unknowns — none · scope — profile_widget_test.go (new, 319 LOC)
+
+## Cycle 36 — 2026-04-10
+
+**Phase**: build
+**What**: 24 content state machine tests — no-game guards, tab switching, launch (with duplication prevention), DLL update/restore confirmation flow (Y/cancel/skip-confirmation), install wizard 3-step state machine (start/type-nav/type→version/version→download/esc/q cancel), and message handlers.
+**Commit**: 3ea0a4e test(tui): add content and DLL operation state machine tests
+**Inspiration**: none
+**Discovered**: ContentModel.Update returns `(ContentModel, tea.Cmd)` not `(tea.Model, tea.Cmd)` — direct call pattern works cleanly without type assertions. The `dll.DLL` type needed importing for install wizard version tests. Confirmation flow has a nice property: any key except Y/y cancels, which makes boundary testing trivial.
+**Verified**: N/A: test-only
+**Next**: Task 6 (profile widget/disabled fields) is the last feature task before the freshness checkpoint.
+**Context**: intent — test content DLL operations per Task 5 acceptance criteria · constraints — proportionality, Cmd-return level · unknowns — none · scope — content_test.go (new, 403 LOC)
+
+## Cycle 35 — 2026-04-10
+
+**Phase**: build
+**What**: 19 sidebar state machine tests — navigation (up/down/j/k with boundary clamping), DLL filter, profile filter with injected fake, sort cycling, clear filters, multi-select (space/a/A/esc), enter confirm/batch, search activation/blur.
+**Commit**: ce5a138 test(tui): add sidebar state machine tests
+**Inspiration**: none
+**Discovered**: SidebarModel is not a tea.Model (no Init method) — can't use sendKey helper. Tests call m.Update(keyMsg(...)) directly. This pattern also applies to ContentModel and ProfileWidgetModel for Tasks 5-6. Should add component-level send helpers to testhelpers if the pattern repeats.
+**Verified**: N/A: test-only
+**Next**: Tasks 5 and 6 remain. Task 5 (content/DLL) is the larger one.
+**Context**: intent — test sidebar key bindings per Task 4 acceptance criteria · constraints — proportionality 1+1, injected profile fakes · unknowns — none · scope — sidebar_test.go (new, 324 LOC)
+
+## Cycle 34 — 2026-04-10
+
+**Phase**: build
+**What**: 30 layout state machine tests covering all global key bindings, help overlay, density modes, jump keys (with/without game, focused-mode boundary), nav stack (single entry, deep pop, root protection), modal interception, batch menu (esc/nav/enter/block), and window sizing.
+**Commit**: 2b4c351 test(tui): add layout, navigation, and modal state machine tests
+**Inspiration**: none
+**Discovered**: Implemented directly instead of worktree dispatch — cleaner when test code needs access to internal types and current API. The `rescanCompleteMsg` type doesn't exist; actual type is `rescanGamesMsg`. Batch menu only has one action so cursor boundary testing is minimal.
+**Verified**: N/A: test-only
+**Next**: Tasks 4, 5, 6 all unblocked. Can parallelize in next cycles.
+**Context**: intent — test all Layout model key bindings and navigation per Task 3 acceptance criteria · constraints — proportionality 1+1 per binding · unknowns — none · scope — layout_test.go (new, 455 LOC)
+
+## Cycle 33 — 2026-04-10
+
+**Phase**: build
+**What**: Test helpers and model factories — testServices (fake deps), testGame/testDLL/testDatabase (data), testLayout/testLayoutWithGame/testContent/testSidebar (models), keyMsg/sendKey/sendKeys (key simulation), execCmd (Cmd asserter). 10 smoke subtests validate all helpers including keyMsg round-trip for 12 key patterns.
+**Commit**: 996519c test(tui): add test helpers and model factories for state machine testing
+**Inspiration**: none — standard Go test helper patterns
+**Discovered**: Bubbletea v2's `KeyPressMsg.String()` returns `"space"` not `" "` for space key — the worktree agent's test expected `" "`. Worktree branched from pre-Services revision, required full adaptation of model factories to use Services API. `sendKeys` triggered unused-function lint — resolved by adding a smoke subtest.
+**Verified**: N/A: test-only
+**Next**: Tasks 3-6 are all unblocked. Task 3 (layout/nav/modal tests) is the broadest; Tasks 4-6 can run in parallel.
+**Context**: intent — build test infrastructure factories and key helpers for subsequent state machine tests · constraints — no filesystem, bubbletea v2 key types · unknowns — none · scope — testhelpers_test.go (new, 377 LOC)
+
+## Cycle 32 — 2026-04-10
+
+**Phase**: build
+**What**: Introduced Services struct for TUI dependency injection — function fields for config loading, profile loading/existence, and backup existence threaded through Layout, Content, and Sidebar constructors. Production uses DefaultServices(); tests can substitute fakes.
+**Commit**: ab97dba refactor(tui): introduce Services struct for dependency injection
+**Inspiration**: none — standard Go function-field injection pattern
+**Discovered**: Synchronous I/O was spread across 12 call sites in 3 files. `loadEffectiveProfile` converted from package-level function to ContentModel method. Async tea.Cmd closures (DLL download, GPU metrics, game launch) intentionally left as direct calls — they're tested at Cmd-return level in later tasks.
+**Verified**: N/A: refactor-no-behavior-change
+**Next**: Task 2 — test helpers and model factories (depends on this task)
+**Context**: intent — enable pure state-machine testing of TUI models by replacing synchronous I/O with injectable fakes · constraints — no behavior change, async Cmd closures untouched · unknowns — none · scope — services.go (new), layout.go, content.go, sidebar.go
+
 ## Cycle 31 — 2026-04-09 (plan summary: Ludusavi Removal and Dead Code Sweep)
 
 **What**: Completed 3-task plan — removed ludusavi save game integration (package, profile, launcher, TUI, GUI, Svelte, docs, packaging) and swept 49 dead functions across 16 files plus unused mangohud config, self-updater package, and samber/lo dependency. Net -1,000 lines, -4 files. Dead code 16.6% → 14.3%.
@@ -28,226 +104,33 @@
 **Next**: Task 2 — dead code and unused dependency sweep
 **Context**: intent — remove ludusavi to clear path for rethought save game approach · constraints — old profiles must still load · unknowns — none · scope — 13 files across 7 packages + docs + packaging
 
-## Cycle 28 — 2026-04-01 23:00
+## Archived Cycles
 
-**What**: Confirmation dialogs for destructive DLL operations — "Update DLLs? [Y]es / any key to cancel" prompt respects config.ConfirmDestructive flag (default: true)
-**Commit**: TBD feat(tui): add confirmation prompts for destructive DLL operations
-**Inspiration**: lazygit confirmation pattern, DESIGN.md confirmation-dialog spec
-**Discovered**: Config already had ConfirmDestructive=true by default and a TUI toggle in options — the flag just wasn't checked. PendingAction enum keeps the state machine simple.
-**Next**: Color flash animation (done), confirmation dialogs (done). Remaining deferred: mouse zones, huh forms, glamour help.
-
-## Cycle 27 — 2026-04-01 22:30
-
-**What**: Added 300ms color flash animation on message bar — success operations flash green, errors flash red, then fade. Every SetMessage caller gets it for free.
-**Commit**: 9997926 feat(tui): add color flash animation on message bar for operation feedback
-**Inspiration**: lazygit toast flash pattern, k9s flash notifications with severity coloring
-**Discovered**: Only 2 files needed changes (messagebar.go + layout.go flashTickMsg routing). Flash phases via tea.Tick chain (100ms/phase x 3 phases = 300ms). Zero new deps.
-**Next**: Confirmation dialogs for destructive operations, or start on deferred items (huh forms, glamour help).
-
-## Cycle 26 — 2026-04-01 22:00
-
-**What**: Completed Tasks 7+8 — compositor-based modal overlays with cascading z-indexed layers, plus density modes (standard/compact/focused) with F5/F11 toggles and jump-key panel titles [1]Games/[2]Details
-**Commit**: 70249f9 feat(tui): add density modes, compositor modals, and jump-key panel titles
-**Inspiration**: lipgloss v2 Compositor/Layer/NewLayer API, btop toggle-panel density, lazygit cascading popup offsets
-**Discovered**: 6 merge conflicts between Task 7 (compositor) and Task 8 (density) in layout.go — both heavily modified View/render methods. Resolved by dispatching density mode for base layer, then applying compositor overlays. Plan archived — all 8 tasks complete.
-**Next**: Vision-driven work. GUI DLL progress indicator, overlay CLI commands, or Vulkan layer PoC.
-
-## Cycle 25 — 2026-04-01 21:30
-
-**What**: Tab-based content views — [2]DLLs [3]Profile [4]Launch tab bar, each tab gets full panel height, Launch tab shows profile summary. Tab switching guarded during profile editing.
-**Commit**: b99cb48 feat(tui): add tab-based content views with DLLs, Profile, and Launch tabs
-**Inspiration**: k9s tab switching, lazydocker detail-panel tabs, DESIGN.md tab-bar specification
-**Discovered**: Pragmatic approach (conditional rendering in ContentModel) satisfied all ACs without 792-line decomposition into separate model types. Profile widget state preserved across tab switches naturally since it stays in same struct.
-**Next**: Task 7 (compositor modals) is the last task before Task 8 (density modes + jump keys).
-
-## Cycle 24 — 2026-04-01 21:00
-
-**What**: Parallel Tasks 5+6 — header sparklines/gauges with rolling buffers and dynamic width, plus context-sensitive keybinding bar with ContextKey/DisabledReason pattern and 18 tests
-**Commit**: 869355d feat(tui): add sparklines/gauges to header and context-sensitive keybinding bar
-**Inspiration**: btop sparkline density, lazygit DisabledReason pattern, lipgloss StyleRanges per-char coloring
-**Discovered**: Task 5 worktree branched before Task 3 — used removed Focus type. Manual merge resolution: replaced Focus enum with sidebarFocused bool in all ContextKeys calls and tests.
-**Next**: Tasks 4 (tabs) and 7 (compositor modals) remain. Task 8 blocked on both. Task 4 is the bigger structural change (content.go decomposition).
-
-## Cycle 23 — 2026-04-01 20:30
-
-**What**: Replaced binary FocusSidebar/FocusContent with LIFO NavStack, StackEntry interface, breadcrumb rendering in status bar. ContentModel wrapped as StackEntry via contentEntry adapter.
-**Commit**: e5e5eb4 refactor(tui): replace binary focus with navigation stack and breadcrumbs
-**Inspiration**: Bubblon command-pattern (PushMsg/PopMsg as tea.Cmd), k9s Breadcrumbs observer, soft-serve Component interface
-**Discovered**: Layout Update() grew from 292→380 lines. Application messages (DLL/launch/profile) stay at layout level for cross-cutting concerns. Task 7 (compositor) should shrink it by extracting content-level modal routing.
-**Next**: Tasks 4, 5, 6, 7 all unblocked. Task 6 (header sparklines) has zero deps remaining. Task 4 (tabs) is highest structural impact.
-
-## Cycle 22 — 2026-04-01 20:00
-
-**What**: Added sparkline and gauge renderers with metrics ring buffer — per-character thermal coloring via lipgloss StyleRanges, sub-character gauge precision, 26 tests
-**Commit**: 6dd98fc feat(tui): add sparkline and gauge renderers with metrics buffer
-**Inspiration**: INSPIRERA deep dive on ntcharts sparkline algorithm, lipgloss StyleRanges API, left-block Unicode sub-character precision
-**Discovered**: Worktree branched before Task 1 merge — created duplicate thermal.go/styles.go changes. Resolved by keeping main's versions. Also duplicate TestNormalizeAndClamp between files — removed from sparkline_test.go.
-**Next**: Task 3 (navigation stack) is the architectural centerpiece — unblocked and highest priority. Task 6 (header metrics) is also unblocked now that Tasks 1+2 are done.
-
-## Cycle 21 — 2026-04-01 19:30
-
-**What**: Added thermal gradient system and expanded Theme struct from 14 to 37 fields — surface palette, text hierarchy, 6 thermal stops, metric tokens. Header now renders GPU temp/power/fan with continuous thermal coloring.
-**Commit**: 50bdd0c feat(tui): add thermal gradient system and expanded theme tokens
-**Inspiration**: INSPIRERA analysis of btop (braille graphs, thermal gradients), k9s (Oklch perceptual color), DESIGN.md thermal gradient specification
-**Discovered**: Worktree agent generated Go 1.21-style loop variable copies (`theme := theme`) — Go 1.25 doesn't need these. Fixed post-merge. Otherwise clean implementation.
-**Next**: Task 2 (sparkline/gauge renderers) and Task 3 (navigation stack) are both unblocked
-
-## Cycle 1 — 2026-03-17 20:15
-
-**What**: Added go-nvml backend for GPU metrics, replacing nvidia-smi CLI shelling with direct NVML API calls (~50x faster)
-**Commit**: 58d79bb feat(gpu): add NVML backend for fast GPU metric reading
-**Inspiration**: go-nvml library patterns from NVIDIA/go-nvml examples; overlay design docs (docs/design/overlay.md, overlay-review.md) which require NVML for the planned in-game overlay
-**Discovered**: The agent worktree introduced regressions (broke ResetClocks error handling, regressed SplitSeq to Split) — applied changes manually to avoid these. Worktree approach needs careful diff review.
-**Next**: The overlay IPC protocol (mmap ring buffers) or the Go-side stats collector that will feed metrics to the overlay layer at high frequency
-
-## Cycle 2 — 2026-03-17 21:00
-
-**What**: Added GPU alert detection system — pure function evaluating metrics for thermal throttling, power limit saturation, and fan maximum conditions
-**Commit**: 7a2a6da feat(overlay): add GPU alert detection system
-**Inspiration**: NVML throttle reason bitmask API (nvmlClocksThrottleReasonHwThermalSlowdown); research on GPU monitoring best practices suggesting tighter alert thresholds (80°C warning, 85°C critical rather than waiting for driver thermal limit)
-**Discovered**: ISSUES.md was heavily stale — issues #1, #2, #3, #7 all already fixed in prior refactoring commits. Marked resolved and added new issue #9 for NVML setter privilege model decision (per-command pkexec vs privileged daemon). docs/ directory is in .gitignore — needed `git add -f`.
-**Next**: Integrate alerts into the TUI header (show warning indicators when GPU is throttling), or build the NVML throttle reason detection for more precise alerts
-
-## Cycle 3 — 2026-03-17 21:30
-
-**What**: Integrated GPU alerts into TUI header — temperature/power colored by severity, fan speed shown via NVML, compact alert indicators for throttling/power limit
-**Commit**: 8bf8bfe feat(tui): integrate GPU alerts into header with colored metrics
-**Inspiration**: None needed (UI integration of existing components)
-**Discovered**: Sonnet worktree agent regressed bubbletea/lipgloss v2 imports to v1 and changed async metric fetching to synchronous (would block UI). Applied changes manually again. Agent worktrees consistently introduce regressions in areas outside their direct task scope.
-**Next**: NVML throttle reason detection (GetCurrentClocksThrottleReasons) for precise alerts, or overlay IPC protocol (mmap shared memory) as the next overlay foundation piece
-
-## Cycle 4 — 2026-03-17 22:00
-
-**What**: Added NVML throttle reason detection — driver-reported causes (thermal HW/SW, power cap, power brake) now inform alerts precisely instead of relying solely on temperature/power thresholds
-**Commit**: 9774163 feat(gpu): add NVML throttle reason detection for precise alerts
-**Inspiration**: NVML ClocksThrottleReason bitmask API; confirmed exact constants via go doc (ClocksThrottleReasonHwThermalSlowdown=64, SwPowerCap=4, etc.)
-**Discovered**: Implementing directly instead of via worktree agent avoided all regressions from cycles 1-3. For focused single-file changes, direct implementation is faster and more reliable than worktree dispatch.
-**Next**: Overlay IPC protocol (mmap shared memory Go→Layer writer) or overlay configuration model (presets, colors, position) for profile integration
-
-## Cycle 5 — 2026-03-17 22:30
-
-**What**: Implemented overlay mmap IPC protocol — shared memory file with SPEL header, 64-byte state section, and seqlock synchronization for lock-free Go→Layer communication
-**Commit**: 9c759b2 feat(overlay): add mmap IPC protocol with seqlock synchronization
-**Inspiration**: io_uring ring buffer design (from overlay design doc); seqlock pattern from Linux kernel for single-writer/single-reader synchronization
-**Discovered**: Binary protocol with `unsafe` and atomics requires careful attention to field alignment and byte ordering. Power draw stored as milliwatts (uint32) on wire to avoid float in shared memory. Temperature as int32 to handle negative values.
-**Next**: Stats collector goroutine that periodically writes GPU+CPU metrics to the IPC file, or the C++ Vulkan layer proof of concept that reads from the mmap
-
-## Cycle 6 — 2026-03-17 23:00
-
-**What**: Added stats collector goroutine — periodic `CollectFunc` → `WriteState` loop with immediate-write-on-start, clean shutdown, and domain-isolated callback design
-**Commit**: ce7b202 feat(overlay): add stats collector for periodic IPC writes
-**Inspiration**: None needed (standard goroutine + ticker pattern)
-**Discovered**: Domain isolation via `CollectFunc` callback keeps overlay package free of gpu/cpu imports while still allowing the caller to compose the full metrics→alerts→IPC pipeline. 4 timing-based tests all stable.
-**Next**: Wire the collector into the launcher (start collector when launching a game with overlay enabled, stop on exit), or pivot to a different vision direction (parity feature like Smooth Motion profile support)
-
-## Cycle 20 — 2026-04-01 17:50
-
-**What**: Enhanced `spela cpu info` — shows available governors, average frequency, CPU load, RAM usage, SCX status with colored output
-**Commit**: 4773a28 feat(cli): enhance cpu info with frequencies, load, RAM, available governors, and SCX status
-**Inspiration**: None — mirrors gpu info enhancement pattern
-**Discovered**: Linter auto-converted if/else chain to tagged switch on SMT value. GetCPUMetrics reads from /proc/loadavg for utilization.
-**Next**: Profile export/import, fan speed control, or GUI DLL progress indicator
-
-## Cycle 19 — 2026-04-01 17:35
-
-**What**: Enhanced `spela gpu info` — shows power draw/limit/range, clocks, fan speed, utilization via NVML
-**Commit**: 1837027 feat(gpu): enhance gpu info with power limit range, clocks, fan, and utilization
-**Inspiration**: None — NVML API provides all data, just needed wiring
-**Discovered**: GetPowerManagementLimitConstraints returns min/max in milliwatts — useful for validating --power-limit values
-**Next**: Fan speed control, profile export/import, or HEALTH.md re-audit after 18 cycles of changes
-
-## Cycle 18 — 2026-04-01 17:20
-
-**What**: Added GPU power limit to profile system — apply at launch, restore on exit, CLI flag, TUI field, GPU show display
-**Commit**: 7dd494c feat(profile): add per-game GPU power limit to profile system
-**Inspiration**: None — followed existing clock offset pattern through all layers
-**Discovered**: apply-profile already had --gpu-power-limit flag but profile struct didn't have the field. Reset path also existed but wasn't handling power limit restore.
-**Next**: Fan speed control via NVML, or GPU info improvements (show current power limit/range)
-
-## Cycle 17 — 2026-04-01 17:00
-
-**What**: Updated all transitive dependencies (x/crypto +16, x/net +17, wails v2.12, bubbles v2.1). Marked stale TODO entry.
-**Commit**: 03e273e chore(deps): update transitive dependencies
-**Inspiration**: None — security hygiene
-**Discovered**: TODO "DLSS-D column missing" was stale — column already exists in GameDetail.svelte
-**Next**: Vulkan overlay layer PoC, or GUI DLL progress indicator, or overlay/ludusavi CLI commands
-
-## Cycle 16 — 2026-04-01 16:45
-
-**What**: Added proton set/show CLI commands (HDR, Wayland, NGX updater) and completed GPU set flags (shader-cache, threaded-opt)
-**Commit**: 64e0181 feat(cli): add proton profile commands and complete GPU profile flags
-**Inspiration**: None — followed existing dlss/gpu/cpu set command patterns
-**Discovered**: GPU set had a subtle bug: --power-mizer didn't support "default" to clear — fixed while adding flags
-**Next**: Overlay/ludusavi CLI commands, or start on Vulkan overlay layer PoC
-
-## Cycle 15 — 2026-04-01 16:30
-
-**What**: Replaced profile widget 54-case switch with field registry — 33 apply closures inline with field definitions
-**Commit**: b455621 refactor(tui): replace profile widget 54-case switch with field registry
-**Inspiration**: None — standard declarative registry pattern
-**Discovered**: Plan complete. All 8 foundation hardening tasks done. PLAN.md archived.
-**Next**: Vision-driven work — overlay CLI commands, Vulkan layer PoC, or remaining HEALTH.md warnings
-
-## Cycle 14 — 2026-04-01 16:10
-
-**What**: Added 11 launcher tests — cleanup order, signal forwarding, overlay IPC lifecycle, wrapper parsing, game detection
-**Commit**: 9e8b4b3 test(launcher): add tests for cleanup order, signal forwarding, overlay IPC, and wrapper parsing
-**Inspiration**: None — standard Go process testing with goroutines and signals
-**Discovered**: Signal forwarding test works cleanly — signal.Notify intercepts SIGTERM in the test process without killing it
-**Next**: Task 8 (profile field registry — last plan task)
-
-## Cycle 13 — 2026-04-01 15:55
-
-**What**: Added 10 CPU package tests with mock sysfs — governor read/write, SMT toggle, metrics, cpuinfo, affinity
-**Commit**: 4460ca1 test(cpu): add tests with mock sysfs for governor, SMT, metrics, and affinity
-**Inspiration**: None — standard Go sysfs mock pattern with sysRoot override
-**Discovered**: Needed to add sysRoot var and sysPath() helper to make hardcoded /sys and /proc paths testable
-**Next**: Task 7 (launcher tests) or Task 8 (profile field registry)
-
-## Cycle 12 — 2026-04-01 15:40
-
-**What**: Added config persistence tests — roundtrip, missing file defaults, malformed YAML error, deep clone
-**Commit**: 8176d77 test(config): add persistence tests for YAML roundtrip, missing file, and malformed input
-**Inspiration**: None — standard Go testing with t.TempDir and t.Setenv for XDG isolation
-**Discovered**: Nothing unexpected — config package is clean and well-structured
-**Next**: Task 6 (CPU tests) or Task 7 (launcher tests)
-
-## Cycle 11 — 2026-04-01 15:25
-
-**What**: Replaced all TUI global mutable styles with a *Styles struct threaded through 11 model files; CLI helpers made immutable
-**Commit**: 8f442f0 refactor(tui): replace global mutable styles with threaded*Styles
-**Inspiration**: None — standard bubbletea v2 pattern for shared state
-**Discovered**: ContextHelp() needed a showHints parameter added since it previously read the global. Agent worktree worked well for this large mechanical refactoring.
-**Next**: Tasks 5-7 (config/CPU/launcher tests) or Task 8 (profile field registry, now unblocked)
-
-## Cycle 10 — 2026-04-01 15:05
-
-**What**: Replaced all log.Printf with structured logging.Warn/Info in profile/apply.go and launcher/launcher.go
-**Commit**: 47a4810 fix(logging): replace log.Printf with centralized slog logging
-**Inspiration**: None — mechanical replacement
-**Discovered**: Zero log.Printf remaining in entire codebase (verified via grep)
-**Next**: Task 4 (TUI global state) or Tasks 5-6 (config/CPU tests)
-
-## Cycle 9 — 2026-04-01 14:50
-
-**What**: Consolidated launch orchestration into Launcher.Prepare() — single entry point for all interfaces with overlay IPC lifecycle
-**Commit**: f5eda95 refactor(launcher): consolidate launch orchestration into Prepare()
-**Inspiration**: None — structural refactoring applying existing patterns
-**Discovered**: Overlay now works for GUI/TUI launches too (previously CLI-only). Net -90 lines of duplicated code.
-**Next**: Task 3 (logging) or Tasks 4-6 (TUI styles, config/CPU tests)
-
-## Cycle 8 — 2026-04-01 14:35
-
-**What**: Fixed GUI and TUI launch paths to register cleanup closures — RestorePoint + p.Apply() cleanups now mirror CLI pattern
-**Commit**: b9456e2 fix(launch): register cleanup closures in GUI and TUI launch paths
-**Inspiration**: None — applied existing CLI pattern from commands/launch.go
-**Discovered**: TUI had the identical bug to GUI (both dropped p.Apply() return value). HEALTH.md only flagged GUI; adversarial plan review caught TUI.
-**Next**: Task 2 (consolidate launch orchestration) or parallel tasks 3-6 (logging, TUI styles, config/CPU tests)
-
-## Cycle 7 — 2026-03-17 23:30
-
-**What**: Wired overlay collector into launcher — when overlay is enabled in a game profile, the launcher creates an IPC file, starts a 500ms metrics collector, exports `SPELA_OVERLAY_IPC` env var, and cleans up on exit
-**Commit**: dbf2ca4 feat(overlay): wire collector into launcher for live game metrics
-**Inspiration**: None needed (integration of existing components)
-**Discovered**: The composition function that bridges gpu→overlay lives naturally in the launch command (orchestration layer), preserving domain isolation. Position string→uint8 mapping added to overlay package as `ParsePosition`.
-**Next**: Overlay configuration via profile CLI commands (`spela profile overlay --enabled --position top-right`), or the C++ Vulkan layer proof of concept that reads from the mmap IPC file
+Cycle 28 (2026-04-01): feat — TUI confirmation dialogs for destructive DLL ops
+Cycle 27 (2026-04-01): feat — color flash animation on message bar
+Cycle 26 (2026-04-01): feat — compositor modals, density modes, jump-key titles
+Cycle 25 (2026-04-01): feat — tab-based content views (DLLs/Profile/Launch)
+Cycle 24 (2026-04-01): feat — header sparklines/gauges, context keybinding bar
+Cycle 23 (2026-04-01): refactor — nav stack replacing binary focus
+Cycle 22 (2026-04-01): feat — sparkline/gauge renderers with thermal coloring
+Cycle 21 (2026-04-01): feat — thermal gradient system, expanded theme tokens
+Cycle 20 (2026-04-01): feat — enhanced cpu info CLI command
+Cycle 19 (2026-04-01): feat — enhanced gpu info with NVML metrics
+Cycle 18 (2026-04-01): feat — GPU power limit in profile system
+Cycle 17 (2026-04-01): chore — transitive dependency update
+Cycle 16 (2026-04-01): feat — proton CLI commands, GPU profile flags
+Cycle 15 (2026-04-01): refactor — profile widget field registry
+Cycle 14 (2026-04-01): test — launcher tests (cleanup, signals, overlay)
+Cycle 13 (2026-04-01): test — CPU package tests with mock sysfs
+Cycle 12 (2026-04-01): test — config persistence tests
+Cycle 11 (2026-04-01): refactor — TUI threaded Styles replacing globals
+Cycle 10 (2026-04-01): fix — centralized slog logging
+Cycle 9 (2026-04-01): refactor — consolidated launch orchestration
+Cycle 8 (2026-04-01): fix — GUI/TUI launch cleanup closures
+Cycle 7 (2026-03-17): feat — overlay collector wired into launcher
+Cycle 6 (2026-03-17): feat — stats collector goroutine
+Cycle 5 (2026-03-17): feat — overlay mmap IPC with seqlock
+Cycle 4 (2026-03-17): feat — NVML throttle reason detection
+Cycle 3 (2026-03-17): feat — GPU alerts in TUI header
+Cycle 2 (2026-03-17): feat — GPU alert detection system
+Cycle 1 (2026-03-17): feat — go-nvml backend for GPU metrics
