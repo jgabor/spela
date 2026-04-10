@@ -14,7 +14,7 @@
 
 ## ⇢ Annoying
 
-- [ ] No CLI commands for overlay profile settings — overlay fields have no CLI subcommands yet
+- [x] ~~No CLI commands for overlay profile settings~~ — added `spela overlay set/show` with 8 flags in 6a54b25
 
 ## Resolved
 

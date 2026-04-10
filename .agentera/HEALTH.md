@@ -1,5 +1,92 @@
 # Health
 
+## Audit 3 — 2026-04-10 (full: post-test-harness + feature burst)
+
+The codebase improved substantially since Audit 1. All critical findings resolved: logging unified, TUI globals threaded, launch cleanup fixed, profile widget switch replaced. 99 TUI state machine tests shipped with Services DI. Fan speed control, overlay CLI, launch dry-run, and --json across all show commands all landed cleanly. The main concern is growing complexity in three TUI files that are refactor candidates but not blocking.
+
+**Dimensions assessed**: Architecture, Patterns, Coupling, Complexity, Tests, Dependencies, Version health, Artifact freshness, Security hygiene
+**Findings**: 0 critical, 3 warnings, 6 info (0 filtered by confidence)
+**Overall trajectory**: ⮉ improving vs Audit 1 (all criticals resolved, test coverage doubled, patterns consistent)
+**Grades**: Architecture [B+] | Patterns [B] | Coupling [C+] | Complexity [C+] | Tests [B-] | Dependencies [A] | Versions [B+] | Security [A] | Freshness [A]
+
+### Architecture: B+
+
+No findings. Module structure matches CLAUDE.md. Privilege model (batched pkexec) correct. Services DI fully threaded through TUI models. GUI launch cleanup fixed.
+
+### Patterns: B
+
+No findings. Error handling unified (slog, fmt.Errorf %w). CLI commands follow consistent set/show pattern. Profile fields use declarative registry. All prior pattern findings (F-key case, jump keys, profile switch) resolved.
+
+### Coupling: C+
+
+#### ⇉ TUI/GUI fan-out still elevated — warning (confidence: 90)
+
+- **Location**: `internal/tui/` (8 imports), `internal/gui/` (7 imports)
+- **Evidence**: UI packages import config, cpu, dll, game, gpu, launcher, overlay, profile
+- **Impact**: Harder to test in isolation; changes in domain packages ripple to UI
+- **Suggested action**: Services DI partially mitigates this for TUI; consider service layer abstraction if coupling grows further
+
+### Complexity: C+
+
+#### ⇉ Layout.Update() grew to 366 lines — warning (confidence: 100)
+
+- **Location**: `internal/tui/layout.go:99-464`
+- **Evidence**: Was 292 lines in Audit 1. Added: global jump keys, batch menu, density modes. 35+ switch cases with nested focus routing.
+- **Impact**: Each new feature adds 15-30 lines; diminishing readability
+- **Suggested action**: Extract focus-mode handlers to sub-methods
+
+#### ⇉ profile_widget.go at 994 lines — warning (confidence: 95)
+
+- **Location**: `internal/tui/profile_widget.go`
+- **Evidence**: 472 lines of field definitions + 522 lines of model/view logic
+- **Impact**: Large file, though field definitions are declarative and self-contained
+- **Suggested action**: Extract field definitions to profile_fields.go
+
+#### ⇉ content.go at 945 lines — warning (confidence: 90)
+
+- **Location**: `internal/tui/content.go`
+- **Evidence**: Game content, DLL operations, profile/launch tabs, install wizard — all in one file
+- **Impact**: Growing file serving multiple responsibilities
+- **Suggested action**: Consider extracting tab renderers
+
+### Tests: B-
+
+Test coverage significantly improved. 12/17 packages tested (up from 8/22). TUI now has 99 state machine tests with Services DI. 5 remaining untested packages (env, gui, lock, logging, xdg) are all low-risk. Test-to-code ratio ~19% (up from 13.5%).
+
+### Dependencies: A
+
+9 direct dependencies, exact pinning, no bloat. Dead code and unused deps cleaned. Transitive deps aging but no security issues at current usage level.
+
+### Versions: B+
+
+v0.2.1 is 28 days old with substantial unreleased content (9 Added entries). Ready for v0.3.0 bump per semver convention.
+
+### Security: A
+
+No hardcoded secrets. Privilege escalation properly validated. No dangerous exec patterns. Polkit policy correctly scoped.
+
+### Freshness: A
+
+All operational artifacts current (≤9 days). No PLAN.md (completed and archived). Active development pace.
+
+### Trends vs Audit 1
+
+- **Improved**: Architecture [B→B+] (all critical fixes landed), Patterns [C→B] (logging unified, profile switch replaced), Tests [C→B-] (99 TUI tests, 12/17 packages), Dependencies [B→A] (dead code swept, unused dep removed)
+- **Stable**: Coupling [C→C+] (fan-out still present, mitigated by DI), Complexity [C→C+] (Layout.Update grew but other hotspots improved)
+- **New dimensions**: Versions [B+], Security [A], Freshness [A]
+- **Resolved from Audits 1-2**: Global mutable TUI styles (critical), competing logging (critical), GUI launch cleanup (critical), profile widget switch (critical), F-key case mismatch (critical), jump keys scope (critical)
+
+### Patterns Observed
+
+- **Module structure**: 20 packages under internal/ with single-concern boundaries; cmd/commands/ orchestrates; GUI/TUI are full UI controllers
+- **Error handling**: `fmt.Errorf` with `%w` wrapping; hardware errors logged as warnings via centralized slog; `log.Printf` fully eliminated
+- **Testing approach**: Table-driven tests, t.TempDir/t.Setenv isolation; TUI uses Services DI with model factories and keyMsg helpers; 12/17 package coverage
+- **Dependency patterns**: 9 direct deps, exact pinning, zero bloat; transitive chain aging but monitored
+- **Privilege model**: Batched pkexec via `privilege.ExecSelf("apply-profile")` — single round-trip for all hardware settings; fan speed added to pipeline
+- **Profile composition**: Profile.Apply(env) returns cleanup closures; ApplyEnv() for dry-run; field registry with apply closures
+- **CLI consistency**: All 6 profile sections have set/show/--json; launch has --dry-run
+- **Overlay isolation**: CollectFunc callback keeps overlay free of gpu/cpu imports
+
 ## Audit 2 — 2026-04-01 (targeted: user-reported TUI bugs)
 
 **Dimensions assessed**: Pattern consistency (TUI key handling)

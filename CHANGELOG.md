@@ -26,10 +26,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced `spela cpu info` with frequencies, load, RAM, available governors, and SCX status
 - GPU profile flags: `--shader-cache`, `--shader-cache-path`, `--threaded-opt`
 
-- TUI end-to-end test harness: 99 state machine tests across layout, sidebar, content, and profile widget with injectable service fakes, model factories, and key-sequence helpers
+- `--json` flag for all profile section show commands (gpu, overlay, proton, cpu, dlss) for machine-readable output
 
 ### Changed
 
+- TUI complexity reduced: split 3 oversized files (profile_widget, layout, content) into 6 focused files
+- `spela launch --dry-run` shows what would happen (env vars, hardware settings, overlay) without actually launching
+- GPU fan speed control in per-game profiles — `gpu set --fan-speed`, TUI widget (30-100%), auto-reset to driver default on game exit
+- `spela profile show` now displays formatted, human-readable output with all 5 profile sections; JSON via `--json` flag
+- TUI overlay profile fields now editable (Enabled, Position, ShowFPS/Frametime/CPU/GPU/VRAM) — no longer "Coming soon"
+- `spela overlay set/show` commands for per-game overlay profile settings (enabled, position, metrics display, toggle key)
+- TUI end-to-end test harness: 99 state machine tests across layout, sidebar, content, and profile widget with injectable service fakes, model factories, and key-sequence helpers
 - TUI dependency injection: synchronous I/O calls now go through injectable Services struct for testability
 - Remove ludusavi save game integration (feature to be rethought)
 - Remove 49 dead functions, unused mangohud config, self-updater package, and samber/lo dependency

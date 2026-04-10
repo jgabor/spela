@@ -1,5 +1,104 @@
 # Progress
 
+## Cycle 48 — 2026-04-10
+
+**Phase**: build
+**What**: TUI complexity reduction — split profile_widget.go (994→455 lines) into profile_fields.go, extracted Layout.Update() (366→74 lines) into layout_handlers.go, extracted tab/view renderers from content.go (945→680 lines) into content_views.go. All 99 TUI tests pass unchanged.
+**Commit**: 0e00765 refactor(tui): reduce complexity by splitting three oversized files
+**Inspiration**: none — mechanical extraction following file size guidance from HEALTH.md Audit 3
+**Discovered**: Worktree agent correctly created all 3 new files but merge diagnostics showed false duplicate errors (stale); build was actually clean. The 74-line Update() is well under 80 line limit. Complexity grade should improve from C+ to B in next audit.
+**Verified**: N/A: refactor-no-behavior-change
+**Next**: Vision-driven work — GUI DLL progress indicator (degraded), or Vulkan overlay layer PoC (vision direction — needs /planera).
+**Context**: intent — reduce TUI complexity per HEALTH.md Audit 3 warnings · constraints — 99 tests unchanged, same package · unknowns — none · scope — 3 TUI files split into 6
+
+## Cycle 47 — 2026-04-10
+
+**Phase**: build
+**What**: Added `--json` to proton, cpu, and dlss show commands — completing machine-readable output parity across all 6 profile section show commands.
+**Commit**: 16d4bd8 feat(cli): add --json flag to proton, cpu, and dlss show commands
+**Inspiration**: none — finishing consistency sweep from Cycle 46
+**Discovered**: All 6 show commands now follow the same pattern: formatted output by default, `--json` for machine-readable. The pattern is mechanical but important for scripting workflows.
+**Verified**: `spela help {proton,cpu,dlss} show` all display `--json` flag
+**Next**: `/inspektera` for health audit (17+ cycles since last). Then: GUI DLL progress indicator (degraded), Vulkan layer PoC (vision).
+**Context**: intent — complete --json parity across all show commands · constraints — existing output unchanged · unknowns — none · scope — proton.go, cpu_set.go, dlss.go
+
+## Cycle 46 — 2026-04-10
+
+**Phase**: build
+**What**: Added `--json` flag to `gpu show` and `overlay show` commands for machine-readable output, matching the `profile show --json` pattern.
+**Commit**: 9e8c176 feat(cli): add --json flag to gpu show and overlay show commands
+**Inspiration**: none — consistency with existing profile show --json
+**Discovered**: The remaining show commands (proton, cpu, dlss) also lack --json — defer to future cycle. 16 cycles this session; remaining work needs Svelte (GUI) or C (Vulkan) — recommend fresh session.
+**Verified**: `spela help gpu show` and `spela help overlay show` both display `--json` flag
+**Next**: Recommend `/inspektera` — HEALTH.md is 15+ cycles stale. After audit: GUI DLL progress indicator (degraded) or Vulkan layer PoC (vision).
+**Context**: intent — add --json to show commands for scripting/composability · constraints — preserve existing formatted output · unknowns — none · scope — gpu_set.go, overlay.go
+
+## Cycle 45 — 2026-04-10
+
+**Phase**: build
+**What**: Added `--dry-run` flag to `spela launch` — shows env vars, hardware settings (clock/memory/power/fan/governor/SMT), overlay config, and launch command without executing anything. Extracted `Profile.ApplyEnv()` for env-only application.
+**Commit**: 4f69e93 feat(cli): add --dry-run flag to launch command
+**Inspiration**: none — the vision's transparency principle ("show everything Spela does") demanded this
+**Discovered**: Needed to split `Profile.Apply()` into `ApplyEnv()` (env-only, safe for dry-run) and the full `Apply()` (env + hardware). The linter collapsed the `hasHW` check into the if statement.
+**Verified**: `spela help launch` shows `--dry-run` flag; build and all tests pass
+**Next**: GUI DLL progress indicator (degraded), or Vulkan layer PoC (vision direction). This session shipped 15 cycles (32-45) — strongly suggest pausing for user review.
+**Context**: intent — add launch dry-run per vision transparency principle · constraints — no hardware changes in dry-run · unknowns — none · scope — launch.go, apply.go (new ApplyEnv method)
+
+## Cycle 44 — 2026-04-10
+
+**Phase**: build
+**What**: Added fan speed field to TUI GPU profile widget — percentage presets 30-100% with (default)=auto, completing CLI→TUI parity for NVML fan speed control.
+**Commit**: 496dc5d feat(tui): add fan speed field to GPU profile widget
+**Inspiration**: none
+**Discovered**: Nothing unexpected. The field follows the exact power-limit pattern. Existing tests pass because the structural disabled-field iteration only checks `disabled: true` fields, and the new field is enabled.
+**Verified**: Profile widget renders fan speed field with value cycling that persists to the profile struct, verified by build+test passing and code inspection matching the power-limit field pattern
+**Next**: GUI DLL progress indicator (degraded), or Vulkan layer PoC (vision direction). Session has been highly productive — 13 cycles today covering TUI test harness (7 tasks), overlay CLI, TUI overlay enablement, profile show, fan speed (NVML + CLI + TUI). Good stopping point.
+**Context**: intent — complete fan speed CLI→TUI parity · constraints — follow power-limit pattern · unknowns — none · scope — profile_widget.go GPU settings group
+
+## Cycle 43 — 2026-04-10
+
+**Phase**: build
+**What**: GPU fan speed control — NVML SetFanSpeed_v2/SetDefaultFanSpeed_v2 integrated into profile system with batched pkexec apply-profile, auto-reset on game exit, CLI `gpu set --fan-speed`, and formatted display in `gpu show` and `profile show`.
+**Commit**: c6282a4 feat(gpu): add fan speed control to profile system
+**Inspiration**: none — follows exact power-limit integration pattern from Cycle 18
+**Discovered**: go-nvml exposes `GetNumFans()` for multi-fan GPUs — the setter loops over all fans. `SetDefaultFanSpeed_v2` cleanly restores automatic fan control. The `nvml` import was needed in nvidia.go for `nvml.SUCCESS` in `GetNumFans` check.
+**Verified**: `spela help gpu set` shows `--fan-speed int` flag with correct description; build and all tests pass
+**Next**: Add fan speed to TUI profile widget, or GUI DLL progress indicator (degraded), or Vulkan layer PoC
+**Context**: intent — add fan speed control per NVIDIA depth vision direction · constraints — batched pkexec pattern, auto-reset on exit · unknowns — none · scope — gpu/nvml.go, gpu/nvidia.go, profile struct, apply.go, apply_profile.go, gpu_set.go, profile.go
+
+## Cycle 42 — 2026-04-10
+
+**Phase**: build
+**What**: Improved `spela profile show` — replaced raw JSON dump with formatted, human-readable output covering all 5 profile sections (DLSS, GPU, CPU, Proton, Overlay) with styled labels and (default) placeholders. JSON output preserved via `--json` flag.
+**Commit**: 301d814 feat(cli): improve profile show with formatted output and --json flag
+**Inspiration**: none — follows existing per-section show command styling patterns
+**Discovered**: Nothing unexpected. The `strconv` import was already present from `profileList`. CLI styling helpers (CLIDim, CLIPrimary) are simple wrappers around lipgloss — clean and reusable.
+**Verified**: `spela help profile show` shows --json flag; both formatted and JSON paths reach game lookup correctly (error expected without Steam library on dev machine)
+**Next**: GUI DLL progress indicator (last degraded item), or Vulkan layer PoC (vision direction)
+**Context**: intent — improve profile show per vision transparency principle · constraints — preserve JSON output as --json · unknowns — none · scope — profile.go show command
+
+## Cycle 41 — 2026-04-10
+
+**Phase**: build
+**What**: Enabled 7 overlay profile fields in TUI widget (Enabled, Position, ShowFPS/Frametime/CPU/GPU/VRAM) — removed `disabled: true` flags. ToggleKey and CPU Affinity remain disabled. Updated edge-case test for partially-enabled Overlay group.
+**Commit**: b239876 feat(tui): enable overlay profile fields in TUI widget
+**Inspiration**: none
+**Discovered**: The structural disabled-field test automatically adapted — it now finds only 2 disabled fields (cpu_affinity, overlay_toggle_key) instead of 9. This validates the adversarial review's recommendation to use structural iteration rather than hard-coding a count.
+**Verified**: Profile widget tests pass with 2 disabled fields; `TestProfileWidget_EnterEditing_LandsOnFirstEnabled` verifies navigation correctly handles the partially-enabled Overlay group
+**Next**: GUI DLL progress indicator (degraded), or Vulkan layer PoC (vision direction)
+**Context**: intent — enable TUI overlay fields now that CLI backend exists · constraints — ToggleKey stays disabled (needs textinput), tests must pass · unknowns — none · scope — profile_widget.go, profile_widget_test.go
+
+## Cycle 40 — 2026-04-10
+
+**Phase**: build
+**What**: Added `spela overlay set/show` CLI commands — 8 flags covering all OverlaySettings fields (enabled, position, show-fps/frametime/cpu/gpu/vram, toggle-key). Closes the last gap in CLI profile management.
+**Commit**: 6a54b25 feat(cli): add overlay set/show commands for per-game overlay profiles
+**Inspiration**: none — follows existing proton set/show pattern exactly
+**Discovered**: NVIDIA's framebuffer overlay tool intercepts bare `overlay` subcommand on NVIDIA systems (exits with "Couldn't get an overlay visual"). The `help overlay` form works. Not a code bug — environment collision with the NVIDIA driver's overlay binary in PATH.
+**Verified**: `spela help overlay` outputs correct command tree; `spela help overlay set` shows all 8 flags with correct descriptions and types
+**Next**: GUI DLL progress indicator (degraded in TODO.md), or start enabling the TUI overlay fields now that CLI commands exist
+**Context**: intent — add overlay CLI commands to close profile management gap per TODO.md annoying item · constraints — follow proton.go pattern · unknowns — none · scope — overlay.go (new), main.go registration
+
 ## Cycle 38 — 2026-04-10 (plan summary: TUI End-to-End Test Harness)
 
 **Phase**: build
