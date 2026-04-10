@@ -516,7 +516,6 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 					value:       displayBool(p.Overlay.Enabled),
 					options:     []string{"(default)", "true", "false"},
 					description: "Show performance overlay",
-					disabled:    true,
 					apply: func(p *profile.Profile, v string, d bool) {
 						p.Overlay.Enabled = v == "true"
 					},
@@ -527,7 +526,6 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 					value:       displayValue(p.Overlay.Position),
 					options:     []string{"(default)", "top-left", "top-right", "bottom-left", "bottom-right"},
 					description: "Overlay screen position",
-					disabled:    true,
 					apply: func(p *profile.Profile, v string, d bool) {
 						if d {
 							p.Overlay.Position = ""
@@ -542,7 +540,6 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 					value:       displayBool(p.Overlay.ShowFPS),
 					options:     []string{"(default)", "true", "false"},
 					description: "Show frames per second in overlay",
-					disabled:    true,
 					apply: func(p *profile.Profile, v string, d bool) {
 						p.Overlay.ShowFPS = v == "true"
 					},
@@ -553,7 +550,6 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 					value:       displayBool(p.Overlay.ShowFrametime),
 					options:     []string{"(default)", "true", "false"},
 					description: "Show frame time in overlay",
-					disabled:    true,
 					apply: func(p *profile.Profile, v string, d bool) {
 						p.Overlay.ShowFrametime = v == "true"
 					},
@@ -564,7 +560,6 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 					value:       displayBool(p.Overlay.ShowCPU),
 					options:     []string{"(default)", "true", "false"},
 					description: "Show CPU usage in overlay",
-					disabled:    true,
 					apply: func(p *profile.Profile, v string, d bool) {
 						p.Overlay.ShowCPU = v == "true"
 					},
@@ -575,7 +570,6 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 					value:       displayBool(p.Overlay.ShowGPU),
 					options:     []string{"(default)", "true", "false"},
 					description: "Show GPU usage in overlay",
-					disabled:    true,
 					apply: func(p *profile.Profile, v string, d bool) {
 						p.Overlay.ShowGPU = v == "true"
 					},
@@ -586,7 +580,6 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 					value:       displayBool(p.Overlay.ShowVRAM),
 					options:     []string{"(default)", "true", "false"},
 					description: "Show VRAM usage in overlay",
-					disabled:    true,
 					apply: func(p *profile.Profile, v string, d bool) {
 						p.Overlay.ShowVRAM = v == "true"
 					},

@@ -89,16 +89,14 @@ func hasEnabledFieldBefore(group WidgetGroup, index int) bool {
 // Disabled field navigation — edge cases
 // ---------------------------------------------------------------------------
 
-func TestProfileWidget_EnterEditing_SkipsDisabledFirst(t *testing.T) {
-	// The Overlay group has ALL fields disabled. When entering editing
-	// on that group, focusedField should land on 0 (the loop doesn't
-	// find a non-disabled field, so it stays at 0).
+func TestProfileWidget_EnterEditing_LandsOnFirstEnabled(t *testing.T) {
+	// The Overlay group has 7 enabled fields and 1 disabled (ToggleKey).
+	// Entering editing should land on the first enabled field.
 	g := testGame("Cyberpunk 2077")
 	p := &profile.Profile{}
 	styles := NewStyles(DefaultTheme, true)
 	m := NewProfileWidget(g, p, styles)
 
-	// Find the Overlay group (all fields disabled)
 	overlayGroup := -1
 	for i, group := range m.groups {
 		if group.title == "Overlay settings" {
@@ -113,21 +111,31 @@ func TestProfileWidget_EnterEditing_SkipsDisabledFirst(t *testing.T) {
 	m.focusedGroup = overlayGroup
 	m.editing = false
 
-	// Enter editing — all fields are disabled
 	result, _ := m.Update(keyMsg("enter"))
 	if !result.editing {
 		t.Error("expected to enter editing mode")
 	}
 
-	// Navigation in all-disabled group should not move
-	startField := result.focusedField
-	result, _ = result.Update(keyMsg("down"))
-	if result.focusedField != startField {
-		t.Error("expected down to stay put in all-disabled group")
+	// Should land on the first enabled field (index 0 = Enabled)
+	field := result.groups[overlayGroup].fields[result.focusedField]
+	if field.disabled {
+		t.Error("expected to land on an enabled field")
 	}
-	result, _ = result.Update(keyMsg("up"))
-	if result.focusedField != startField {
-		t.Error("expected up to stay put in all-disabled group")
+
+	// Navigate down to the last enabled field before ToggleKey,
+	// then verify down doesn't move to ToggleKey (disabled)
+	lastEnabled := -1
+	for i := len(result.groups[overlayGroup].fields) - 1; i >= 0; i-- {
+		if !result.groups[overlayGroup].fields[i].disabled {
+			lastEnabled = i
+			break
+		}
+	}
+
+	result.focusedField = lastEnabled
+	result, _ = result.Update(keyMsg("down"))
+	if result.focusedField != lastEnabled {
+		t.Errorf("expected down to stay on last enabled field %d, moved to %d", lastEnabled, result.focusedField)
 	}
 }
 
