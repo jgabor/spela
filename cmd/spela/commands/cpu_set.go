@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -9,6 +10,8 @@ import (
 	"github.com/jgabor/spela/internal/profile"
 	"github.com/jgabor/spela/internal/tui"
 )
+
+var cpuShowJSON bool
 
 var (
 	cpuSetGovernor string
@@ -33,6 +36,8 @@ var cpuShowCmd = &cobra.Command{
 func init() {
 	cpuSetCmd.Flags().StringVar(&cpuSetGovernor, "governor", "", "CPU frequency governor (performance, powersave, schedutil, ondemand)")
 	cpuSetCmd.Flags().StringVar(&cpuSetSMT, "smt", "", "SMT control (on, off, default)")
+
+	cpuShowCmd.Flags().BoolVar(&cpuShowJSON, "json", false, "Output as JSON")
 
 	CPUCmd.AddCommand(cpuSetCmd)
 	CPUCmd.AddCommand(cpuShowCmd)
@@ -115,6 +120,15 @@ func runCPUShow(cmd *cobra.Command, args []string) error {
 	if p == nil {
 		fmt.Printf("No profile for %s\n", g.Name)
 		p = &profile.Profile{}
+	}
+
+	if cpuShowJSON {
+		data, err := json.MarshalIndent(p.CPU, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(data))
+		return nil
 	}
 
 	fmt.Printf("CPU profile for %s:\n\n", g.Name)

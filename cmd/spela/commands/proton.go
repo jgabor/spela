@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -9,6 +10,8 @@ import (
 	"github.com/jgabor/spela/internal/profile"
 	"github.com/jgabor/spela/internal/tui"
 )
+
+var protonShowJSON bool
 
 var ProtonCmd = &cobra.Command{
 	Use:   "proton",
@@ -40,6 +43,8 @@ func init() {
 	protonSetCmd.Flags().StringVar(&protonSetHDR, "hdr", "", "Enable HDR (true/false)")
 	protonSetCmd.Flags().StringVar(&protonSetWayland, "wayland", "", "Enable native Wayland (true/false)")
 	protonSetCmd.Flags().StringVar(&protonSetNGXUpdater, "ngx-updater", "", "Enable NGX auto-updater (true/false)")
+
+	protonShowCmd.Flags().BoolVar(&protonShowJSON, "json", false, "Output as JSON")
 
 	ProtonCmd.AddCommand(protonSetCmd)
 	ProtonCmd.AddCommand(protonShowCmd)
@@ -112,6 +117,15 @@ func runProtonShow(cmd *cobra.Command, args []string) error {
 	if p == nil {
 		fmt.Printf("No profile for %s\n", g.Name)
 		p = &profile.Profile{}
+	}
+
+	if protonShowJSON {
+		data, err := json.MarshalIndent(p.Proton, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(data))
+		return nil
 	}
 
 	fmt.Printf("Proton profile for %s:\n\n", g.Name)

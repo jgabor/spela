@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -8,6 +9,8 @@ import (
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/profile"
 )
+
+var dlssShowJSON bool
 
 var DLSSCmd = &cobra.Command{
 	Use:   "dlss",
@@ -56,6 +59,8 @@ func init() {
 	dlssSetCmd.Flags().IntVar(&dlssSetMultiFrame, "multi-frame", -1, "Multi-frame count (0-3)")
 	dlssSetCmd.Flags().BoolVar(&dlssSetIndicator, "indicator", false, "Enable DLSS indicator")
 
+	dlssShowCmd.Flags().BoolVar(&dlssShowJSON, "json", false, "Output as JSON")
+
 	DLSSCmd.AddCommand(dlssShowCmd)
 	DLSSCmd.AddCommand(dlssSetCmd)
 }
@@ -78,6 +83,15 @@ func runDLSSShow(cmd *cobra.Command, args []string) error {
 	if p == nil {
 		fmt.Printf("No profile for %s\n", g.Name)
 		p = &profile.Profile{}
+	}
+
+	if dlssShowJSON {
+		data, err := json.MarshalIndent(p.DLSS, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(data))
+		return nil
 	}
 
 	fmt.Printf("DLSS configuration for %s:\n\n", g.Name)
