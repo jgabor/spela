@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -9,6 +10,8 @@ import (
 	"github.com/jgabor/spela/internal/profile"
 	"github.com/jgabor/spela/internal/tui"
 )
+
+var gpuShowJSON bool
 
 var (
 	gpuSetClockOffset  int
@@ -44,6 +47,8 @@ func init() {
 	gpuSetCmd.Flags().StringVar(&gpuSetShaderCache, "shader-cache", "", "Enable shader caching (true/false)")
 	gpuSetCmd.Flags().StringVar(&gpuSetCachePath, "shader-cache-path", "", "Custom shader cache path (use 'default' to clear)")
 	gpuSetCmd.Flags().StringVar(&gpuSetThreadedOpt, "threaded-opt", "", "Enable threaded optimization (true/false)")
+
+	gpuShowCmd.Flags().BoolVar(&gpuShowJSON, "json", false, "Output as JSON")
 
 	GPUCmd.AddCommand(gpuSetCmd)
 	GPUCmd.AddCommand(gpuShowCmd)
@@ -149,6 +154,15 @@ func runGPUShow(cmd *cobra.Command, args []string) error {
 	if p == nil {
 		fmt.Printf("No profile for %s\n", g.Name)
 		p = &profile.Profile{}
+	}
+
+	if gpuShowJSON {
+		data, err := json.MarshalIndent(p.GPU, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(data))
+		return nil
 	}
 
 	fmt.Printf("GPU profile for %s:\n\n", g.Name)

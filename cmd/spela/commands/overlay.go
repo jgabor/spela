@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -9,6 +10,8 @@ import (
 	"github.com/jgabor/spela/internal/profile"
 	"github.com/jgabor/spela/internal/tui"
 )
+
+var overlayShowJSON bool
 
 var OverlayCmd = &cobra.Command{
 	Use:   "overlay",
@@ -50,6 +53,8 @@ func init() {
 	overlaySetCmd.Flags().StringVar(&overlaySetShowGPU, "show-gpu", "", "Show GPU usage (true/false)")
 	overlaySetCmd.Flags().StringVar(&overlaySetShowVRAM, "show-vram", "", "Show VRAM usage (true/false)")
 	overlaySetCmd.Flags().StringVar(&overlaySetToggleKey, "toggle-key", "", "Key to toggle overlay visibility")
+
+	overlayShowCmd.Flags().BoolVar(&overlayShowJSON, "json", false, "Output as JSON")
 
 	OverlayCmd.AddCommand(overlaySetCmd)
 	OverlayCmd.AddCommand(overlayShowCmd)
@@ -147,6 +152,15 @@ func runOverlayShow(cmd *cobra.Command, args []string) error {
 	if p == nil {
 		fmt.Printf("No profile for %s\n", g.Name)
 		p = &profile.Profile{}
+	}
+
+	if overlayShowJSON {
+		data, err := json.MarshalIndent(p.Overlay, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(data))
+		return nil
 	}
 
 	fmt.Printf("Overlay profile for %s:\n\n", g.Name)
