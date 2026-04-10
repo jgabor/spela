@@ -60,6 +60,7 @@ const (
 
 type ContentModel struct {
 	styles              *Styles
+	services            *Services
 	game                *game.Game
 	defaultProfile      bool
 	profile             *profile.Profile
@@ -130,9 +131,10 @@ func (m ContentModel) Name() string {
 	return "Details"
 }
 
-func NewContent(styles *Styles, confirmDestructive bool) ContentModel {
+func NewContent(styles *Styles, confirmDestructive bool, svc *Services) ContentModel {
 	return ContentModel{
 		styles:             styles,
+		services:           svc,
 		confirmDestructive: confirmDestructive,
 		dlssPresetModal:    NewDLSSPresetModal(styles),
 	}
@@ -151,11 +153,11 @@ func (m ContentModel) SetGame(g *game.Game) ContentModel {
 	m.launching = false
 
 	if g != nil {
-		p, inherited := loadEffectiveProfile(g.AppID)
+		p, inherited := m.loadEffectiveProfile(g.AppID)
 		m.profile = p
 		m.usingDefaultProfile = inherited
 		m.profileWidget = NewProfileWidget(g, p, m.styles)
-		m.hasBackup = dll.BackupExists(g.AppID)
+		m.hasBackup = m.services.BackupExists(g.AppID)
 	}
 
 	return m
@@ -173,7 +175,7 @@ func (m ContentModel) SetDefaultProfile() ContentModel {
 	m.usingDefaultProfile = false
 	m.launching = false
 
-	p, _ := profile.LoadDefault()
+	p, _ := m.services.LoadDefaultProfile()
 	m.profile = p
 	m.profileWidget = NewDefaultProfileWidget(p, m.styles)
 	if m.profile == nil {
@@ -311,10 +313,10 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	case profileSaveMsg:
 		if msg.success {
 			if m.defaultProfile {
-				p, _ := profile.LoadDefault()
+				p, _ := m.services.LoadDefaultProfile()
 				m.profile = p
 			} else if m.game != nil {
-				p, inherited := loadEffectiveProfile(m.game.AppID)
+				p, inherited := m.loadEffectiveProfile(m.game.AppID)
 				m.profile = p
 				m.usingDefaultProfile = inherited
 				m.profileHeight = m.profileSectionHeight()
@@ -328,7 +330,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 			m.game.DLLs = msg.dlls
 			m.game.ScannedAt = time.Now()
 		}
-		m.hasBackup = m.game != nil && dll.BackupExists(m.game.AppID)
+		m.hasBackup = m.game != nil && m.services.BackupExists(m.game.AppID)
 		if msg.success {
 			m.hasUpdates = false
 			return m, m.LoadDLLUpdates()
@@ -338,7 +340,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	case dllRestoreMsg:
 		m.dllOperating = false
 		if msg.success {
-			m.hasBackup = m.game != nil && dll.BackupExists(m.game.AppID)
+			m.hasBackup = m.game != nil && m.services.BackupExists(m.game.AppID)
 		}
 		return m, nil
 
@@ -739,12 +741,12 @@ func (m ContentModel) renderLaunch() string {
 	return b.String()
 }
 
-func loadEffectiveProfile(appID uint64) (*profile.Profile, bool) {
-	p, _ := profile.Load(appID)
+func (m ContentModel) loadEffectiveProfile(appID uint64) (*profile.Profile, bool) {
+	p, _ := m.services.LoadProfile(appID)
 	if p != nil {
 		return p, false
 	}
-	defaultProfile, _ := profile.LoadDefault()
+	defaultProfile, _ := m.services.LoadDefaultProfile()
 	if defaultProfile == nil {
 		return nil, false
 	}
@@ -829,7 +831,7 @@ func (m ContentModel) updateDLLInstall(msg tea.Msg) (ContentModel, tea.Cmd) {
 				m.game.DLLs = msg.dlls
 				m.game.ScannedAt = time.Now()
 			}
-			m.hasBackup = m.game != nil && dll.BackupExists(m.game.AppID)
+			m.hasBackup = m.game != nil && m.services.BackupExists(m.game.AppID)
 			return m, m.LoadDLLUpdates()
 		}
 		return m, nil

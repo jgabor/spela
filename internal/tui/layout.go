@@ -34,6 +34,7 @@ const (
 
 type LayoutModel struct {
 	styles         *Styles
+	services       *Services
 	header         HeaderModel
 	sidebar        SidebarModel
 	stack          NavStack
@@ -57,8 +58,8 @@ type LayoutModel struct {
 	initCmd        tea.Cmd
 }
 
-func NewLayout(db *game.Database) LayoutModel {
-	cfg, _ := config.Load()
+func NewLayout(db *game.Database, svc *Services) LayoutModel {
+	cfg, _ := svc.LoadConfig()
 	if cfg == nil {
 		cfg = config.Default()
 	}
@@ -73,12 +74,13 @@ func NewLayout(db *game.Database) LayoutModel {
 	styles := NewStyles(theme, cfg.ShowHints)
 
 	games := db.List()
-	sidebar, sidebarCmd := NewSidebar(games, styles)
+	sidebar, sidebarCmd := NewSidebar(games, styles, svc)
 	return LayoutModel{
 		styles:         styles,
+		services:       svc,
 		header:         NewHeader(styles),
 		sidebar:        sidebar,
-		stack:          NewNavStack(newContentEntry(NewContent(styles, cfg.ConfirmDestructive))),
+		stack:          NewNavStack(newContentEntry(NewContent(styles, cfg.ConfirmDestructive, svc))),
 		statusBar:      NewStatusBar(styles),
 		messageBar:     NewMessageBar(styles),
 		help:           NewHelp(styles),
@@ -524,7 +526,7 @@ func (m LayoutModel) contentModel() *ContentModel {
 
 // contentEntryForGame creates a new content entry configured for the given game.
 func (m *LayoutModel) contentEntryForGame(g *game.Game) *contentEntry {
-	content := NewContent(m.styles, m.config.ConfirmDestructive)
+	content := NewContent(m.styles, m.config.ConfirmDestructive, m.services)
 	content = content.SetGame(g)
 	content.SetSize(m.contentWidth(), m.contentHeight())
 	return newContentEntry(content)
@@ -532,7 +534,7 @@ func (m *LayoutModel) contentEntryForGame(g *game.Game) *contentEntry {
 
 // contentEntryForDefaultProfile creates a new content entry configured for the default profile.
 func (m *LayoutModel) contentEntryForDefaultProfile() *contentEntry {
-	content := NewContent(m.styles, m.config.ConfirmDestructive)
+	content := NewContent(m.styles, m.config.ConfirmDestructive, m.services)
 	content = content.SetDefaultProfile()
 	content.SetSize(m.contentWidth(), m.contentHeight())
 	return newContentEntry(content)
@@ -865,7 +867,7 @@ func (m LayoutModel) rescanGames() tea.Cmd {
 }
 
 func Run(db *game.Database) error {
-	p := tea.NewProgram(NewLayout(db))
+	p := tea.NewProgram(NewLayout(db, DefaultServices()))
 	_, err := p.Run()
 	return err
 }

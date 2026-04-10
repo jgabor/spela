@@ -11,7 +11,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jgabor/spela/internal/game"
-	"github.com/jgabor/spela/internal/profile"
 )
 
 type SortMode int
@@ -48,6 +47,7 @@ type sidebarItem struct {
 
 type SidebarModel struct {
 	styles     *Styles
+	services   *Services
 	games      []*game.Game
 	filtered   []sidebarItem
 	cursor     int
@@ -60,7 +60,7 @@ type SidebarModel struct {
 	selectMode bool
 }
 
-func NewSidebar(games []*game.Game, styles *Styles) (SidebarModel, tea.Cmd) {
+func NewSidebar(games []*game.Game, styles *Styles, svc *Services) (SidebarModel, tea.Cmd) {
 	ti := textinput.New()
 	ti.Placeholder = "Search..."
 	ti.CharLimit = 30
@@ -68,6 +68,7 @@ func NewSidebar(games []*game.Game, styles *Styles) (SidebarModel, tea.Cmd) {
 
 	m := SidebarModel{
 		styles:   styles,
+		services: svc,
 		games:    games,
 		search:   ti,
 		sortMode: SortNameAsc,
@@ -225,7 +226,7 @@ func (m *SidebarModel) applyFiltersAndSort() {
 		if m.filters.hasDLLs && len(g.DLLs) == 0 {
 			continue
 		}
-		if m.filters.hasProfile && !profile.Exists(g.AppID) {
+		if m.filters.hasProfile && !m.services.ProfileExists(g.AppID) {
 			continue
 		}
 		filtered = append(filtered, g)
@@ -235,7 +236,7 @@ func (m *SidebarModel) applyFiltersAndSort() {
 	hasProfileMap := make(map[uint64]bool, len(filtered))
 	if m.sortMode == SortProfileFirst {
 		for _, g := range filtered {
-			hasProfileMap[g.AppID] = profile.Exists(g.AppID)
+			hasProfileMap[g.AppID] = m.services.ProfileExists(g.AppID)
 		}
 	}
 
@@ -485,7 +486,7 @@ func (m SidebarModel) itemIndicator(item sidebarItem) string {
 	if len(item.game.DLLs) > 0 {
 		indicators += " ●"
 	}
-	if profile.Exists(item.game.AppID) {
+	if m.services.ProfileExists(item.game.AppID) {
 		indicators += " ◆"
 	}
 	if indicators == "" {
