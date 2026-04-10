@@ -26,8 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced `spela cpu info` with frequencies, load, RAM, available governors, and SCX status
 - GPU profile flags: `--shader-cache`, `--shader-cache-path`, `--threaded-opt`
 
+- TUI end-to-end test harness: 99 state machine tests across layout, sidebar, content, and profile widget with injectable service fakes, model factories, and key-sequence helpers
+
 ### Changed
 
+- TUI dependency injection: synchronous I/O calls now go through injectable Services struct for testability
 - Remove ludusavi save game integration (feature to be rethought)
 - Remove 49 dead functions, unused mangohud config, self-updater package, and samber/lo dependency
 - TUI navigation: replaced binary focus system with LIFO navigation stack, breadcrumb trail, and stack-based message routing

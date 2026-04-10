@@ -25,3 +25,4 @@
 - [x] ~~NVML setter privilege model undecided~~ — migrated to batched pkexec apply-profile with go-nvml setters
 - [x] ~~Ludusavi save game integration~~ — removed entirely in 39a8cc6; feature to be rethought
 - [x] ~~Dead code accumulation (16.6%)~~ — swept to 14.3% in 0687920; 49 functions, 3 files, 1 dep removed
+- [x] ~~TUI test coverage (Tests: C in HEALTH.md)~~ — 99 state machine tests added across 6 test files (ab97dba..b7e3c3c); Services DI, model factories, layout/sidebar/content/profile widget coverage
