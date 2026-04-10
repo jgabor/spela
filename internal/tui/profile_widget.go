@@ -421,6 +421,22 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 						}
 					},
 				},
+				{
+					label:       "Fan speed",
+					key:         "fan_speed",
+					value:       displayInt(p.GPU.FanSpeed),
+					options:     []string{"(default)", "30", "40", "50", "60", "70", "80", "90", "100"},
+					description: "GPU fan speed percentage (0 = auto)",
+					apply: func(p *profile.Profile, v string, d bool) {
+						if d {
+							p.GPU.FanSpeed = 0
+						} else {
+							var n int
+							_, _ = fmt.Sscanf(v, "%d", &n)
+							p.GPU.FanSpeed = n
+						}
+					},
+				},
 			},
 		},
 		{
