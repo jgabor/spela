@@ -1,5 +1,19 @@
 # Progress
 
+## Plan Summary — DX12 descriptor_heap — 2026-04-19
+
+- **Plan**: DX12 descriptor_heap per-game toggle (6 tasks, completed 2026-04-19)
+- **Delivered**: Users can enable `vkd3d_heap` per game from the CLI (`spela proton set --vkd3d-heap=<bool>`, visible in `spela proton show` formatted + `--json`) or the TUI profile widget (new `VKD3D heap` field in the Proton group). When enabled, spela emits `PROTON_VKD3D_HEAP=1` and `VKD3D_CONFIG=descriptor_heap` at launch. Toggle-time compatibility notices appear inline in both CLI and TUI when the resolved Proton build lacks the `PROTON_VKD3D_HEAP` marker or the NVIDIA driver is below 580.94.16. Launch-time `slog.Warn` preflight records structured `detected`/`minimum` fields per axis when requirements are unmet; launch is never blocked. Resolver error and missing-driver cases degrade to `slog.Info` skips rather than warnings.
+- **Shipped in**: v0.4.0 (tag `ee7adfb`)
+- **Cycles**: 50 (profile field + env emission), 51 (internal/proton resolver package: `ResolveForAppID`, `SupportsVKD3DHeap`, `ParseDriverVersion`, requirements constants), 52 (CLI + TUI surface with `CompatibilityNotice` helper), 53 (launcher preflight via `CheckCompatibility` + injectable `VKD3DCompatibilityCheck`)
+- **Inspiration source**: inspirera analysis of `VK_EXT_descriptor_heap` (Vulkan 1.4.340, Jan 2026), Proton-CachyOS 10.0-20260321+, and the NVIDIA 580+ driver ecosystem — the plan was framed to turn fragmented Reddit/forum guidance into a first-class, honest toggle in spela
+- **Follow-ups** (candidates for TODO filing):
+  - GUI parity for `vkd3d_heap` toggle (currently a UX gap — CLI/TUI only)
+  - Promote `gpu.DriverVersionString()` to a first-class public NVML driver-version API (minimal surface added in Cycle 52; worth rounding out)
+  - Retrofit `parseBoolFlag` (introduced in Cycle 52 for `--vkd3d-heap`) to older proton flags `--hdr`, `--wayland`, `--ngx-updater` so typos stop silently falling through to false
+  - Watch vkd3d-proton PR #2943 upstream merge → revisit `MinProtonCachyOSBuild` and `MinDriverVersion` constants in `internal/proton/requirements.go`
+  - Consider flipping `vkd3d_heap` default-on once upstream vkd3d-proton stabilizes and NVIDIA 580.94.16+ is broadly shipped
+
 ## Cycle 53 — 2026-04-19
 
 **Phase**: build

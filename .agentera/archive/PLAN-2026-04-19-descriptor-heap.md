@@ -118,7 +118,7 @@ Driver version gate lives next to the NVML driver query (or in the proton packag
 ### Task 6: Plan-level freshness checkpoint
 
 **Depends on**: Task 5
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 
 - GIVEN the plan is nominally complete WHEN the checkpoint runs THEN CHANGELOG.md contains a plan-level Added entry summarizing descriptor_heap support (written by git-cliff during Task 5 — this step verifies presence, doesn't duplicate)
