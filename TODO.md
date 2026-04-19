@@ -9,8 +9,8 @@
 ## ⇉ Degraded
 
 - [x] ~~DLSS-D column missing from GUI DLL display~~ — already present in GameDetail.svelte (stale entry)
-- [ ] No DLL operation progress indicator in GUI — `internal/gui/frontend/src/lib/GameDetail.svelte`
-- [ ] DLL operation error messages incomplete in GUI — database save errors not surfaced
+- [x] ~~No DLL operation progress indicator in GUI~~ — fixed in c013f1d: backend emits `dll:progress` events at each stage; frontend shows current stage next to busy button
+- [x] ~~DLL operation error messages incomplete in GUI~~ — fixed in c013f1d: all DLL ops wrap errors with stage context; failures shown in persistent dismissible banner instead of 3s toast
 
 ## ⇢ Annoying
 

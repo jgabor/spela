@@ -1,5 +1,16 @@
 # Progress
 
+## Cycle 49 — 2026-04-19
+
+**Phase**: build
+**What**: Closed both remaining `## Degraded` GUI items in one focused increment. Backend (`internal/gui/app.go`) emits `dll:progress` events from InstallDLL/UpdateDLLs/RestoreDLLs at every stage (manifest resolve, download, install/swap/restore, scan, save) and wraps every error with stage context; previously-swallowed ScanDirectory errors now log via slog.Warn. Frontend (`GameDetail.svelte`) subscribes to the event and shows the active stage next to the busy button; failures now route to a persistent dismissible error banner instead of a 3-second toast.
+**Commit**: c013f1d fix(gui): surface DLL operation progress and complete error context
+**Inspiration**: none — vision principles (transparency, no silent failures) drove the design directly.
+**Discovered**: The GUI build was silently broken on main — `dll.GetOrDownloadDLL` was removed in 0687920 (dead-code sweep) but its callers in `internal/gui/app.go` were missed because the file is build-tagged `dev || production || bindings` and the analyzer couldn't see them. Fixed inline with a small `ensureDLLCached` helper using `DownloadDLLWithProgress`. Worktree subagent branched from a stale commit (f2227d6, pre-ludusavi-removal), so the worktree's modifications had to be cherry-picked manually rather than merged. Models.ts regen also dropped a stale `backupOnLaunch` field left over from the ludusavi removal.
+**Verified**: `mage build` produced a 12MB binary at `cmd/spela/build/bin/spela`; `mage test` exit 0; `strings` confirmed all 11 new stage labels and error-wrap strings ("Resolving manifest", "Downloading %s %s", "Installing %s", "Scanning install directory", "Saving database", "Restoring backup", "save game database after install/update/restore", "scan after update/restore failed", etc.) plus 3 occurrences of `dll:progress` (one per emitting function) embedded in the binary; Svelte bundle includes the new `dllProgressStage` and `error-banner` code. GUI session itself cannot be exercised in this headless environment (no X/Wayland display).
+**Next**: With both degraded items closed, the natural next move is the v0.3.0 version bump (HEALTH Audit 3 noted v0.2.1 is 28 days old with substantial unreleased content), or the Vulkan overlay layer PoC which still needs `/planera`. Could also tackle the remaining Coupling/Complexity warnings if a maintenance pass is preferred.
+**Context**: intent — close both degraded GUI feedback items per vision transparency principle in one increment · constraints — Svelte component changes only, backend behavior preserved (only error messages and event emissions added) · unknowns — none, though the worktree-base drift was an unexpected friction · scope — internal/gui/app.go (3 functions wrapped + helpers), internal/gui/frontend/src/lib/GameDetail.svelte (subscription + error banner + CSS), models.ts (regen)
+
 ## Cycle 48 — 2026-04-10
 
 **Phase**: build

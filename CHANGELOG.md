@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- GUI surfaces DLL operation progress and full error context — every install/update/restore stage emits a visible label, and failures land in a persistent dismissible error banner with stage-prefixed messages
+- GUI build restored — `dll.GetOrDownloadDLL` callers updated after the dead-code sweep removed the function
+
 ### Added
 
 - Confirmation prompts for destructive DLL operations (update/restore) when confirm_destructive is enabled
