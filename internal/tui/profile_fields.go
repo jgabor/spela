@@ -439,6 +439,16 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 						p.Proton.EnableNGXUpdater = v == "true"
 					},
 				},
+				{
+					label:       "VKD3D heap",
+					key:         "vkd3d_heap",
+					value:       displayBool(p.Proton.VKD3DHeap),
+					options:     []string{"(default)", "true", "false"},
+					description: "Enable DX12 descriptor_heap path (Proton-CachyOS + driver 580.94.16+)",
+					apply: func(p *profile.Profile, v string, d bool) {
+						p.Proton.VKD3DHeap = v == "true"
+					},
+				},
 			},
 		},
 		{

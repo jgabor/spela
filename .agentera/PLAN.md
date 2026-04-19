@@ -80,7 +80,7 @@ Driver version gate lives next to the NVML driver query (or in the proton packag
 ### Task 3: User-facing surface (CLI + TUI)
 
 **Depends on**: Task 1, Task 2
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 
 - GIVEN `spela proton set --vkd3d-heap=true <appid>` WHEN run THEN the profile persists `vkd3d_heap: true`

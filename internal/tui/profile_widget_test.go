@@ -302,6 +302,116 @@ func TestProfileWidget_EscExitsEditing(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// VKD3D heap — field presence, toggle, and inline notice rendering
+// ---------------------------------------------------------------------------
+
+// findField scans the widget for the first field whose key matches and
+// returns (groupIndex, fieldIndex, true). (0,0,false) when absent.
+func findField(m ProfileWidgetModel, key string) (int, int, bool) {
+	for gi, group := range m.groups {
+		for fi, field := range group.fields {
+			if field.key == key {
+				return gi, fi, true
+			}
+		}
+	}
+	return 0, 0, false
+}
+
+// TestProfileWidget_VKD3DHeap_FieldPresent verifies that toggling the
+// VKD3D Heap field in the Proton group flips the in-memory profile state.
+// Covers acceptance: "TUI field is focused WHEN the user toggles it THEN
+// the in-memory profile state reflects the change".
+func TestProfileWidget_VKD3DHeap_FieldPresent(t *testing.T) {
+	g := testGame("Cyberpunk 2077")
+	p := &profile.Profile{}
+	styles := NewStyles(DefaultTheme, true)
+	m := NewProfileWidget(g, p, styles)
+
+	gi, fi, ok := findField(m, "vkd3d_heap")
+	if !ok {
+		t.Fatal("expected VKD3D heap field in profile widget")
+	}
+	if m.groups[gi].title != "Proton settings" {
+		t.Errorf("expected vkd3d_heap in Proton settings group, got %q", m.groups[gi].title)
+	}
+	if m.groups[gi].fields[fi].label != "VKD3D heap" {
+		t.Errorf("unexpected label: %q", m.groups[gi].fields[fi].label)
+	}
+
+	// Initial value: profile has VKD3DHeap=false, rendered as "(default)".
+	if p.Proton.VKD3DHeap {
+		t.Fatal("precondition: expected VKD3DHeap=false")
+	}
+
+	m.focusedGroup = gi
+	m.focusedField = fi
+	m.editing = true
+
+	// Cycle right from "(default)" through options until the profile toggles.
+	// options: ["(default)", "true", "false"] — one "right" lands on "true".
+	result, _ := m.Update(keyMsg("right"))
+	if !result.profile.Proton.VKD3DHeap {
+		t.Errorf("expected VKD3DHeap=true after right-cycle, got false (value=%q)",
+			result.groups[gi].fields[fi].value)
+	}
+	if !result.modified {
+		t.Error("expected modified flag after toggling vkd3d_heap")
+	}
+}
+
+// TestProfileWidget_VKD3DHeap_NoticeRendered verifies that when the field
+// is enabled AND the injected notice source reports incompatibility, the
+// widget renders the notice inline under the field.
+// Covers acceptance: "TUI field is enabled AND resolver reports
+// incompatibility WHEN widget renders THEN notice is visible inline".
+func TestProfileWidget_VKD3DHeap_NoticeRendered(t *testing.T) {
+	g := testGame("Cyberpunk 2077")
+	p := &profile.Profile{Proton: profile.ProtonSettings{VKD3DHeap: true}}
+	styles := NewStyles(DefaultTheme, true)
+	m := NewProfileWidget(g, p, styles)
+	m.SetSize(120, 40)
+
+	const notice = "⚠ descriptor_heap requires NVIDIA driver 580.94.16+ (detected: 570.86.0)"
+	m.SetVKD3DNoticeSource(func() string { return notice })
+
+	// Render the full view and check for the notice. We don't assert on
+	// styling — just presence.
+	out := m.View()
+	if !strings.Contains(out, "VKD3D heap") {
+		t.Fatalf("expected VKD3D heap field in rendered output:\n%s", out)
+	}
+	if !strings.Contains(out, "580.94.16") {
+		t.Errorf("expected driver version in rendered notice:\n%s", out)
+	}
+}
+
+// TestProfileWidget_VKD3DHeap_NoticeSkippedWhenDisabled verifies that
+// the notice source is not called when the toggle is false, and the
+// notice text does not appear in the rendered output.
+func TestProfileWidget_VKD3DHeap_NoticeSkippedWhenDisabled(t *testing.T) {
+	g := testGame("Cyberpunk 2077")
+	p := &profile.Profile{Proton: profile.ProtonSettings{VKD3DHeap: false}}
+	styles := NewStyles(DefaultTheme, true)
+	m := NewProfileWidget(g, p, styles)
+	m.SetSize(120, 40)
+
+	called := false
+	m.SetVKD3DNoticeSource(func() string {
+		called = true
+		return "⚠ should not appear"
+	})
+
+	out := m.View()
+	if called {
+		t.Error("notice source should not be invoked when VKD3DHeap is false")
+	}
+	if strings.Contains(out, "should not appear") {
+		t.Errorf("unexpected notice in output:\n%s", out)
+	}
+}
+
 func TestProfileWidget_GridNavigation(t *testing.T) {
 	g := testGame("Cyberpunk 2077")
 	p := &profile.Profile{}

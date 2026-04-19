@@ -72,6 +72,11 @@ type ProfileWidgetModel struct {
 	modified     bool
 	width        int
 	height       int
+	// vkd3dNoticeSource returns a human-readable notice describing any
+	// VKD3D_heap compatibility problem for this widget's save target, or
+	// empty string when compatible / checks skipped. Nil disables the
+	// inline notice entirely (tests and non-game widgets default to nil).
+	vkd3dNoticeSource func() string
 }
 
 type openDLSSPresetModalMsg struct {
@@ -94,6 +99,14 @@ func NewDefaultProfileWidget(p *profile.Profile, styles *Styles) ProfileWidgetMo
 func (m *ProfileWidgetModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
+}
+
+// SetVKD3DNoticeSource wires a compatibility-notice provider into the
+// widget. When set, the widget renders the returned string under the
+// VKD3D Heap field whenever the field is enabled (true). Passing nil
+// disables the notice entirely.
+func (m *ProfileWidgetModel) SetVKD3DNoticeSource(src func() string) {
+	m.vkd3dNoticeSource = src
 }
 
 func (m ProfileWidgetModel) Update(msg tea.Msg) (ProfileWidgetModel, tea.Cmd) {
@@ -411,6 +424,16 @@ func (m ProfileWidgetModel) renderWidgetBox(group WidgetGroup, isWidgetFocused b
 		line := m.renderFieldToString(field, isFieldFocused)
 		content.WriteString(line)
 		content.WriteString("\n")
+
+		// Inline compatibility notice beneath the VKD3D heap field when
+		// enabled. Only rendered when a notice source has been injected
+		// and the toggle is currently true.
+		if field.key == "vkd3d_heap" && m.vkd3dNoticeSource != nil && field.value == "true" {
+			if notice := m.vkd3dNoticeSource(); notice != "" {
+				content.WriteString(s.Dim.Render("    " + notice))
+				content.WriteString("\n")
+			}
+		}
 	}
 
 	return boxStyle.Render(strings.TrimSuffix(content.String(), "\n"))

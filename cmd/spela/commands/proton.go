@@ -6,23 +6,47 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/gpu"
 	"github.com/jgabor/spela/internal/profile"
+	"github.com/jgabor/spela/internal/proton"
+	"github.com/jgabor/spela/internal/steam"
 	"github.com/jgabor/spela/internal/tui"
 )
 
 var protonShowJSON bool
 
+// protonCompatibilityNotice is indirected so tests can swap in a deterministic
+// stub. The default wires the production resolver + NVML driver probe.
+var protonCompatibilityNotice = func(appID uint64) string {
+	cfg, _ := config.Load()
+	steamRoot := ""
+	if cfg != nil {
+		steamRoot = cfg.SteamPath
+	}
+	if steamRoot == "" {
+		steamRoot = steam.FindSteamPath()
+	}
+	return proton.CompatibilityNotice(appID, proton.NoticeDeps{
+		SteamRoot:         steamRoot,
+		ResolveForAppID:   proton.ResolveForAppID,
+		SupportsVKD3DHeap: proton.SupportsVKD3DHeap,
+		DriverVersion:     gpu.DriverVersionString,
+	})
+}
+
 var ProtonCmd = &cobra.Command{
 	Use:   "proton",
 	Short: "Proton profile settings",
-	Long:  "Configure per-game Proton settings (HDR, Wayland, NGX updater).",
+	Long:  "Configure per-game Proton settings (HDR, Wayland, NGX updater, VKD3D heap).",
 }
 
 var (
 	protonSetHDR        string
 	protonSetWayland    string
 	protonSetNGXUpdater string
+	protonSetVKD3DHeap  string
 )
 
 var protonSetCmd = &cobra.Command{
@@ -43,6 +67,7 @@ func init() {
 	protonSetCmd.Flags().StringVar(&protonSetHDR, "hdr", "", "Enable HDR (true/false)")
 	protonSetCmd.Flags().StringVar(&protonSetWayland, "wayland", "", "Enable native Wayland (true/false)")
 	protonSetCmd.Flags().StringVar(&protonSetNGXUpdater, "ngx-updater", "", "Enable NGX auto-updater (true/false)")
+	protonSetCmd.Flags().StringVar(&protonSetVKD3DHeap, "vkd3d-heap", "", "Enable VKD3D descriptor heap path (true/false)")
 
 	protonShowCmd.Flags().BoolVar(&protonShowJSON, "json", false, "Output as JSON")
 
@@ -83,6 +108,15 @@ func runProtonSet(cmd *cobra.Command, args []string) error {
 
 	if protonSetNGXUpdater != "" {
 		p.Proton.EnableNGXUpdater = protonSetNGXUpdater == "true" || protonSetNGXUpdater == "1"
+		changed = true
+	}
+
+	if protonSetVKD3DHeap != "" {
+		b, err := parseBoolFlag(protonSetVKD3DHeap)
+		if err != nil {
+			return fmt.Errorf("--vkd3d-heap: %w", err)
+		}
+		p.Proton.VKD3DHeap = b
 		changed = true
 	}
 
@@ -132,6 +166,25 @@ func runProtonShow(cmd *cobra.Command, args []string) error {
 	fmt.Printf("%s  %v\n", tui.CLIDim("HDR:"), p.Proton.EnableHDR)
 	fmt.Printf("%s  %v\n", tui.CLIDim("Wayland:"), p.Proton.EnableWayland)
 	fmt.Printf("%s  %v\n", tui.CLIDim("NGX updater:"), p.Proton.EnableNGXUpdater)
+	fmt.Printf("%s  %v\n", tui.CLIDim("VKD3D heap:"), p.Proton.VKD3DHeap)
+	if p.Proton.VKD3DHeap {
+		if notice := protonCompatibilityNotice(g.AppID); notice != "" {
+			fmt.Printf("    %s\n", tui.CLIDim(notice))
+		}
+	}
 
 	return nil
+}
+
+// parseBoolFlag parses the human-facing bool forms accepted by `proton set`
+// (true/false/1/0, case-insensitive). Unknown values return an error so
+// callers can surface a usage hint rather than silently defaulting.
+func parseBoolFlag(raw string) (bool, error) {
+	switch raw {
+	case "true", "True", "TRUE", "1", "yes", "on":
+		return true, nil
+	case "false", "False", "FALSE", "0", "no", "off":
+		return false, nil
+	}
+	return false, fmt.Errorf("invalid bool %q (use true/false)", raw)
 }

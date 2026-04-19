@@ -35,6 +35,9 @@ func testServices() *Services {
 		BackupExists: func(appID uint64) bool {
 			return false
 		},
+		VKD3DNotice: func(appID uint64) string {
+			return ""
+		},
 	}
 }
 

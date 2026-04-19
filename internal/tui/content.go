@@ -156,6 +156,11 @@ func (m ContentModel) SetGame(g *game.Game) ContentModel {
 		m.profile = p
 		m.usingDefaultProfile = inherited
 		m.profileWidget = NewProfileWidget(g, p, m.styles)
+		if m.services != nil && m.services.VKD3DNotice != nil {
+			appID := g.AppID
+			noticeFn := m.services.VKD3DNotice
+			m.profileWidget.SetVKD3DNoticeSource(func() string { return noticeFn(appID) })
+		}
 		m.hasBackup = m.services.BackupExists(g.AppID)
 	}
 

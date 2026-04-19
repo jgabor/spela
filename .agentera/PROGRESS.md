@@ -1,5 +1,36 @@
 # Progress
 
+## Cycle 52 — 2026-04-19
+
+**Phase**: build
+**What**: Task 3 of the descriptor_heap plan — exposed `vkd3d_heap` through the CLI (`spela proton set --vkd3d-heap=<bool>`, `spela proton show` formatted + `--json`) and the TUI profile widget (new `VKD3D heap` toggle in the Proton group). Added `internal/proton/notice.go` with a `CompatibilityNotice(appID, NoticeDeps)` helper that wires the resolver + driver parser + minimum-version constants and returns a single ready-to-render string: `⚠` for hard incompatibility (Proton too old, driver too old, or both), `ⓘ` for info-level skips (resolver error, driver unavailable), empty for compatible. Hard incompatibility on either axis wins over an info-level skip on the other. Both surfaces call the helper only when the toggle is true — disabled profiles pay zero cost. Exposed `gpu.DriverVersionString()` (NVML-preferred, nvidia-smi fallback) as the smallest public entry point into the existing `getInfoNVML()` driver read, keeping the NVML map untouched. CLI uses a package-level `protonCompatibilityNotice` indirection so tests stub out filesystem+NVML; TUI threads the notice through `Services.VKD3DNotice` (new field) and `ProfileWidgetModel.SetVKD3DNoticeSource(func() string)` (new method), consulted only inside `renderWidgetBox` directly below the `vkd3d_heap` row.
+**Commit**: (pending) feat(proton): expose vkd3d_heap in CLI and TUI with compatibility notice
+**Inspiration**: Existing `--hdr`/`--wayland`/`--ngx-updater` flag pattern in `cmd/spela/commands/proton.go` and the declarative `WidgetField` template in `internal/tui/profile_fields.go` — VKD3D heap follows both exactly (bool toggle with `(default)`/`true`/`false` options). Services-DI pattern already established in `internal/tui/services.go` made the TUI notice test straightforward.
+**Discovered**: `runProtonSet` originally mapped any non-`"true"`/`"1"` flag value silently to false, swallowing typos like `--hdr=yse`. Added `parseBoolFlag` with an explicit error for unknowns and used it for `--vkd3d-heap` only (didn't retrofit the older flags since that's outside this task's scope — logged as implicit follow-up). The `--json` output for `proton show` automatically picks up `VKD3DHeap` via struct marshaling since `ProtonSettings` already had the field from Task 1 — no CLI-side plumbing needed. `ParseDriverVersion("570.86")` normalizes to `"570.86.0"` via `DriverVersion.String()`, which is what the notice surfaces — deliberate: callers see the parsed canonical form.
+**Verified**: `mage test` → all packages PASS (cached after change). `mage lint` → 0 issues. Four new test functions in `internal/tui/profile_widget_test.go` plus four in `cmd/spela/commands/proton_test.go` plus nine in `internal/proton/notice_test.go`. Explicit commands and results:
+
+- `go test ./internal/proton/ -run CompatibilityNotice -v` → 9/9 PASS in 0.002s
+  - `TestCompatibilityNotice_AllCompatible` — Proton `cachyos-10.0-20260410-slr` + driver `580.94.16` → `""`
+  - `TestCompatibilityNotice_ProtonIncompatible` — Proton `GE-Proton10-34` (marker absent) + driver `580.94.16` → `"⚠ descriptor_heap requires Proton-CachyOS 10.0-20260321+ (detected: GE-Proton10-34)"`
+  - `TestCompatibilityNotice_DriverIncompatible` — compatible Proton + driver `570.86` → `"⚠ descriptor_heap requires NVIDIA driver 580.94.16+ (detected: 570.86.0)"`
+  - `TestCompatibilityNotice_BothIncompatible` — Proton `GE-Proton10-34` + driver `570.86` → combined `⚠` mentioning both minimums and both detected values
+  - `TestCompatibilityNotice_ResolverErrorAndDriverOK` — `ErrProtonNotResolved` + compatible driver → info `ⓘ could not resolve active Proton for this game; skipping compatibility check`
+  - `TestCompatibilityNotice_DriverUnavailableAndProtonOK` — compatible Proton + empty driver string → info `ⓘ NVIDIA driver not detected; skipping driver compatibility check`
+  - `TestCompatibilityNotice_ResolverErrorButDriverTooOld` — resolver error + driver `570.86` → still surfaces `⚠` for driver (hard beats info)
+  - `TestCompatibilityNotice_ProtonProbeError_InfoSkip` — non-sentinel resolver error + compatible driver → info-level skip
+  - `TestCompatibilityNotice_NilDeps_ReturnsEmpty` — zero-value `NoticeDeps` → `""`
+- `go test ./cmd/spela/commands/ -run Proton -v` → 4/4 PASS in 0.002s
+  - `TestRunProtonSet_VKD3DHeap_Persists` — `--vkd3d-heap=true` on seeded AppID 1091500 → `profile.Load(1091500).Proton.VKD3DHeap == true`
+  - `TestRunProtonSet_VKD3DHeap_InvalidValue` — `--vkd3d-heap=maybe` → error containing `"vkd3d-heap"`, profile not persisted
+  - `TestRunProtonShow_RendersNoticeWhenIncompatible` — seeded profile with `VKD3DHeap=true` + stubbed `protonCompatibilityNotice` → captured stdout contains `"VKD3D heap:"` and `"requires NVIDIA driver 580.94.16"`
+  - `TestRunProtonShow_NoNoticeWhenToggleDisabled` — `VKD3DHeap=false` → notice source never called, notice text absent from stdout
+- `go test ./internal/tui/ -run VKD3D -v` → 3/3 PASS in 0.002s
+  - `TestProfileWidget_VKD3DHeap_FieldPresent` — focuses the new field in the Proton group and sends `right` → `profile.Proton.VKD3DHeap == true`, `modified == true`
+  - `TestProfileWidget_VKD3DHeap_NoticeRendered` — profile with `VKD3DHeap=true` + injected notice source → `View()` output contains `"VKD3D heap"` and `"580.94.16"`
+  - `TestProfileWidget_VKD3DHeap_NoticeSkippedWhenDisabled` — `VKD3DHeap=false` → notice source never invoked, notice text absent from rendered output
+**Next**: Task 4 (launcher preflight warnings) — still unblocked, independent of this task. Task 5 (release) waits on Task 4.
+**Context**: intent — surface the vkd3d_heap toggle through every pre-launch human touchpoint (CLI set + show, TUI widget) with honest inline compatibility feedback that matches the vision principle "every env var set, every knob visible" · constraints — additive only, no GUI parity this cycle, no launcher changes, no external deps, TUI field strictly after NGX, hard incompatibility wins over info skips · unknowns — none · scope — `cmd/spela/commands/proton.go` + `proton_test.go` (new), `internal/proton/notice.go` + `notice_test.go` (new), `internal/gpu/nvidia.go` (+1 public fn), `internal/tui/profile_fields.go` (+1 field), `internal/tui/profile_widget.go` (+2 methods, +1 render block), `internal/tui/profile_widget_test.go` (+3 tests), `internal/tui/services.go` (+1 field, +1 fn), `internal/tui/content.go` (wire notice), `internal/tui/testhelpers_test.go` (stub field)
+
 ## Cycle 51 — 2026-04-19
 
 **Phase**: build
