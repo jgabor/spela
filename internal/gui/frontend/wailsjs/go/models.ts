@@ -198,6 +198,7 @@ export namespace gui {
 	    enableHdr: boolean;
 	    enableWayland: boolean;
 	    enableNgxUpdater: boolean;
+	    vkd3dHeap: boolean;
 	    inheritedFromDefault: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -229,6 +230,7 @@ export namespace gui {
 	        this.enableHdr = source["enableHdr"];
 	        this.enableWayland = source["enableWayland"];
 	        this.enableNgxUpdater = source["enableNgxUpdater"];
+	        this.vkd3dHeap = source["vkd3dHeap"];
 	        this.inheritedFromDefault = source["inheritedFromDefault"];
 	    }
 	}

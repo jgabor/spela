@@ -13,7 +13,8 @@
     RestoreDLLs,
     SaveDefaultProfile,
     SaveProfile,
-    UpdateDLLs
+    UpdateDLLs,
+    VKD3DHeapCompatibilityNotice
   } from '../../wailsjs/go/gui/App'
   import Dropdown from './Dropdown.svelte'
   import { EventsOn } from '../../wailsjs/runtime/runtime'
@@ -136,9 +137,24 @@
     enableHdr: false,
     enableWayland: false,
     enableNgxUpdater: false,
+    vkd3dHeap: false,
     backupOnLaunch: false,
     inheritedFromDefault: false
   })
+
+  let vkd3dHeapNotice = ''
+
+  async function refreshVkd3dHeapNotice() {
+    if (profileMode !== 'game' || !game || !profile?.vkd3dHeap) {
+      vkd3dHeapNotice = ''
+      return
+    }
+    try {
+      vkd3dHeapNotice = await VKD3DHeapCompatibilityNotice(game.appId) || ''
+    } catch {
+      vkd3dHeapNotice = ''
+    }
+  }
 
   onMount(async () => {
     unsubscribeDllProgress = EventsOn('dll:progress', (stage) => {
@@ -179,6 +195,18 @@
     frameGenerationMode = profile.fgOverride
       ? (profile.fgEnabled ? 'true' : 'false')
       : '(default)'
+  }
+
+  // Re-check vkd3d_heap compatibility when the toggle flips, the selected
+  // game changes, or the editor swaps between default and per-game mode.
+  $: {
+    const _heap = profile?.vkd3dHeap
+    const _appId = game?.appId
+    const _mode = profileMode
+    void _heap
+    void _appId
+    void _mode
+    void refreshVkd3dHeapNotice()
   }
 
   async function loadProfile() {
@@ -689,6 +717,17 @@
             <input type="checkbox" id="enableNgxUpdater" bind:checked={profile.enableNgxUpdater} />
             <label for="enableNgxUpdater">NGX Updater</label>
             <span class="hint">Allow Proton to update DLSS DLLs.</span>
+          </div>
+
+          <div class="field checkbox">
+            <input type="checkbox" id="vkd3dHeap" bind:checked={profile.vkd3dHeap} />
+            <label for="vkd3dHeap">VKD3D Heap</label>
+            <span class="hint">Enable the VKD3D descriptor heap code path (PROTON_VKD3D_HEAP=1). Requires a recent Proton-CachyOS build and a current NVIDIA driver.</span>
+            {#if profile.vkd3dHeap && vkd3dHeapNotice}
+              <div class="vkd3d-notice" data-level={vkd3dHeapNotice.startsWith('⚠') ? 'warn' : 'info'}>
+                {vkd3dHeapNotice}
+              </div>
+            {/if}
           </div>
         </div>
       </div>
@@ -1221,6 +1260,23 @@
 
   .field.checkbox .hint {
     grid-column: 2;
+  }
+
+  .vkd3d-notice {
+    grid-column: 2;
+    margin-top: 0.3rem;
+    padding: 0.35rem 0.55rem;
+    border: 1px solid var(--border-default);
+    background-color: var(--bg-secondary);
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    line-height: 1.3;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  }
+
+  .vkd3d-notice[data-level="warn"] {
+    border-color: var(--warning, var(--error));
+    color: var(--warning, var(--error));
   }
 
   .actions {

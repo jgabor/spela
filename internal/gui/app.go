@@ -18,6 +18,8 @@ import (
 	"github.com/jgabor/spela/internal/gpu"
 	"github.com/jgabor/spela/internal/launcher"
 	"github.com/jgabor/spela/internal/profile"
+	"github.com/jgabor/spela/internal/proton"
+	"github.com/jgabor/spela/internal/steam"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -281,6 +283,7 @@ type ProfileInfo struct {
 	EnableHDR            bool   `json:"enableHdr"`
 	EnableWayland        bool   `json:"enableWayland"`
 	EnableNGXUpdater     bool   `json:"enableNgxUpdater"`
+	VKD3DHeap            bool   `json:"vkd3dHeap"`
 	InheritedFromDefault bool `json:"inheritedFromDefault"`
 }
 
@@ -313,6 +316,7 @@ func profileInfoFromProfile(p *profile.Profile, inheritedFromDefault bool) *Prof
 		EnableHDR:            p.Proton.EnableHDR,
 		EnableWayland:        p.Proton.EnableWayland,
 		EnableNGXUpdater:     p.Proton.EnableNGXUpdater,
+		VKD3DHeap:            p.Proton.VKD3DHeap,
 		InheritedFromDefault: inheritedFromDefault,
 	}
 }
@@ -349,6 +353,7 @@ func profileFromInfo(info ProfileInfo) *profile.Profile {
 			EnableHDR:        info.EnableHDR,
 			EnableWayland:    info.EnableWayland,
 			EnableNGXUpdater: info.EnableNGXUpdater,
+			VKD3DHeap:        info.VKD3DHeap,
 		},
 	}
 }
@@ -405,6 +410,27 @@ func (a *App) GetDefaultProfile() *ProfileInfo {
 
 func (a *App) SaveProfile(appID uint64, info ProfileInfo) error {
 	return profile.Save(appID, profileFromInfo(info))
+}
+
+// VKD3DHeapCompatibilityNotice returns a human-readable inline notice
+// describing any vkd3d_heap compatibility problem for the given AppID.
+// An empty string means the environment is compatible or checks skipped
+// cleanly. Mirrors the helper used by the CLI `proton show` command.
+func (a *App) VKD3DHeapCompatibilityNotice(appID uint64) string {
+	cfg, _ := config.Load()
+	steamRoot := ""
+	if cfg != nil {
+		steamRoot = cfg.SteamPath
+	}
+	if steamRoot == "" {
+		steamRoot = steam.FindSteamPath()
+	}
+	return proton.CompatibilityNotice(appID, proton.NoticeDeps{
+		SteamRoot:         steamRoot,
+		ResolveForAppID:   proton.ResolveForAppID,
+		SupportsVKD3DHeap: proton.SupportsVKD3DHeap,
+		DriverVersion:     gpu.DriverVersionString,
+	})
 }
 
 func (a *App) SaveDefaultProfile(info ProfileInfo) error {

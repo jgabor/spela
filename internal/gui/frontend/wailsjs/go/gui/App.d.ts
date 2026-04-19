@@ -43,3 +43,5 @@ export function SaveProfile(arg1:number,arg2:gui.ProfileInfo):Promise<void>;
 export function ScanGames():Promise<void>;
 
 export function UpdateDLLs(arg1:number):Promise<void>;
+
+export function VKD3DHeapCompatibilityNotice(arg1:number):Promise<string>;

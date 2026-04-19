@@ -85,3 +85,7 @@ export function ScanGames() {
 export function UpdateDLLs(arg1) {
   return window['go']['gui']['App']['UpdateDLLs'](arg1);
 }
+
+export function VKD3DHeapCompatibilityNotice(arg1) {
+  return window['go']['gui']['App']['VKD3DHeapCompatibilityNotice'](arg1);
+}
