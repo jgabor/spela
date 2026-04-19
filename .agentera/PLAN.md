@@ -114,11 +114,11 @@ Risks the plan accepts: Task 5 is the densest cycle (inheritance rendering + thr
 ### Task 7: Version bump per DOCS.md convention
 
 **Depends on**: Task 1, Task 2, Task 3, Task 4, Task 5, Task 6
-**Status**: □ pending
+**Status**: □ pending (local work done; awaiting user `git push && git push origin v0.5.0`)
 **Acceptance**:
-▸ GIVEN all prior tasks are complete WHEN the release is cut THEN the version bumps to v0.5.0 per the git-cliff + magefile policy documented in DOCS.md.
-▸ GIVEN CHANGELOG.md WHEN inspected post-bump THEN a v0.5.0 section summarizes the redesign under Added/Changed/Fixed, and the Unreleased section is empty.
-▸ GIVEN the tag v0.5.0 WHEN fetched THEN it exists on origin per the project's explicit-push tag policy.
+▸ GIVEN all prior tasks are complete WHEN the release is cut THEN the version bumps to v0.5.0 per the git-cliff + magefile policy documented in DOCS.md. ■ done (commit d36a6b5, tag v0.5.0 local).
+▸ GIVEN CHANGELOG.md WHEN inspected post-bump THEN a v0.5.0 section summarizes the redesign under Added/Changed/Fixed, and the Unreleased section is empty. ■ done.
+▸ GIVEN the tag v0.5.0 WHEN fetched THEN it exists on origin per the project's explicit-push tag policy. ◐ pending user push (orkestrera conductor is push-gated).
 
 ### Task 8: Plan-level freshness checkpoint
 
