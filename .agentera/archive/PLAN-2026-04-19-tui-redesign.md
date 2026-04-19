@@ -1,6 +1,6 @@
 # Plan: TUI ground-up redesign
 
-<!-- Level: full | Created: 2026-04-19 | Status: active -->
+<!-- Level: full | Created: 2026-04-19 | Archived: 2026-04-19 | Status: complete -->
 <!-- Reviewed: 2026-04-19 | Critic issues: 7 found, 7 addressed, 0 dismissed -->
 
 ## What
@@ -114,7 +114,7 @@ Risks the plan accepts: Task 5 is the densest cycle (inheritance rendering + thr
 ### Task 7: Version bump per DOCS.md convention
 
 **Depends on**: Task 1, Task 2, Task 3, Task 4, Task 5, Task 6
-**Status**: □ pending (local work done; awaiting user `git push && git push origin v0.5.0`)
+**Status**: ■ complete (AC3 user-gated: push deferred to user at their convenience — `git push && git push origin v0.5.0`)
 **Acceptance**:
 ▸ GIVEN all prior tasks are complete WHEN the release is cut THEN the version bumps to v0.5.0 per the git-cliff + magefile policy documented in DOCS.md. ■ done (commit d36a6b5, tag v0.5.0 local).
 ▸ GIVEN CHANGELOG.md WHEN inspected post-bump THEN a v0.5.0 section summarizes the redesign under Added/Changed/Fixed, and the Unreleased section is empty. ■ done.
@@ -123,7 +123,7 @@ Risks the plan accepts: Task 5 is the densest cycle (inheritance rendering + thr
 ### Task 8: Plan-level freshness checkpoint
 
 **Depends on**: Task 7
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN CHANGELOG.md WHEN inspected THEN the v0.5.0 entry describes the redesign at plan level (spine, inheritance, theme, resources), not as a sequence of per-cycle diffs.
 ▸ GIVEN PROGRESS.md WHEN inspected THEN a "Plan Summary — TUI ground-up redesign" entry exists following the PROGRESS.md format.

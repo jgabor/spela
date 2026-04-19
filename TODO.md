@@ -26,3 +26,8 @@
 - [x] ~~Ludusavi save game integration~~ — removed entirely in 39a8cc6; feature to be rethought
 - [x] ~~Dead code accumulation (16.6%)~~ — swept to 14.3% in 0687920; 49 functions, 3 files, 1 dep removed
 - [x] ~~TUI test coverage (Tests: C in HEALTH.md)~~ — 99 state machine tests added across 6 test files (ab97dba..b7e3c3c); Services DI, model factories, layout/sidebar/content/profile widget coverage
+- [x] ~~Launch-tab UX (99% of users never use it; launches go through Steam `%command%`)~~ — removed in v0.5.0 TUI redesign (8b4907f); launches stay in CLI
+- [x] ~~Duplicate DLSS model presets in picker~~ — fixed in v0.5.0 (c694b47) via `dedupePresets` helper
+- [x] ~~No profile reset / unclear default-vs-game relationship~~ — resolved in v0.5.0 by live inheritance (5788b6c, c694b47): inherited vs overridden markers, `r`/`shift+R` reset, `p` pin bindings, `spela <subsystem> reset` CLI verbs
+- [x] ~~Profile grid misalignment and sequential navigation~~ — replaced in v0.5.0 (b7ffbe6) with single-column grouped-by-subsystem detail renderer and j/k field-by-field navigation across group boundaries
+- [x] ~~Theme variant selector (Default/Dark/Light triad)~~ — collapsed in v0.5.0 (96b907b) to a single neon-accent dark palette with canonical tokens; legacy `theme:` values stripped on load
