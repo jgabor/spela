@@ -10,13 +10,22 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/env"
 	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/gpu"
 	"github.com/jgabor/spela/internal/logging"
 	"github.com/jgabor/spela/internal/overlay"
 	"github.com/jgabor/spela/internal/profile"
+	"github.com/jgabor/spela/internal/proton"
+	"github.com/jgabor/spela/internal/steam"
 	"github.com/jgabor/spela/internal/xdg"
 )
+
+// VKD3DCompatibilityCheckFunc is the hook the launcher calls to evaluate
+// vkd3d_heap environment compatibility. Indirected so tests can inject a
+// deterministic result without touching Steam config or NVML.
+type VKD3DCompatibilityCheckFunc func(appID uint64) proton.CompatibilityResult
 
 type Launcher struct {
 	Game        *game.Game
@@ -24,6 +33,11 @@ type Launcher struct {
 	Environment *env.Environment
 	Command     []string
 	cleanup     []func()
+
+	// VKD3DCompatibilityCheck is invoked during Prepare() when the
+	// profile has vkd3d_heap=true, to surface preflight warnings. Nil
+	// means "use the default that wires production Steam + NVML probes".
+	VKD3DCompatibilityCheck VKD3DCompatibilityCheckFunc
 }
 
 type WrapperInvocation struct {
@@ -55,8 +69,83 @@ func (l *Launcher) Prepare() {
 		for _, c := range cleanups {
 			l.OnCleanup(c)
 		}
+		l.vkd3dPreflight()
 		l.setupOverlay()
 	}
+}
+
+// vkd3dPreflight emits slog warnings when vkd3d_heap is enabled but the
+// environment cannot honor it. Non-blocking: a failed check never returns
+// an error, never panics, and never prevents Launch from proceeding. When
+// vkd3d_heap is disabled on the profile, the check is skipped entirely —
+// no resolver/NVML probe fires.
+func (l *Launcher) vkd3dPreflight() {
+	if l.Profile == nil || !l.Profile.Proton.VKD3DHeap || l.Game == nil {
+		return
+	}
+
+	check := l.VKD3DCompatibilityCheck
+	if check == nil {
+		check = defaultVKD3DCompatibilityCheck
+	}
+
+	result := check(l.Game.AppID)
+
+	// Skip-reason (info) logs: surface the probe failure but don't gate
+	// anything. Each axis logs independently so one missing probe doesn't
+	// silence the other.
+	if result.ProtonSkip != "" {
+		logging.Info(
+			"vkd3d_heap: could not resolve Proton for appID; skipping Proton compatibility check",
+			"reason", result.ProtonSkip,
+			"appID", l.Game.AppID,
+		)
+	}
+	if result.DriverSkip != "" {
+		logging.Info(
+			"vkd3d_heap: NVIDIA driver not detected; skipping driver compatibility check",
+			"reason", result.DriverSkip,
+			"appID", l.Game.AppID,
+		)
+	}
+
+	// Hard incompatibility warnings: the probe ran and reported the
+	// axis is below minimum. Each axis warns independently; the user
+	// sees one line per real problem rather than one combined line
+	// that's harder to scan in logs.
+	if !result.ProtonOK && result.ProtonSkip == "" {
+		logging.Warn(
+			"vkd3d_heap: Proton build does not support descriptor_heap",
+			"detected", result.ProtonDetected,
+			"minimum", proton.MinProtonCachyOSBuild,
+		)
+	}
+	if !result.DriverOK && result.DriverSkip == "" {
+		logging.Warn(
+			"vkd3d_heap: NVIDIA driver below minimum",
+			"detected", result.DriverDetected,
+			"minimum", proton.MinDriverVersion,
+		)
+	}
+}
+
+// defaultVKD3DCompatibilityCheck wires the production Steam + NVML
+// dependencies into proton.CheckCompatibility.
+func defaultVKD3DCompatibilityCheck(appID uint64) proton.CompatibilityResult {
+	cfg, _ := config.Load()
+	steamRoot := ""
+	if cfg != nil {
+		steamRoot = cfg.SteamPath
+	}
+	if steamRoot == "" {
+		steamRoot = steam.FindSteamPath()
+	}
+	return proton.CheckCompatibility(appID, proton.NoticeDeps{
+		SteamRoot:         steamRoot,
+		ResolveForAppID:   proton.ResolveForAppID,
+		SupportsVKD3DHeap: proton.SupportsVKD3DHeap,
+		DriverVersion:     gpu.DriverVersionString,
+	})
 }
 
 func (l *Launcher) setupOverlay() {

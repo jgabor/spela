@@ -25,6 +25,71 @@ type NoticeDeps struct {
 	DriverVersion func() (string, error)
 }
 
+// CompatibilityResult is the structured outcome of a vkd3d_heap
+// environment check. Both axes (Proton build + NVIDIA driver) are
+// evaluated independently so callers can render them separately.
+//
+// Typical branching:
+//
+//   - ProtonOK=false, ProtonSkip="" → hard incompatibility on Proton axis
+//   - ProtonOK=true,  ProtonSkip!="" → check couldn't run; surface as info
+//   - ProtonOK=true,  ProtonSkip=""  → satisfied
+//
+// The same shape applies to the Driver* fields.
+type CompatibilityResult struct {
+	// ProtonOK is true when the resolved Proton build supports the
+	// PROTON_VKD3D_HEAP marker, OR when the check could not be run
+	// (ProtonSkip explains why). Callers that want to distinguish
+	// "passed" from "skipped" should inspect ProtonSkip.
+	ProtonOK bool
+	// ProtonDetected is the human-readable build name, when resolvable.
+	// Empty when the resolver returned an error before naming the build.
+	ProtonDetected string
+	// ProtonSkip is a human-readable reason the Proton check was skipped
+	// (resolver error, unreadable marker probe). Empty when the check ran.
+	ProtonSkip string
+
+	// DriverOK is true when the parsed driver version meets or exceeds
+	// MinDriverVersion, OR when the check could not be run. Inspect
+	// DriverSkip to distinguish.
+	DriverOK bool
+	// DriverDetected is the canonical "MAJOR.MINOR.PATCH" driver string
+	// when parsed successfully, or the raw input when parsing failed.
+	DriverDetected string
+	// DriverSkip is a human-readable reason the driver check was skipped
+	// (no NVIDIA driver present, probe error). Empty when the check ran.
+	DriverSkip string
+}
+
+// CheckCompatibility evaluates the vkd3d_heap environment for the given
+// AppID using the injected dependencies and returns a structured result.
+//
+// Both axes are always evaluated (unless deps are misconfigured, in which
+// case the zero-value result is returned with both OK flags false). The
+// launcher preflight uses this raw shape to emit slog key/value pairs;
+// CompatibilityNotice wraps it with a glyph-prefixed human string for CLI
+// and TUI.
+func CheckCompatibility(appID uint64, deps NoticeDeps) CompatibilityResult {
+	if deps.ResolveForAppID == nil || deps.SupportsVKD3DHeap == nil || deps.DriverVersion == nil {
+		// Misconfigured caller: return an "everything OK, nothing ran"
+		// result so downstream logic stays silent rather than printing
+		// alarming notices the user can't act on.
+		return CompatibilityResult{ProtonOK: true, DriverOK: true}
+	}
+
+	protonOK, protonDetected, protonSkip := evaluateProton(appID, deps)
+	driverOK, driverDetected, driverSkip := evaluateDriver(deps)
+
+	return CompatibilityResult{
+		ProtonOK:       protonOK,
+		ProtonDetected: protonDetected,
+		ProtonSkip:     protonSkip,
+		DriverOK:       driverOK,
+		DriverDetected: driverDetected,
+		DriverSkip:     driverSkip,
+	}
+}
+
 // CompatibilityNotice returns a human-readable notice describing any
 // vkd3d_heap compatibility problem for the given AppID, using the
 // injected NoticeDeps. An empty string means "compatible" or
@@ -45,34 +110,36 @@ func CompatibilityNotice(appID uint64, deps NoticeDeps) string {
 		return ""
 	}
 
-	protonOK, protonDetected, protonSkip := evaluateProton(appID, deps)
-	driverOK, driverDetected, driverSkip := evaluateDriver(deps)
+	result := CheckCompatibility(appID, deps)
 
 	// Info-level skip takes precedence only when no hard incompatibility
 	// is detected on the other axis. If the driver is too old, we surface
 	// that even if the Proton check was skipped (and vice versa).
-	if protonSkip != "" && driverOK {
-		return "ⓘ " + protonSkip
+	if result.ProtonSkip != "" && result.DriverOK && result.DriverSkip == "" {
+		return "ⓘ " + result.ProtonSkip
 	}
-	if driverSkip != "" && protonOK {
-		return "ⓘ " + driverSkip
+	if result.DriverSkip != "" && result.ProtonOK && result.ProtonSkip == "" {
+		return "ⓘ " + result.DriverSkip
 	}
 
+	protonHard := !result.ProtonOK && result.ProtonSkip == ""
+	driverHard := !result.DriverOK && result.DriverSkip == ""
+
 	switch {
-	case !protonOK && !driverOK:
+	case protonHard && driverHard:
 		return fmt.Sprintf(
 			"⚠ descriptor_heap requires Proton-CachyOS %s+ and NVIDIA driver %s+ (detected: %s, driver %s)",
-			MinProtonCachyOSBuild, MinDriverVersion, protonDetected, driverDetected,
+			MinProtonCachyOSBuild, MinDriverVersion, result.ProtonDetected, result.DriverDetected,
 		)
-	case !protonOK:
+	case protonHard:
 		return fmt.Sprintf(
 			"⚠ descriptor_heap requires Proton-CachyOS %s+ (detected: %s)",
-			MinProtonCachyOSBuild, protonDetected,
+			MinProtonCachyOSBuild, result.ProtonDetected,
 		)
-	case !driverOK:
+	case driverHard:
 		return fmt.Sprintf(
 			"⚠ descriptor_heap requires NVIDIA driver %s+ (detected: %s)",
-			MinDriverVersion, driverDetected,
+			MinDriverVersion, result.DriverDetected,
 		)
 	}
 	return ""

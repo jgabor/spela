@@ -95,7 +95,7 @@ Driver version gate lives next to the NVML driver query (or in the proton packag
 ### Task 4: Launch-time preflight warnings
 
 **Depends on**: Task 1, Task 2
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 
 - GIVEN `vkd3d_heap=true` AND the resolved Proton build lacks the marker WHEN the launcher prepares THEN `slog.Warn` is emitted naming the detected build and the minimum supported build

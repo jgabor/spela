@@ -1,5 +1,29 @@
 # Progress
 
+## Cycle 53 — 2026-04-19
+
+**Phase**: build
+**What**: Task 4 of the descriptor_heap plan — wired launch-time preflight warnings for `vkd3d_heap=true`. Refactored `internal/proton/notice.go` to extract `CheckCompatibility(appID, NoticeDeps) CompatibilityResult` as the structured primitive; `CompatibilityNotice` now consumes that result rather than running evaluation inline. The struct carries `{ProtonOK, ProtonDetected, ProtonSkip, DriverOK, DriverDetected, DriverSkip}` — exactly the fields both surfaces need, no more (YAGNI on expansion). Extended `internal/logging` with `Info(msg, args...)` and a `SetHandler(h) func()` hook that returns a cleanup closure so tests can redirect the slog handler to a bytes.Buffer without leaking into other tests. Added `Launcher.VKD3DCompatibilityCheck VKD3DCompatibilityCheckFunc` (injectable hook) with a `defaultVKD3DCompatibilityCheck` that wires production Steam config + NVML driver probe; preflight runs from `Prepare()` only when `l.Profile.Proton.VKD3DHeap == true` and `l.Game != nil`. Two hard-incompatibility Warns (separate per axis: `"vkd3d_heap: Proton build does not support descriptor_heap"` with `detected`/`minimum` keys and `"vkd3d_heap: NVIDIA driver below minimum"` with the same key names) and two info-skip paths (resolver couldn't run, driver unavailable). Non-blocking: preflight never returns an error, never panics, never blocks Launch.
+**Commit**: (pending) feat(launcher): preflight warnings when vkd3d_heap enabled on incompatible env
+**Inspiration**: The existing `protonCompatibilityNotice` CLI indirection pattern — moved one layer deeper by having `CompatibilityNotice` consume a `CompatibilityResult` rather than compute in place. Now the three surfaces (CLI notice, TUI notice, launcher preflight) share identical evaluation semantics while rendering independently: string glyphs for humans, key/value slog for logs.
+**Discovered**: The notice helper's precedence rule ("hard incompatibility on either axis beats an info skip on the other") translates cleanly to the launcher: each axis logs independently. A resolver skip + driver-too-old condition emits both one `INFO` and one `WARN` — verified by `TestPrepare_VKD3DHeap_ResolverError_DriverHardStillWarns`. Launcher importing `config`/`gpu`/`steam`/`proton` introduced no cycles (verified via `grep -r jgabor/spela/internal/launcher` — only TUI and GUI import launcher).
+**Verified**: `mage test` → all packages PASS. `mage lint` → 0 issues. Ran `go test ./internal/launcher/ -run VKD3D -v` → 10/10 PASS in 0.002s:
+
+- `TestPrepare_VKD3DHeap_ProtonIncompat_LogsWarn` — captured text handler line: `level=WARN msg="vkd3d_heap: Proton build does not support descriptor_heap" detected=GE-Proton10-34 minimum=10.0-20260321`, zero driver-warn lines
+- `TestPrepare_VKD3DHeap_ProtonIncompat_NoWarnWhenDisabled` — vkd3d_heap=false with same incompat result; injected checker set to `t.Fatal` on invocation — never called, captured buffer contains no `vkd3d_heap` substring
+- `TestPrepare_VKD3DHeap_DriverIncompat_LogsWarn` — captured line: `level=WARN msg="vkd3d_heap: NVIDIA driver below minimum" detected=570.86.0 minimum=580.94.16`, no proton-warn line
+- `TestPrepare_VKD3DHeap_DriverOK_NoDriverWarn` — vkd3d_heap=true, ProtonOK+DriverOK → captured buffer contains no `NVIDIA driver below minimum`
+- `TestPrepare_VKD3DHeap_BothCompatible_NoLogs` — ProtonOK+DriverOK happy path → captured buffer contains no `vkd3d_heap` substring at all
+- `TestPrepare_VKD3DHeap_BothIncompat_LogsTwoWarns` — both axes bad → `strings.Count(out, "level=WARN") == 2` and both expected messages present
+- `TestPrepare_VKD3DHeap_ResolverError_LogsInfo` — ProtonSkip set, DriverOK → captured line `level=INFO msg="vkd3d_heap: could not resolve Proton for appID; skipping Proton compatibility check" reason="could not resolve active Proton for this game; skipping compatibility check" appID=1091500`, zero `level=WARN` lines
+- `TestPrepare_VKD3DHeap_ResolverError_DriverHardStillWarns` — ProtonSkip + DriverOK=false → captured buffer contains both `level=INFO` (resolver skip) and `level=WARN` (driver below minimum), proving precedence: axes log independently
+- `TestPrepare_VKD3DHeap_Disabled_NoLogs` — vkd3d_heap=false with `t.Fatal` sentinel checker → preflight never invoked checker, captured buffer has zero `vkd3d_heap` lines
+- `TestPrepare_VKD3DHeap_EnabledInvokesChecker` — vkd3d_heap=true → invoked flag flipped to true, AppID 1091500 propagated
+- Also: `go test ./internal/proton/ -run CompatibilityNotice -v` → 9/9 PASS unchanged after the `CheckCompatibility` refactor (existing TUI+CLI notice tests unmodified)
+
+**Next**: Task 5 (cut v0.4.0 release) — now unblocked with Tasks 1–4 complete. Task 6 (plan-level freshness checkpoint) follows Task 5.
+**Context**: intent — honest preflight at launch time so users who set `vkd3d_heap=true` on incompatible environments see immediate, structured feedback in logs rather than a silent no-op · constraints — non-blocking (launch proceeds regardless), no GUI/CLI/TUI changes in this task, reuse Task-3 compat helpers rather than duplicating · unknowns — none · scope — `internal/proton/notice.go` (refactor + `CompatibilityResult` + `CheckCompatibility`), `internal/logging/logging.go` (+Info, +SetHandler), `internal/launcher/launcher.go` (+vkd3dPreflight, +VKD3DCompatibilityCheck field, +defaultVKD3DCompatibilityCheck), `internal/launcher/preflight_test.go` (new, 10 tests), `.agentera/PLAN.md` (Task 4 → complete)
+
 ## Cycle 52 — 2026-04-19
 
 **Phase**: build
