@@ -108,7 +108,7 @@ Driver version gate lives next to the NVML driver query (or in the proton packag
 ### Task 5: Cut v0.4.0 release
 
 **Depends on**: Tasks 1, 2, 3, 4
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 
 - GIVEN tasks 1-4 are complete AND their commits use conventional `feat`/`fix` prefixes WHEN `mage release:release` runs THEN git-cliff produces a CHANGELOG entry covering the descriptor_heap feature
