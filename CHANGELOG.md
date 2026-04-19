@@ -5,22 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.4.0] - 2026-04-19
-
-This release introduces a new vkd3d_heap toggle that emits PROTON_VKD3D_HEAP and VKD3D_CONFIG environment variables, available in both CLI and TUI with a compatibility notice. Preflight warnings are now shown when vkd3d_heap is enabled on incompatible environments to prevent issues at launch.
-
-### Added
-
-- Add vkd3d_heap toggle emitting PROTON_VKD3D_HEAP and VKD3D_CONFIG
-- Add build resolver, marker detection, and driver version gate
-- Expose vkd3d_heap in CLI and TUI with compatibility notice
-- Preflight warnings when vkd3d_heap enabled on incompatible env
-
-### Documentation
-
-- Mark Task 5 in PLAN.md
-
 ## [0.3.0] - 2026-04-19
+
+Version 0.3.0 brings significant GPU monitoring improvements including an NVML backend for fast metric reading, GPU alert detection with throttle reason identification, and live in-game metrics via mmap IPC with sparkline and gauge visualizations. The TUI gains tab-based navigation (DLLs, Profile, Launch), density modes, modal overlays, and confirmation prompts for destructive DLL operations, while GPU profiles now support per-game power limits and fan speed control.
 
 ### Added
 
@@ -284,7 +271,6 @@ This release introduces a new vkd3d_heap toggle that emits PROTON_VKD3D_HEAP and
 - Restore interactive redo flow
 - Change summary model
 
-[0.4.0]: https://github.com/jgabor/spela/compare/v0.3.0..v0.4.0
 [0.3.0]: https://github.com/jgabor/spela/compare/v0.2.1..v0.3.0
 [0.2.1]: https://github.com/jgabor/spela/compare/v0.2.0..v0.2.1
 [0.2.0]: https://github.com/jgabor/spela/compare/dll-dlssg-v310.5.3..v0.2.0
