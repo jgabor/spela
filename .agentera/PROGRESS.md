@@ -1,5 +1,16 @@
 # Progress
 
+## Cycle 50 — 2026-04-19
+
+**Phase**: build
+**What**: Task 1 of the descriptor_heap plan — added `VKD3DHeap bool` field to `ProtonSettings` with `yaml:"vkd3d_heap,omitempty"`, introduced `Environment.EnableVKD3DHeap()` that sets both `PROTON_VKD3D_HEAP=1` and `VKD3D_CONFIG=descriptor_heap` together (no compositional helper — YAGNI until a second VKD3D_CONFIG flag exists), and wired the helper into `applyProton`. Three new tests: enabled-branch asserts both env vars present, disabled-branch asserts both absent, YAML round-trip covers legacy-YAML load (field defaults false, omitempty keeps key out of re-marshaled zero output, re-save preserves true when flipped).
+**Commit**: (pending)
+**Inspiration**: plan cycle — follows the existing `EnableWayland`/`EnableHDR`/`EnableNGXUpdater` pattern exactly.
+**Discovered**: `internal/profile` had no storage test file before this cycle, and `internal/env` had none at all. The round-trip coverage went into `apply_test.go` alongside the apply-branch tests rather than a new storage_test.go since the field's behavior is what matters and that file is the natural home for the profile-struct tests. YAML marshaling collapses empty structs via `omitempty` on the parent, so when only `VKD3DHeap=true` is set under an otherwise-populated `proton:` block the key appears; when the whole ProtonSettings is zero-valued the `proton:` parent disappears — the test explicitly uses legacy YAML with other proton fields set to exercise the key-level `omitempty` on `vkd3d_heap`.
+**Verified**: `mage test` → all packages PASS (ok on internal/profile). `mage lint` → 0 issues. `go test -run 'TestApplyProton_VKD3DHeap|TestProtonSettings_YAMLRoundTrip' -v` → 3/3 PASS. Test assertions inspect the applied env directly: `PROTON_VKD3D_HEAP=1` and `VKD3D_CONFIG=descriptor_heap` both present when `vkd3d_heap=true`; both empty string when false. Round-trip test confirms legacy YAML without the key loads with `VKD3DHeap=false`, `omitempty` keeps `vkd3d_heap` out of re-marshaled output when false, and the key appears + round-trips when flipped to true.
+**Next**: Task 2 (Proton build resolver) — independent of Task 1, can start immediately.
+**Context**: intent — add the persistence + emission substrate that Tasks 3/4 layer UI and preflight on top of · constraints — additive only, omitempty, no CLI/TUI/launcher touches · unknowns — none · scope — profile.go (+1 field), env.go (+1 method), apply.go (+3 lines), apply_test.go (+tests)
+
 ## Cycle 49 — 2026-04-19
 
 **Phase**: build

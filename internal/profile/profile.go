@@ -112,4 +112,5 @@ type ProtonSettings struct {
 	EnableWayland    bool `yaml:"enable_wayland,omitempty"`
 	EnableHDR        bool `yaml:"enable_hdr,omitempty"`
 	EnableNGXUpdater bool `yaml:"enable_ngx_updater,omitempty"`
+	VKD3DHeap        bool `yaml:"vkd3d_heap,omitempty"`
 }

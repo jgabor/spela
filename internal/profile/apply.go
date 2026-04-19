@@ -126,6 +126,9 @@ func (p *Profile) applyProton(e *env.Environment) []func() {
 	if p.Proton.EnableNGXUpdater {
 		e.EnableNGXUpdater()
 	}
+	if p.Proton.VKD3DHeap {
+		e.EnableVKD3DHeap()
+	}
 	return nil
 }
 

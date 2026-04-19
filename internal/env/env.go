@@ -67,6 +67,15 @@ func (e *Environment) EnableNGXUpdater() {
 	e.Set("PROTON_ENABLE_NGX_UPDATER", "1")
 }
 
+// EnableVKD3DHeap enables the VK_EXT_descriptor_heap DX12 path in
+// Proton-CachyOS builds that support it. Both env vars must be set together —
+// PROTON_VKD3D_HEAP gates the Proton-side codepath, and VKD3D_CONFIG selects
+// the descriptor_heap backend inside vkd3d-proton.
+func (e *Environment) EnableVKD3DHeap() {
+	e.Set("PROTON_VKD3D_HEAP", "1")
+	e.Set("VKD3D_CONFIG", "descriptor_heap")
+}
+
 func (e *Environment) SetShaderCache(path string) {
 	e.Set("__GL_SHADER_DISK_CACHE", "1")
 	e.Set("__GL_SHADER_DISK_CACHE_PATH", path)
