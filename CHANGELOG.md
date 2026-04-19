@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Collapse TUI theme to a single neon-accent dark palette with canonical tokens (bg, fg, fg-muted, accent-override magenta, accent-focus cyan, border); legacy `theme: dark` / `theme: light` values are ignored at load and stripped so they do not re-persist; TUI options modal no longer exposes a theme selector.
+- Rewrite the TUI shell around a permanent left rail of four peer resources (Games, DLLs, Defaults, Metrics) with 1-4 hotkeys and j/k navigation. Removes the Launch tab and the ContentTab concept; game launches stay in the CLI (`spela %command%`). Displaced keybindings documented in the help screen: rescan moves from `r` to `ctrl+r`, profile filter from `p` to `P` (shift+p), so `r`, `shift+r`, `p`, and `:` are free for Task 5's profile editing keystrokes.
 
 ## [0.4.0] - 2026-04-19
 
