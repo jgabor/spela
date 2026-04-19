@@ -70,7 +70,7 @@ Risks the plan accepts: Task 5 is the densest cycle (inheritance rendering + thr
 ### Task 3: Shell redesign with left rail, keymap audit, test triage
 
 **Depends on**: Task 1
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN the TUI starts THEN the shell shows a permanent left rail listing exactly four resources (games, dlls, defaults, metrics) with 1-4 hotkeys and j/k focus movement.
 ▸ GIVEN the left rail is focused WHEN the user presses 1-4, or j/k followed by enter THEN the right pane swaps to the selected resource without losing rail focus.

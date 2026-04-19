@@ -23,39 +23,44 @@ const (
 )
 
 const (
-	minSidebarWidth     = 25
-	maxSidebarWidth     = 50
-	sidebarRatio        = 0.30
+	railWidth           = 22
 	statusBarHeight     = 1
 	messageBarHeight    = 1
 	headerHeight        = 7 // 6 lines for logo + 1 for bottom border
 	compactHeaderHeight = 3 // 2 metric lines + 1 bottom border
 )
 
+// LayoutModel is the shell. It owns the permanent left rail (four peer
+// resources) and a resource pane that renders the currently active
+// resource. The prior ContentTab / Launch / sidebar-of-games shell was
+// removed in Task 3 per .agentera/DECISIONS.md Decision 1.
 type LayoutModel struct {
-	styles         *Styles
-	services       *Services
-	header         HeaderModel
-	sidebar        SidebarModel
-	stack          NavStack
-	statusBar      StatusBarModel
-	messageBar     MessageBarModel
-	help           HelpModel
-	optionsModal   OptionsModalModel
-	activeDialog   Dialog
-	config         *config.Config
-	db             *game.Database
-	showHelp       bool
-	showBatchMenu  bool
-	batchGames     []*game.Game
-	batchCursor    int
-	batchMessage   string
-	sidebarFocused bool
-	densityMode    DensityMode
-	width          int
-	height         int
-	sidebarWidth   int
-	initCmd        tea.Cmd
+	styles        *Styles
+	services      *Services
+	header        HeaderModel
+	rail          RailModel
+	pane          resourcePaneModel
+	statusBar     StatusBarModel
+	messageBar    MessageBarModel
+	help          HelpModel
+	optionsModal  OptionsModalModel
+	activeDialog  Dialog
+	config        *config.Config
+	db            *game.Database
+	showHelp      bool
+	showBatchMenu bool
+	batchGames    []*game.Game
+	batchCursor   int
+	batchMessage  string
+	// railFocused: true when keystrokes route to the rail. When false
+	// keystrokes route to the active resource's internal pane (e.g. the
+	// games list or the per-game detail inside ResourceGames).
+	railFocused  bool
+	densityMode  DensityMode
+	width        int
+	height       int
+	sidebarWidth int // present for compatibility with helpers; equals railWidth
+	initCmd      tea.Cmd
 }
 
 func NewLayout(db *game.Database, svc *Services) LayoutModel {
@@ -72,20 +77,23 @@ func NewLayout(db *game.Database, svc *Services) LayoutModel {
 
 	games := db.List()
 	sidebar, sidebarCmd := NewSidebar(games, styles, svc)
+	content := NewContent(styles, cfg.ConfirmDestructive, svc)
+	pane := newResourcePane(styles, sidebar, content)
+
 	return LayoutModel{
-		styles:         styles,
-		services:       svc,
-		header:         NewHeader(styles),
-		sidebar:        sidebar,
-		stack:          NewNavStack(newContentEntry(NewContent(styles, cfg.ConfirmDestructive, svc))),
-		statusBar:      NewStatusBar(styles),
-		messageBar:     NewMessageBar(styles),
-		help:           NewHelp(styles),
-		optionsModal:   NewOptionsModal(styles),
-		config:         cfg,
-		db:             db,
-		sidebarFocused: true,
-		initCmd:        sidebarCmd,
+		styles:       styles,
+		services:     svc,
+		header:       NewHeader(styles),
+		rail:         NewRail(styles),
+		pane:         pane,
+		statusBar:    NewStatusBar(styles),
+		messageBar:   NewMessageBar(styles),
+		help:         NewHelp(styles),
+		optionsModal: NewOptionsModal(styles),
+		config:       cfg,
+		db:           db,
+		railFocused:  true,
+		initCmd:      sidebarCmd,
 	}
 }
 
@@ -100,22 +108,6 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	header, headerCmd := m.header.Update(msg)
 	m.header = header
 	cmds = append(cmds, headerCmd)
-
-	// Handle navigation messages from stack entries.
-	switch msg := msg.(type) {
-	case pushMsg:
-		msg.entry.SetSize(m.contentWidth(), m.contentHeight())
-		m.stack.Push(msg.entry)
-		m.sidebarFocused = false
-		return m, nil
-	case popMsg:
-		m.stack.Pop()
-		m.stack.Top().SetSize(m.contentWidth(), m.contentHeight())
-		if msg.result != nil {
-			return m.Update(msg.result)
-		}
-		return m, nil
-	}
 
 	// Route to active dialog first (intercepts all input).
 	if m.activeDialog != nil {
@@ -155,13 +147,33 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m, cmds = m.handleAppMessages(msg, cmds)
 
 	// Route input to focused component.
-	if m.sidebarFocused {
-		var cmd tea.Cmd
-		m.sidebar, cmd = m.sidebar.Update(msg)
-		cmds = append(cmds, cmd)
-	} else {
-		updated, cmd := m.stack.Top().Update(msg)
-		m.stack.Replace(updated)
+	if m.railFocused {
+		if key, ok := msg.(tea.KeyPressMsg); ok {
+			rail, railCmd, handled := m.rail.Update(key)
+			m.rail = rail
+			if railCmd != nil {
+				cmds = append(cmds, railCmd)
+			}
+			if handled {
+				return m, tea.Batch(cmds...)
+			}
+		}
+	}
+
+	// Always let the active resource see non-key messages (and keys, when
+	// rail is NOT focused).
+	routedToPane := false
+	switch msg.(type) {
+	case tea.KeyPressMsg:
+		if !m.railFocused {
+			routedToPane = true
+		}
+	default:
+		routedToPane = true
+	}
+	if routedToPane {
+		pane, cmd := m.pane.Update(msg, m.rail.Active())
+		m.pane = pane
 		cmds = append(cmds, cmd)
 	}
 
@@ -169,14 +181,7 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *LayoutModel) calculateDimensions() {
-	// Sidebar width adjusts in compact mode.
-	if m.densityMode == DensityCompact {
-		m.sidebarWidth = max(int(float64(m.width)*0.25), minSidebarWidth)
-	} else {
-		m.sidebarWidth = int(float64(m.width) * sidebarRatio)
-		m.sidebarWidth = max(m.sidebarWidth, minSidebarWidth)
-		m.sidebarWidth = min(m.sidebarWidth, maxSidebarWidth)
-	}
+	m.sidebarWidth = railWidth
 
 	// Panel height depends on header size.
 	headerH := headerHeight
@@ -189,26 +194,37 @@ func (m *LayoutModel) calculateDimensions() {
 
 	panelHeight := max(m.height-statusBarHeight-messageBarHeight-headerH-2, 5)
 
-	// Inner dimensions account for border (2) and padding.
-	sidebarInnerWidth := m.sidebarWidth - 4
-
 	m.header.SetWidth(m.width)
-	m.sidebar.SetSize(sidebarInnerWidth, panelHeight)
-	m.stack.Top().SetSize(m.contentWidth(), m.contentHeight())
+	m.rail.SetSize(railWidth-4, panelHeight)
+	m.pane.SetSize(m.paneWidth(), panelHeight)
 	m.statusBar.SetWidth(m.width)
 	m.messageBar.SetWidth(m.width)
 }
 
-// contentWidth returns the inner width available for the content area.
-func (m LayoutModel) contentWidth() int {
+// paneWidth is the inner width available to the resource pane (right side).
+func (m LayoutModel) paneWidth() int {
 	if m.densityMode == DensityFocused {
 		return m.width - 4
 	}
-	return m.width - m.sidebarWidth - 4
+	return m.width - railWidth - 4
 }
 
-// contentHeight returns the inner height available for the content area.
-func (m LayoutModel) contentHeight() int {
+// contentModel returns the ContentModel inside ResourceGames for layout-
+// level logic (e.g. HasModalOpen checks). Returns nil when not applicable.
+func (m LayoutModel) contentModel() *ContentModel {
+	return m.pane.contentModel()
+}
+
+// contentForGame builds a fresh ContentModel configured for the given game.
+func (m *LayoutModel) contentForGame(g *game.Game) ContentModel {
+	content := NewContent(m.styles, m.config.ConfirmDestructive, m.services)
+	content = content.SetGame(g)
+	content.SetSize(m.paneWidth(), m.paneHeight())
+	return content
+}
+
+// paneHeight is the inner height of the resource pane.
+func (m LayoutModel) paneHeight() int {
 	headerH := headerHeight
 	switch m.densityMode {
 	case DensityCompact:
@@ -219,44 +235,16 @@ func (m LayoutModel) contentHeight() int {
 	return max(m.height-statusBarHeight-messageBarHeight-headerH-2, 5)
 }
 
-// contentModel returns the ContentModel from the current stack top.
-// This is a convenience accessor for layout-level logic that needs
-// to inspect content state (e.g. game, defaultProfile, HasModalOpen).
-func (m LayoutModel) contentModel() *ContentModel {
-	if entry, ok := m.stack.Top().(*contentEntry); ok {
-		return &entry.model
-	}
-	return nil
-}
-
-// contentEntryForGame creates a new content entry configured for the given game.
-func (m *LayoutModel) contentEntryForGame(g *game.Game) *contentEntry {
-	content := NewContent(m.styles, m.config.ConfirmDestructive, m.services)
-	content = content.SetGame(g)
-	content.SetSize(m.contentWidth(), m.contentHeight())
-	return newContentEntry(content)
-}
-
-// contentEntryForDefaultProfile creates a new content entry configured for the default profile.
-func (m *LayoutModel) contentEntryForDefaultProfile() *contentEntry {
-	content := NewContent(m.styles, m.config.ConfirmDestructive, m.services)
-	content = content.SetDefaultProfile()
-	content.SetSize(m.contentWidth(), m.contentHeight())
-	return newContentEntry(content)
-}
-
 func (m LayoutModel) View() tea.View {
 	if m.width == 0 || m.height == 0 {
 		return tea.NewView("Loading...")
 	}
 
-	// Main content always renders as the base layer.
 	mainContent := m.renderMain()
 	mainLayer := lipgloss.NewLayer(mainContent)
 
 	compositor := lipgloss.NewCompositor(mainLayer)
 
-	// Track how many modal layers are active for cascading offsets.
 	modalCount := 0
 
 	if m.showHelp {
@@ -298,53 +286,45 @@ func (m LayoutModel) renderMain() string {
 }
 
 func (m LayoutModel) renderStandard() string {
-	t := m.styles.Theme
 	header := m.header.View()
 
 	panelHeight := max(m.height-statusBarHeight-messageBarHeight-headerHeight-2, 5)
-	innerHeight := panelHeight
 
-	sidebarView := truncateHeight(m.sidebar.View(), innerHeight)
-	contentView := truncateHeight(m.stack.Top().View(), innerHeight)
+	railView := truncateHeight(m.rail.View(m.railFocused), panelHeight)
+	paneView := truncateHeight(m.pane.View(m.rail.Active(), !m.railFocused), panelHeight)
 
-	sidebarBorderColor := m.styles.BorderColor(m.sidebarFocused)
-	contentBorderColor := m.styles.BorderColor(!m.sidebarFocused)
+	railBorderColor := m.styles.BorderColor(m.railFocused)
+	paneBorderColor := m.styles.BorderColor(!m.railFocused)
 
-	sidebarStyle := lipgloss.NewStyle().
-		Width(m.sidebarWidth - 2).
-		Height(innerHeight).
+	railStyle := lipgloss.NewStyle().
+		Width(railWidth - 2).
+		Height(panelHeight).
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderTop(false).
-		BorderForeground(sidebarBorderColor)
+		BorderForeground(railBorderColor)
 
-	contentStyle := lipgloss.NewStyle().
-		Width(m.width - m.sidebarWidth - 2).
-		Height(innerHeight).
+	paneStyle := lipgloss.NewStyle().
+		Width(m.width - railWidth - 2).
+		Height(panelHeight).
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderTop(false).
-		BorderForeground(contentBorderColor)
+		BorderForeground(paneBorderColor)
 
-	sidebar := sidebarStyle.Render(sidebarView)
-	content := contentStyle.Render(contentView)
+	railBox := railStyle.Render(railView)
+	paneBox := paneStyle.Render(paneView)
 
-	// Build custom top borders with jump-key titles.
-	jumpKeyStyle := lipgloss.NewStyle().Foreground(t.Accent).Bold(true)
-	labelStyle := lipgloss.NewStyle().Foreground(t.TextDim)
+	// Top borders with titles.
+	railTopBorder := buildTopBorder(m.railTitle(), railWidth-2, railBorderColor)
+	paneTopBorder := buildTopBorder(m.paneTitle(), m.width-railWidth-2, paneBorderColor)
 
-	sidebarTitle := jumpKeyStyle.Render("[1]") + labelStyle.Render(" Games")
-	contentTitle := jumpKeyStyle.Render("[2]") + labelStyle.Render(" Details")
+	railBox = railTopBorder + "\n" + railBox
+	paneBox = paneTopBorder + "\n" + paneBox
 
-	sidebarTopBorder := buildTopBorder(sidebarTitle, m.sidebarWidth-2, sidebarBorderColor)
-	contentTopBorder := buildTopBorder(contentTitle, m.width-m.sidebarWidth-2, contentBorderColor)
-
-	sidebar = sidebarTopBorder + "\n" + sidebar
-	content = contentTopBorder + "\n" + content
-
-	mainArea := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
+	mainArea := lipgloss.JoinHorizontal(lipgloss.Top, railBox, paneBox)
 
 	messageBar := m.messageBar.View()
 
-	keys := ContextKeys(m.sidebarFocused, m.sidebar.search.Focused(), m.sidebar.InSelectMode(), m.contentModel(), m.styles.ShowHints)
+	keys := ContextKeys(m.railFocused, m.innerSearchFocused(), m.innerSelectMode(), m.contentModel(), m.styles.ShowHints)
 	contextHelp := RenderContextBar(keys, m.width/2, &m.styles.Theme)
 	crumbs := m.renderBreadcrumbs()
 	statusBar := m.statusBar.ViewWithHelp(crumbs + "  " + contextHelp)
@@ -353,53 +333,44 @@ func (m LayoutModel) renderStandard() string {
 }
 
 func (m LayoutModel) renderCompact() string {
-	t := m.styles.Theme
 	header := m.header.ViewCompact()
 
 	panelHeight := max(m.height-statusBarHeight-messageBarHeight-compactHeaderHeight-2, 5)
-	innerHeight := panelHeight
 
-	sidebarView := truncateHeight(m.sidebar.View(), innerHeight)
-	contentView := truncateHeight(m.stack.Top().View(), innerHeight)
+	railView := truncateHeight(m.rail.View(m.railFocused), panelHeight)
+	paneView := truncateHeight(m.pane.View(m.rail.Active(), !m.railFocused), panelHeight)
 
-	sidebarBorderColor := m.styles.BorderColor(m.sidebarFocused)
-	contentBorderColor := m.styles.BorderColor(!m.sidebarFocused)
+	railBorderColor := m.styles.BorderColor(m.railFocused)
+	paneBorderColor := m.styles.BorderColor(!m.railFocused)
 
-	sidebarStyle := lipgloss.NewStyle().
-		Width(m.sidebarWidth - 2).
-		Height(innerHeight).
+	railStyle := lipgloss.NewStyle().
+		Width(railWidth - 2).
+		Height(panelHeight).
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderTop(false).
-		BorderForeground(sidebarBorderColor)
+		BorderForeground(railBorderColor)
 
-	contentStyle := lipgloss.NewStyle().
-		Width(m.width - m.sidebarWidth - 2).
-		Height(innerHeight).
+	paneStyle := lipgloss.NewStyle().
+		Width(m.width - railWidth - 2).
+		Height(panelHeight).
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderTop(false).
-		BorderForeground(contentBorderColor)
+		BorderForeground(paneBorderColor)
 
-	sidebar := sidebarStyle.Render(sidebarView)
-	content := contentStyle.Render(contentView)
+	railBox := railStyle.Render(railView)
+	paneBox := paneStyle.Render(paneView)
 
-	// Jump-key titles.
-	jumpKeyStyle := lipgloss.NewStyle().Foreground(t.Accent).Bold(true)
-	labelStyle := lipgloss.NewStyle().Foreground(t.TextDim)
+	railTopBorder := buildTopBorder(m.railTitle(), railWidth-2, railBorderColor)
+	paneTopBorder := buildTopBorder(m.paneTitle(), m.width-railWidth-2, paneBorderColor)
 
-	sidebarTitle := jumpKeyStyle.Render("[1]") + labelStyle.Render(" Games")
-	contentTitle := jumpKeyStyle.Render("[2]") + labelStyle.Render(" Details")
+	railBox = railTopBorder + "\n" + railBox
+	paneBox = paneTopBorder + "\n" + paneBox
 
-	sidebarTopBorder := buildTopBorder(sidebarTitle, m.sidebarWidth-2, sidebarBorderColor)
-	contentTopBorder := buildTopBorder(contentTitle, m.width-m.sidebarWidth-2, contentBorderColor)
-
-	sidebar = sidebarTopBorder + "\n" + sidebar
-	content = contentTopBorder + "\n" + content
-
-	mainArea := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
+	mainArea := lipgloss.JoinHorizontal(lipgloss.Top, railBox, paneBox)
 
 	messageBar := m.messageBar.View()
 
-	keys := ContextKeys(m.sidebarFocused, m.sidebar.search.Focused(), m.sidebar.InSelectMode(), m.contentModel(), m.styles.ShowHints)
+	keys := ContextKeys(m.railFocused, m.innerSearchFocused(), m.innerSelectMode(), m.contentModel(), m.styles.ShowHints)
 	contextHelp := RenderContextBar(keys, m.width/2, &m.styles.Theme)
 	crumbs := m.renderBreadcrumbs()
 	statusBar := m.statusBar.ViewWithHelp(crumbs + "  " + contextHelp)
@@ -409,50 +380,75 @@ func (m LayoutModel) renderCompact() string {
 
 func (m LayoutModel) renderFocused() string {
 	contentHeight := max(m.height-statusBarHeight-messageBarHeight-2, 5)
+	paneView := truncateHeight(m.pane.View(m.rail.Active(), true), contentHeight)
 
-	contentView := truncateHeight(m.stack.Top().View(), contentHeight)
+	paneBorderColor := m.styles.BorderColor(true)
 
-	contentBorderColor := m.styles.BorderColor(true)
-
-	contentStyle := lipgloss.NewStyle().
+	paneStyle := lipgloss.NewStyle().
 		Width(m.width - 2).
 		Height(contentHeight).
 		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(contentBorderColor)
+		BorderForeground(paneBorderColor)
 
-	content := contentStyle.Render(contentView)
+	paneBox := paneStyle.Render(paneView)
 
 	messageBar := m.messageBar.View()
 
 	escHint := lipgloss.NewStyle().Foreground(m.styles.Theme.TextDim).Render("F11:exit focused  ?:help  q:quit")
 	statusBar := m.statusBar.ViewWithHelp(escHint)
 
-	return lipgloss.JoinVertical(lipgloss.Left, content, messageBar, statusBar)
+	return lipgloss.JoinVertical(lipgloss.Left, paneBox, messageBar, statusBar)
+}
+
+func (m LayoutModel) railTitle() string {
+	t := m.styles.Theme
+	return lipgloss.NewStyle().Foreground(t.TextDim).Render("Rail")
+}
+
+func (m LayoutModel) paneTitle() string {
+	t := m.styles.Theme
+	labelStyle := lipgloss.NewStyle().Foreground(t.TextDim)
+	activeStyle := lipgloss.NewStyle().Foreground(t.Accent).Bold(true)
+	return activeStyle.Render(m.rail.Active().String()) + labelStyle.Render(" · resource")
+}
+
+func (m LayoutModel) innerSearchFocused() bool {
+	if m.rail.Active() != ResourceGames {
+		return false
+	}
+	return m.pane.sidebar.search.Focused()
+}
+
+func (m LayoutModel) innerSelectMode() bool {
+	if m.rail.Active() != ResourceGames {
+		return false
+	}
+	return m.pane.sidebar.InSelectMode()
 }
 
 // renderBreadcrumbs renders the navigation breadcrumb trail for the status bar.
 func (m LayoutModel) renderBreadcrumbs() string {
-	crumbs := m.stack.Breadcrumbs()
 	t := m.styles.Theme
 	activeStyle := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
 	trailStyle := lipgloss.NewStyle().Foreground(t.TextDim)
 	sepStyle := lipgloss.NewStyle().Foreground(t.Border)
 
-	parts := make([]string, 0, len(crumbs)*2+1)
-	parts = append(parts, trailStyle.Render("spela"))
-	for i, name := range crumbs {
-		parts = append(parts, sepStyle.Render(" > "))
-		if i == len(crumbs)-1 {
-			parts = append(parts, activeStyle.Render(name))
-		} else {
-			parts = append(parts, trailStyle.Render(name))
+	parts := []string{trailStyle.Render("spela")}
+	parts = append(parts, sepStyle.Render(" > "))
+	parts = append(parts, activeStyle.Render(m.rail.Active().String()))
+
+	// Within ResourceGames, also show the selected game name.
+	if m.rail.Active() == ResourceGames {
+		if cm := m.contentModel(); cm != nil && cm.game != nil {
+			parts = append(parts, sepStyle.Render(" > "))
+			parts = append(parts, trailStyle.Render(cm.game.Name))
 		}
 	}
+
 	return strings.Join(parts, "")
 }
 
 // buildTopBorder builds a rounded top border line with a styled title embedded.
-// The title is placed after the opening corner, and the remaining width is filled with dashes.
 func buildTopBorder(title string, totalWidth int, borderColor color.Color) string {
 	borderStyle := lipgloss.NewStyle().Foreground(borderColor)
 
@@ -461,7 +457,6 @@ func buildTopBorder(title string, totalWidth int, borderColor color.Color) strin
 	titleStr := " " + title + " "
 
 	titleVisualWidth := lipgloss.Width(titleStr)
-	// Fill remaining width: totalWidth - 1 (left corner) - titleWidth - 1 (right corner)
 	fillWidth := totalWidth - titleVisualWidth - 2
 	if fillWidth < 0 {
 		fillWidth = 0
@@ -493,7 +488,6 @@ const (
 )
 
 // renderModalBox wraps content in a bordered, styled modal box.
-// When title is non-empty it is rendered as a bold header above the content.
 func (m LayoutModel) renderModalBox(title, content string, widthRatio float64) string {
 	t := m.styles.Theme
 	modalWidth := int(float64(m.width) * widthRatio)
@@ -519,8 +513,7 @@ func (m LayoutModel) renderModalBox(title, content string, widthRatio float64) s
 	return modalStyle.Render(body)
 }
 
-// positionModalLayer creates a centered Layer for a modal string, applying a
-// cascading offset based on how many modals are already stacked.
+// positionModalLayer creates a centered Layer for a modal string.
 func (m LayoutModel) positionModalLayer(content, id string, zIndex, stackIndex int) *lipgloss.Layer {
 	layer := lipgloss.NewLayer(content)
 	contentWidth := lipgloss.Width(content)

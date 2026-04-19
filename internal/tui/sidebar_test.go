@@ -6,6 +6,11 @@ import (
 	"github.com/jgabor/spela/internal/game"
 )
 
+// The sidebar hosts the games list inside the Games resource. Task 3
+// changes: the "default profile" first-row item moved to its own rail
+// resource, so the sidebar is games-only. Profile filter key moved from
+// `p` to `P` (shift+p) because bare `p` is reserved for Task 5 pin-field.
+
 // ---------------------------------------------------------------------------
 // Navigation
 // ---------------------------------------------------------------------------
@@ -91,6 +96,9 @@ func TestSidebar_DLLFilter(t *testing.T) {
 	}
 }
 
+// TestSidebar_ProfileFilter verifies the displaced binding `P` (shift+p)
+// toggles the profile filter. The previous `p` binding is now reserved
+// for Task 5's pin-field keystroke.
 func TestSidebar_ProfileFilter(t *testing.T) {
 	g1 := testGame("Has Profile")
 	g1.AppID = 100
@@ -106,18 +114,31 @@ func TestSidebar_ProfileFilter(t *testing.T) {
 
 	initialCount := len(m.filtered)
 
-	m, _ = m.Update(keyMsg("p"))
+	// New binding: P (shift+p).
+	m, _ = m.Update(keyMsg("P"))
 	if !m.filters.hasProfile {
-		t.Error("expected profile filter to be active")
+		t.Error("expected profile filter to be active after 'P'")
 	}
 	if len(m.filtered) >= initialCount {
 		t.Error("expected filtered list to be smaller with profile filter")
 	}
-
 	for _, item := range m.filtered {
 		if item.kind == sidebarItemGame && item.game != nil && item.game.AppID == 200 {
 			t.Error("expected game without profile to be filtered out")
 		}
+	}
+}
+
+// TestSidebar_BareP_NotProfileFilter guards that bare `p` does NOT toggle
+// the profile filter, so Task 5 can safely bind `p` to pin-field.
+func TestSidebar_BareP_NotProfileFilter(t *testing.T) {
+	g := testGame("Alpha")
+	m := testSidebar(g)
+	m.filters.hasProfile = false
+
+	m, _ = m.Update(keyMsg("p"))
+	if m.filters.hasProfile {
+		t.Error("bare 'p' must not toggle profile filter (reserved for Task 5)")
 	}
 }
 
@@ -165,16 +186,32 @@ func TestSidebar_ClearFilters(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Default profile removed from games sidebar
+// ---------------------------------------------------------------------------
+
+// TestSidebar_NoDefaultProfileItem guards that the default profile is no
+// longer the first entry in the games sidebar. It moved to its own rail
+// resource (ResourceDefaults).
+func TestSidebar_NoDefaultProfileItem(t *testing.T) {
+	m := testSidebar(testGame("Alpha"))
+	for _, it := range m.filtered {
+		if it.kind == sidebarItemDefaultProfile {
+			t.Error("default profile should not be in games sidebar anymore")
+		}
+	}
+	if len(m.filtered) != 1 {
+		t.Errorf("expected 1 entry (the game), got %d", len(m.filtered))
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Multi-select
 // ---------------------------------------------------------------------------
 
 func TestSidebar_SpaceEntersSelectMode(t *testing.T) {
 	g := testGame("Alpha")
 	m := testSidebar(g)
-	m.cursor = 1 // game item
-	if m.filtered[1].kind != sidebarItemGame {
-		t.Fatal("precondition: cursor should be on a game item")
-	}
+	m.cursor = 0 // first and only item is now the game itself
 
 	m, _ = m.Update(keyMsg("space"))
 	if !m.selectMode {
@@ -188,23 +225,13 @@ func TestSidebar_SpaceEntersSelectMode(t *testing.T) {
 func TestSidebar_SpaceTogglesSelection(t *testing.T) {
 	g := testGame("Alpha")
 	m := testSidebar(g)
-	m.cursor = 1
+	m.cursor = 0
 	m.selectMode = true
 	m.selected[g.AppID] = true
 
 	m, _ = m.Update(keyMsg("space"))
 	if m.selected[g.AppID] {
 		t.Error("expected space to deselect already-selected game")
-	}
-}
-
-func TestSidebar_SpaceOnDefaultProfileIgnored(t *testing.T) {
-	m := testSidebar(testGame("Alpha"))
-	m.cursor = 0
-
-	m, _ = m.Update(keyMsg("space"))
-	if m.selectMode {
-		t.Error("expected space on default profile to be ignored")
 	}
 }
 
@@ -247,7 +274,7 @@ func TestSidebar_EnterInSelectMode_TriggersBatch(t *testing.T) {
 	m := testSidebar(g)
 	m.selectMode = true
 	m.selected[g.AppID] = true
-	m.cursor = 1
+	m.cursor = 0
 
 	_, cmd := m.Update(keyMsg("enter"))
 	if cmd == nil {
@@ -262,7 +289,7 @@ func TestSidebar_EnterInSelectMode_TriggersBatch(t *testing.T) {
 func TestSidebar_EnterConfirmsGame(t *testing.T) {
 	g := testGame("Alpha")
 	m := testSidebar(g)
-	m.cursor = 1
+	m.cursor = 0
 
 	_, cmd := m.Update(keyMsg("enter"))
 	if cmd == nil {
@@ -273,20 +300,6 @@ func TestSidebar_EnterConfirmsGame(t *testing.T) {
 		t.Errorf("expected gameConfirmedMsg, got %T", msg)
 	} else if confirmed.game.Name != "Alpha" {
 		t.Errorf("expected game Alpha, got %s", confirmed.game.Name)
-	}
-}
-
-func TestSidebar_EnterOnDefaultProfile(t *testing.T) {
-	m := testSidebar(testGame("Alpha"))
-	m.cursor = 0
-
-	_, cmd := m.Update(keyMsg("enter"))
-	if cmd == nil {
-		t.Fatal("expected enter to return a command")
-	}
-	msg := execCmd(cmd)
-	if _, ok := msg.(defaultProfileConfirmedMsg); !ok {
-		t.Errorf("expected defaultProfileConfirmedMsg, got %T", msg)
 	}
 }
 

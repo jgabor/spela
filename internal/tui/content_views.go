@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"charm.land/lipgloss/v2"
-
 	"github.com/jgabor/spela/internal/game"
 )
 
@@ -200,82 +198,11 @@ func (m ContentModel) renderProfile() string {
 		b.WriteString(m.styles.Dim.Render("Using default profile values"))
 		b.WriteString("\n")
 	}
-	profileHeight := m.tabContentHeight()
+	profileHeight := m.profileSectionHeight()
 	if m.usingDefaultProfile {
 		profileHeight--
 	}
 	m.profileWidget.SetSize(m.width, profileHeight)
 	b.WriteString(m.profileWidget.View())
-	return b.String()
-}
-
-// renderTabBar renders the [2]DLLs [3]Profile [4]Launch tab selector.
-func (m ContentModel) renderTabBar() string {
-	tabs := []struct {
-		key   string
-		label string
-		tab   ContentTab
-	}{
-		{"2", "DLLs", TabDLLs},
-		{"3", "Profile", TabProfile},
-		{"4", "Launch", TabLaunch},
-	}
-
-	t := m.styles.Theme
-	var parts []string
-	for _, tab := range tabs {
-		if tab.tab == m.activeTab {
-			style := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
-			parts = append(parts, style.Render("["+tab.key+"]"+tab.label))
-		} else {
-			style := lipgloss.NewStyle().Foreground(t.TextDim)
-			parts = append(parts, style.Render("["+tab.key+"]"+tab.label))
-		}
-	}
-	return strings.Join(parts, "  ")
-}
-
-// renderLaunch renders the launch tab with active profile settings summary.
-func (m ContentModel) renderLaunch() string {
-	s := m.styles
-	var b strings.Builder
-
-	if m.launching {
-		b.WriteString(s.Warning.Render("⟳ Launching game..."))
-		b.WriteString("\n")
-		return b.String()
-	}
-
-	b.WriteString(s.Title.Foreground(s.Theme.Secondary).Render("Launch"))
-	b.WriteString("\n\n")
-
-	if m.profile != nil {
-		if m.profile.DLSS.SRMode != "" {
-			fmt.Fprintf(&b, "  DLSS:     %s\n", m.profile.DLSS.SRMode)
-		}
-		if m.profile.GPU.PowerMizer != "" {
-			fmt.Fprintf(&b, "  Power:    %s\n", m.profile.GPU.PowerMizer)
-		}
-		if m.profile.GPU.ClockOffset != 0 {
-			fmt.Fprintf(&b, "  Clock:    +%dMHz\n", m.profile.GPU.ClockOffset)
-		}
-		if m.profile.CPU.Governor != "" {
-			fmt.Fprintf(&b, "  Governor: %s\n", m.profile.CPU.Governor)
-		}
-	}
-
-	if m.usingDefaultProfile {
-		b.WriteString("\n")
-		b.WriteString(s.Dim.Render("  Using default profile values"))
-	}
-
-	b.WriteString("\n\n")
-
-	hint := "Press L to launch"
-	if m.profile == nil {
-		hint += " (no profile — default settings)"
-	}
-	b.WriteString(s.RenderHint("  " + hint))
-
 	return b.String()
 }

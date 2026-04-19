@@ -9,7 +9,6 @@ import (
 
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
-	"github.com/jgabor/spela/internal/launcher"
 	"github.com/jgabor/spela/internal/profile"
 )
 
@@ -20,14 +19,6 @@ const (
 	DLLInstallSelectType
 	DLLInstallSelectVersion
 	DLLInstallDownloading
-)
-
-type ContentTab int
-
-const (
-	TabDLLs ContentTab = iota
-	TabProfile
-	TabLaunch
 )
 
 // Fixed heights for content sections to prevent layout shifts.
@@ -57,6 +48,12 @@ const (
 	PendingDLLRestore
 )
 
+// ContentModel renders the detail for the Games resource: the currently
+// selected game's info, its detected DLLs, and its profile. The per-game
+// detail is the only resource that has substantive content in Task 3;
+// Tasks 4-5 flesh out profile inheritance rendering and Task 6 expands the
+// DLLs and Metrics resources. The Launch-tab surface and ContentTab enum
+// were removed as part of Task 3 (the shell redesign).
 type ContentModel struct {
 	styles              *Styles
 	services            *Services
@@ -65,7 +62,6 @@ type ContentModel struct {
 	profile             *profile.Profile
 	profileWidget       ProfileWidgetModel
 	dlssPresetModal     DLSSPresetModalModel
-	activeTab           ContentTab
 	confirmDestructive  bool
 	pendingAction       PendingAction
 	width               int
@@ -76,7 +72,6 @@ type ContentModel struct {
 	hasBackup           bool
 	hasUpdates          bool
 	usingDefaultProfile bool
-	launching           bool
 	scrollOffset        int
 
 	dllInstallState   DLLInstallState
@@ -102,11 +97,6 @@ type dllRestoreMsg struct {
 type dllUpdatesCheckedMsg struct {
 	hasUpdates bool
 	err        error
-}
-
-type launchGameMsg struct {
-	success bool
-	err     error
 }
 
 type dllInstallMsg struct {
@@ -142,14 +132,12 @@ func NewContent(styles *Styles, confirmDestructive bool, svc *Services) ContentM
 func (m ContentModel) SetGame(g *game.Game) ContentModel {
 	m.game = g
 	m.defaultProfile = false
-	m.activeTab = TabDLLs
 	m.dllOperating = false
 	m.scrollOffset = 0
 	m.dllInstallState = DLLInstallNone
 	m.profileHeight = m.profileSectionHeight()
 	m.hasUpdates = false
 	m.usingDefaultProfile = false
-	m.launching = false
 
 	if g != nil {
 		p, inherited := m.loadEffectiveProfile(g.AppID)
@@ -177,7 +165,6 @@ func (m ContentModel) SetDefaultProfile() ContentModel {
 	m.profileHeight = m.profileSectionHeight()
 	m.hasUpdates = false
 	m.usingDefaultProfile = false
-	m.launching = false
 
 	p, _ := m.services.LoadDefaultProfile()
 	m.profile = p
@@ -195,16 +182,14 @@ func (m *ContentModel) SetSize(width, height int) {
 	m.profileHeight = m.profileSectionHeight()
 }
 
+// profileSectionHeight returns the space allotted to the profile widget
+// inside the detail view.
 func (m ContentModel) profileSectionHeight() int {
 	if m.defaultProfile {
 		return max(m.height-3, 5)
 	}
-	return m.tabContentHeight()
-}
-
-func (m ContentModel) tabContentHeight() int {
-	// Total height minus game info header minus tab bar (2 lines: bar + blank).
-	used := headerSectionHeight + 2
+	// Game detail: header + dll section + blank
+	used := headerSectionHeight + dllSectionHeight + 1
 	return max(m.height-used, 5)
 }
 
@@ -263,27 +248,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyPressMsg:
-		// Tab switching (only when no modal/editing is active).
-		if m.game != nil && !m.defaultProfile && !m.profileWidget.Editing() {
-			switch msg.String() {
-			case "2":
-				m.activeTab = TabDLLs
-				return m, nil
-			case "3":
-				m.activeTab = TabProfile
-				return m, nil
-			case "4":
-				m.activeTab = TabLaunch
-				return m, nil
-			}
-		}
-
 		switch msg.String() {
-		case "L":
-			if m.game != nil && !m.defaultProfile && !m.launching {
-				m.launching = true
-				return m, m.launchGame()
-			}
 		case "i":
 			if m.game != nil && !m.dllOperating {
 				m.dllOperating = true
@@ -352,10 +317,6 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		if msg.err == nil {
 			m.hasUpdates = msg.hasUpdates
 		}
-		return m, nil
-
-	case launchGameMsg:
-		m.launching = false
 		return m, nil
 	}
 
@@ -459,24 +420,16 @@ func (m ContentModel) View() string {
 	}
 
 	if m.game == nil {
-		return m.styles.Dim.Render("Select a game from the sidebar")
+		return m.styles.Dim.Render("Select a game from the list")
 	}
 
 	var b strings.Builder
 
 	b.WriteString(m.renderGameInfo())
 	b.WriteString("\n")
-	b.WriteString(m.renderTabBar())
-	b.WriteString("\n\n")
-
-	switch m.activeTab {
-	case TabDLLs:
-		b.WriteString(m.renderDLLs())
-	case TabProfile:
-		b.WriteString(m.renderProfile())
-	case TabLaunch:
-		b.WriteString(m.renderLaunch())
-	}
+	b.WriteString(m.renderDLLs())
+	b.WriteString("\n")
+	b.WriteString(m.renderProfile())
 
 	return b.String()
 }
@@ -628,28 +581,6 @@ func (m ContentModel) LoadDLLUpdates() tea.Cmd {
 		}
 
 		return dllUpdatesCheckedMsg{hasUpdates: false}
-	}
-}
-
-func (m ContentModel) launchGame() tea.Cmd {
-	g := m.game
-	return func() tea.Msg {
-		if g == nil {
-			return launchGameMsg{err: fmt.Errorf("no game selected")}
-		}
-
-		p, _ := profile.LoadEffective(g.AppID)
-
-		l := launcher.New(g)
-		l.Profile = p
-		l.Prepare()
-
-		steamURL := fmt.Sprintf("steam://rungameid/%d", g.AppID)
-		if err := l.Launch([]string{"steam", steamURL}); err != nil {
-			return launchGameMsg{err: fmt.Errorf("failed to launch game: %w", err)}
-		}
-
-		return launchGameMsg{success: true}
 	}
 }
 

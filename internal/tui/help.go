@@ -29,35 +29,46 @@ func NewHelp(styles *Styles) HelpModel {
 		styles: styles,
 		sections: []HelpSection{
 			{
-				Title: "Navigation",
+				Title: "Rail",
 				Bindings: []HelpBinding{
-					{"↑/k", "Move up"},
-					{"↓/j", "Move down"},
-					{"Tab", "Switch pane"},
-					{"Enter", "Select"},
-					{"Esc", "Clear/back"},
+					{"1", "Games resource"},
+					{"2", "DLLs resource"},
+					{"3", "Defaults resource"},
+					{"4", "Metrics resource"},
+					{"↑/k", "Move rail cursor up"},
+					{"↓/j", "Move rail cursor down"},
+					{"Enter", "Activate rail selection"},
+					{"Tab", "Toggle rail ↔ resource pane focus"},
 				},
 			},
 			{
-				Title: "Sidebar filters",
+				Title: "Reserved for profile editing (Task 5)",
+				Bindings: []HelpBinding{
+					{"r", "Reset field to inherited"},
+					{"Shift+R", "Reset entire profile to inherited"},
+					{"p", "Pin current value as override"},
+					{":", "Command palette (deferred)"},
+				},
+			},
+			{
+				Title: "Games list",
 				Bindings: []HelpBinding{
 					{"/, Ctrl+F", "Search games"},
 					{"d", "Toggle DLLs filter"},
-					{"p", "Toggle profile filter"},
+					{"P", "Toggle profile filter (shift+p)"},
 					{"s", "Cycle sort mode"},
 					{"C", "Clear all filters"},
-					{"r", "Rescan games"},
+					{"Ctrl+R", "Rescan games"},
 				},
 			},
 			{
-				Title: "Content actions",
+				Title: "Game detail",
 				Bindings: []HelpBinding{
 					{"↑/k", "Previous setting"},
 					{"↓/j", "Next setting"},
 					{"←/h", "Decrease value"},
 					{"→/l", "Increase value"},
 					{"s", "Save profile"},
-					{"L", "Launch game"},
 					{"i", "Install DLL"},
 					{"u", "Update DLLs"},
 					{"R", "Restore DLLs"},
@@ -77,7 +88,14 @@ func NewHelp(styles *Styles) HelpModel {
 				Title: "Indicators",
 				Bindings: []HelpBinding{
 					{"●", "Game has DLLs"},
-					{"◆", "Game has profile"},
+					{"◆", "Game has profile / active resource"},
+				},
+			},
+			{
+				Title: "Displaced bindings (Task 3 keymap audit)",
+				Bindings: []HelpBinding{
+					{"r → Ctrl+R", "Rescan games moved so `r` can reset a profile field"},
+					{"p → P", "Profile filter moved so `p` can pin a field"},
 				},
 			},
 			{
@@ -85,7 +103,7 @@ func NewHelp(styles *Styles) HelpModel {
 				Bindings: []HelpBinding{
 					{"?", "Toggle help"},
 					{"o", "Options"},
-					{"q", "Quit"},
+					{"q", "Quit / step back"},
 					{"Ctrl+C", "Force quit"},
 				},
 			},
@@ -114,7 +132,7 @@ func (m HelpModel) View() string {
 
 	keyStyle := s.Normal.
 		Foreground(t.Accent).
-		Width(10)
+		Width(12)
 
 	descStyle := s.Normal.
 		Foreground(t.Text)
@@ -161,8 +179,10 @@ var globalKeys = []ContextKey{
 	{Key: "q", Action: "quit", Enabled: true},
 }
 
-// ContextKeys returns the keybindings relevant to the current context.
-func ContextKeys(sidebarFocused bool, searchFocused, selectMode bool, content *ContentModel, showHints bool) []ContextKey {
+// ContextKeys returns the keybindings relevant to the current context. The
+// first argument used to be `sidebarFocused` in the previous shell; here
+// it means `railFocused`. Kept positional so callers don't ripple.
+func ContextKeys(railFocused bool, searchFocused, selectMode bool, content *ContentModel, showHints bool) []ContextKey {
 	if !showHints {
 		return globalKeys
 	}
@@ -187,27 +207,27 @@ func ContextKeys(sidebarFocused bool, searchFocused, selectMode bool, content *C
 			{Key: "esc", Action: "exit", Enabled: true},
 		}
 
-	case sidebarFocused:
+	case railFocused:
+		keys = []ContextKey{
+			{Key: "↑↓", Action: "navigate", Enabled: true},
+			{Key: "1-4", Action: "resource", Enabled: true},
+			{Key: "enter", Action: "activate", Enabled: true},
+			{Key: "tab", Action: "pane", Enabled: true},
+		}
+
+	default: // resource pane focused (games list / game detail)
 		keys = []ContextKey{
 			{Key: "↑↓", Action: "navigate", Enabled: true},
 			{Key: "/", Action: "search", Enabled: true},
 			{Key: "d", Action: "DLLs", Enabled: true},
-			{Key: "p", Action: "profile", Enabled: true},
+			{Key: "P", Action: "profile", Enabled: true},
 			{Key: "s", Action: "sort", Enabled: true},
-			{Key: "r", Action: "rescan", Enabled: true},
+			{Key: "ctrl+r", Action: "rescan", Enabled: true},
 			{Key: "enter", Action: "select", Enabled: true},
-		}
-
-	default: // content focused
-		keys = []ContextKey{
-			{Key: "↑↓", Action: "navigate", Enabled: true},
-			{Key: "←→", Action: "change", Enabled: true},
-			{Key: "s", Action: "save", Enabled: true},
 		}
 
 		if content != nil && content.game != nil {
 			keys = append(keys,
-				ContextKey{Key: "L", Action: "launch", Enabled: !content.launching, Reason: "launching"},
 				ContextKey{Key: "i", Action: "install", Enabled: !content.dllOperating, Reason: "busy"},
 				ContextKey{
 					Key: "u", Action: "update",
@@ -222,7 +242,7 @@ func ContextKeys(sidebarFocused bool, searchFocused, selectMode bool, content *C
 			)
 		}
 
-		keys = append(keys, ContextKey{Key: "tab", Action: "sidebar", Enabled: true})
+		keys = append(keys, ContextKey{Key: "tab", Action: "rail", Enabled: true})
 	}
 
 	keys = append(keys, globalKeys...)

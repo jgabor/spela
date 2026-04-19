@@ -121,7 +121,10 @@ func (m SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
 		case "d":
 			m.filters.hasDLLs = !m.filters.hasDLLs
 			m.applyFiltersAndSort()
-		case "p":
+		case "P":
+			// `p` is reserved for the Task 5 pin-field binding; profile
+			// filter was displaced to `P` (shift+p) during the Task 3
+			// keymap audit. Displacement documented in the help screen.
 			m.filters.hasProfile = !m.filters.hasProfile
 			m.applyFiltersAndSort()
 		case "s":
@@ -273,10 +276,10 @@ func (m *SidebarModel) applyFiltersAndSort() {
 		})
 	}
 
-	items := make([]sidebarItem, 0, len(filtered)+1)
-	if m.showDefaultProfile() {
-		items = append(items, sidebarItem{kind: sidebarItemDefaultProfile})
-	}
+	// The default profile used to surface as the first sidebar item; with
+	// Task 3's rail redesign it moved to the Defaults rail resource, so
+	// the games sidebar is now games-only.
+	items := make([]sidebarItem, 0, len(filtered))
 	for _, g := range filtered {
 		items = append(items, sidebarItem{kind: sidebarItemGame, game: g})
 	}
@@ -458,10 +461,6 @@ func (m SidebarModel) SelectedGames() []*game.Game {
 		}
 	}
 	return games
-}
-
-func (m SidebarModel) showDefaultProfile() bool {
-	return !m.selectMode && m.search.Value() == "" && !m.filters.IsActive() && m.sortMode == SortNameAsc
 }
 
 func (m SidebarModel) itemName(item sidebarItem) string {

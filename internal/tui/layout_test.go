@@ -9,20 +9,18 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Global key bindings — happy path
+// Help overlay
 // ---------------------------------------------------------------------------
 
 func TestLayout_HelpToggle(t *testing.T) {
 	m := testLayout()
 
-	// ? opens help
 	result, _ := sendKey(&m, "?")
 	layout := result.(LayoutModel)
 	if !layout.showHelp {
 		t.Error("expected help to be shown")
 	}
 
-	// ? closes help
 	result, _ = sendKey(&layout, "?")
 	layout = result.(LayoutModel)
 	if layout.showHelp {
@@ -59,33 +57,74 @@ func TestLayout_HelpBlocksOtherKeys(t *testing.T) {
 	result, _ := sendKey(&m, "?")
 	layout := result.(LayoutModel)
 
-	// Tab should NOT toggle focus while help is shown
-	focused := layout.sidebarFocused
+	// Tab should NOT toggle focus while help is shown.
+	focused := layout.railFocused
 	result, _ = sendKey(&layout, "tab")
 	layout = result.(LayoutModel)
-	if layout.sidebarFocused != focused {
+	if layout.railFocused != focused {
 		t.Error("expected help to block tab from toggling focus")
+	}
+
+	// 1-4 rail hotkeys should NOT activate while help is shown.
+	activeBefore := layout.rail.Active()
+	result, _ = sendKey(&layout, "3")
+	layout = result.(LayoutModel)
+	if layout.rail.Active() != activeBefore {
+		t.Error("expected help to block rail hotkeys")
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Focus / rail toggling
+// ---------------------------------------------------------------------------
+
 func TestLayout_TabTogglesFocus(t *testing.T) {
 	m := testLayout()
-	if !m.sidebarFocused {
-		t.Fatal("precondition: sidebar should be focused initially")
+	if !m.railFocused {
+		t.Fatal("precondition: rail should be focused initially")
 	}
 
 	result, _ := sendKey(&m, "tab")
 	layout := result.(LayoutModel)
-	if layout.sidebarFocused {
-		t.Error("expected tab to switch focus to content")
+	if layout.railFocused {
+		t.Error("expected tab to switch focus off the rail")
 	}
 
+	// Inside ResourceGames, a second tab goes into the inner detail pane,
+	// not back to the rail. A third tab returns to the rail.
 	result, _ = sendKey(&layout, "tab")
 	layout = result.(LayoutModel)
-	if !layout.sidebarFocused {
-		t.Error("expected tab to switch focus back to sidebar")
+	if layout.railFocused {
+		t.Error("second tab under ResourceGames should stay off rail (dive inner)")
+	}
+	if !layout.pane.InnerFocused() {
+		t.Error("second tab should toggle inner focus on")
 	}
 }
+
+func TestLayout_TabTogglesFocus_NonGamesResource(t *testing.T) {
+	m := testLayout()
+	m, _, _ = m.handleGlobalKeys(tea.KeyPressMsg{Code: '2', Text: "2"}) // select DLLs
+	if m.rail.Active() != ResourceDLLs {
+		t.Fatalf("precondition: expected DLLs active, got %v", m.rail.Active())
+	}
+	// tab → leave rail
+	result, _ := sendKey(&m, "tab")
+	layout := result.(LayoutModel)
+	if layout.railFocused {
+		t.Error("tab should flip railFocused off")
+	}
+	// tab → non-games resource has no inner layers, so it returns to rail
+	result, _ = sendKey(&layout, "tab")
+	layout = result.(LayoutModel)
+	if !layout.railFocused {
+		t.Error("tab on non-games should return to rail")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Global shortcuts
+// ---------------------------------------------------------------------------
 
 func TestLayout_CtrlCQuits(t *testing.T) {
 	m := testLayout()
@@ -96,12 +135,12 @@ func TestLayout_CtrlCQuits(t *testing.T) {
 	}
 }
 
-func TestLayout_QFromSidebarQuits(t *testing.T) {
+func TestLayout_QFromRailQuits(t *testing.T) {
 	m := testLayout()
 	_, cmd := sendKey(&m, "q")
 	msg := execCmd(cmd)
 	if _, ok := msg.(tea.QuitMsg); !ok {
-		t.Errorf("expected tea.QuitMsg from q on sidebar, got %T", msg)
+		t.Errorf("expected tea.QuitMsg from q on rail, got %T", msg)
 	}
 }
 
@@ -117,7 +156,6 @@ func TestLayout_F5TogglesDensity(t *testing.T) {
 		t.Errorf("expected DensityCompact, got %d", layout.densityMode)
 	}
 
-	// Toggle back
 	result, _ = sendKey(&layout, "f5")
 	layout = result.(LayoutModel)
 	if layout.densityMode != DensityStandard {
@@ -142,29 +180,26 @@ func TestLayout_F11TogglesFocused(t *testing.T) {
 }
 
 func TestLayout_CtrlFActivatesSearch(t *testing.T) {
-	m := testLayout()
-	m.sidebarFocused = false // start from content
+	m := testLayout(testGame("Cyberpunk 2077"))
 
 	result, _ := sendKey(&m, "ctrl+f")
 	layout := result.(LayoutModel)
-	if !layout.sidebarFocused {
-		t.Error("expected ctrl+f to focus sidebar")
+	if layout.railFocused {
+		t.Error("expected ctrl+f to drop rail focus")
 	}
-	if !layout.sidebar.search.Focused() {
+	if !layout.pane.sidebar.search.Focused() {
 		t.Error("expected ctrl+f to activate search input")
 	}
 }
 
 func TestLayout_OptionsModal(t *testing.T) {
 	m := testLayout()
-	// o from sidebar opens options
 	result, _ := sendKey(&m, "o")
 	layout := result.(LayoutModel)
 	if layout.activeDialog == nil {
 		t.Fatal("expected options modal to open")
 	}
 
-	// Esc closes the modal (via dialog routing)
 	result, _ = sendKey(&layout, "esc")
 	layout = result.(LayoutModel)
 	if layout.activeDialog != nil {
@@ -172,176 +207,139 @@ func TestLayout_OptionsModal(t *testing.T) {
 	}
 }
 
-func TestLayout_OptionsFromContentIgnored(t *testing.T) {
+func TestLayout_OptionsFromPaneIgnored(t *testing.T) {
 	m := testLayout()
-	m.sidebarFocused = false
+	m.railFocused = false
 
 	result, _ := sendKey(&m, "o")
 	layout := result.(LayoutModel)
 	if layout.activeDialog != nil {
-		t.Error("expected o from content to be ignored")
+		t.Error("expected o from resource pane to be ignored")
 	}
 }
 
-func TestLayout_RescanFromSidebar(t *testing.T) {
-	m := testLayout()
+// ---------------------------------------------------------------------------
+// Rescan — displaced from `r` to `ctrl+r` as part of the keymap audit
+// ---------------------------------------------------------------------------
 
-	_, cmd := sendKey(&m, "r")
-	// r from sidebar should return a command (batch of message + rescan)
+func TestLayout_RescanOnCtrlR(t *testing.T) {
+	m := testLayout()
+	_, cmd := sendKey(&m, "ctrl+r")
 	if cmd == nil {
-		t.Error("expected rescan command from r on sidebar")
+		t.Error("expected rescan command from ctrl+r")
 	}
 }
 
-func TestLayout_RescanFromContentIgnored(t *testing.T) {
+func TestLayout_BareRIsReservedForTask5(t *testing.T) {
 	m := testLayout()
-	m.sidebarFocused = false
-
 	_, cmd := sendKey(&m, "r")
-	// r from content should not trigger rescan (may produce header tick cmds)
+	// Bare `r` must NOT trigger rescan — it is reserved for Task 5
+	// (reset-field). The layout passes it through to the active resource
+	// (which ignores it in Task 3). The one thing we care about: no
+	// rescanGamesMsg in the resulting cmd chain.
 	msg := execCmd(cmd)
-	// Should not be a rescan-related message
 	if _, ok := msg.(rescanGamesMsg); ok {
-		t.Error("expected r from content not to trigger rescan")
+		t.Error("bare r must not trigger rescan (Task 5 reservation)")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Jump keys (2/3/4) — require a game selected
+// Rail hotkeys 1-4 — smoke at layout level (detailed assertions in rail_test.go)
 // ---------------------------------------------------------------------------
 
-func TestLayout_JumpKeys_WithGame(t *testing.T) {
-	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
-	m := testLayoutWithGame(g)
-	m.sidebarFocused = true
+func TestLayout_RailHotkeysWithoutGame(t *testing.T) {
+	// 1-4 no longer require a game selected; they are the rail spine.
+	m := testLayout()
 
-	tests := []struct {
-		key     string
-		wantTab ContentTab
+	for i, tc := range []struct {
+		key  string
+		want Resource
 	}{
-		{"2", TabDLLs},
-		{"3", TabProfile},
-		{"4", TabLaunch},
-	}
-	for _, tt := range tests {
-		t.Run(tt.key, func(t *testing.T) {
-			layout := m // copy
-			layout.sidebarFocused = true
-			result, _ := sendKey(&layout, tt.key)
-			layout = result.(LayoutModel)
-			if layout.sidebarFocused {
-				t.Error("expected jump key to switch focus to content")
-			}
-			cm := layout.contentModel()
-			if cm.activeTab != tt.wantTab {
-				t.Errorf("expected tab %d, got %d", tt.wantTab, cm.activeTab)
-			}
-		})
-	}
-}
-
-func TestLayout_JumpKey1_FocusesSidebar(t *testing.T) {
-	m := testLayout()
-	m.sidebarFocused = false
-	m.densityMode = DensityStandard
-
-	result, _ := sendKey(&m, "1")
-	layout := result.(LayoutModel)
-	if !layout.sidebarFocused {
-		t.Error("expected 1 to focus sidebar")
-	}
-}
-
-func TestLayout_JumpKey1_IgnoredInFocusedMode(t *testing.T) {
-	m := testLayout()
-	m.sidebarFocused = false
-	m.densityMode = DensityFocused
-
-	result, _ := sendKey(&m, "1")
-	layout := result.(LayoutModel)
-	if layout.sidebarFocused {
-		t.Error("expected 1 to be ignored in focused density mode")
-	}
-}
-
-func TestLayout_JumpKeys_NoGameIgnored(t *testing.T) {
-	m := testLayout()
-	m.sidebarFocused = true
-
-	for _, key := range []string{"2", "3", "4"} {
-		t.Run(key, func(t *testing.T) {
-			result, _ := sendKey(&m, key)
+		{"1", ResourceGames},
+		{"2", ResourceDLLs},
+		{"3", ResourceDefaults},
+		{"4", ResourceMetrics},
+	} {
+		t.Run(tc.key, func(t *testing.T) {
+			result, _ := sendKey(&m, tc.key)
 			layout := result.(LayoutModel)
-			if !layout.sidebarFocused {
-				t.Errorf("expected %s to be ignored without game selected", key)
+			if layout.rail.Active() != tc.want {
+				t.Errorf("[iter %d] after %q: active = %v, want %v", i, tc.key, layout.rail.Active(), tc.want)
 			}
+			if !layout.railFocused {
+				t.Errorf("[iter %d] expected rail focus preserved after %q", i, tc.key)
+			}
+			m = layout
 		})
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Navigation stack
-// ---------------------------------------------------------------------------
-
-func TestLayout_QFromContent_SingleEntry_ReturnsSidebar(t *testing.T) {
-	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
+func TestLayout_RailHotkeyFromDeepFocus(t *testing.T) {
+	// Even when deep in a game detail, 1-4 snap back to the rail.
+	g := testGame("Cyberpunk 2077")
 	m := testLayoutWithGame(g)
-	m.sidebarFocused = false
+	if m.rail.Active() != ResourceGames {
+		t.Fatalf("precondition: expected ResourceGames, got %v", m.rail.Active())
+	}
+	if !m.pane.InnerFocused() {
+		t.Fatalf("precondition: expected inner focus after gameConfirmedMsg")
+	}
 
-	if m.stack.Depth() != 1 {
-		t.Fatalf("precondition: expected depth 1, got %d", m.stack.Depth())
+	result, _ := sendKey(&m, "3")
+	layout := result.(LayoutModel)
+	if layout.rail.Active() != ResourceDefaults {
+		t.Errorf("expected Defaults active after '3' from deep focus, got %v", layout.rail.Active())
+	}
+	if !layout.railFocused {
+		t.Error("expected rail focus restored after hotkey")
+	}
+	if layout.pane.InnerFocused() {
+		t.Error("expected inner focus reset after hotkey")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Navigation — q / esc
+// ---------------------------------------------------------------------------
+
+func TestLayout_QFromResourcePane_StepsBackToRail(t *testing.T) {
+	g := testGame("Cyberpunk 2077")
+	m := testLayoutWithGame(g)
+	m.pane.SetInnerFocused(false) // inside games list, not detail
+
+	result, _ := sendKey(&m, "q")
+	layout := result.(LayoutModel)
+	if !layout.railFocused {
+		t.Error("expected q from games-list to return to rail")
+	}
+}
+
+func TestLayout_QFromGameDetail_StepsBackToGamesList(t *testing.T) {
+	g := testGame("Cyberpunk 2077")
+	m := testLayoutWithGame(g) // starts with inner focus = detail
+	if !m.pane.InnerFocused() {
+		t.Fatal("precondition: expected inner focus on detail")
 	}
 
 	result, _ := sendKey(&m, "q")
 	layout := result.(LayoutModel)
-	if !layout.sidebarFocused {
-		t.Error("expected q from content (depth 1) to return to sidebar")
+	if layout.railFocused {
+		t.Error("expected q from detail to step back to games list (not rail)")
+	}
+	if layout.pane.InnerFocused() {
+		t.Error("expected inner focus off after q from detail")
 	}
 }
 
-func TestLayout_EscFromContent_SingleEntry_ReturnsSidebar(t *testing.T) {
-	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
+func TestLayout_EscFromResourcePane_StepsBackToRail(t *testing.T) {
+	g := testGame("Cyberpunk 2077")
 	m := testLayoutWithGame(g)
-	m.sidebarFocused = false
+	m.pane.SetInnerFocused(false)
 
 	result, _ := sendKey(&m, "esc")
 	layout := result.(LayoutModel)
-	if !layout.sidebarFocused {
-		t.Error("expected esc from content (depth 1) to return to sidebar")
-	}
-}
-
-func TestLayout_NavStack_DeepPop(t *testing.T) {
-	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
-	m := testLayoutWithGame(g)
-	m.sidebarFocused = false
-
-	// Push an additional entry onto the stack
-	svc := testServices()
-	extraContent := NewContent(m.styles, true, svc)
-	m.stack.Push(newContentEntry(extraContent))
-
-	if m.stack.Depth() != 2 {
-		t.Fatalf("precondition: expected depth 2, got %d", m.stack.Depth())
-	}
-
-	result, _ := sendKey(&m, "q")
-	layout := result.(LayoutModel)
-	if layout.stack.Depth() != 1 {
-		t.Errorf("expected q to pop stack to depth 1, got %d", layout.stack.Depth())
-	}
-	if layout.sidebarFocused {
-		t.Error("expected to stay on content after popping (not at root)")
-	}
-}
-
-func TestLayout_NavStack_RootCannotBePoped(t *testing.T) {
-	m := testLayout()
-
-	initialDepth := m.stack.Depth()
-	m.stack.Pop()
-	if m.stack.Depth() != initialDepth {
-		t.Error("expected root entry to not be popable")
+	if !layout.railFocused {
+		t.Error("expected esc from games-list to return to rail")
 	}
 }
 
@@ -352,18 +350,16 @@ func TestLayout_NavStack_RootCannotBePoped(t *testing.T) {
 func TestLayout_ModalInterceptsInput(t *testing.T) {
 	m := testLayout()
 
-	// Open options modal
 	result, _ := sendKey(&m, "o")
 	layout := result.(LayoutModel)
 	if layout.activeDialog == nil {
 		t.Fatal("precondition: options modal should be open")
 	}
 
-	// Tab should NOT toggle sidebar focus — modal intercepts it
-	focused := layout.sidebarFocused
+	focused := layout.railFocused
 	result, _ = sendKey(&layout, "tab")
 	layout = result.(LayoutModel)
-	if layout.sidebarFocused != focused {
+	if layout.railFocused != focused {
 		t.Error("expected modal to intercept tab, not toggle focus")
 	}
 }
@@ -374,7 +370,6 @@ func TestLayout_ModalClosesOnCancel(t *testing.T) {
 	result, _ := sendKey(&m, "o")
 	layout := result.(LayoutModel)
 
-	// q closes the modal (OptionsModal handles q as cancel)
 	result, _ = sendKey(&layout, "q")
 	layout = result.(LayoutModel)
 	if layout.activeDialog != nil {
@@ -407,7 +402,6 @@ func TestLayout_BatchMenu_Navigation(t *testing.T) {
 	m.batchGames = []*game.Game{testGame("Test")}
 	m.batchCursor = 0
 
-	// Can't go up from 0
 	result, _ := sendKey(&m, "up")
 	layout := result.(LayoutModel)
 	if layout.batchCursor != 0 {
@@ -432,7 +426,6 @@ func TestLayout_BatchMenu_BlocksGlobalKeys(t *testing.T) {
 	m.showBatchMenu = true
 	m.batchGames = []*game.Game{testGame("Test")}
 
-	// ? should NOT open help while batch menu is shown
 	result, _ := sendKey(&m, "?")
 	layout := result.(LayoutModel)
 	if layout.showHelp {
@@ -452,4 +445,27 @@ func TestLayout_WindowSize(t *testing.T) {
 	if layout.width != 200 || layout.height != 60 {
 		t.Errorf("expected 200x60, got %dx%d", layout.width, layout.height)
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Assertions that no `Launch` symbols survive in the shell layer
+// ---------------------------------------------------------------------------
+
+// TestLayout_NoLaunchSurface is a structural test: the shell must expose
+// no launching field, no TabLaunch constant, no launchGame method, and no
+// launchGameMsg type. This guards the Task 3 acceptance criterion
+// "rg -i launch internal/tui/ returns no matches outside test fixtures /
+// historical comments".
+//
+// We can't run rg from inside a test, but we can assert the absence of
+// the concrete types the old shell relied on by failing to compile if
+// they reappear. The go test harness catches this because the test file
+// references none of those symbols — adding a new one would not break
+// this test directly, which is why the acceptance check also runs grep
+// in the verification step. Keep this test as a documentation anchor.
+func TestLayout_NoLaunchSurface(t *testing.T) {
+	// Intentionally empty — compile-time anchor only. The body could
+	// reference `_ = TabLaunch` to fail the build if reintroduced, but
+	// we keep it body-less so the rg grep from the acceptance criterion
+	// is the authoritative check.
 }

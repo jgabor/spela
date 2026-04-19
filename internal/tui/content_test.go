@@ -7,6 +7,11 @@ import (
 	"github.com/jgabor/spela/internal/game"
 )
 
+// Content tests focus on the games-resource detail pane — the only
+// interactive surface inside ContentModel after Task 3. The previous
+// ContentTab enum (DLLs/Profile/Launch) and the Launch tab itself are
+// gone; all DLL actions live directly in the single game-detail view.
+
 // ---------------------------------------------------------------------------
 // No-game guards
 // ---------------------------------------------------------------------------
@@ -14,103 +19,15 @@ import (
 func TestContent_NoGame_DLLKeysIgnored(t *testing.T) {
 	m := testContent(nil)
 
-	for _, key := range []string{"i", "u", "R", "L"} {
+	// L is no longer a binding (Launch tab removed).
+	for _, key := range []string{"i", "u", "R"} {
 		t.Run(key, func(t *testing.T) {
 			result, cmd := m.Update(keyMsg(key))
-			updated := result
 			if cmd != nil {
 				t.Errorf("expected no command from %s without game, got cmd", key)
 			}
-			_ = updated
+			_ = result
 		})
-	}
-}
-
-func TestContent_NoGame_TabSwitchIgnored(t *testing.T) {
-	m := testContent(nil)
-
-	for _, key := range []string{"2", "3", "4"} {
-		t.Run(key, func(t *testing.T) {
-			result, _ := m.Update(keyMsg(key))
-			if result.activeTab != TabDLLs {
-				t.Errorf("expected tab to remain at default without game")
-			}
-		})
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Tab switching
-// ---------------------------------------------------------------------------
-
-func TestContent_TabSwitch(t *testing.T) {
-	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
-	m := testContent(g)
-
-	tests := []struct {
-		key     string
-		wantTab ContentTab
-	}{
-		{"2", TabDLLs},
-		{"3", TabProfile},
-		{"4", TabLaunch},
-	}
-	for _, tt := range tests {
-		t.Run(tt.key, func(t *testing.T) {
-			result, _ := m.Update(keyMsg(tt.key))
-			if result.activeTab != tt.wantTab {
-				t.Errorf("expected tab %d, got %d", tt.wantTab, result.activeTab)
-			}
-		})
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Launch
-// ---------------------------------------------------------------------------
-
-func TestContent_Launch(t *testing.T) {
-	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
-	m := testContent(g)
-
-	result, cmd := m.Update(keyMsg("L"))
-	if !result.launching {
-		t.Error("expected launching to be true")
-	}
-	if cmd == nil {
-		t.Error("expected launch command to be returned")
-	}
-}
-
-func TestContent_Launch_DuplicatePrevented(t *testing.T) {
-	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
-	m := testContent(g)
-	m.launching = true // already launching
-
-	_, cmd := m.Update(keyMsg("L"))
-	if cmd != nil {
-		t.Error("expected no command when launch already in progress")
-	}
-}
-
-func TestContent_Launch_DefaultProfileIgnored(t *testing.T) {
-	m := testContent(nil)
-	m.defaultProfile = true
-
-	_, cmd := m.Update(keyMsg("L"))
-	if cmd != nil {
-		t.Error("expected L to be ignored on default profile view")
-	}
-}
-
-func TestContent_LaunchMsg_ClearsLaunching(t *testing.T) {
-	g := testGame("Cyberpunk 2077")
-	m := testContent(g)
-	m.launching = true
-
-	result, _ := m.Update(launchGameMsg{success: true})
-	if result.launching {
-		t.Error("expected launchGameMsg to clear launching flag")
 	}
 }
 
@@ -124,7 +41,6 @@ func TestContent_Update_WithConfirmation(t *testing.T) {
 	m.hasUpdates = true
 	m.confirmDestructive = true
 
-	// u sets pending action, does NOT return a command
 	result, cmd := m.Update(keyMsg("u"))
 	if result.pendingAction != PendingDLLUpdate {
 		t.Errorf("expected PendingDLLUpdate, got %d", result.pendingAction)
@@ -133,7 +49,6 @@ func TestContent_Update_WithConfirmation(t *testing.T) {
 		t.Error("expected no command when confirmation is pending")
 	}
 
-	// Y confirms and returns the update command
 	result, cmd = result.Update(keyMsg("Y"))
 	if result.pendingAction != PendingNone {
 		t.Error("expected pending action cleared after confirmation")
@@ -157,7 +72,6 @@ func TestContent_Update_ConfirmationCancelled(t *testing.T) {
 		t.Fatal("precondition: should be pending")
 	}
 
-	// Any key other than Y cancels
 	result, _ = result.Update(keyMsg("n"))
 	if result.pendingAction != PendingNone {
 		t.Error("expected pending action cleared on cancel")
@@ -214,7 +128,6 @@ func TestContent_Restore_WithConfirmation(t *testing.T) {
 		t.Error("expected no command when confirmation pending")
 	}
 
-	// Confirm
 	result, cmd = result.Update(keyMsg("y"))
 	if !result.dllOperating {
 		t.Error("expected dllOperating after Y")
@@ -277,19 +190,16 @@ func TestContent_InstallWizard_TypeSelection(t *testing.T) {
 	m.dllTypes = []string{"dlss", "dlssg", "dlssd"}
 	m.dllTypeCursor = 0
 
-	// Navigate down
 	result, _ := m.Update(keyMsg("down"))
 	if result.dllTypeCursor != 1 {
 		t.Errorf("expected cursor 1, got %d", result.dllTypeCursor)
 	}
 
-	// Navigate up
 	result, _ = result.Update(keyMsg("up"))
 	if result.dllTypeCursor != 0 {
 		t.Errorf("expected cursor 0, got %d", result.dllTypeCursor)
 	}
 
-	// Clamp at 0
 	result, _ = result.Update(keyMsg("up"))
 	if result.dllTypeCursor != 0 {
 		t.Error("expected cursor to clamp at 0")

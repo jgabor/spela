@@ -99,8 +99,11 @@ func testLayout(games ...*game.Game) LayoutModel {
 	return sized.(LayoutModel)
 }
 
-// testLayoutWithGame creates a LayoutModel with one game already selected.
-// Returns the layout after simulating game selection from the sidebar.
+// testLayoutWithGame creates a LayoutModel with one game already selected
+// inside the Games resource. Returns the layout after simulating game
+// selection (gameSelectedMsg + gameConfirmedMsg) through the new rail
+// shell. After this helper: rail.Active() == ResourceGames, railFocused
+// == false, pane.InnerFocused() == true.
 func testLayoutWithGame(g *game.Game) LayoutModel {
 	svc := testServices()
 	svc.LoadProfile = func(appID uint64) (*profile.Profile, error) {
@@ -112,8 +115,8 @@ func testLayoutWithGame(g *game.Game) LayoutModel {
 	sized, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	layout := sized.(LayoutModel)
 
-	// Simulate game selection: sidebar dispatches gameSelectedMsg,
-	// then gameConfirmedMsg to switch focus to content.
+	// Simulate game selection: sidebar emits gameSelectedMsg on cursor
+	// move, then gameConfirmedMsg on enter.
 	selected, _ := layout.Update(gameSelectedMsg{game: g})
 	layout = selected.(LayoutModel)
 	confirmed, _ := layout.Update(gameConfirmedMsg{game: g})
@@ -266,8 +269,8 @@ func TestFactories_Smoke(t *testing.T) {
 		if m.height != 40 {
 			t.Errorf("expected height 40, got %d", m.height)
 		}
-		if !m.sidebarFocused {
-			t.Error("expected sidebar to be focused by default")
+		if !m.railFocused {
+			t.Error("expected rail to be focused by default")
 		}
 	})
 
@@ -281,8 +284,11 @@ func TestFactories_Smoke(t *testing.T) {
 		if cm.game.Name != "Cyberpunk 2077" {
 			t.Errorf("expected Cyberpunk 2077, got %s", cm.game.Name)
 		}
-		if withGame.sidebarFocused {
-			t.Error("expected content to be focused after game confirmation")
+		if withGame.railFocused {
+			t.Error("expected rail focus off after game confirmation")
+		}
+		if withGame.rail.Active() != ResourceGames {
+			t.Errorf("expected ResourceGames active, got %v", withGame.rail.Active())
 		}
 	})
 

@@ -89,7 +89,7 @@ func buildOptionsSections() []OptionsSection {
 				{
 					Key:         "auto_update_dlls",
 					Label:       "Auto-update DLLs",
-					Description: "Automatically update DLLs on launch",
+					Description: "Automatically update DLLs on game start",
 					Type:        OptionTypeBool,
 					Options:     []string{"true", "false"},
 				},

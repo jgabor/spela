@@ -40,8 +40,24 @@ func (m LayoutModel) handleHelpKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, 
 	return m, nil, true
 }
 
-// handleGlobalKeys handles the main key bindings that apply globally when no overlay is active.
-// Returns (model, cmd, handled). When handled is true the caller should return immediately.
+// handleGlobalKeys handles the main key bindings that apply globally when no
+// overlay is active. Keymap audit summary (Task 3):
+//
+//   - Rail hotkeys `1`-`4` are handled inside rail.Update; this layer only
+//     sees them when routed from the resource pane (they are ALSO global
+//     jump keys — pressing 2 from inside the games detail snaps focus back
+//     to the rail and selects DLLs).
+//   - `r` is reserved for Task 5 (reset field). Former `r` binding (rescan
+//     games) was rebound to `ctrl+r`.
+//   - `shift+r` is reserved for Task 5 (reset whole profile). Does not
+//     collide with `R` (uppercase R on its own, no shift keyword) which
+//     remains bound to DLL restore.
+//   - `p` is reserved for Task 5 (pin field). Former sidebar `p` (profile
+//     filter) was rebound to `P` (shift+p).
+//   - `:` is reserved for the future command palette (not implemented).
+//   - `tab` toggles rail vs resource-pane focus.
+//
+// Returns (model, cmd, handled).
 func (m LayoutModel) handleGlobalKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, bool) {
 	switch msg.String() {
 	case "ctrl+c":
@@ -62,70 +78,86 @@ func (m LayoutModel) handleGlobalKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd
 		}
 		m.calculateDimensions()
 		return m, nil, true
-	case "1":
-		if !m.sidebarFocused && !m.sidebar.search.Focused() && m.densityMode != DensityFocused {
-			m.sidebarFocused = true
-			return m, nil, true
+	case "1", "2", "3", "4":
+		// Rail hotkeys — always focus the rail and pick the resource.
+		// Reachable from resource pane too (global scope). Inside the
+		// games detail they also work unless the games resource has an
+		// internal modal open.
+		if m.pane.HasModalOpen(m.rail.Active()) {
+			return m, nil, false
 		}
-	case "2", "3", "4":
-		// Global jump keys — switch to content tab from anywhere.
-		cm := m.contentModel()
-		if cm != nil && cm.game != nil && !cm.defaultProfile && !cm.profileWidget.Editing() {
-			m.sidebarFocused = false
-			switch msg.String() {
-			case "2":
-				cm.activeTab = TabDLLs
-			case "3":
-				cm.activeTab = TabProfile
-			case "4":
-				cm.activeTab = TabLaunch
-			}
+		rail := m.rail
+		if rail.SelectHotkey(msg.String()) {
+			m.rail = rail
+			m.railFocused = true
+			// When switching resources, reset inner focus inside the pane.
+			m.pane.SetInnerFocused(false)
 			return m, nil, true
 		}
 	case "?":
 		m.showHelp = true
 		return m, nil, true
 	case "o":
-		if m.sidebarFocused && !m.sidebar.search.Focused() {
+		if m.railFocused {
 			m.optionsModal.SetSize(m.width, m.height)
 			m.optionsModal.Open(m.config)
 			m.activeDialog = &m.optionsModal
 			return m, nil, true
 		}
 	case "ctrl+f":
-		m.sidebarFocused = true
-		var cmd tea.Cmd
-		m.sidebar, cmd = m.sidebar.FocusSearch()
-		return m, cmd, true
+		// ctrl+f focuses the games-list search field. Requires the games
+		// resource; no-op on other resources.
+		if m.rail.Active() == ResourceGames {
+			m.railFocused = false
+			m.pane.SetInnerFocused(false)
+			sidebar, cmd := m.pane.sidebar.FocusSearch()
+			m.pane.sidebar = sidebar
+			return m, cmd, true
+		}
+	case "ctrl+r":
+		// ctrl+r rescans games (displaces the former `r` binding so Task 5
+		// can use bare `r` for reset-field).
+		messageCmd := m.messageBar.SetMessage("Rescanning games...", MessageInfo)
+		return m, tea.Batch(messageCmd, m.rescanGames()), true
 	case "q":
-		if m.sidebarFocused && !m.sidebar.search.Focused() {
+		if m.railFocused {
 			return m, tea.Quit, true
 		}
-		if !m.sidebarFocused && !m.contentModel().HasModalOpen() {
-			if m.stack.Depth() > 1 {
-				m.stack.Pop()
+		if !m.pane.HasModalOpen(m.rail.Active()) {
+			// If the games resource is focused on its detail, step back to
+			// the games list first; otherwise return to the rail.
+			if m.rail.Active() == ResourceGames && m.pane.InnerFocused() {
+				m.pane.SetInnerFocused(false)
 				return m, nil, true
 			}
-			m.sidebarFocused = true
+			m.railFocused = true
+			m.pane.SetInnerFocused(false)
 			return m, nil, true
 		}
 	case "esc":
-		if !m.sidebarFocused && !m.contentModel().HasModalOpen() {
-			if m.stack.Depth() > 1 {
-				m.stack.Pop()
+		if !m.railFocused && !m.pane.HasModalOpen(m.rail.Active()) {
+			if m.rail.Active() == ResourceGames && m.pane.InnerFocused() {
+				m.pane.SetInnerFocused(false)
 				return m, nil, true
 			}
-			m.sidebarFocused = true
+			m.railFocused = true
+			m.pane.SetInnerFocused(false)
 			return m, nil, true
 		}
 	case "tab":
-		m.sidebarFocused = !m.sidebarFocused
-		return m, nil, true
-	case "r":
-		if m.sidebarFocused && !m.sidebar.search.Focused() {
-			messageCmd := m.messageBar.SetMessage("Rescanning games...", MessageInfo)
-			return m, tea.Batch(messageCmd, m.rescanGames()), true
+		// tab toggles focus between the rail and the currently active
+		// resource pane. Inside ResourceGames it additionally toggles the
+		// inner sidebar/detail focus so the user can tab deeper.
+		if m.railFocused {
+			m.railFocused = false
+			return m, nil, true
 		}
+		if m.rail.Active() == ResourceGames {
+			m.pane.SetInnerFocused(!m.pane.InnerFocused())
+			return m, nil, true
+		}
+		m.railFocused = true
+		return m, nil, true
 	}
 	return m, nil, false
 }
@@ -135,24 +167,27 @@ func (m LayoutModel) handleGlobalKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd
 func (m LayoutModel) handleAppMessages(msg tea.Msg, cmds []tea.Cmd) (LayoutModel, []tea.Cmd) {
 	switch msg := msg.(type) {
 	case gameSelectedMsg:
-		entry := m.contentEntryForGame(msg.game)
-		m.stack.Replace(entry)
-		cmds = append(cmds, entry.model.LoadDLLUpdates())
+		content := m.contentForGame(msg.game)
+		m.pane.content = content
+		m.pane.content.SetSize(m.paneWidth(), m.paneHeight())
+		cmds = append(cmds, m.pane.content.LoadDLLUpdates())
 
 	case gameConfirmedMsg:
-		entry := m.contentEntryForGame(msg.game)
-		m.stack.Replace(entry)
-		m.sidebarFocused = false
-		cmds = append(cmds, entry.model.LoadDLLUpdates())
+		content := m.contentForGame(msg.game)
+		m.pane.content = content
+		m.pane.content.SetSize(m.paneWidth(), m.paneHeight())
+		m.pane.SetInnerFocused(true)
+		m.railFocused = false
+		cmds = append(cmds, m.pane.content.LoadDLLUpdates())
 
 	case defaultProfileSelectedMsg:
-		entry := m.contentEntryForDefaultProfile()
-		m.stack.Replace(entry)
+		// Defaults is now its own rail resource; sidebar no longer emits
+		// this for Task 3, but we keep the handler as a no-op to stay
+		// compatible with legacy tests that still dispatch it.
+		// (Task 4 will wire the Defaults resource for real.)
 
 	case defaultProfileConfirmedMsg:
-		entry := m.contentEntryForDefaultProfile()
-		m.stack.Replace(entry)
-		m.sidebarFocused = false
+		// Same as above — no-op in Task 3.
 
 	case batchActionRequestMsg:
 		m.showBatchMenu = true
@@ -185,21 +220,18 @@ func (m LayoutModel) handleAppMessages(msg tea.Msg, cmds []tea.Cmd) (LayoutModel
 		m, cmds = m.handleDLLInstallMsg(msg, cmds)
 
 	case dllTypesLoadedMsg:
-		updated, contentCmd := m.stack.Top().Update(msg)
-		m.stack.Replace(updated)
+		updated, contentCmd := m.pane.content.Update(msg)
+		m.pane.content = updated
 		cmds = append(cmds, contentCmd)
 
 	case dllVersionsLoadedMsg:
-		updated, contentCmd := m.stack.Top().Update(msg)
-		m.stack.Replace(updated)
+		updated, contentCmd := m.pane.content.Update(msg)
+		m.pane.content = updated
 		cmds = append(cmds, contentCmd)
 
 	case dllUpdatesCheckedMsg:
-		updated, _ := m.stack.Top().Update(msg)
-		m.stack.Replace(updated)
-
-	case launchGameMsg:
-		m, cmds = m.handleLaunchGameMsg(msg, cmds)
+		updated, _ := m.pane.content.Update(msg)
+		m.pane.content = updated
 
 	case rescanGamesMsg:
 		m, cmds = m.handleRescanGamesMsg(msg, cmds)
@@ -236,8 +268,8 @@ func (m LayoutModel) handleDLLUpdateMsg(msg dllUpdateMsg, cmds []tea.Cmd) (Layou
 		msgType = MessageError
 	}
 	cmds = append(cmds, m.messageBar.SetMessage(message, msgType))
-	updated, contentCmd := m.stack.Top().Update(msg)
-	m.stack.Replace(updated)
+	updated, contentCmd := m.pane.content.Update(msg)
+	m.pane.content = updated
 	cmds = append(cmds, contentCmd)
 	return m, cmds
 }
@@ -248,7 +280,7 @@ func (m LayoutModel) handleDLLRestoreMsg(msg dllRestoreMsg, cmds []tea.Cmd) (Lay
 	if msg.success {
 		message = "Original DLLs restored!"
 		msgType = MessageSuccess
-		if cm := m.contentModel(); cm.game != nil {
+		if cm := m.contentModel(); cm != nil && cm.game != nil {
 			detected, err := dll.ScanDirectory(cm.game.InstallDir)
 			if err == nil {
 				cm.game.DLLs = detected
@@ -263,8 +295,8 @@ func (m LayoutModel) handleDLLRestoreMsg(msg dllRestoreMsg, cmds []tea.Cmd) (Lay
 		msgType = MessageError
 	}
 	cmds = append(cmds, m.messageBar.SetMessage(message, msgType))
-	updated, contentCmd := m.stack.Top().Update(msg)
-	m.stack.Replace(updated)
+	updated, contentCmd := m.pane.content.Update(msg)
+	m.pane.content = updated
 	cmds = append(cmds, contentCmd)
 	return m, cmds
 }
@@ -284,25 +316,8 @@ func (m LayoutModel) handleDLLInstallMsg(msg dllInstallMsg, cmds []tea.Cmd) (Lay
 		msgType = MessageError
 	}
 	cmds = append(cmds, m.messageBar.SetMessage(message, msgType))
-	updated, contentCmd := m.stack.Top().Update(msg)
-	m.stack.Replace(updated)
-	cmds = append(cmds, contentCmd)
-	return m, cmds
-}
-
-func (m LayoutModel) handleLaunchGameMsg(msg launchGameMsg, cmds []tea.Cmd) (LayoutModel, []tea.Cmd) {
-	var msgType MessageType
-	var message string
-	if msg.success {
-		message = "Game launched!"
-		msgType = MessageSuccess
-	} else if msg.err != nil {
-		message = fmt.Sprintf("Launch failed: %v", msg.err)
-		msgType = MessageError
-	}
-	cmds = append(cmds, m.messageBar.SetMessage(message, msgType))
-	updated, contentCmd := m.stack.Top().Update(msg)
-	m.stack.Replace(updated)
+	updated, contentCmd := m.pane.content.Update(msg)
+	m.pane.content = updated
 	cmds = append(cmds, contentCmd)
 	return m, cmds
 }
@@ -314,19 +329,19 @@ func (m LayoutModel) handleRescanGamesMsg(msg rescanGamesMsg, cmds []tea.Cmd) (L
 	}
 	m.db = msg.db
 	games := msg.db.List()
-	m.sidebar = m.sidebar.SetGames(games)
+	m.pane.sidebar = m.pane.sidebar.SetGames(games)
 	cmds = append(cmds, m.messageBar.SetMessage(
 		fmt.Sprintf("Rescan complete: %d games found", len(games)),
 		MessageSuccess,
 	))
-	if cm := m.contentModel(); cm.game != nil && !cm.defaultProfile {
+	if cm := m.contentModel(); cm != nil && cm.game != nil && !cm.defaultProfile {
 		if refreshed := msg.db.GetGame(cm.game.AppID); refreshed != nil {
-			entry := m.contentEntryForGame(refreshed)
-			m.stack.Replace(entry)
-			cmds = append(cmds, entry.model.LoadDLLUpdates())
+			content := m.contentForGame(refreshed)
+			m.pane.content = content
+			cmds = append(cmds, m.pane.content.LoadDLLUpdates())
 		} else {
-			entry := m.contentEntryForGame(nil)
-			m.stack.Replace(entry)
+			content := m.contentForGame(nil)
+			m.pane.content = content
 		}
 	}
 	return m, cmds
@@ -343,7 +358,7 @@ func (m LayoutModel) handleProfileSaveMsg(msg profileSaveMsg, cmds []tea.Cmd) (L
 		msgType = MessageError
 	}
 	cmds = append(cmds, m.messageBar.SetMessage(message, msgType))
-	updated, _ := m.stack.Top().Update(msg)
-	m.stack.Replace(updated)
+	updated, _ := m.pane.content.Update(msg)
+	m.pane.content = updated
 	return m, cmds
 }

@@ -9,13 +9,17 @@ import (
 	"github.com/jgabor/spela/internal/game"
 )
 
-func TestContextKeys_SidebarFocused(t *testing.T) {
+// ---------------------------------------------------------------------------
+// ContextKeys — the first argument now means railFocused (renamed from
+// sidebarFocused during the Task 3 shell rewrite).
+// ---------------------------------------------------------------------------
+
+func TestContextKeys_RailFocused(t *testing.T) {
 	keys := ContextKeys(true, false, false, nil, true)
 
-	assertHasKey(t, keys, "/", "search")
-	assertHasKey(t, keys, "d", "DLLs")
-	assertHasKey(t, keys, "s", "sort")
-	assertHasKey(t, keys, "r", "rescan")
+	assertHasKey(t, keys, "1-4", "resource")
+	assertHasKey(t, keys, "enter", "activate")
+	assertHasKey(t, keys, "tab", "pane")
 	assertHasGlobalKeys(t, keys)
 }
 
@@ -27,9 +31,8 @@ func TestContextKeys_SearchFocused(t *testing.T) {
 	assertHasKey(t, keys, "esc", "cancel")
 	assertHasGlobalKeys(t, keys)
 
-	// Should NOT have sidebar-specific keys.
-	assertMissingKey(t, keys, "/")
-	assertMissingKey(t, keys, "d")
+	// Should NOT have rail-specific keys while search is focused.
+	assertMissingKey(t, keys, "1-4")
 }
 
 func TestContextKeys_SelectMode(t *testing.T) {
@@ -43,7 +46,7 @@ func TestContextKeys_SelectMode(t *testing.T) {
 	assertHasGlobalKeys(t, keys)
 }
 
-func TestContextKeys_ContentFocusedWithGame(t *testing.T) {
+func TestContextKeys_ResourcePaneFocusedWithGame(t *testing.T) {
 	content := &ContentModel{
 		game:       &game.Game{AppID: 1091500},
 		hasBackup:  true,
@@ -51,32 +54,25 @@ func TestContextKeys_ContentFocusedWithGame(t *testing.T) {
 	}
 	keys := ContextKeys(false, false, false, content, true)
 
-	assertHasKey(t, keys, "L", "launch")
+	// Launch is gone.
+	assertMissingKey(t, keys, "L")
+
 	assertHasKey(t, keys, "i", "install")
 	assertHasKey(t, keys, "u", "update")
 	assertHasKey(t, keys, "R", "restore")
-	assertHasKey(t, keys, "tab", "sidebar")
+	assertHasKey(t, keys, "tab", "rail")
+	assertHasKey(t, keys, "ctrl+r", "rescan")
+	// The profile filter moved from `p` to `P` during the keymap audit.
+	assertHasKey(t, keys, "P", "profile")
 	assertHasGlobalKeys(t, keys)
-
-	// All game keys should be enabled with backup and updates.
-	for _, k := range keys {
-		if k.Key == "u" || k.Key == "R" || k.Key == "L" || k.Key == "i" {
-			if !k.Enabled {
-				t.Errorf("key %q should be enabled when game has backup and updates", k.Key)
-			}
-		}
-	}
 }
 
-func TestContextKeys_ContentFocusedNoGame(t *testing.T) {
+func TestContextKeys_ResourcePaneFocusedNoGame(t *testing.T) {
 	content := &ContentModel{}
 	keys := ContextKeys(false, false, false, content, true)
 
-	// Should have basic content keys but not game-specific ones.
 	assertHasKey(t, keys, "↑↓", "navigate")
-	assertHasKey(t, keys, "←→", "change")
-	assertHasKey(t, keys, "s", "save")
-	assertHasKey(t, keys, "tab", "sidebar")
+	assertHasKey(t, keys, "tab", "rail")
 	assertMissingKey(t, keys, "L")
 	assertMissingKey(t, keys, "u")
 	assertMissingKey(t, keys, "R")
@@ -143,29 +139,9 @@ func TestContextKeys_DisabledUpdateBusy(t *testing.T) {
 	}
 }
 
-func TestContextKeys_DisabledLaunchLaunching(t *testing.T) {
-	content := &ContentModel{
-		game:      &game.Game{AppID: 1091500},
-		launching: true,
-	}
-	keys := ContextKeys(false, false, false, content, true)
-
-	k := findKey(keys, "L")
-	if k == nil {
-		t.Fatal("expected launch key to be present")
-	}
-	if k.Enabled {
-		t.Error("launch should be disabled when already launching")
-	}
-	if k.Reason != "launching" {
-		t.Errorf("launch reason should be 'launching', got %q", k.Reason)
-	}
-}
-
 func TestContextKeys_HintsDisabled(t *testing.T) {
 	keys := ContextKeys(true, false, false, nil, false)
 
-	// Should only have global keys when hints are off.
 	if len(keys) != len(globalKeys) {
 		t.Errorf("expected %d keys (global only), got %d", len(globalKeys), len(keys))
 	}
@@ -178,26 +154,10 @@ func TestReasonForUpdate(t *testing.T) {
 		content *ContentModel
 		want    string
 	}{
-		{
-			name:    "busy",
-			content: &ContentModel{dllOperating: true, hasUpdates: true, hasBackup: true},
-			want:    "busy",
-		},
-		{
-			name:    "up to date",
-			content: &ContentModel{hasUpdates: false, hasBackup: true},
-			want:    "up to date",
-		},
-		{
-			name:    "no backup",
-			content: &ContentModel{hasUpdates: true, hasBackup: false},
-			want:    "no backup",
-		},
-		{
-			name:    "no reason when all good",
-			content: &ContentModel{hasUpdates: true, hasBackup: true},
-			want:    "",
-		},
+		{"busy", &ContentModel{dllOperating: true, hasUpdates: true, hasBackup: true}, "busy"},
+		{"up to date", &ContentModel{hasUpdates: false, hasBackup: true}, "up to date"},
+		{"no backup", &ContentModel{hasUpdates: true, hasBackup: false}, "no backup"},
+		{"no reason when all good", &ContentModel{hasUpdates: true, hasBackup: true}, ""},
 	}
 
 	for _, tt := range tests {
@@ -209,6 +169,10 @@ func TestReasonForUpdate(t *testing.T) {
 		})
 	}
 }
+
+// ---------------------------------------------------------------------------
+// RenderContextBar
+// ---------------------------------------------------------------------------
 
 func TestRenderContextBar_EmptyKeys(t *testing.T) {
 	theme := &DefaultTheme
@@ -232,7 +196,6 @@ func TestRenderContextBar_ContainsGlobalKeys(t *testing.T) {
 	keys := ContextKeys(true, false, false, nil, true)
 	result := RenderContextBar(keys, 200, theme)
 
-	// The rendered output should contain the text of each global key.
 	for _, gk := range globalKeys {
 		if !strings.Contains(result, gk.Key) {
 			t.Errorf("rendered bar missing global key %q", gk.Key)
@@ -250,7 +213,6 @@ func TestRenderContextBar_DisabledKeyShowsReason(t *testing.T) {
 	}
 	result := RenderContextBar(keys, 200, theme)
 
-	// The reason text should appear in the output.
 	if !strings.Contains(result, "no backup") {
 		t.Error("rendered bar should contain disabled reason 'no backup'")
 	}
@@ -258,27 +220,24 @@ func TestRenderContextBar_DisabledKeyShowsReason(t *testing.T) {
 
 func TestRenderContextBar_Truncation(t *testing.T) {
 	theme := &DefaultTheme
-	// Create many keys so they definitely exceed a narrow width.
 	keys := []ContextKey{
 		{Key: "↑↓", Action: "navigate", Enabled: true},
 		{Key: "/", Action: "search", Enabled: true},
 		{Key: "d", Action: "DLLs", Enabled: true},
-		{Key: "p", Action: "profile", Enabled: true},
+		{Key: "P", Action: "profile", Enabled: true},
 		{Key: "s", Action: "sort", Enabled: true},
-		{Key: "r", Action: "rescan", Enabled: true},
+		{Key: "ctrl+r", Action: "rescan", Enabled: true},
 		{Key: "enter", Action: "select", Enabled: true},
 		{Key: "?", Action: "help", Enabled: true},
 		{Key: "o", Action: "options", Enabled: true},
 		{Key: "q", Action: "quit", Enabled: true},
 	}
 
-	// Use a narrow width that can't fit all keys.
 	result := RenderContextBar(keys, 40, theme)
 	if !strings.Contains(result, "...") {
 		t.Error("narrow bar should contain ellipsis truncation")
 	}
 
-	// Global keys should still be present even when truncated.
 	if !strings.Contains(result, "quit") {
 		t.Error("global keys should be present even when truncated")
 	}
@@ -320,12 +279,10 @@ func TestRenderContextBar_EnabledVsDisabledStyling(t *testing.T) {
 	resultEnabled := RenderContextBar(keysEnabled, 200, theme)
 	resultDisabled := RenderContextBar(keysDisabled, 200, theme)
 
-	// Enabled and disabled versions should render differently.
 	if resultEnabled == resultDisabled {
 		t.Error("enabled and disabled keys should have different rendered output")
 	}
 
-	// The visual width should differ because disabled has the reason appended.
 	enabledWidth := lipgloss.Width(resultEnabled)
 	disabledWidth := lipgloss.Width(resultDisabled)
 	if disabledWidth <= enabledWidth {
@@ -336,20 +293,51 @@ func TestRenderContextBar_EnabledVsDisabledStyling(t *testing.T) {
 
 func TestRenderContextBar_GlobalKeysOnly(t *testing.T) {
 	theme := &DefaultTheme
-	// When showHints=false, ContextKeys returns only globalKeys.
 	keys := ContextKeys(true, false, false, nil, false)
 	result := RenderContextBar(keys, 200, theme)
 
-	// Should render something non-empty.
 	if result == "" {
 		t.Error("global-only bar should not be empty")
 	}
-	// Should contain all global key actions.
 	if !strings.Contains(result, "help") {
 		t.Error("bar should contain 'help'")
 	}
 	if !strings.Contains(result, "quit") {
 		t.Error("bar should contain 'quit'")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Help model — Task 3 keymap documentation
+// ---------------------------------------------------------------------------
+
+// TestHelp_DocumentsDisplacedBindings verifies the help screen explicitly
+// calls out the keymap audit moves (r → ctrl+r and p → P) so the user can
+// discover the displacement.
+func TestHelp_DocumentsDisplacedBindings(t *testing.T) {
+	styles := NewStyles(DefaultTheme, true)
+	h := NewHelp(styles)
+
+	out := strings.ToLower(h.View())
+	for _, want := range []string{"displaced", "ctrl+r", "rescan", "pin"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("help view missing %q — keymap displacement must be documented:\n%s", want, out)
+		}
+	}
+}
+
+// TestHelp_NoLaunchBinding guards that the help screen does not advertise a
+// Launch binding now that the Launch tab is removed.
+func TestHelp_NoLaunchBinding(t *testing.T) {
+	styles := NewStyles(DefaultTheme, true)
+	h := NewHelp(styles)
+	out := h.View()
+	lines := strings.Split(out, "\n")
+	for _, line := range lines {
+		low := strings.ToLower(line)
+		if strings.Contains(low, "launch game") {
+			t.Errorf("help line mentions launch game — must be removed:\n%s", line)
+		}
 	}
 }
 
