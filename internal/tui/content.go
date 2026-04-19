@@ -275,6 +275,39 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 					return m, nil
 				}
 			}
+		case "r":
+			// Task 5: reset focused field on the game profile to inherited.
+			// Root defaults profile suppresses this binding entirely —
+			// DetailModel.ResetFocused enforces isRoot=false internally.
+			if m.game != nil && !m.dllOperating {
+				changed, err := m.detail.ResetFocused()
+				if err == nil && changed {
+					return m, m.saveResolvedProfile()
+				}
+				return m, nil
+			}
+		case "R":
+			// Task 5: shift+R resets the entire game profile to inherited.
+			// Displaces the former "R = restore DLLs" binding (now
+			// "ctrl+shift+r"). Root profile suppresses this — see
+			// DetailModel.ResetAll.
+			if m.game != nil && !m.dllOperating {
+				if m.detail.ResetAll() {
+					return m, m.saveResolvedProfile()
+				}
+				return m, nil
+			}
+		case "p":
+			// Task 5: pin the currently-resolved value on the focused
+			// inherited field. Idempotent when already overridden (no-op).
+			// Root profile suppresses this — see DetailModel.PinFocused.
+			if m.game != nil && !m.dllOperating {
+				changed, err := m.detail.PinFocused()
+				if err == nil && changed {
+					return m, m.saveResolvedProfile()
+				}
+				return m, nil
+			}
 		case "i":
 			if m.game != nil && !m.dllOperating {
 				m.dllOperating = true
@@ -293,7 +326,9 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 				m.dllOperatingLabel = "Updating DLLs..."
 				return m, m.updateDLLs()
 			}
-		case "R":
+		case "ctrl+shift+r":
+			// Former "R" binding — displaced by Task 5's shift+R reset-all.
+			// Restore the on-disk DLL backup for the current game.
 			if m.game != nil && m.hasBackup && !m.dllOperating {
 				if m.confirmDestructive {
 					m.pendingAction = PendingDLLRestore
@@ -351,6 +386,33 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	cmds = append(cmds, cmd)
 
 	return m, tea.Batch(cmds...)
+}
+
+// saveResolvedProfile emits a save command for the current game's raw
+// profile after a Task 5 binding (r/R/p) has mutated it. The save target
+// is the game profile on disk; the resolved inheritance view refreshes on
+// the profileSaveMsg round-trip (same pipeline as the legacy widget save).
+func (m ContentModel) saveResolvedProfile() tea.Cmd {
+	if m.game == nil {
+		return nil
+	}
+	appID := m.game.AppID
+	raw := m.detail.RawProfile()
+	if raw == nil {
+		return nil
+	}
+	// Ensure the profile carries the game name so saving a freshly-inherited
+	// profile doesn't lose identity metadata.
+	if raw.Name == "" && m.game != nil {
+		raw.Name = m.game.Name
+	}
+	toSave := *raw
+	return func() tea.Msg {
+		if err := profile.Save(appID, &toSave); err != nil {
+			return profileSaveMsg{err: err}
+		}
+		return profileSaveMsg{success: true}
+	}
 }
 
 func (m ContentModel) updateDLLs() tea.Cmd {

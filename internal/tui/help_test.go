@@ -59,7 +59,11 @@ func TestContextKeys_ResourcePaneFocusedWithGame(t *testing.T) {
 
 	assertHasKey(t, keys, "i", "install")
 	assertHasKey(t, keys, "u", "update")
-	assertHasKey(t, keys, "R", "restore")
+	// Task 5 displaced Restore from "R" (now reset-all profile) to "ctrl+shift+r".
+	assertHasKey(t, keys, "ctrl+shift+r", "restore")
+	assertHasKey(t, keys, "r", "reset-field")
+	assertHasKey(t, keys, "R", "reset-all")
+	assertHasKey(t, keys, "p", "pin")
 	assertHasKey(t, keys, "tab", "rail")
 	assertHasKey(t, keys, "ctrl+r", "rescan")
 	// The profile filter moved from `p` to `P` during the keymap audit.
@@ -75,7 +79,7 @@ func TestContextKeys_ResourcePaneFocusedNoGame(t *testing.T) {
 	assertHasKey(t, keys, "tab", "rail")
 	assertMissingKey(t, keys, "L")
 	assertMissingKey(t, keys, "u")
-	assertMissingKey(t, keys, "R")
+	assertMissingKey(t, keys, "ctrl+shift+r")
 }
 
 func TestContextKeys_DisabledRestoreNoBackup(t *testing.T) {
@@ -86,7 +90,8 @@ func TestContextKeys_DisabledRestoreNoBackup(t *testing.T) {
 	}
 	keys := ContextKeys(false, false, false, content, true)
 
-	k := findKey(keys, "R")
+	// Task 5 displaced restore from "R" to "ctrl+shift+r".
+	k := findKey(keys, "ctrl+shift+r")
 	if k == nil {
 		t.Fatal("expected restore key to be present")
 	}

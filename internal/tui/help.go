@@ -51,11 +51,11 @@ func NewHelp(styles *Styles) HelpModel {
 				},
 			},
 			{
-				Title: "Reserved for profile editing (Task 5)",
+				Title: "Games profile editing",
 				Bindings: []HelpBinding{
-					{"r", "Reset field to inherited"},
-					{"Shift+R", "Reset entire profile to inherited"},
-					{"p", "Pin current value as override"},
+					{"r", "Reset focused field to inherited (no-op if already inherited)"},
+					{"Shift+R", "Reset every field on this game's profile to inherited"},
+					{"p", "Pin the currently-resolved value on an inherited field as an override (idempotent)"},
 					{":", "Command palette (deferred)"},
 				},
 			},
@@ -80,7 +80,7 @@ func NewHelp(styles *Styles) HelpModel {
 					{"s", "Save profile"},
 					{"i", "Install DLL"},
 					{"u", "Update DLLs"},
-					{"R", "Restore DLLs"},
+					{"Ctrl+Shift+R", "Restore DLLs (displaced from R by Task 5)"},
 				},
 			},
 			{
@@ -101,10 +101,11 @@ func NewHelp(styles *Styles) HelpModel {
 				},
 			},
 			{
-				Title: "Displaced bindings (Task 3 keymap audit)",
+				Title: "Displaced bindings (Task 3 + Task 5 keymap audits)",
 				Bindings: []HelpBinding{
 					{"r → Ctrl+R", "Rescan games moved so `r` can reset a profile field"},
 					{"p → P", "Profile filter moved so `p` can pin a field"},
+					{"R → Ctrl+Shift+R", "Restore DLLs moved so Shift+R can reset a whole profile"},
 				},
 			},
 			{
@@ -237,6 +238,9 @@ func ContextKeys(railFocused bool, searchFocused, selectMode bool, content *Cont
 
 		if content != nil && content.game != nil {
 			keys = append(keys,
+				ContextKey{Key: "r", Action: "reset-field", Enabled: !content.dllOperating, Reason: "busy"},
+				ContextKey{Key: "R", Action: "reset-all", Enabled: !content.dllOperating, Reason: "busy"},
+				ContextKey{Key: "p", Action: "pin", Enabled: !content.dllOperating, Reason: "busy"},
 				ContextKey{Key: "i", Action: "install", Enabled: !content.dllOperating, Reason: "busy"},
 				ContextKey{
 					Key: "u", Action: "update",
@@ -244,7 +248,7 @@ func ContextKeys(railFocused bool, searchFocused, selectMode bool, content *Cont
 					Reason:  reasonForUpdate(content),
 				},
 				ContextKey{
-					Key: "R", Action: "restore",
+					Key: "ctrl+shift+r", Action: "restore",
 					Enabled: content.hasBackup && !content.dllOperating,
 					Reason:  "no backup",
 				},

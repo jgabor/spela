@@ -10,8 +10,12 @@ import (
 	"github.com/jgabor/spela/internal/profile"
 )
 
-// dlssPresetOrder defines the display order for DLSS presets.
-var dlssPresetOrder = []profile.DLSSPreset{
+// dlssPresetOrder defines the display order for DLSS presets. The slice is
+// expanded at package init through dedupePresets so the invariant "every
+// preset appears at most once" holds even if duplicates are accidentally
+// introduced upstream (Task 5 acceptance). Callers (modal, tests) must
+// consult dlssPresets() rather than referencing this raw slice directly.
+var dlssPresetOrderRaw = []profile.DLSSPreset{
 	profile.DLSSPresetDefault,
 	profile.DLSSPresetA,
 	profile.DLSSPresetB,
@@ -23,6 +27,29 @@ var dlssPresetOrder = []profile.DLSSPreset{
 	profile.DLSSPresetK,
 	profile.DLSSPresetL,
 	profile.DLSSPresetM,
+}
+
+// dlssPresetOrder is the deduplicated, order-preserving preset list rendered
+// by the DLSS preset modal. Task 5 fix: if dlssPresetOrderRaw ever gains a
+// duplicate entry (regression or accidental merge conflict), the picker
+// still shows each preset exactly once.
+var dlssPresetOrder = dedupePresets(dlssPresetOrderRaw)
+
+// dedupePresets returns a new slice preserving first-seen order with
+// duplicate preset keys removed. Exported-for-test as a package helper so
+// a regression test can feed in an adversarial list with duplicates and
+// assert the output is clean.
+func dedupePresets(in []profile.DLSSPreset) []profile.DLSSPreset {
+	seen := make(map[profile.DLSSPreset]struct{}, len(in))
+	out := make([]profile.DLSSPreset, 0, len(in))
+	for _, p := range in {
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	return out
 }
 
 type DLSSPresetModalModel struct {

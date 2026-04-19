@@ -211,6 +211,47 @@ func (p *Profile) MarkOverride(field string) {
 	p.Overrides[field] = true
 }
 
+// PinField copies the currently-resolved value of `field` onto this profile
+// and marks it as an override. The "resolved value" is the value that would
+// be used at apply time given the supplied defaults: if `p` already has the
+// field set (non-zero), the existing value is kept; otherwise the value is
+// copied from `defaults`. After pinning, the field survives subsequent
+// changes to `defaults`.
+//
+// Semantics:
+//   - If the field is already overridden, PinField is a no-op (idempotent).
+//   - If `defaults` is nil and the field on `p` is zero, the resulting
+//     override pins the zero value explicitly.
+//   - Returns an error for unknown field keys.
+//
+// Task 5 consumes this from the TUI `p` binding so the user can lock in
+// the value they are currently looking at on an inherited field.
+func (p *Profile) PinField(field string, defaults *Profile) error {
+	if p == nil {
+		return fmt.Errorf("pin %s: nil profile", field)
+	}
+	if !IsValidField(field) {
+		return fmt.Errorf("unknown profile field: %q", field)
+	}
+	if p.IsOverridden(field) {
+		return nil
+	}
+	dst, err := fieldAccessor(p, field)
+	if err != nil {
+		return err
+	}
+	// If the field on p is already set (non-zero), the resolved value is p's
+	// own value — nothing to copy. Otherwise pull the value from defaults.
+	if dst.IsZero() && defaults != nil {
+		srcVal, err := fieldAccessor(defaults, field)
+		if err == nil {
+			dst.Set(deepCopyValue(srcVal))
+		}
+	}
+	p.MarkOverride(field)
+	return nil
+}
+
 // Reset clears the override flag on `field` and zeros the backing struct value
 // so the resolved profile falls back to the default. Returns an error for
 // unknown field keys.

@@ -92,7 +92,7 @@ Risks the plan accepts: Task 5 is the densest cycle (inheritance rendering + thr
 ### Task 5: Games inheritance rendering, reset/pin bindings, duplicate-preset fix
 
 **Depends on**: Task 4
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN a game profile field WHEN it is inherited THEN it renders with the `fg-muted` token and no override marker.
 ▸ GIVEN a game profile field WHEN it is overridden THEN it renders with the `fg` token and a visible override marker using the `accent-override` token.

@@ -237,7 +237,8 @@ func (m DetailModel) FieldCount() int { return len(m.focusableRows) }
 //   - "k" / "up"   moves focus to the previous field (clamped at zero).
 //
 // All other keys pass through (return handled=false) so the caller can route
-// them elsewhere — for example the pane's parent handlers for tab/esc.
+// them elsewhere — for example the pane's parent handlers for tab/esc, or
+// the Games-resource r/shift+r/p reset/pin bindings that live on the caller.
 func (m DetailModel) Update(msg tea.Msg) (DetailModel, tea.Cmd, bool) {
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
@@ -258,9 +259,122 @@ func (m DetailModel) Update(msg tea.Msg) (DetailModel, tea.Cmd, bool) {
 	return m, nil, false
 }
 
+// IsOverridden reports whether the currently focused field is an override on
+// the raw profile. Returns false for root profiles (inheritance markers are
+// suppressed there) or when there is no focused row.
+func (m DetailModel) IsOverridden(field string) bool {
+	if m.isRoot || m.raw == nil {
+		return false
+	}
+	return m.raw.IsOverridden(field)
+}
+
+// ResetFocused resets the currently focused field to inherited on the raw
+// profile and rebuilds the resolved view. Returns (changed, error). A no-op
+// (changed=false) when the field is already inherited, when no field is
+// focused, or when the renderer is in root mode. Task 5 consumes this for
+// the `r` binding.
+func (m *DetailModel) ResetFocused() (bool, error) {
+	if m.isRoot || m.raw == nil {
+		return false, nil
+	}
+	field := m.FocusedField()
+	if field == "" {
+		return false, nil
+	}
+	if !m.raw.IsOverridden(field) {
+		return false, nil
+	}
+	if err := m.raw.Reset(field); err != nil {
+		return false, err
+	}
+	m.rebuildResolved()
+	return true, nil
+}
+
+// ResetAll resets every field on the raw profile to inherited and rebuilds
+// the resolved view. Returns true when at least one override was cleared.
+// No-op and returns false when in root mode. Task 5 consumes this for the
+// `shift+r` / `R` binding.
+func (m *DetailModel) ResetAll() bool {
+	if m.isRoot || m.raw == nil {
+		return false
+	}
+	if len(m.raw.Overrides) == 0 {
+		// Still zero the struct in case the raw has stray values without
+		// override flags — but report no change so callers can skip saving.
+		return false
+	}
+	m.raw.ResetAll()
+	m.rebuildResolved()
+	return true
+}
+
+// PinFocused pins the currently-resolved value of the focused field as an
+// override on the raw profile. Reads the effective value from the resolved
+// profile (which already accounts for defaults inheritance) so the pin
+// captures exactly what the user sees. No-op when the field is already
+// overridden, when no field is focused, or when in root mode. Returns
+// (changed, error). Task 5 consumes this for the `p` binding.
+func (m *DetailModel) PinFocused() (bool, error) {
+	if m.isRoot || m.raw == nil {
+		return false, nil
+	}
+	field := m.FocusedField()
+	if field == "" {
+		return false, nil
+	}
+	if m.raw.IsOverridden(field) {
+		return false, nil
+	}
+	if err := m.raw.PinField(field, m.defaults); err != nil {
+		return false, err
+	}
+	m.rebuildResolved()
+	return true, nil
+}
+
+// RawProfile returns the underlying raw profile pointer (mutated by reset/
+// pin operations). Callers use this to feed the save pipeline after a
+// binding fires. nil when the renderer has no backing profile.
+func (m DetailModel) RawProfile() *profile.Profile {
+	return m.raw
+}
+
+// rebuildResolved recomputes the resolved view after raw is mutated. For a
+// game profile we re-run ResolveForApply; for a root profile the raw IS
+// the resolved view (no inheritance chain to walk).
+func (m *DetailModel) rebuildResolved() {
+	if m.raw == nil {
+		m.resolved = &profile.Profile{}
+		return
+	}
+	if m.isRoot {
+		copied := *m.raw
+		m.resolved = &copied
+		return
+	}
+	m.resolved = m.raw.ResolveForApply(m.defaults)
+}
+
+// overrideMarkerGlyph is the single-character marker rendered next to an
+// overridden field in the Games detail view. Task 5 picks the diamond so it
+// lines up with the ◆ already used in the games sidebar to indicate "game
+// has a profile", reading as a consistent family of override signals. Rendered
+// in AccentOverride (magenta) via OverrideMarkerStyle. Root profiles never
+// render this marker (isRoot suppresses all inheritance rendering).
+const overrideMarkerGlyph = "◆"
+
 // View renders the detail as a single column: for each group, a bold header
-// line then one row per field formatted as `  label  value`. The currently
-// focused field row renders with FocusStyle (accent-focus cyan, bold).
+// line then one row per field formatted as `  marker label  value`.
+//
+// Per-row styling (Task 5):
+//   - Focused row wins: rendered with FocusStyle (accent-focus cyan, bold).
+//   - Otherwise, in a game-profile view (isRoot=false): overridden fields
+//     render in OverrideStyle (fg) with a magenta ◆ marker; inherited fields
+//     render in InheritedStyle (fg-muted) with no marker.
+//   - In the root defaults view (isRoot=true), all fields render in Normal
+//     style with no marker — matching the Task 4 acceptance.
 func (m DetailModel) View() string {
 	s := m.styles
 	if s == nil {
@@ -284,13 +398,29 @@ func (m DetailModel) View() string {
 		}
 
 		value := formatFieldValue(m.resolved, row.field)
-		line := fmt.Sprintf("  %-20s  %s", row.label, value)
-		if i == focusedRow {
-			line = s.FocusStyle().Render(line)
-		} else {
-			line = s.Normal.Render(line)
+		overridden := !m.isRoot && m.raw != nil && m.raw.IsOverridden(row.field)
+
+		marker := "  "
+		if overridden {
+			marker = s.OverrideMarkerStyle().Render(overrideMarkerGlyph) + " "
 		}
-		b.WriteString(line)
+		body := fmt.Sprintf("%-20s  %s", row.label, value)
+
+		if i == focusedRow {
+			// Focus styling applies to the whole row body (the marker keeps
+			// its own magenta so the override signal stays readable on top
+			// of the focus highlight).
+			body = s.FocusStyle().Render(body)
+		} else if overridden {
+			body = s.OverrideStyle().Render(body)
+		} else if !m.isRoot {
+			body = s.InheritedStyle().Render(body)
+		} else {
+			body = s.Normal.Render(body)
+		}
+		b.WriteString("  ")
+		b.WriteString(marker)
+		b.WriteString(body)
 		b.WriteString("\n")
 	}
 

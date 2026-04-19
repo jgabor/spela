@@ -355,3 +355,76 @@ func TestOverrides_YAMLRoundTrip(t *testing.T) {
 		t.Errorf("Overrides lost in round-trip:\n%s", data)
 	}
 }
+
+// --- PinField (Task 5) ---------------------------------------------------
+
+// Pass path: pinning an inherited field on a game profile copies the
+// currently-resolved value from defaults and marks the field as overridden.
+func TestPinField_Pass_CopiesDefaultsValue(t *testing.T) {
+	defaults := &profile.Profile{
+		GPU: profile.GPUSettings{PowerLimit: 350},
+	}
+	p := &profile.Profile{} // no override, inherits PowerLimit=350
+
+	if err := p.PinField(profile.FieldGPUPowerLimit, defaults); err != nil {
+		t.Fatalf("PinField: %v", err)
+	}
+	if !p.IsOverridden(profile.FieldGPUPowerLimit) {
+		t.Fatal("PinField: expected override flag set")
+	}
+	if p.GPU.PowerLimit != 350 {
+		t.Errorf("PinField: expected PowerLimit=350 copied from defaults, got %d", p.GPU.PowerLimit)
+	}
+	// Verify persistence through a defaults change: flipping defaults to 200
+	// should leave the pinned profile resolving to 350.
+	defaults.GPU.PowerLimit = 200
+	resolved := p.ResolveForApply(defaults)
+	if resolved.GPU.PowerLimit != 350 {
+		t.Errorf("PinField: expected pinned 350 after defaults change, got %d", resolved.GPU.PowerLimit)
+	}
+}
+
+// Fail (negative) path: pinning an unknown field returns an error and does
+// NOT mutate the profile.
+func TestPinField_Fail_UnknownField(t *testing.T) {
+	p := &profile.Profile{}
+	err := p.PinField("proton.does_not_exist", nil)
+	if err == nil {
+		t.Fatal("PinField: expected error for unknown field, got nil")
+	}
+	if len(p.Overrides) != 0 {
+		t.Errorf("PinField: expected no overrides on error, got %v", p.Overrides)
+	}
+}
+
+// Idempotence: pinning a field that is already overridden is a no-op
+// (returns nil, does not change value or overrides map).
+func TestPinField_AlreadyOverriddenNoop(t *testing.T) {
+	p := &profile.Profile{
+		GPU: profile.GPUSettings{PowerLimit: 400},
+	}
+	p.MarkOverride(profile.FieldGPUPowerLimit)
+
+	defaults := &profile.Profile{GPU: profile.GPUSettings{PowerLimit: 350}}
+
+	if err := p.PinField(profile.FieldGPUPowerLimit, defaults); err != nil {
+		t.Fatalf("PinField: %v", err)
+	}
+	if p.GPU.PowerLimit != 400 {
+		t.Errorf("PinField idempotent: expected 400 preserved, got %d (defaults leaked)", p.GPU.PowerLimit)
+	}
+}
+
+// Edge: nil defaults with inherited (zero) field pins the zero value.
+func TestPinField_NilDefaults_PinsZero(t *testing.T) {
+	p := &profile.Profile{}
+	if err := p.PinField(profile.FieldProtonEnableHDR, nil); err != nil {
+		t.Fatalf("PinField: %v", err)
+	}
+	if !p.IsOverridden(profile.FieldProtonEnableHDR) {
+		t.Fatal("PinField: override flag not set on nil-defaults pin")
+	}
+	if p.Proton.EnableHDR {
+		t.Errorf("PinField: expected zero value pinned, got true")
+	}
+}
