@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Collapse TUI theme to a single neon-accent dark palette with canonical tokens (bg, fg, fg-muted, accent-override magenta, accent-focus cyan, border); legacy `theme: dark` / `theme: light` values are ignored at load and stripped so they do not re-persist; TUI options modal no longer exposes a theme selector.
 - Rewrite the TUI shell around a permanent left rail of four peer resources (Games, DLLs, Defaults, Metrics) with 1-4 hotkeys and j/k navigation. Removes the Launch tab and the ContentTab concept; game launches stay in the CLI (`spela %command%`). Displaced keybindings documented in the help screen: rescan moves from `r` to `ctrl+r`, profile filter from `p` to `P` (shift+p), so `r`, `shift+r`, `p`, and `:` are free for Task 5's profile editing keystrokes.
+- Wire the Games and Defaults resources through a shared grouped-column profile detail renderer (proton → dlss → gpu → cpu → overlay, every group always visible). Game profiles render resolved values (inherited-from-defaults surfaces automatically via `ResolveForApply`); the Defaults resource renders the same layout as a root profile with no inheritance markers and no reset/pin bindings offered. `j`/`k` moves field focus field-by-field across group boundaries; `tab` transfers focus from the rail into the pane.
 
 ## [0.4.0] - 2026-04-19
 
