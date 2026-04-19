@@ -5,9 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.0] - 2026-04-19
+## [0.4.0] - 2026-04-19
 
-Version 0.3.0 brings significant GPU monitoring improvements including an NVML backend for fast metric reading, GPU alert detection with throttle reason identification, and live in-game metrics via mmap IPC with sparkline and gauge visualizations. The TUI gains tab-based navigation (DLLs, Profile, Launch), density modes, modal overlays, and confirmation prompts for destructive DLL operations, while GPU profiles now support per-game power limits and fan speed control.
+This release introduces a new vkd3d_heap toggle that enables the PROTON_VKD3D_HEAP environment variable for descriptor heap optimization in Proton games, with compatibility warnings when enabled on unsupported configurations. The update also promotes driver version to a first-class API with improved build resolution and version gating.
+
+### Added
+
+- Add vkd3d_heap toggle emitting PROTON_VKD3D_HEAP and VKD3D_CONFIG
+- Add build resolver, marker detection, and driver version gate
+- Expose vkd3d_heap in CLI and TUI with compatibility notice
+- Preflight warnings when vkd3d_heap enabled on incompatible env
+- Add vkd3d_heap toggle with inline compatibility notice
+
+### Changed
+
+- Archive descriptor_heap plan and log plan-level summary
+- Promote DriverVersionString to first-class driver-version API
+- Revert "chore(release): v0.4.0"
+
+### Documentation
+
+- Mark Task 5 in PLAN.md
+
+### Fixed
+
+- Validate older proton flag values instead of silently falling through to false
+
+## [0.3.0] - 2026-04-19
 
 ### Added
 
@@ -271,6 +295,7 @@ Version 0.3.0 brings significant GPU monitoring improvements including an NVML b
 - Restore interactive redo flow
 - Change summary model
 
+[0.4.0]: https://github.com/jgabor/spela/compare/v0.3.0..v0.4.0
 [0.3.0]: https://github.com/jgabor/spela/compare/v0.2.1..v0.3.0
 [0.2.1]: https://github.com/jgabor/spela/compare/v0.2.0..v0.2.1
 [0.2.0]: https://github.com/jgabor/spela/compare/dll-dlssg-v310.5.3..v0.2.0
