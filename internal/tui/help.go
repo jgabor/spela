@@ -42,6 +42,15 @@ func NewHelp(styles *Styles) HelpModel {
 				},
 			},
 			{
+				Title: "Profile detail (Games + Defaults)",
+				Bindings: []HelpBinding{
+					{"↓/j", "Next field (crosses group boundaries)"},
+					{"↑/k", "Previous field (crosses group boundaries)"},
+					{"Tab", "Enter pane from rail / leave to rail"},
+					{"Esc/q", "Return to rail from detail"},
+				},
+			},
+			{
 				Title: "Reserved for profile editing (Task 5)",
 				Bindings: []HelpBinding{
 					{"r", "Reset field to inherited"},

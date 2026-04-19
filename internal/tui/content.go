@@ -54,6 +54,12 @@ const (
 // Tasks 4-5 flesh out profile inheritance rendering and Task 6 expands the
 // DLLs and Metrics resources. The Launch-tab surface and ContentTab enum
 // were removed as part of Task 3 (the shell redesign).
+//
+// Task 4 replaces the per-group ProfileWidget grid with a single-column
+// grouped DetailModel rendering resolved (inheritance-aware) values. The
+// legacy ProfileWidget is retained for now to keep the existing modal and
+// save pipeline intact while Task 5 replaces in-place editing with r/p/
+// shift+r bindings on the DetailModel.
 type ContentModel struct {
 	styles              *Styles
 	services            *Services
@@ -61,6 +67,7 @@ type ContentModel struct {
 	defaultProfile      bool
 	profile             *profile.Profile
 	profileWidget       ProfileWidgetModel
+	detail              DetailModel
 	dlssPresetModal     DLSSPresetModalModel
 	confirmDestructive  bool
 	pendingAction       PendingAction
@@ -140,15 +147,21 @@ func (m ContentModel) SetGame(g *game.Game) ContentModel {
 	m.usingDefaultProfile = false
 
 	if g != nil {
-		p, inherited := m.loadEffectiveProfile(g.AppID)
-		m.profile = p
-		m.usingDefaultProfile = inherited
-		m.profileWidget = NewProfileWidget(g, p, m.styles)
+		rawProfile, _ := m.services.LoadProfile(g.AppID)
+		defaults, _ := m.services.LoadDefaultProfile()
+		m.usingDefaultProfile = rawProfile == nil
+		widgetProfile := rawProfile
+		if widgetProfile == nil {
+			widgetProfile = defaults
+		}
+		m.profile = widgetProfile
+		m.profileWidget = NewProfileWidget(g, widgetProfile, m.styles)
 		if m.services != nil && m.services.VKD3DNotice != nil {
 			appID := g.AppID
 			noticeFn := m.services.VKD3DNotice
 			m.profileWidget.SetVKD3DNoticeSource(func() string { return noticeFn(appID) })
 		}
+		m.detail = NewDetail(m.styles, rawProfile, defaults)
 		m.hasBackup = m.services.BackupExists(g.AppID)
 	}
 
@@ -172,6 +185,7 @@ func (m ContentModel) SetDefaultProfile() ContentModel {
 	if m.profile == nil {
 		m.profile = m.profileWidget.profile
 	}
+	m.detail = NewRootDetail(m.styles, m.profile)
 
 	return m
 }
@@ -249,6 +263,18 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 
 	case tea.KeyPressMsg:
 		switch msg.String() {
+		case "j", "down", "k", "up":
+			// Task 4: DetailModel owns field-level cursor movement (j/k) so
+			// focus crosses group-header boundaries in a single column.
+			// This happens regardless of whether a game or the defaults is
+			// loaded; the legacy ProfileWidget still handles edit keys.
+			if !m.profileWidget.Editing() {
+				detail, _, handled := m.detail.Update(msg)
+				if handled {
+					m.detail = detail
+					return m, nil
+				}
+			}
 		case "i":
 			if m.game != nil && !m.dllOperating {
 				m.dllOperating = true

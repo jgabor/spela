@@ -176,15 +176,16 @@ func TestRail_HotkeyFromLayoutStaysOnRail(t *testing.T) {
 }
 
 // TestRail_RouterRendersStub verifies the resource router renders a
-// placeholder for the three non-games resources (Tasks 4/5/6 will flesh
-// them out). Any of these stubs surviving verbatim through Task 6 is a
-// bug; they're placeholders, not final content.
+// placeholder for the resources still pending implementation. As of Task 4,
+// Defaults is no longer a stub (covered by detail_test.go); only DLLs and
+// Metrics remain as placeholders until Task 6.
 func TestRail_RouterRendersStub(t *testing.T) {
 	styles := NewStyles(DefaultTheme, true)
 	svc := testServices()
 	sidebar, _ := NewSidebar(nil, styles, svc)
 	content := NewContent(styles, true, svc)
 	pane := newResourcePane(styles, sidebar, content)
+	pane.setServices(svc)
 	pane.SetSize(100, 20)
 
 	cases := []struct {
@@ -192,7 +193,6 @@ func TestRail_RouterRendersStub(t *testing.T) {
 		wantSub  string
 	}{
 		{ResourceDLLs, "DLLs"},
-		{ResourceDefaults, "Defaults"},
 		{ResourceMetrics, "Metrics"},
 	}
 	for _, tc := range cases {

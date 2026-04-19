@@ -82,7 +82,7 @@ Risks the plan accepts: Task 5 is the densest cycle (inheritance rendering + thr
 ### Task 4: Games and Defaults resource scaffold
 
 **Depends on**: Task 2, Task 3
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN the games resource is selected THEN a game list renders on the left of the resource pane and the selected game's detail renders on the right.
 ▸ GIVEN a game's detail view WHEN rendered THEN profile fields appear in a single column, grouped by subsystem (proton, dlss, gpu, cpu, overlay), with every group always visible (no collapse/expand toggle).

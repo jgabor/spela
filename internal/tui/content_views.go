@@ -191,18 +191,20 @@ func (m ContentModel) renderDLLs() string {
 	return b.String()
 }
 
-// renderProfile renders the profile widget section.
+// renderProfile renders the profile detail section using the shared
+// single-column grouped-by-subsystem DetailModel (Task 4 — Decision 1).
+// Task 5 layers inheritance markers and reset/pin bindings on top.
 func (m ContentModel) renderProfile() string {
 	var b strings.Builder
 	if m.usingDefaultProfile {
-		b.WriteString(m.styles.Dim.Render("Using default profile values"))
+		b.WriteString(m.styles.Dim.Render("Using default profile values (inherited)"))
 		b.WriteString("\n")
 	}
 	profileHeight := m.profileSectionHeight()
 	if m.usingDefaultProfile {
 		profileHeight--
 	}
-	m.profileWidget.SetSize(m.width, profileHeight)
-	b.WriteString(m.profileWidget.View())
+	m.detail.SetSize(m.width, profileHeight)
+	b.WriteString(m.detail.View())
 	return b.String()
 }

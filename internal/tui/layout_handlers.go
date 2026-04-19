@@ -147,9 +147,17 @@ func (m LayoutModel) handleGlobalKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd
 	case "tab":
 		// tab toggles focus between the rail and the currently active
 		// resource pane. Inside ResourceGames it additionally toggles the
-		// inner sidebar/detail focus so the user can tab deeper.
+		// inner sidebar/detail focus so the user can tab deeper. Inside
+		// ResourceDefaults (Task 4) tab also transfers focus to the detail
+		// renderer so j/k moves field focus instead of the rail cursor.
 		if m.railFocused {
 			m.railFocused = false
+			// For resources with a single interactive pane (Defaults in
+			// Task 4), mark innerFocused so the renderer draws its border
+			// in the accent-focus color and so input routes into it.
+			if m.rail.Active() == ResourceDefaults {
+				m.pane.SetInnerFocused(true)
+			}
 			return m, nil, true
 		}
 		if m.rail.Active() == ResourceGames {
@@ -157,6 +165,7 @@ func (m LayoutModel) handleGlobalKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd
 			return m, nil, true
 		}
 		m.railFocused = true
+		m.pane.SetInnerFocused(false)
 		return m, nil, true
 	}
 	return m, nil, false
@@ -360,5 +369,8 @@ func (m LayoutModel) handleProfileSaveMsg(msg profileSaveMsg, cmds []tea.Cmd) (L
 	cmds = append(cmds, m.messageBar.SetMessage(message, msgType))
 	updated, _ := m.pane.content.Update(msg)
 	m.pane.content = updated
+	// Refresh the defaults-root DetailModel so Defaults view reflects any
+	// newly saved defaults immediately. Cheap (one reflective profile read).
+	m.pane.refreshDefaultsDetail()
 	return m, cmds
 }

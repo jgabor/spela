@@ -79,6 +79,7 @@ func NewLayout(db *game.Database, svc *Services) LayoutModel {
 	sidebar, sidebarCmd := NewSidebar(games, styles, svc)
 	content := NewContent(styles, cfg.ConfirmDestructive, svc)
 	pane := newResourcePane(styles, sidebar, content)
+	pane.setServices(svc)
 
 	return LayoutModel{
 		styles:       styles,
