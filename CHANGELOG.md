@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-04-19
+
+Ground-up TUI redesign around a resource-centric spine: the shell becomes a permanent left rail of four peer resources (Games, DLLs, Defaults, Metrics) with 1-4 hotkeys, the Launch tab is removed, and profiles gain live inheritance so game profiles store only overridden fields and fall back to the default profile at apply time. The theme collapses to a single neon-accent dark palette with canonical tokens for inherited versus overridden state.
+
 ### Added
 
 - Add live profile inheritance: game profiles store only overridden fields; unset fields resolve from defaults at apply time. New `spela <subsystem> reset` verbs (`proton reset`, `dlss reset`, `overlay reset`, `gpu profile-reset`, `cpu profile-reset`) set a field back to inherited. `spela <subsystem> show` marks each field as `[inherited]` or `[override]` so the relationship is visible at a glance. Existing profile YAMLs are migrated transparently on load.
@@ -14,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Collapse TUI theme to a single neon-accent dark palette with canonical tokens (bg, fg, fg-muted, accent-override magenta, accent-focus cyan, border); legacy `theme: dark` / `theme: light` values are ignored at load and stripped so they do not re-persist; TUI options modal no longer exposes a theme selector.
-- Rewrite the TUI shell around a permanent left rail of four peer resources (Games, DLLs, Defaults, Metrics) with 1-4 hotkeys and j/k navigation. Removes the Launch tab and the ContentTab concept; game launches stay in the CLI (`spela %command%`). Displaced keybindings documented in the help screen: rescan moves from `r` to `ctrl+r`, profile filter from `p` to `P` (shift+p), so `r`, `shift+r`, `p`, and `:` are free for Task 5's profile editing keystrokes.
+- Rewrite the TUI shell around a permanent left rail of four peer resources (Games, DLLs, Defaults, Metrics) with 1-4 hotkeys and j/k navigation. Removes the Launch tab and the ContentTab concept; game launches stay in the CLI (`spela %command%`). Displaced keybindings documented in the help screen: rescan moves from `r` to `ctrl+r`, profile filter from `p` to `P` (shift+p), so `r`, `shift+r`, `p`, and `:` are free for profile editing keystrokes.
 - Wire the Games and Defaults resources through a shared grouped-column profile detail renderer (proton → dlss → gpu → cpu → overlay, every group always visible). Game profiles render resolved values (inherited-from-defaults surfaces automatically via `ResolveForApply`); the Defaults resource renders the same layout as a root profile with no inheritance markers and no reset/pin bindings offered. `j`/`k` moves field focus field-by-field across group boundaries; `tab` transfers focus from the rail into the pane.
 - Render inheritance state in the Games detail view: inherited fields display in fg-muted with no marker, overridden fields display in fg with a magenta ◆ marker in accent-override. The Defaults resource continues to suppress all markers. Add `r` to reset the focused field to inherited, `shift+R` to reset the entire game profile to inherited, and `p` to pin the currently-resolved value on an inherited field as an override. Restore DLLs is displaced from `R` to `ctrl+shift+r` and documented in the help screen.
 - Fill the DLLs resource with a library section (every known DLL family with latest manifest version, newest cached version, and cache count) and a deployment section (games × DLL-types matrix with stale cells marked in magenta accent-override; DLL types with zero installs are omitted). Add `U` / `ctrl+u` to update every stale cell to the latest cached version in a single batched action, with per-cell success/failure reflected afterward. Relocate the existing thermal and sparkline widgets into the Metrics resource pane — data flows from the existing header sample loop so sparklines and gauges render identically with no new polling loop.
@@ -313,6 +317,7 @@ This release introduces a new vkd3d_heap toggle that enables the PROTON_VKD3D_HE
 - Restore interactive redo flow
 - Change summary model
 
+[0.5.0]: https://github.com/jgabor/spela/compare/v0.4.0..v0.5.0
 [0.4.0]: https://github.com/jgabor/spela/compare/v0.3.0..v0.4.0
 [0.3.0]: https://github.com/jgabor/spela/compare/v0.2.1..v0.3.0
 [0.2.1]: https://github.com/jgabor/spela/compare/v0.2.0..v0.2.1
