@@ -162,13 +162,6 @@ func buildOptionsSections() []OptionsSection {
 					Options:     []string{"true", "false"},
 				},
 				{
-					Key:         "theme",
-					Label:       "Theme",
-					Description: "Color theme for the interface",
-					Type:        OptionTypeEnum,
-					Options:     []string{"default", "dark", "light"},
-				},
-				{
 					Key:         "compact_mode",
 					Label:       "Compact mode",
 					Description: "Use compact layout with less spacing",
@@ -406,11 +399,6 @@ func (m OptionsModalModel) getConfigValue(key string) string {
 		return m.config.PreferredDLLSource
 	case "show_hints":
 		return boolStr(m.config.ShowHints)
-	case "theme":
-		if m.config.Theme == "" {
-			return "default"
-		}
-		return m.config.Theme
 	case "compact_mode":
 		return boolStr(m.config.CompactMode)
 	case "confirm_destructive":
@@ -460,16 +448,6 @@ func (m *OptionsModalModel) setConfigValue(key, value string) {
 	case "show_hints":
 		m.config.ShowHints = value == "true"
 		m.styles.SetShowHints(m.config.ShowHints)
-	case "theme":
-		m.config.Theme = value
-		switch value {
-		case "dark":
-			m.styles.SetTheme(DarkTheme)
-		case "light":
-			m.styles.SetTheme(LightTheme)
-		default:
-			m.styles.SetTheme(DefaultTheme)
-		}
 	case "compact_mode":
 		m.config.CompactMode = value == "true"
 	case "confirm_destructive":

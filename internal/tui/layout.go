@@ -64,14 +64,11 @@ func NewLayout(db *game.Database, svc *Services) LayoutModel {
 		cfg = config.Default()
 	}
 
-	theme := DefaultTheme
-	switch cfg.Theme {
-	case "light":
-		theme = LightTheme
-	case "dark":
-		theme = DarkTheme
-	}
-	styles := NewStyles(theme, cfg.ShowHints)
+	// Single neon-accent dark theme (per .agentera/DECISIONS.md Decision 1).
+	// Legacy config values (`theme: dark` / `theme: light` / `theme: default`)
+	// are ignored and cleared so subsequent saves do not re-persist them.
+	cfg.Theme = ""
+	styles := NewStyles(DefaultTheme, cfg.ShowHints)
 
 	games := db.List()
 	sidebar, sidebarCmd := NewSidebar(games, styles, svc)

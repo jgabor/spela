@@ -6,40 +6,50 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+// Theme is the single neon-accent dark palette. All UI components consume
+// theme tokens; no component hardcodes a hex value. The layout (Task 3),
+// inheritance rendering (Task 5), and any future variant selection must
+// read from this struct rather than introducing new colors.
 type Theme struct {
 	Name string
 
-	// Brand colors — identical across all themes.
-	Primary   color.Color
-	Secondary color.Color
-	Accent    color.Color
+	// Canonical neon-accent tokens (source of truth for Tasks 3-5).
+	Bg             color.Color // page background
+	Fg             color.Color // primary foreground, overridden rows
+	FgMuted        color.Color // inherited rows, hints, dim secondary text
+	AccentOverride color.Color // magenta — override markers, section titles
+	AccentFocus    color.Color // cyan — focus rings, focused borders, selection
+	Border         color.Color // idle pane borders
 
-	// Surface palette — background layers.
-	SurfaceBase      color.Color
-	SurfaceRaised    color.Color
-	SurfaceOverlay   color.Color
-	SurfaceHighlight color.Color
+	// Backwards-compat aliases — all resolve to canonical tokens above so the
+	// rest of the TUI (header, sparklines, help bar, messagebar, modals) keeps
+	// working while the shell/resource rewrite is in flight. Tasks 3-6 can
+	// delete these once their consumers migrate to the canonical tokens.
+	Primary     color.Color // alias AccentOverride (section titles)
+	Secondary   color.Color // alias AccentFocus (DLSS group accents, etc.)
+	Accent      color.Color // alias AccentOverride
+	Text        color.Color // alias Fg
+	TextPrimary color.Color // alias Fg
+	TextDim     color.Color // alias FgMuted
+	TextMuted   color.Color // alias FgMuted
+	Background  color.Color // alias Bg
+	BorderFocus color.Color // alias AccentFocus
 
-	// Text palette — progressive dimming.
-	TextPrimary color.Color // high-contrast body text (alias: Text)
-	TextDim     color.Color // hints, timestamps — dimmer than old TextDim
-	TextMuted   color.Color // decorative borders, disabled elements
+	SurfaceBase      color.Color // alias Bg
+	SurfaceRaised    color.Color // one step up from Bg
+	SurfaceOverlay   color.Color // two steps up — modals
+	SurfaceHighlight color.Color // three steps up — active row
 
-	// Legacy aliases — kept during transition.
-	Text       color.Color // alias for TextPrimary
-	Background color.Color // alias for SurfaceBase
-
-	// Semantic colors.
-	Border      color.Color
-	BorderFocus color.Color
-	Success     color.Color
-	Error       color.Color
-	Warning     color.Color
+	Success color.Color
+	Error   color.Color
+	Warning color.Color
 
 	SelectionFg color.Color
 	SelectionBg color.Color
 
 	// Thermal gradient — six stops for temperature/load visualisation.
+	// Preserved from prior theme because header/sparkline widgets consume
+	// these directly. Tuned to sit visually inside the neon palette.
 	ThermalCold     color.Color // idle, below 30%
 	ThermalCool     color.Color // light load, 30-45%
 	ThermalWarm     color.Color // normal, 45-65%
@@ -47,7 +57,7 @@ type Theme struct {
 	ThermalCritical color.Color // high, 80-90%
 	ThermalThrottle color.Color // danger, 90%+
 
-	// Metric-specific tokens.
+	// Metric-specific tokens for sparklines / status pills.
 	MetricGPUClock   color.Color
 	MetricCPUFreq    color.Color
 	MetricDLLCurrent color.Color
@@ -55,142 +65,88 @@ type Theme struct {
 	MetricDLLMissing color.Color
 }
 
-// Spela color palette (from logo)
-// Midnight Black: #000000 (16)
-// Dark Amethyst:  #200748 (53)
-// Velvet Orchid:  #64297D (91)
-// Amethyst:       #9C41AA (133)
-// Pink Carnation: #FA76C2 (212)
-// Dusk Blue:      #3D58A1 (62)
-// Royal Blue:     #566EDC (69)
-// Ghost White:    #F5F5FD (255)
+// Neon-accent dark palette (per .agentera/DECISIONS.md Decision 1).
+//
+// Canonical hex values — these are the only hex literals in the TUI. Every
+// component must reference a theme field, never a hex string.
+const (
+	hexBg             = "#0a0a14" // page background
+	hexFg             = "#e8e8f0" // primary foreground / overridden
+	hexFgMuted        = "#6a6a80" // inherited, dim
+	hexAccentOverride = "#ff5fd2" // magenta — override marker
+	hexAccentFocus    = "#5ff0ff" // cyan — focus / selection
+	hexBorder         = "#202030" // idle pane border
 
+	// Derived surface stops for modals and highlights. Kept close to bg so
+	// the neon accents carry the visual weight, not the surfaces.
+	hexSurfaceRaised    = "#12121e"
+	hexSurfaceOverlay   = "#1a1a28"
+	hexSurfaceHighlight = "#242438"
+
+	// Semantic status colors tuned for the dark palette.
+	hexSuccess = "#7ce38b"
+	hexError   = "#ff6e6e"
+	hexWarning = "#ffd866"
+
+	// Thermal gradient stops, cool→hot, chosen to sit inside the neon palette.
+	hexThermalCold     = "#5ff0ff" // cyan (same family as AccentFocus)
+	hexThermalCool     = "#5fbaff"
+	hexThermalWarm     = "#7ce38b"
+	hexThermalHot      = "#ffd866"
+	hexThermalCritical = "#ff9e5f"
+	hexThermalThrottle = "#ff6e6e"
+)
+
+// DefaultTheme is the one and only TUI theme — neon-accent dark. The former
+// Default/Dark/Light triad has been collapsed; legacy `theme: dark` /
+// `theme: light` values in config.yaml are ignored at load and stripped on
+// next save so they do not re-persist.
 var DefaultTheme = Theme{
-	Name: "default",
+	Name: "neon-accent-dark",
 
-	Primary:   lipgloss.Color("133"), // Amethyst
-	Secondary: lipgloss.Color("69"),  // Royal Blue
-	Accent:    lipgloss.Color("212"), // Pink Carnation
+	// Canonical tokens.
+	Bg:             lipgloss.Color(hexBg),
+	Fg:             lipgloss.Color(hexFg),
+	FgMuted:        lipgloss.Color(hexFgMuted),
+	AccentOverride: lipgloss.Color(hexAccentOverride),
+	AccentFocus:    lipgloss.Color(hexAccentFocus),
+	Border:         lipgloss.Color(hexBorder),
 
-	SurfaceBase:      lipgloss.Color("16"),  // Midnight Black
-	SurfaceRaised:    lipgloss.Color("234"), // Slightly lighter than base
-	SurfaceOverlay:   lipgloss.Color("236"), // Modal/overlay background
-	SurfaceHighlight: lipgloss.Color("238"), // Hover/active row
+	// Aliases for legacy consumers (header, sparkline, help bar, modals, etc.).
+	Primary:     lipgloss.Color(hexAccentOverride),
+	Secondary:   lipgloss.Color(hexAccentFocus),
+	Accent:      lipgloss.Color(hexAccentOverride),
+	Text:        lipgloss.Color(hexFg),
+	TextPrimary: lipgloss.Color(hexFg),
+	TextDim:     lipgloss.Color(hexFgMuted),
+	TextMuted:   lipgloss.Color(hexFgMuted),
+	Background:  lipgloss.Color(hexBg),
+	BorderFocus: lipgloss.Color(hexAccentFocus),
 
-	TextPrimary: lipgloss.Color("255"), // Ghost White
-	TextDim:     lipgloss.Color("245"), // Hints, timestamps
-	TextMuted:   lipgloss.Color("240"), // Decorative borders, disabled
+	SurfaceBase:      lipgloss.Color(hexBg),
+	SurfaceRaised:    lipgloss.Color(hexSurfaceRaised),
+	SurfaceOverlay:   lipgloss.Color(hexSurfaceOverlay),
+	SurfaceHighlight: lipgloss.Color(hexSurfaceHighlight),
 
-	Text:       lipgloss.Color("255"), // alias: TextPrimary
-	Background: lipgloss.Color("16"),  // alias: SurfaceBase
+	Success: lipgloss.Color(hexSuccess),
+	Error:   lipgloss.Color(hexError),
+	Warning: lipgloss.Color(hexWarning),
 
-	Border:      lipgloss.Color("91"),  // Velvet Orchid
-	BorderFocus: lipgloss.Color("133"), // Amethyst
-	Success:     lipgloss.Color("114"),
-	Error:       lipgloss.Color("203"),
-	Warning:     lipgloss.Color("215"),
+	SelectionFg: lipgloss.Color(hexBg),
+	SelectionBg: lipgloss.Color(hexAccentFocus),
 
-	SelectionFg: lipgloss.Color("255"), // Ghost White
-	SelectionBg: lipgloss.Color("53"),  // Dark Amethyst
+	ThermalCold:     lipgloss.Color(hexThermalCold),
+	ThermalCool:     lipgloss.Color(hexThermalCool),
+	ThermalWarm:     lipgloss.Color(hexThermalWarm),
+	ThermalHot:      lipgloss.Color(hexThermalHot),
+	ThermalCritical: lipgloss.Color(hexThermalCritical),
+	ThermalThrottle: lipgloss.Color(hexThermalThrottle),
 
-	ThermalCold:     lipgloss.Color("69"),  // #5F87FF
-	ThermalCool:     lipgloss.Color("75"),  // #5FAFFF
-	ThermalWarm:     lipgloss.Color("114"), // #87D787
-	ThermalHot:      lipgloss.Color("221"), // #FFD75F
-	ThermalCritical: lipgloss.Color("209"), // #FF875F
-	ThermalThrottle: lipgloss.Color("203"), // #FF5F5F
-
-	MetricGPUClock:   lipgloss.Color("75"),  // same as ThermalCool
-	MetricCPUFreq:    lipgloss.Color("141"), // #AF87FF
-	MetricDLLCurrent: lipgloss.Color("69"),  // brand secondary
-	MetricDLLUpdate:  lipgloss.Color("221"), // thermal hot
-	MetricDLLMissing: lipgloss.Color("245"), // text dim
-}
-
-// DarkTheme uses deeper blacks and adjusted contrast for OLED/dark environments.
-var DarkTheme = Theme{
-	Name: "dark",
-
-	Primary:   lipgloss.Color("133"), // Amethyst
-	Secondary: lipgloss.Color("69"),  // Royal Blue
-	Accent:    lipgloss.Color("212"), // Pink Carnation
-
-	SurfaceBase:      lipgloss.Color("232"), // Deep charcoal
-	SurfaceRaised:    lipgloss.Color("233"), // Slightly lighter
-	SurfaceOverlay:   lipgloss.Color("235"), // Modal/overlay
-	SurfaceHighlight: lipgloss.Color("237"), // Active row
-
-	TextPrimary: lipgloss.Color("253"), // Near-white
-	TextDim:     lipgloss.Color("243"), // Hints, timestamps
-	TextMuted:   lipgloss.Color("238"), // Decorative borders, disabled
-
-	Text:       lipgloss.Color("253"), // alias: TextPrimary
-	Background: lipgloss.Color("232"), // alias: SurfaceBase
-
-	Border:      lipgloss.Color("55"), // Deep violet
-	BorderFocus: lipgloss.Color("99"), // Slate blue
-	Success:     lipgloss.Color("71"),
-	Error:       lipgloss.Color("160"),
-	Warning:     lipgloss.Color("172"),
-
-	SelectionFg: lipgloss.Color("255"), // Ghost White
-	SelectionBg: lipgloss.Color("17"),  // Darkest blue
-
-	ThermalCold:     lipgloss.Color("69"),  // #5F87FF
-	ThermalCool:     lipgloss.Color("75"),  // #5FAFFF
-	ThermalWarm:     lipgloss.Color("114"), // #87D787
-	ThermalHot:      lipgloss.Color("221"), // #FFD75F
-	ThermalCritical: lipgloss.Color("209"), // #FF875F
-	ThermalThrottle: lipgloss.Color("203"), // #FF5F5F
-
-	MetricGPUClock:   lipgloss.Color("75"),
-	MetricCPUFreq:    lipgloss.Color("141"),
-	MetricDLLCurrent: lipgloss.Color("69"),
-	MetricDLLUpdate:  lipgloss.Color("221"),
-	MetricDLLMissing: lipgloss.Color("243"),
-}
-
-// LightTheme uses light backgrounds with dark text for bright environments.
-var LightTheme = Theme{
-	Name: "light",
-
-	Primary:   lipgloss.Color("91"),  // Velvet Orchid
-	Secondary: lipgloss.Color("26"),  // Medium blue
-	Accent:    lipgloss.Color("162"), // Deep pink
-
-	SurfaceBase:      lipgloss.Color("255"), // Ghost White
-	SurfaceRaised:    lipgloss.Color("254"), // Slightly dimmer
-	SurfaceOverlay:   lipgloss.Color("253"), // Modal/overlay
-	SurfaceHighlight: lipgloss.Color("252"), // Active row
-
-	TextPrimary: lipgloss.Color("235"), // Near-black
-	TextDim:     lipgloss.Color("243"), // Hints, timestamps
-	TextMuted:   lipgloss.Color("249"), // Decorative borders, disabled
-
-	Text:       lipgloss.Color("235"), // alias: TextPrimary
-	Background: lipgloss.Color("255"), // alias: SurfaceBase
-
-	Border:      lipgloss.Color("183"), // Light violet
-	BorderFocus: lipgloss.Color("91"),  // Velvet Orchid
-	Success:     lipgloss.Color("28"),
-	Error:       lipgloss.Color("160"),
-	Warning:     lipgloss.Color("130"),
-
-	SelectionFg: lipgloss.Color("255"), // Ghost White
-	SelectionBg: lipgloss.Color("91"),  // Velvet Orchid
-
-	ThermalCold:     lipgloss.Color("26"),  // Darker blue for light bg
-	ThermalCool:     lipgloss.Color("32"),  // Medium blue
-	ThermalWarm:     lipgloss.Color("28"),  // Forest green
-	ThermalHot:      lipgloss.Color("172"), // Orange
-	ThermalCritical: lipgloss.Color("166"), // Dark orange
-	ThermalThrottle: lipgloss.Color("160"), // Red
-
-	MetricGPUClock:   lipgloss.Color("32"),
-	MetricCPUFreq:    lipgloss.Color("91"),
-	MetricDLLCurrent: lipgloss.Color("26"),
-	MetricDLLUpdate:  lipgloss.Color("172"),
-	MetricDLLMissing: lipgloss.Color("243"),
+	MetricGPUClock:   lipgloss.Color(hexAccentFocus),
+	MetricCPUFreq:    lipgloss.Color(hexAccentOverride),
+	MetricDLLCurrent: lipgloss.Color(hexAccentFocus),
+	MetricDLLUpdate:  lipgloss.Color(hexThermalHot),
+	MetricDLLMissing: lipgloss.Color(hexFgMuted),
 }
 
 // Styles holds the active theme and all derived lipgloss styles.
@@ -217,7 +173,9 @@ func NewStyles(theme Theme, showHints bool) *Styles {
 	return s
 }
 
-// SetTheme changes the active theme and rebuilds all derived styles.
+// SetTheme changes the active theme and rebuilds all derived styles. With the
+// single-theme collapse this is effectively a no-op in production, but the
+// method is kept so tests can swap in alternate palettes.
 func (s *Styles) SetTheme(t Theme) {
 	s.Theme = t
 	s.rebuild()
@@ -242,13 +200,13 @@ func (s *Styles) rebuild() {
 		Bold(true)
 
 	s.Normal = lipgloss.NewStyle().
-		Foreground(t.Text)
+		Foreground(t.Fg)
 
 	s.Dim = lipgloss.NewStyle().
-		Foreground(t.TextDim)
+		Foreground(t.FgMuted)
 
 	s.Muted = lipgloss.NewStyle().
-		Foreground(t.TextMuted)
+		Foreground(t.FgMuted)
 
 	s.DLSS = lipgloss.NewStyle().
 		Foreground(t.Secondary)
@@ -272,11 +230,39 @@ func (s *Styles) RenderHint(text string) string {
 }
 
 // BorderColor returns the appropriate border color for the given focus state.
+// Focused borders use AccentFocus (cyan); idle borders use Border.
 func (s *Styles) BorderColor(focused bool) color.Color {
 	if focused {
-		return s.Theme.BorderFocus
+		return s.Theme.AccentFocus
 	}
 	return s.Theme.Border
+}
+
+// InheritedStyle returns the style for a profile field that inherits from the
+// default profile — rendered with the fg-muted token and no override marker.
+// Task 5 consumes this for per-field inheritance rendering.
+func (s *Styles) InheritedStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(s.Theme.FgMuted)
+}
+
+// OverrideStyle returns the style for a profile field that overrides the
+// default — rendered with the fg token plus the accent-override marker color
+// consumed via OverrideMarkerStyle.
+// Task 5 consumes this for per-field inheritance rendering.
+func (s *Styles) OverrideStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(s.Theme.Fg)
+}
+
+// OverrideMarkerStyle returns the style for the visual marker next to an
+// overridden field (magenta, AccentOverride). Paired with OverrideStyle.
+func (s *Styles) OverrideMarkerStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(s.Theme.AccentOverride)
+}
+
+// FocusStyle returns the style for the currently focused field / row — uses
+// the accent-focus token (cyan). Used by the shell rail and resource views.
+func (s *Styles) FocusStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(s.Theme.AccentFocus).Bold(true)
 }
 
 // IndicatorStyle returns the style for a given state indicator.
@@ -309,13 +295,19 @@ const (
 	StateSuccess
 )
 
-// CLI color helper styles — immutable, computed once from DefaultTheme.
+// CLI color helper styles — immutable, computed once from DefaultTheme. With
+// the single-theme collapse these resolve to canonical neon tokens:
+//   - CLIPrimary  → AccentOverride (magenta)
+//   - CLISecondary→ AccentFocus (cyan)
+//   - CLIDim      → FgMuted
+//   - CLISuccess  → Success
+//   - CLIAccent   → AccentOverride
 var (
-	cliPrimaryStyle   = lipgloss.NewStyle().Foreground(DefaultTheme.Primary)
-	cliSecondaryStyle = lipgloss.NewStyle().Foreground(DefaultTheme.Secondary)
-	cliDimStyle       = lipgloss.NewStyle().Foreground(DefaultTheme.TextDim)
+	cliPrimaryStyle   = lipgloss.NewStyle().Foreground(DefaultTheme.AccentOverride)
+	cliSecondaryStyle = lipgloss.NewStyle().Foreground(DefaultTheme.AccentFocus)
+	cliDimStyle       = lipgloss.NewStyle().Foreground(DefaultTheme.FgMuted)
 	cliSuccessStyle   = lipgloss.NewStyle().Foreground(DefaultTheme.Success)
-	cliAccentStyle    = lipgloss.NewStyle().Foreground(DefaultTheme.Accent)
+	cliAccentStyle    = lipgloss.NewStyle().Foreground(DefaultTheme.AccentOverride)
 )
 
 func CLIPrimary(text string) string {

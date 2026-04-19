@@ -1,5 +1,26 @@
 # Progress
 
+## Cycle 54 — 2026-04-19
+
+**Phase**: build
+**What**: Task 1 of the TUI ground-up redesign plan — collapsed the Default/Dark/Light theme triad into a single neon-accent dark palette keyed off six canonical tokens (`Bg` #0a0a14, `Fg` #e8e8f0, `FgMuted` #6a6a80, `AccentOverride` #ff5fd2 magenta, `AccentFocus` #5ff0ff cyan, `Border` #202030) per .agentera/DECISIONS.md Decision 1. Kept the legacy aliases (Primary/Secondary/Accent/Text/TextDim/Background/BorderFocus/SurfaceBase/…) pointing at the new tokens so header/sparkline/help/messagebar/modal consumers keep rendering while Tasks 3-6 migrate to canonical names. Added three theme helper methods on `Styles` — `InheritedStyle()` (FgMuted for inherited rows), `OverrideStyle()`+`OverrideMarkerStyle()` (Fg text plus AccentOverride marker), `FocusStyle()` (AccentFocus + bold) — which Task 5 consumes for inheritance rendering without extending the token set. `NewLayout` now ignores any `cfg.Theme` value, always uses `DefaultTheme`, and blanks `cfg.Theme` at load so subsequent saves do not re-persist `theme: dark` / `theme: light`. Dropped the Theme option from the TUI options modal and its getConfigValue/setConfigValue cases. CLI helpers (CLIPrimary/CLISecondary/CLIDim/CLISuccess/CLIAccent) rewired through canonical tokens — CLIPrimary now renders magenta (#ff5fd2 = AccentOverride), CLISecondary cyan (#5ff0ff = AccentFocus), CLIDim grey (#6a6a80 = FgMuted). Left `config.Config.Theme` field intact because the GUI still reads/writes it; the TUI simply neither reads nor writes it anymore.
+**Commit**: (pending) refactor(tui): collapse themes to single neon-accent dark palette
+**Inspiration**: .agentera/DECISIONS.md Decision 1 (firm) — magenta=override, cyan=focus semantics drove the token naming; kept one hex per token by centralizing the six values in package-level `hex*` constants so no component reintroduces literals.
+**Discovered**: GUI still consumes `config.Config.Theme` via `parseTheme` for its own `data-theme` CSS attribute, so removing the field entirely was out of scope. Stripping on TUI load (not on config.Save) is the narrowest contract that satisfies "does not re-persist the legacy value" without breaking the GUI. `lipgloss.Color("#ff5fd2")` is the supported v2 syntax — no other color construction needed.
+**Verified**: `mage test` → all 15 packages PASS. `mage lint` → 0 issues. `mage build` → 12MB binary built. New tests (`go test ./internal/tui/ -run 'TestInheritedStyle|TestOverrideStyle|TestOverrideMarkerStyle|TestFocusStyle|TestTheme_|TestLayout_StripsLegacyTheme|TestCLIHelpers_NoLegacyColors' -v`) → 15 subtests PASS in 0.003s. Explicit observed output per helper:
+
+- `CLIPrimary("PRIMARY")` rendered `"\x1b[38;2;255;95;210mPRIMARY\x1b[m"` — RGB 255,95,210 = #ff5fd2 = AccentOverride (magenta)
+- `CLISecondary("SECONDARY")` rendered `"\x1b[38;2;95;240;255mSECONDARY\x1b[m"` — RGB 95,240,255 = #5ff0ff = AccentFocus (cyan)
+- `CLIDim("DIM")` rendered `"\x1b[38;2;106;106;128mDIM\x1b[m"` — RGB 106,106,128 = #6a6a80 = FgMuted
+- `CLISuccess("SUCCESS")` rendered `"\x1b[38;2;124;227;139mSUCCESS\x1b[m"` — #7ce38b = Success
+- `CLIAccent("ACCENT")` rendered `"\x1b[38;2;255;95;210mACCENT\x1b[m"` — magenta AccentOverride
+- `TestTheme_NeonPaletteTokens/Bg,Fg,FgMuted,AccentOverride,AccentFocus,Border` → six PASS asserting exact RGB match against Decision 1 spec
+- `TestLayout_StripsLegacyTheme/dark,light,default,royal-blue` → four PASS confirming `NewLayout` blanks `config.Theme` regardless of input value and resolves to `neon-accent-dark`
+- `TestCLIHelpers_NoLegacyColors_Smoke` → PASS confirming none of the legacy ANSI indices (133 Amethyst / 69 Royal Blue / 91 Velvet Orchid / 212 Pink Carnation) survived in CLI helper output
+- `Grep` for `Amethyst|Royal Blue|Velvet Orchid|Pink Carnation|DarkTheme|LightTheme` outside tests/comments → zero production-code hits
+**Next**: Task 2 (profile inheritance primitives + CLI inheritance output) — independent of this task; can start immediately. Task 3 (shell redesign with left rail) depends on this task and is now unblocked on the theme side.
+**Context**: intent — lay down the token substrate Tasks 3-5 will render through, with inheritance (FgMuted), override marker (AccentOverride), and focus (AccentFocus) distinguishable from the start · constraints — GUI untouched per PLAN.md scope; legacy aliases preserved so existing TUI consumers keep rendering; config.Config.Theme field preserved for GUI · unknowns — none; Decision 1 is firm · scope — styles.go (rewritten, canonical tokens + aliases + helpers), layout.go (drop theme switch, strip legacy), options_modal.go (drop theme option + getter/setter cases), thermal_test.go (allThemes → single), styles_test.go (new, 11 helper tests), cli_smoke_test.go (new, legacy-color regression guard)
+
 ## Plan Summary — DX12 descriptor_heap — 2026-04-19
 
 - **Plan**: DX12 descriptor_heap per-game toggle (6 tasks, completed 2026-04-19)

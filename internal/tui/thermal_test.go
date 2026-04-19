@@ -33,9 +33,12 @@ func absDiff(a, b uint32) uint32 {
 	return b - a
 }
 
-// allThemes returns every built-in theme for parametric testing.
+// allThemes returns every built-in theme for parametric testing. The
+// Default/Dark/Light triad collapsed into a single neon-accent dark theme
+// per .agentera/DECISIONS.md Decision 1; the helper is retained so thermal
+// tests stay parametric if additional palettes are introduced later.
 func allThemes() []Theme {
-	return []Theme{DefaultTheme, DarkTheme, LightTheme}
+	return []Theme{DefaultTheme}
 }
 
 func TestThermalColorExactStopBoundaries(t *testing.T) {

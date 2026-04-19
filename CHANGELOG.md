@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Collapse TUI theme to a single neon-accent dark palette with canonical tokens (bg, fg, fg-muted, accent-override magenta, accent-focus cyan, border); legacy `theme: dark` / `theme: light` values are ignored at load and stripped so they do not re-persist; TUI options modal no longer exposes a theme selector.
+
 ## [0.4.0] - 2026-04-19
 
 This release introduces a new vkd3d_heap toggle that enables the PROTON_VKD3D_HEAP environment variable for descriptor heap optimization in Proton games, with compatibility warnings when enabled on unsupported configurations. The update also promotes driver version to a first-class API with improved build resolution and version gating.
