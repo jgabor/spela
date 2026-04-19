@@ -15,3 +15,6 @@ internal/gui/frontend/wailsjs/wailsjs/
 
 # Wails build
 cmd/spela/build/
+
+# Agent tool scratch state
+.leda

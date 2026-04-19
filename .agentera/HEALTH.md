@@ -1,5 +1,94 @@
 # Health
 
+## Audit 4 — 2026-04-19 (full: post-TUI-refactor + GUI DLL progress)
+
+TUI complexity refactor landed cleanly — Layout.Update() shrank from 366 to 74 lines, profile_widget.go and content.go both split successfully with all 99 tests intact. The GUI DLL progress work (Cycle 49) is a textbook use of the existing slog + defer + event-emit patterns. The one thing that's sliding is version health: v0.2.1 is now 37 days old with 51 unreleased feat/fix commits, which puts the project deep into "should have shipped" territory per the versioning convention.
+
+**Dimensions assessed**: Architecture, Patterns, Coupling, Complexity, Tests, Dependencies, Versions, Security, Freshness
+**Findings**: 1 critical, 1 warning, 3 info (0 filtered by confidence)
+**Overall trajectory**: ⮉ improving vs Audit 3 (Complexity warnings resolved, GUI transparency improved)
+**Grades**: Architecture [B+] | Patterns [B+] | Coupling [C+] | Complexity [B] | Tests [B-] | Dependencies [A] | Versions [D] | Security [A] | Freshness [A]
+
+### Architecture: B+
+
+No findings. Privilege model, Services DI, launcher cleanup pipeline all intact. GUI LaunchGame correctly routes through launcher.Prepare() for profile apply + cleanup registration.
+
+### Patterns: B+
+
+No findings. GUI DLL progress additions follow existing patterns: centralized slog warnings for swallowed errors, `defer emitDLLProgress("")` for cleanup, stage-prefixed error wrapping with `%w`. Consistent across InstallDLL/UpdateDLLs/RestoreDLLs.
+
+### Coupling: C+
+
+#### ⇢ TUI/GUI fan-out unchanged — info (confidence: 90)
+
+- **Location**: `internal/tui/` (11 imports of domain packages), `internal/gui/app.go` (7 internal imports)
+- **Evidence**: No change since Audit 3. GUI imports config/cpu/dll/game/gpu/launcher/profile
+- **Impact**: Harder to unit-test UI in isolation. Mitigated by Services DI in TUI.
+- **Suggested action**: Status quo acceptable — downgrading to info given stability
+
+### Complexity: B
+
+Refactor from Cycle 48 landed cleanly. Layout.Update() 366→74 lines, profile_widget.go 994→455 (field defs to profile_fields.go:549), content.go 945→680 (tab renderers to content_views.go:281). All 99 TUI tests pass unchanged.
+
+#### ⇢ Remaining large files — info (confidence: 70)
+
+- **Location**: `internal/gui/app.go` (791 lines), `internal/tui/layout.go` (689 lines, mostly render helpers), `internal/tui/content.go` (680 lines), `internal/tui/options_modal.go` (608)
+- **Evidence**: app.go now holds all Wails-exposed methods plus new DLL progress plumbing. layout.go is render-helper dense (renderStandard/Compact/Focused/BatchMenu), not Update-sprawl.
+- **Impact**: Readable but monolithic; future GUI features will continue to bloat app.go
+- **Suggested action**: Watch for next growth cycle; consider splitting app.go by concern (config/DLL/launch/game) if it passes 900 lines
+
+### Tests: B-
+
+No change in coverage. 99 TUI tests survived the refactor (validates the Services DI + key-sequence helpers). Still 12/17 internal packages tested; env/gui/lock/logging/xdg untested (all low-risk).
+
+#### ⇢ No tests for new extracted files — info (confidence: 55)
+
+- **Location**: `internal/tui/profile_fields.go`, `layout_handlers.go`, `content_views.go`
+- **Evidence**: Extracted from tested files; existing tests cover them transitively
+- **Impact**: Minimal — mechanical extraction, behavior preserved
+- **Suggested action**: None required; existing tests are the regression guard
+
+### Dependencies: A
+
+No change. 9 direct deps, exact pinning, clean state.
+
+### Versions: D
+
+#### ⇶ v0.2.1 release 37 days stale with 51 unreleased commits — critical (confidence: 100)
+
+- **Location**: `CHANGELOG.md` [Unreleased] section; last release tag `a83e75d chore(release): v0.2.0` (v0.2.1 tag on 2026-03-13)
+- **Evidence**: 51 feat/fix commits since v0.2.1 release date. Unreleased section lists ~25 Added/Changed/Fixed entries including: fan speed control, overlay CLI, TUI test harness (99 tests), launch --dry-run, all show --json flags, TUI complexity refactor, GUI DLL progress.
+- **Impact**: Per DOCS.md versioning convention (semver, bump on release), this substantially exceeds both the 7-day age and 5-commit thresholds. Users on v0.2.1 are missing material functionality. Audit 3 flagged this at 28 days / 9 Added entries; it has since grown.
+- **Suggested action**: Cut v0.3.0 via magefile release. Content warrants minor bump (multiple new features, no breaking changes).
+
+### Security: A
+
+No findings. Lightweight scan found no hardcoded secrets, no dangerous exec patterns, no concatenated SQL. GUI additions use parameterized event emission and `%w` wrapping only.
+
+> This is a lightweight surface scan. For comprehensive security analysis, use dedicated tools: semgrep, gosec, govulncheck, or similar static analysis and vulnerability scanning tools appropriate to your stack.
+
+### Freshness: A
+
+All operational artifacts current. HEALTH.md updated today, PROGRESS.md current (Cycle 49 today), TODO.md current (Degraded items closed today). No PLAN.md (archived after TUI complexity plan completed).
+
+### Trends vs Audit 3
+
+- **Improved**: Complexity [C+→B] (all three file-size warnings resolved by Cycle 48 refactor), Patterns [B→B+] (GUI DLL progress follows existing patterns cleanly)
+- **Degraded**: Versions [B+→D] (9 more days + 2 more cycles of unreleased content; now well past semver convention thresholds)
+- **Stable**: Architecture, Coupling (downgraded from warning to info given stability), Tests, Dependencies, Security, Freshness
+- **New findings**: None structural; version health is the only escalation
+- **Resolved from Audit 3**: Layout.Update() 366 lines (now 74), profile_widget.go 994 lines (now 455), content.go 945 lines (now 680); GUI DLL progress/error context degraded items closed
+
+### Patterns Observed
+
+- **Module structure**: 17 packages under internal/ (stable since Audit 3); TUI split into 10+ files with clear responsibilities (layout shell, layout_handlers for input, content for state, content_views for rendering, profile_widget for widget logic, profile_fields for declarative field defs)
+- **Error handling**: `fmt.Errorf` with `%w` wrapping everywhere; GUI now uses stage-prefixed error wrapping for user-facing failures; previously-swallowed errors promoted to `slog.Warn`
+- **Testing approach**: Services DI + key-sequence helpers (testhelpers_test.go at 377 lines) survived a major refactor without changes — strong signal the test harness is well-designed
+- **Dependency patterns**: Unchanged — 9 direct, exact pinning
+- **Privilege model**: Unchanged — batched pkexec apply-profile
+- **Profile composition**: Unchanged — cleanup closures, ApplyEnv for dry-run
+- **GUI transparency**: Wails `runtime.EventsEmit` + defer-cleanup pattern for progressive UI feedback; persistent error banners instead of transient toasts (vision: "show everything Spela does")
+
 ## Audit 3 — 2026-04-10 (full: post-test-harness + feature burst)
 
 The codebase improved substantially since Audit 1. All critical findings resolved: logging unified, TUI globals threaded, launch cleanup fixed, profile widget switch replaced. 99 TUI state machine tests shipped with Services DI. Fan speed control, overlay CLI, launch dry-run, and --json across all show commands all landed cleanly. The main concern is growing complexity in three TUI files that are refactor candidates but not blocking.
