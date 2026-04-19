@@ -64,7 +64,7 @@ Driver version gate lives next to the NVML driver query (or in the proton packag
 ### Task 2: Proton build resolver
 
 **Depends on**: none
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 
 - GIVEN a Steam-managed game AppID AND the user's Steam library is detected WHEN `ResolveForAppID` is called THEN it returns the Proton build directory path and a non-empty name

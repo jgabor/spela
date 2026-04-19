@@ -1,5 +1,34 @@
 # Progress
 
+## Cycle 51 — 2026-04-19
+
+**Phase**: build
+**What**: Task 2 of the descriptor_heap plan — created new `internal/proton` package exposing `ResolveForAppID`, `SupportsVKD3DHeap`, `ParseDriverVersion` + `DriverVersion.Compare`/`MeetsMinimum`/`String`, sentinel errors `ErrProtonNotResolved` and `ErrDriverUnavailable`, and constants `MinDriverVersion = "580.94.16"` / `MinProtonCachyOSBuild = "10.0-20260321"` in a dedicated `requirements.go` with PR/release citations. Resolver walks `config/config.vdf` → `InstallConfigStore → Software → Valve → Steam → CompatToolMapping` with per-AppID → global `"0"` fallback, then locates the build directory under `compatibilitytools.d/<name>` (community) or `steamapps/common/<name>` (built-in). Marker detection is a literal byte scan of the top-level `proton` script for `PROTON_VKD3D_HEAP`; missing script returns `(false, nil)` per the "unsupported but not error" contract. Driver parser trims whitespace, handles 1–4 components, returns typed `ErrDriverUnavailable` on empty input and a descriptive wrapped error on garbage. No consumers wired — Tasks 3 and 4 will consume this surface.
+**Commit**: feat(proton): add build resolver, marker detection, and driver version gate
+**Inspiration**: `internal/dll/version.go` as the template for version comparison semantics (kept the idiom of splitting on `.` and tolerating missing components).
+**Discovered**: `internal/gpu` has no public `DriverVersion()` function — the driver string is read inline inside `getInfoNVML()` into a map. Rather than refactor that out in this task (which would conflate Task 2 with a gpu-package change), `ParseDriverVersion` takes the raw string as input and the launcher preflight (Task 4) will be responsible for fetching and passing it in. `steam.VDFNode.GetNode` safely chains on nil-map receivers since the method operates on a map type, so `root.GetNode(…).GetNode(…)` is a clean way to walk the nested config. Community tool names in `config.vdf` typically match the directory name under `compatibilitytools.d/` exactly (verified against local `~/.steam/root/compatibilitytools.d/` which contains `cachyos-10.0-20260410-slr`, `GE-Proton10-34`, etc.), and built-in Proton uses names like `"Proton Hotfix"` that match `steamapps/common/Proton Hotfix/` — the two-candidate locate-strategy covers both.
+**Verified**: `mage test` exit 0 (all packages). `mage lint` → 0 issues after `gofumpt -w internal/proton/`. `go test ./internal/proton/... -v` → 14 subtests PASS in 0.002s:
+
+- `TestParseDriverVersion_Shapes/three-component_at_minimum` — "580.94.16" → {580,94,16, Available:true}, `MeetsMinimum()=true`
+- `TestParseDriverVersion_Shapes/two-component_below_minimum_patch` — "580.94" → {580,94,0}, `MeetsMinimum()=false` (patch 0 < 16)
+- `TestParseDriverVersion_Shapes/beta_with_zero_minor_above_minimum_major` — "585.0.0" → {585,0,0}, `MeetsMinimum()=true`
+- `TestParseDriverVersion_Shapes/whitespace-padded_from_nvidia-smi_fallback` — "  580.94.16  " → parses and meets minimum
+- `TestParseDriverVersion_Empty_ReturnsUnavailable` — `""` and `"   "` both → `errors.Is(err, ErrDriverUnavailable)`, `String()="unavailable"`, `MeetsMinimum()=false`
+- `TestParseDriverVersion_Garbage_ReturnsTypedError` — "not-a-version" returns non-nil error that is NOT `ErrDriverUnavailable`
+- `TestDriverVersion_Compare` — six pairs including `unavailable.Compare(available) = -1` and `unavailable.Compare(unavailable) = 0`
+- `TestResolveForAppID_PerGameOverride_Found` — fake `config.vdf` with `CompatToolMapping["1091500"]="GE-Proton10-34"` + fake tool dir → returns `{Name:"GE-Proton10-34", Path:<tmp>/compatibilitytools.d/GE-Proton10-34}`
+- `TestResolveForAppID_GlobalDefault_Found` — only `"0"="cachyos-10.0-20260410-slr"` mapping → AppID 1091500 resolves via fallback
+- `TestResolveForAppID_NoMapping_ReturnsSentinel` — AppID not in map AND no `"0"` default → `errors.Is(err, ErrProtonNotResolved)`
+- `TestResolveForAppID_MappingPresentButDirMissing_ReturnsSentinel` — mapping refers to `GE-Proton99-99` that isn't installed → sentinel
+- `TestResolveForAppID_BuiltInCommonFallback` — `"Proton Hotfix"` under `steamapps/common/` (not `compatibilitytools.d/`) → resolves via second candidate path
+- `TestResolveForAppID_EmptyRoot_ReturnsSentinel` — `ResolveForAppID("", 1091500)` → sentinel
+- `TestSupportsVKD3DHeap_MarkerPresent` — `proton` script containing `PROTON_VKD3D_HEAP` literal → `true`
+- `TestSupportsVKD3DHeap_MarkerAbsent` — `proton` script without the string → `false`
+- `TestSupportsVKD3DHeap_ScriptMissing_ReturnsFalseNoError` — directory exists, no `proton` script → `(false, nil)`
+- `TestSupportsVKD3DHeap_EmptyBuildPath` — zero-value `Build{}` → `(false, nil)`
+**Next**: Task 3 (CLI + TUI user surface) and Task 4 (launcher preflight) now both unblocked — can run in parallel since they touch different subsystems.
+**Context**: intent — create resolver/marker/driver-parser substrate that Tasks 3/4 layer UX and preflight on · constraints — no new deps, no consumer wiring, constants centralized · unknowns — whether built-in Proton ever uses an internal key that differs from its `steamapps/common/` subdir name (current assumption: name == dirname for the cases we care about; if violated, adds an `appinfo.vdf` fallback in a later cycle) · scope — new package `internal/proton/` with 3 source files + 2 test files (driver.go, resolver.go, requirements.go, driver_test.go, resolver_test.go)
+
 ## Cycle 50 — 2026-04-19
 
 **Phase**: build
