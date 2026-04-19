@@ -5,114 +5,173 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] - 2026-04-19
 
-### Fixed
-
-- GUI surfaces DLL operation progress and full error context — every install/update/restore stage emits a visible label, and failures land in a persistent dismissible error banner with stage-prefixed messages
-- GUI build restored — `dll.GetOrDownloadDLL` callers updated after the dead-code sweep removed the function
+Version 0.3.0 brings significant GPU monitoring improvements including an NVML backend for fast metric reading, GPU alert detection with throttle reason identification, and live in-game metrics via mmap IPC with sparkline and gauge visualizations. The TUI gains tab-based navigation (DLLs, Profile, Launch), density modes, modal overlays, and confirmation prompts for destructive DLL operations, while GPU profiles now support per-game power limits and fan speed control.
 
 ### Added
 
-- Confirmation prompts for destructive DLL operations (update/restore) when confirm_destructive is enabled
-- Color flash animation on message bar — 300ms green/red pulse for operation feedback
-- Information density modes — standard, compact (F5), and focused (F11) with condensed header
-- Compositor-based modal overlays with z-indexed cascading stack
-- Jump-key panel titles — [1]Games, [2]DLLs, [3]Profile, [4]Launch for instant navigation
-- Tab-based content views — DLLs, Profile, and Launch tabs with jump-key switching and full panel height
-- Header sparklines and gauges — rolling 20-character thermal sparklines for GPU/CPU, block gauges for VRAM/RAM
-- Context-sensitive keybinding bar with DisabledReason pattern — dimmed keys show why actions are unavailable
-- Sparkline and gauge renderers — per-character thermal coloring, sub-character gauge precision, metrics ring buffer
-- Thermal color gradient system for TUI metrics — continuous blue-to-red coloring based on metric severity
-- Expanded theme token system with surface palette, text hierarchy, and metric-specific colors
-- `spela proton set/show` commands for per-game HDR, Wayland, NGX updater settings
-- Per-game GPU power limit profile support with apply-at-launch and restore-on-exit
-- Enhanced `spela gpu info` with power limit range, clocks, fan speed, and GPU utilization
-- Enhanced `spela cpu info` with frequencies, load, RAM, available governors, and SCX status
-- GPU profile flags: `--shader-cache`, `--shader-cache-path`, `--threaded-opt`
-
-- `--json` flag for all profile section show commands (gpu, overlay, proton, cpu, dlss) for machine-readable output
+- Upgrade to bubbletea v2 and apply crush UI patterns
+- Add NVML backend for fast GPU metric reading
+- Add GPU alert detection system
+- Integrate GPU alerts into header with colored metrics
+- Add NVML throttle reason detection for precise alerts
+- Add mmap IPC protocol with seqlock synchronization
+- Add stats collector for periodic IPC writes
+- Wire collector into launcher for live game metrics
+- Batched pkexec apply-profile with NVML setters
+- Add proton profile commands and complete GPU profile flags
+- Add per-game GPU power limit to profile system
+- Enhance gpu info with power limit range, clocks, fan, and utilization
+- Enhance cpu info with frequencies, load, RAM, available governors, and SCX status
+- Add thermal gradient system and expanded theme tokens
+- Add thermal gradient system and expanded theme tokens
+- Add sparkline and gauge renderers with metrics buffer
+- Add sparkline and gauge renderers with metrics buffer
+- Add sparklines and gauges to header metrics display
+- Add context-sensitive keybinding bar with disabled reasons
+- Add sparklines/gauges to header and context-sensitive keybinding bar
+- Add tab-based content views with DLLs, Profile, and Launch tabs
+- Add tab-based content views with DLLs, Profile, and Launch tabs
+- Add compositor-based modal overlays with cascading stack
+- Add density modes (standard/compact/focused) and jump-key panel titles
+- Add density modes, compositor modals, and jump-key panel titles
+- Add color flash animation on message bar for operation feedback
+- Add confirmation prompts for destructive DLL operations
+- Add overlay set/show commands for per-game overlay profiles
+- Enable overlay profile fields in TUI widget
+- Improve profile show with formatted output and --json flag
+- Add fan speed control to profile system
+- Add fan speed field to GPU profile widget
+- Add --dry-run flag to launch command
+- Add --json flag to gpu show and overlay show commands
+- Add --json flag to proton, cpu, and dlss show commands
 
 ### Changed
 
-- TUI complexity reduced: split 3 oversized files (profile_widget, layout, content) into 6 focused files
-- `spela launch --dry-run` shows what would happen (env vars, hardware settings, overlay) without actually launching
-- GPU fan speed control in per-game profiles — `gpu set --fan-speed`, TUI widget (30-100%), auto-reset to driver default on game exit
-- `spela profile show` now displays formatted, human-readable output with all 5 profile sections; JSON via `--json` flag
-- TUI overlay profile fields now editable (Enabled, Position, ShowFPS/Frametime/CPU/GPU/VRAM) — no longer "Coming soon"
-- `spela overlay set/show` commands for per-game overlay profile settings (enabled, position, metrics display, toggle key)
-- TUI end-to-end test harness: 99 state machine tests across layout, sidebar, content, and profile widget with injectable service fakes, model factories, and key-sequence helpers
-- TUI dependency injection: synchronous I/O calls now go through injectable Services struct for testability
-- Remove ludusavi save game integration (feature to be rethought)
-- Remove 49 dead functions, unused mangohud config, self-updater package, and samber/lo dependency
-- TUI navigation: replaced binary focus system with LIFO navigation stack, breadcrumb trail, and stack-based message routing
-- Update transitive dependencies (x/crypto, x/net, x/text, wails, bubbles, echo)
-- Consolidate launch orchestration into single entry point for CLI, GUI, and TUI
-- TUI theme and styles passed through model tree instead of global state
-- Profile widget fields use declarative registry with apply closures instead of switch
+- Small code quality improvements
+- Deduplicate tool name patterns between game and steam
+- Extract Database.FindGame to eliminate duplicated lookups
+- Remove dlssModeToEnv identity function
+- Use FindGame in denylist commands
+- Use CutPrefix and consolidate privilege exec helpers
+- Use GetGame accessor and add HTTP timeouts to dlss-updater
+- Fix deprecated API, use WalkDir, and add sentinel error
+- Improve error handling and extract gameInfoFromGame helper
+- Sort ListDLLNames at source, fix double map allocation
+- Modernize loops and wrap SetSMT error in cpu package
+- Extract GameDLLsFromDetected helper, sort profile list output
+- Migrate sort to slices package, add version comparison tests
+- Add comprehensive tests for deny list operations
+- Modernize idioms, add tests, and fix minor issues
+- Use strconv and strings.FieldsSeq for efficiency
+- Migrate to .agentera/ artifact layout
+- Convert docs/ISSUES.md to TODO.md
+- Consolidate launch orchestration into Prepare()
+- Replace global mutable styles with threaded *Styles
+- Add persistence tests for YAML roundtrip, missing file, and malformed input
+- Add tests with mock sysfs for governor, SMT, metrics, and affinity
+- Add tests for cleanup order, signal forwarding, overlay IPC, and wrapper parsing
+- Replace profile widget 54-case switch with field registry
+- Update transitive dependencies
+- Replace binary focus with navigation stack and breadcrumbs
+- Merge branch 'worktree-agent-a1a635f0'
+- Replace binary focus with navigation stack and breadcrumbs
+- Merge branch 'worktree-agent-a5700507'
+- Merge branch 'worktree-agent-a92ba1ae'
+- Remove ludusavi save game integration
+- Remove dead code and unused dependencies
+- Plan-level freshness checkpoint and archive
+- Introduce Services struct for dependency injection
+- Add test helpers and model factories for state machine testing
+- Add layout, navigation, and modal state machine tests
+- Add sidebar state machine tests
+- Add content and DLL operation state machine tests
+- Add profile widget and disabled field contract tests
+- Plan-level freshness checkpoint for TUI test harness plan
+- Plan-level freshness checkpoint and archive
+- Archive completed TUI test harness plan
+- Reduce complexity by splitting three oversized files
+- Archive TUI complexity plan and update artifacts
+
+### Documentation
+
+- Log utvecklarn cycles 6-7
+- Refine vision, audit health, rewrite README, update CLAUDE.md
+- Update plan, progress, and changelog for launch cleanup fix
+- Update plan, progress, and changelog for launch consolidation
+- Update plan, progress, and changelog for logging fix
+- Update plan, progress, and changelog for TUI styles refactor
+- Update plan and progress for config tests
+- Update plan and progress for CPU tests
+- Update plan, progress, and changelog for launcher tests
+- Archive foundation hardening plan — all 8 tasks complete
+- Update progress, todo, and changelog for CLI profile commands
+- Update progress, todo, and changelog for dependency update
+- Archive power limit plan, update progress and changelog
+- Update progress and changelog for gpu info enhancement
+- Update progress and changelog for cpu info enhancement
+- Update progress and changelog for sparkline/gauge renderers
+- Update progress and changelog for Tasks 5 and 6
+- Log cycle 49 (GUI DLL progress + error context)
+- Log inspektera audit 4
 
 ### Fixed
 
-- Restore GPU clocks, CPU governor, and environment variables on game exit when launched from GUI or TUI
-- Overlay collector now starts for GUI and TUI launches (previously CLI-only)
-- All log output now routes through centralized slog logging for consistent level control
-- Test coverage added for config, cpu, and launcher packages
+- Use XDG state directory instead of ~/logs
+- Add HTTP client timeouts to prevent indefinite hangs
+- Check download close error, use XDG for MangoHud logs, precompile regex
+- Guard against nil logger and invalid appID in manifest parsing
+- Batch menu bounds, env var restore correctness, test resource leaks
+- Clean up partial file on copy error, remove stale +build lines
+- Use LoadEffective in launch command, propagate ResetClocks errors
+- Update name when modifying denied entry
+- Gate Wails code behind build tags, remove TUI fallback
+- Include bindings tag in build constraints
+- Register cleanup closures in GUI and TUI launch paths
+- Replace log.Printf with centralized slog logging
+- Make jump keys 2/3/4 global and fix F5/F11 key matching
+- Surface DLL operation progress and complete error context
 
 ## [0.2.1] - 2026-03-13
 
 ### Fixed
 
-- Use `LoadEffective` in wrapper mode so the default profile is applied for games without a game-specific profile
-- Treat profile load errors as non-fatal warnings instead of aborting the game launch
-- Replace `.gitkeep`-based frontend dist directory with build-tag-guarded embed (`embed_assets`) so CI builds no longer depend on a tracked placeholder file
+- Use LoadEffective and treat profile errors as non-fatal
+- Add tests and update generated files
 
 ## [0.2.0] - 2026-03-02
 
 ### Added
 
-- Add missing profile fields: DLSS ray reconstruction, frame generation, GPU clock offsets, CPU settings, overlay settings, and Ludusavi restore (TUI and GUI)
-- Add missing `dlss set` CLI flags: `--sr-model-preset`, `--rr-preset`, `--rr-override`, `--fg-override`, `--fg-indicator`
-- Add distinct dark and light themes with theme switcher in options modal
-- Add "Coming soon" label for profile settings not yet wired to backend
-- Add initial game auto-selection on TUI startup
-- Add unknown profile value indicator (? prefix) for non-standard values
+- Add pkexec-based privilege escalation
 
 ### Changed
 
-- Remap game launch key from `l` to `L` (Shift+L) to free vim-style navigation
-- Change `q` key to always back-navigate (content → sidebar → quit)
-- Use `sort.SliceStable` for deterministic game list ordering
-- Pre-compute profile existence map before sorting to reduce filesystem calls
-- Scope deselect-all (`A`) to current filter view instead of clearing all selections
-- Preserve cursor position on filter changes instead of resetting to top
-- Replace hardcoded colors with theme references throughout TUI
-- Use launcher package for game launching in TUI and GUI (enables Ludusavi backup and signal handling)
-- Deduplicate DLSS preset metadata using canonical profile package source
+- Add DLSS Frame Generation 310.5.3 to manifest
+- Add DLSS 310.5.3 to manifest
+- Update editor, linter, and git hooks configuration
+- Optimize workflows and fix AUR publish
 
 ### Fixed
 
-- Fix messages dropped when switching focus during async DLL load
-- Fix data race on game.DLLs mutation from background goroutines
-- Fix DLL install/update/restore errors silently swallowed with no user feedback
-- Fix `dllOperating` guard never set, allowing concurrent DLL operations
-- Fix DLSS-G versions never displayed due to column key mismatch
-- Fix DLSS-D type detected but missing from display columns (TUI and GUI)
-- Fix launch errors not shown to user
-- Fix options save error silently treated as cancel
-- Fix options modal centering off by padding amount
-- Fix profile widget grid navigation (left/right now moves between columns)
-- Fix zombie process from `cmd.Start()` without `cmd.Wait()`
-- Fix DLL version metadata not persisted to database after update/install/restore (TUI, GUI, CLI)
-- Fix DLL update progress not shown to user in TUI
-- Fix GUI theme selector not accepting "light" theme
+- Restore frontend dist .gitkeep lost during rebase
 
-### Removed
+## [dll-dlssg-v310.5.3] - 2026-01-31
 
-- Remove dead `profile_editor.go` (~430 lines of unused code)
+### Changed
+
+- Add DLSS Ray Reconstruction 310.5.3 to manifest
+
+## [dll-dlssd-v310.5.3] - 2026-01-23
+
+### Fixed
+
+- Install wails cli for builds
+- Avoid e2e on failed builds
+- Ensure frontend dist for embed
 
 ## [0.1.0] - 2026-01-23
-
-This release introduces Spela as a comprehensive Linux gaming optimization tool for NVIDIA GPUs, featuring DLSS/DLL management and per-game profiles. It includes multiple interfaces (CLI, TUI with bubbletea, and Wails desktop app) along with game scanning, launch wrapper, and tuning capabilities. The release also adds DLSS Frame Generation and Ray Reconstruction support, unified theme with light/dark modes, and extensive CI/CD automation with AUR package publishing.
 
 ### Added
 
@@ -212,5 +271,9 @@ This release introduces Spela as a comprehensive Linux gaming optimization tool 
 - Restore interactive redo flow
 - Change summary model
 
-[0.2.0]: https://github.com/jgabor/spela/compare/v0.1.0...v0.2.0
+[0.3.0]: https://github.com/jgabor/spela/compare/v0.2.1..v0.3.0
+[0.2.1]: https://github.com/jgabor/spela/compare/v0.2.0..v0.2.1
+[0.2.0]: https://github.com/jgabor/spela/compare/dll-dlssg-v310.5.3..v0.2.0
+[dll-dlssg-v310.5.3]: https://github.com/jgabor/spela/compare/dll-dlssd-v310.5.3..dll-dlssg-v310.5.3
+[dll-dlssd-v310.5.3]: https://github.com/jgabor/spela/compare/v0.1.0..dll-dlssd-v310.5.3
 [0.1.0]: https://github.com/jgabor/spela/tree/v0.1.0
