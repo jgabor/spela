@@ -18,6 +18,8 @@ import (
 	"github.com/jgabor/spela/internal/gpu"
 	"github.com/jgabor/spela/internal/launcher"
 	"github.com/jgabor/spela/internal/profile"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 var (
@@ -596,7 +598,24 @@ func (a *App) ListDLLVersions(dllType string) ([]string, error) {
 	return results, nil
 }
 
+func (a *App) emitDLLProgress(stage string) {
+	if a.ctx == nil {
+		return
+	}
+	runtime.EventsEmit(a.ctx, "dll:progress", stage)
+}
+
+func ensureDLLCached(target *dll.DLL, dllName string) (string, error) {
+	cachePath := dll.GetDLLCachePath(dllName, target.Version)
+	if _, err := os.Stat(cachePath); err == nil {
+		return cachePath, nil
+	}
+	return dll.DownloadDLLWithProgress(target, dllName, nil)
+}
+
 func (a *App) InstallDLL(appID uint64, dllType, version string) error {
+	defer a.emitDLLProgress("")
+
 	if a.db == nil {
 		return ErrDatabaseNotLoaded
 	}
@@ -609,9 +628,10 @@ func (a *App) InstallDLL(appID uint64, dllType, version string) error {
 		return fmt.Errorf("%w: %d", ErrGameNotFound, appID)
 	}
 
+	a.emitDLLProgress("Resolving manifest")
 	manifest, err := dll.GetManifest(false, "")
 	if err != nil {
-		return err
+		return fmt.Errorf("load DLL manifest: %w", err)
 	}
 
 	targetVersion := version
@@ -629,28 +649,37 @@ func (a *App) InstallDLL(appID uint64, dllType, version string) error {
 		return fmt.Errorf("no version available for %s", dllType)
 	}
 
-	cachePath, err := dll.GetOrDownloadDLL(manifest, dllType, targetVersion)
+	a.emitDLLProgress(fmt.Sprintf("Downloading %s %s", dllType, targetVersion))
+	cachePath, err := ensureDLLCached(targetDLL, dllType)
 	if err != nil {
-		return err
+		return fmt.Errorf("download %s: %w", targetVersion, err)
 	}
 
 	gameDLLs := dll.GameDLLsFromDetected(g.DLLs)
 
+	a.emitDLLProgress(fmt.Sprintf("Installing %s", targetDLL.Filename))
 	if err := dll.InstallDLL(g.AppID, g.Name, g.InstallDir, gameDLLs, targetDLL.Filename, cachePath); err != nil {
-		return err
+		return fmt.Errorf("install DLL: %w", err)
 	}
 
+	a.emitDLLProgress("Scanning install directory")
 	detected, err := dll.ScanDirectory(g.InstallDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("scan install directory: %w", err)
 	}
 
 	g.DLLs = detected
 	g.ScannedAt = time.Now()
-	return a.db.Save()
+	a.emitDLLProgress("Saving database")
+	if err := a.db.Save(); err != nil {
+		return fmt.Errorf("save game database after install: %w", err)
+	}
+	return nil
 }
 
 func (a *App) UpdateDLLs(appID uint64) error {
+	defer a.emitDLLProgress("")
+
 	if a.db == nil {
 		return ErrDatabaseNotLoaded
 	}
@@ -660,9 +689,10 @@ func (a *App) UpdateDLLs(appID uint64) error {
 		return fmt.Errorf("%w: %d", ErrGameNotFound, appID)
 	}
 
+	a.emitDLLProgress("Resolving manifest")
 	manifest, err := dll.GetManifest(false, "")
 	if err != nil {
-		return err
+		return fmt.Errorf("load DLL manifest: %w", err)
 	}
 
 	gameDLLs := dll.GameDLLsFromDetected(g.DLLs)
@@ -673,25 +703,36 @@ func (a *App) UpdateDLLs(appID uint64) error {
 			continue
 		}
 
-		cachePath, err := dll.GetOrDownloadDLL(manifest, d.Name, "latest")
+		a.emitDLLProgress(fmt.Sprintf("Downloading %s %s", d.Name, latest.Version))
+		cachePath, err := ensureDLLCached(latest, d.Name)
 		if err != nil {
-			return err
+			return fmt.Errorf("download %s: %w", d.Name, err)
 		}
 
+		a.emitDLLProgress(fmt.Sprintf("Swapping %s", d.Name))
 		if err := dll.SwapDLL(appID, g.Name, gameDLLs, d.Name, cachePath); err != nil {
-			return err
+			return fmt.Errorf("swap %s: %w", d.Name, err)
 		}
 	}
 
+	a.emitDLLProgress("Scanning install directory")
 	detected, err := dll.ScanDirectory(g.InstallDir)
-	if err == nil {
+	if err != nil {
+		slog.Warn("scan after update failed", "appID", appID, "error", err)
+	} else {
 		g.DLLs = detected
 		g.ScannedAt = time.Now()
 	}
-	return a.db.Save()
+	a.emitDLLProgress("Saving database")
+	if err := a.db.Save(); err != nil {
+		return fmt.Errorf("save game database after update: %w", err)
+	}
+	return nil
 }
 
 func (a *App) RestoreDLLs(appID uint64) error {
+	defer a.emitDLLProgress("")
+
 	if a.db == nil {
 		return ErrDatabaseNotLoaded
 	}
@@ -701,16 +742,24 @@ func (a *App) RestoreDLLs(appID uint64) error {
 		return fmt.Errorf("%w: %d", ErrGameNotFound, appID)
 	}
 
+	a.emitDLLProgress("Restoring backup")
 	if err := dll.RestoreBackup(appID); err != nil {
-		return err
+		return fmt.Errorf("restore backup: %w", err)
 	}
 
+	a.emitDLLProgress("Scanning install directory")
 	detected, err := dll.ScanDirectory(g.InstallDir)
-	if err == nil {
+	if err != nil {
+		slog.Warn("scan after restore failed", "appID", appID, "error", err)
+	} else {
 		g.DLLs = detected
 		g.ScannedAt = time.Now()
 	}
-	return a.db.Save()
+	a.emitDLLProgress("Saving database")
+	if err := a.db.Save(); err != nil {
+		return fmt.Errorf("save game database after restore: %w", err)
+	}
+	return nil
 }
 
 func (a *App) HasDLLBackup(appID uint64) bool {

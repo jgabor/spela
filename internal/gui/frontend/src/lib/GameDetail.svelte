@@ -1,5 +1,5 @@
 <script>
-  import { onMount, createEventDispatcher, tick } from 'svelte'
+  import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte'
   import {
     CheckDLLUpdates,
     GetDefaultProfile,
@@ -16,6 +16,7 @@
     UpdateDLLs
   } from '../../wailsjs/go/gui/App'
   import Dropdown from './Dropdown.svelte'
+  import { EventsOn } from '../../wailsjs/runtime/runtime'
 
   export let game
   export let profileMode = 'game'
@@ -40,6 +41,9 @@
   let installingDLL = false
   let installError = ''
   let root
+  let dllProgressStage = ''
+  let errorMessage = ''
+  let unsubscribeDllProgress = null
 
   const srModeOptions = [
     { value: '', label: '(default)' },
@@ -137,10 +141,17 @@
   })
 
   onMount(async () => {
+    unsubscribeDllProgress = EventsOn('dll:progress', (stage) => {
+      dllProgressStage = stage || ''
+    })
     await loadProfile()
     if (profileMode === 'game' && game) {
       await checkDLLUpdates()
     }
+  })
+
+  onDestroy(() => {
+    unsubscribeDllProgress?.()
   })
 
   let lastGameId = null
@@ -234,6 +245,14 @@
     clearMessageAfter(3000)
   }
 
+  function setError(text) {
+    errorMessage = text
+  }
+
+  function dismissError() {
+    errorMessage = ''
+  }
+
   async function save() {
     saving = true
     try {
@@ -247,7 +266,7 @@
         setMessage('Profile saved!', 'success')
       }
     } catch (e) {
-      setMessage('Failed to save: ' + formatError(e), 'error')
+      setError('Failed to save: ' + formatError(e))
     }
     saving = false
   }
@@ -358,7 +377,7 @@
       await checkDLLUpdates()
       setMessage('DLLs updated!', 'success')
     } catch (e) {
-      setMessage('Failed to update: ' + formatError(e), 'error')
+      setError('Failed to update: ' + formatError(e))
     }
     updatingDLLs = false
   }
@@ -371,7 +390,7 @@
       await checkDLLUpdates()
       setMessage('DLLs restored!', 'success')
     } catch (e) {
-      setMessage('Failed to restore: ' + formatError(e), 'error')
+      setError('Failed to restore: ' + formatError(e))
     }
     restoringDLLs = false
   }
@@ -387,7 +406,7 @@
       await LaunchGame(game.appId)
       setMessage('Game launched!', 'success')
     } catch (e) {
-      setMessage('Failed to launch: ' + formatError(e), 'error')
+      setError('Failed to launch: ' + formatError(e))
     }
     launching = false
   }
@@ -402,6 +421,12 @@
 </script>
 
   <div class="detail" bind:this={root}>
+    {#if errorMessage}
+      <div class="error-banner">
+        <span class="error-text">{errorMessage}</span>
+        <button class="error-dismiss" type="button" on:click={dismissError}>Dismiss</button>
+      </div>
+    {/if}
     {#if profileMode === 'default'}
       <div class="default-header">
         <h1>Default profile</h1>
@@ -470,6 +495,9 @@
           {/if}
           {#if hasBackup}
             <span class="backup-hint">Backup available</span>
+          {/if}
+          {#if dllProgressStage && (updatingDLLs || restoringDLLs || installingDLL)}
+            <span class="dll-progress">{dllProgressStage}…</span>
           {/if}
         </div>
       </div>
@@ -868,6 +896,46 @@
   .backup-hint {
     color: var(--text-dim);
     font-size: 0.75rem;
+  }
+
+  .dll-progress {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  }
+
+  .error-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--error);
+    background-color: var(--bg-secondary);
+    color: var(--error);
+    font-size: 0.8rem;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  }
+
+  .error-text {
+    flex: 1;
+    word-break: break-word;
+  }
+
+  .error-dismiss {
+    border: 1px solid var(--error);
+    background: none;
+    color: var(--error);
+    cursor: pointer;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  }
+
+  .error-dismiss:hover {
+    filter: brightness(1.2);
   }
 
   .install-overlay {

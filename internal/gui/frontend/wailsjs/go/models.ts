@@ -198,7 +198,6 @@ export namespace gui {
 	    enableHdr: boolean;
 	    enableWayland: boolean;
 	    enableNgxUpdater: boolean;
-	    backupOnLaunch: boolean;
 	    inheritedFromDefault: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -230,7 +229,6 @@ export namespace gui {
 	        this.enableHdr = source["enableHdr"];
 	        this.enableWayland = source["enableWayland"];
 	        this.enableNgxUpdater = source["enableNgxUpdater"];
-	        this.backupOnLaunch = source["backupOnLaunch"];
 	        this.inheritedFromDefault = source["inheritedFromDefault"];
 	    }
 	}
