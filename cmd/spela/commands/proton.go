@@ -97,17 +97,29 @@ func runProtonSet(cmd *cobra.Command, args []string) error {
 	changed := false
 
 	if protonSetHDR != "" {
-		p.Proton.EnableHDR = protonSetHDR == "true" || protonSetHDR == "1"
+		b, err := parseBoolFlag(protonSetHDR)
+		if err != nil {
+			return fmt.Errorf("--hdr: %w", err)
+		}
+		p.Proton.EnableHDR = b
 		changed = true
 	}
 
 	if protonSetWayland != "" {
-		p.Proton.EnableWayland = protonSetWayland == "true" || protonSetWayland == "1"
+		b, err := parseBoolFlag(protonSetWayland)
+		if err != nil {
+			return fmt.Errorf("--wayland: %w", err)
+		}
+		p.Proton.EnableWayland = b
 		changed = true
 	}
 
 	if protonSetNGXUpdater != "" {
-		p.Proton.EnableNGXUpdater = protonSetNGXUpdater == "true" || protonSetNGXUpdater == "1"
+		b, err := parseBoolFlag(protonSetNGXUpdater)
+		if err != nil {
+			return fmt.Errorf("--ngx-updater: %w", err)
+		}
+		p.Proton.EnableNGXUpdater = b
 		changed = true
 	}
 

@@ -99,6 +99,97 @@ func TestRunProtonSet_VKD3DHeap_InvalidValue(t *testing.T) {
 	}
 }
 
+// TestRunProtonSet_LegacyBoolFlags_Persist covers the happy path for the
+// older proton flags (`--hdr`, `--wayland`, `--ngx-updater`) after the
+// retrofit to `parseBoolFlag`: a valid "true" value must persist as true
+// on the profile's Proton settings.
+func TestRunProtonSet_LegacyBoolFlags_Persist(t *testing.T) {
+	cases := []struct {
+		name  string
+		flag  *string
+		field func(*profile.Profile) bool
+	}{
+		{"hdr", &protonSetHDR, func(p *profile.Profile) bool { return p.Proton.EnableHDR }},
+		{"wayland", &protonSetWayland, func(p *profile.Profile) bool { return p.Proton.EnableWayland }},
+		{"ngx-updater", &protonSetNGXUpdater, func(p *profile.Profile) bool { return p.Proton.EnableNGXUpdater }},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			withTempXDG(t)
+			seedGame(t, "Cyberpunk 2077", 1091500)
+
+			protonSetHDR = ""
+			protonSetWayland = ""
+			protonSetNGXUpdater = ""
+			protonSetVKD3DHeap = ""
+			*tc.flag = "true"
+			t.Cleanup(func() {
+				protonSetHDR = ""
+				protonSetWayland = ""
+				protonSetNGXUpdater = ""
+				protonSetVKD3DHeap = ""
+			})
+
+			if err := runProtonSet(protonSetCmd, []string{"1091500"}); err != nil {
+				t.Fatalf("runProtonSet: %v", err)
+			}
+
+			p, err := profile.Load(1091500)
+			if err != nil {
+				t.Fatalf("profile.Load: %v", err)
+			}
+			if p == nil {
+				t.Fatal("expected profile to exist after set")
+			}
+			if !tc.field(p) {
+				t.Errorf("expected --%s=true to persist as true, got false", tc.name)
+			}
+		})
+	}
+}
+
+// TestRunProtonSet_LegacyBoolFlags_InvalidValue covers the failure path
+// after the retrofit: an unknown value must surface an error that mentions
+// the flag name, rather than silently mapping to false as before.
+func TestRunProtonSet_LegacyBoolFlags_InvalidValue(t *testing.T) {
+	cases := []struct {
+		name string
+		flag *string
+	}{
+		{"hdr", &protonSetHDR},
+		{"wayland", &protonSetWayland},
+		{"ngx-updater", &protonSetNGXUpdater},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			withTempXDG(t)
+			seedGame(t, "Cyberpunk 2077", 1091500)
+
+			protonSetHDR = ""
+			protonSetWayland = ""
+			protonSetNGXUpdater = ""
+			protonSetVKD3DHeap = ""
+			*tc.flag = "garbage"
+			t.Cleanup(func() {
+				protonSetHDR = ""
+				protonSetWayland = ""
+				protonSetNGXUpdater = ""
+				protonSetVKD3DHeap = ""
+			})
+
+			err := runProtonSet(protonSetCmd, []string{"1091500"})
+			if err == nil {
+				t.Fatalf("expected error for invalid --%s value, got nil", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.name) {
+				t.Errorf("expected error to mention --%s, got %q", tc.name, err.Error())
+			}
+		})
+	}
+}
+
 // TestRunProtonShow_RendersNoticeWhenIncompatible verifies that the CLI
 // show path threads the compatibility notice through to stdout when
 // vkd3d_heap is enabled and the injected notice source reports a problem.
