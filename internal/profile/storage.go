@@ -45,6 +45,15 @@ func Load(appID uint64) (*Profile, error) {
 		return nil, err
 	}
 
+	// Legacy profiles (saved before per-field inheritance existed) have no
+	// Overrides map. Reconstruct it by comparing each field to the current
+	// default: equal values collapse to inherited, differing values become
+	// explicit overrides.
+	if p.Overrides == nil {
+		defaults, _ := LoadDefault()
+		migrateInheritance(&p, defaults)
+	}
+
 	return &p, nil
 }
 
@@ -65,15 +74,21 @@ func LoadDefault() (*Profile, error) {
 	return &p, nil
 }
 
+// LoadEffective returns the profile that should be applied for a game launch.
+// If a game profile exists, it is resolved against the current defaults so
+// inherited fields take their value from defaults and overridden fields keep
+// their pinned value. If no game profile exists, the defaults profile is
+// returned directly.
 func LoadEffective(appID uint64) (*Profile, error) {
 	p, err := Load(appID)
 	if err != nil {
 		return nil, err
 	}
+	defaults, _ := LoadDefault()
 	if p != nil {
-		return p, nil
+		return p.ResolveForApply(defaults), nil
 	}
-	return LoadDefault()
+	return defaults, nil
 }
 
 func Save(appID uint64, p *Profile) error {

@@ -57,7 +57,7 @@ Risks the plan accepts: Task 5 is the densest cycle (inheritance rendering + thr
 ### Task 2: Profile inheritance primitives + CLI inheritance output
 
 **Depends on**: none
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN a default profile and a game profile WHEN a field is unset on the game profile THEN `ResolveForApply` returns the default's value.
 ▸ GIVEN a game profile with a pinned field WHEN the default changes THEN `ResolveForApply` returns the game profile's pinned value (override persists through default edits).

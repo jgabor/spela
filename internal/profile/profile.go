@@ -63,6 +63,14 @@ type Profile struct {
 	CPU     CPUSettings     `yaml:"cpu,omitempty"`
 	Proton  ProtonSettings  `yaml:"proton,omitempty"`
 	Overlay OverlaySettings `yaml:"overlay,omitempty"`
+
+	// Overrides tracks which leaf fields are explicitly pinned on this
+	// profile (true) as opposed to inheriting from the defaults profile.
+	// Keys are dot-path field keys defined in inheritance.go (e.g.
+	// "proton.vkd3d_heap"). A profile whose Overrides is nil on load is
+	// treated as legacy and run through migrateInheritance to reconstruct
+	// the map from the stored values.
+	Overrides map[string]bool `yaml:"overrides,omitempty"`
 }
 
 type OverlaySettings struct {

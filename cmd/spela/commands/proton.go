@@ -63,6 +63,16 @@ var protonShowCmd = &cobra.Command{
 	RunE:  runProtonShow,
 }
 
+var protonResetCmd = &cobra.Command{
+	Use:   "reset <game> <field>",
+	Short: "Reset a Proton field to inherit from defaults",
+	Long: `Reset a Proton profile field back to inherited. Valid fields:
+  hdr, wayland, ngx_updater, vkd3d_heap.
+Subsequent 'proton show' will mark the field as (inherited).`,
+	Args: cobra.ExactArgs(2),
+	RunE: runProtonReset,
+}
+
 func init() {
 	protonSetCmd.Flags().StringVar(&protonSetHDR, "hdr", "", "Enable HDR (true/false)")
 	protonSetCmd.Flags().StringVar(&protonSetWayland, "wayland", "", "Enable native Wayland (true/false)")
@@ -73,6 +83,62 @@ func init() {
 
 	ProtonCmd.AddCommand(protonSetCmd)
 	ProtonCmd.AddCommand(protonShowCmd)
+	ProtonCmd.AddCommand(protonResetCmd)
+}
+
+// protonFieldAliases maps the short CLI names users type at the command line
+// to the canonical dot-path keys used by the inheritance layer.
+var protonFieldAliases = map[string]string{
+	"hdr":                profile.FieldProtonEnableHDR,
+	"wayland":            profile.FieldProtonEnableWayland,
+	"ngx_updater":        profile.FieldProtonEnableNGXUpdater,
+	"ngx-updater":        profile.FieldProtonEnableNGXUpdater,
+	"vkd3d_heap":         profile.FieldProtonVKD3DHeap,
+	"vkd3d-heap":         profile.FieldProtonVKD3DHeap,
+	"enable_hdr":         profile.FieldProtonEnableHDR,
+	"enable_wayland":     profile.FieldProtonEnableWayland,
+	"enable_ngx_updater": profile.FieldProtonEnableNGXUpdater,
+}
+
+func runProtonReset(cmd *cobra.Command, args []string) error {
+	db, err := game.LoadDatabase()
+	if err != nil {
+		return err
+	}
+
+	g := db.FindGame(args[0])
+	if g == nil {
+		return fmt.Errorf("game not found: %s", args[0])
+	}
+
+	key, ok := protonFieldAliases[args[1]]
+	if !ok {
+		return fmt.Errorf("unknown proton field %q (valid: hdr, wayland, ngx_updater, vkd3d_heap)", args[1])
+	}
+
+	p, err := profile.Load(g.AppID)
+	if err != nil {
+		return err
+	}
+	if p == nil {
+		fmt.Printf("No profile for %s; field is already inherited.\n", g.Name)
+		return nil
+	}
+
+	if !p.IsOverridden(key) {
+		fmt.Printf("%s: %s is already inherited.\n", g.Name, args[1])
+		return nil
+	}
+
+	if err := p.Reset(key); err != nil {
+		return err
+	}
+	if err := profile.Save(g.AppID, p); err != nil {
+		return err
+	}
+
+	fmt.Printf("Reset %s on %s to inherited.\n", args[1], g.Name)
+	return nil
 }
 
 func runProtonSet(cmd *cobra.Command, args []string) error {
@@ -102,6 +168,7 @@ func runProtonSet(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("--hdr: %w", err)
 		}
 		p.Proton.EnableHDR = b
+		p.MarkOverride(profile.FieldProtonEnableHDR)
 		changed = true
 	}
 
@@ -111,6 +178,7 @@ func runProtonSet(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("--wayland: %w", err)
 		}
 		p.Proton.EnableWayland = b
+		p.MarkOverride(profile.FieldProtonEnableWayland)
 		changed = true
 	}
 
@@ -120,6 +188,7 @@ func runProtonSet(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("--ngx-updater: %w", err)
 		}
 		p.Proton.EnableNGXUpdater = b
+		p.MarkOverride(profile.FieldProtonEnableNGXUpdater)
 		changed = true
 	}
 
@@ -129,6 +198,7 @@ func runProtonSet(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("--vkd3d-heap: %w", err)
 		}
 		p.Proton.VKD3DHeap = b
+		p.MarkOverride(profile.FieldProtonVKD3DHeap)
 		changed = true
 	}
 
@@ -165,8 +235,11 @@ func runProtonShow(cmd *cobra.Command, args []string) error {
 		p = &profile.Profile{}
 	}
 
+	defaults, _ := profile.LoadDefault()
+	resolved := p.ResolveForApply(defaults)
+
 	if protonShowJSON {
-		data, err := json.MarshalIndent(p.Proton, "", "  ")
+		data, err := json.MarshalIndent(resolved.Proton, "", "  ")
 		if err != nil {
 			return err
 		}
@@ -175,11 +248,11 @@ func runProtonShow(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Proton profile for %s:\n\n", g.Name)
-	fmt.Printf("%s  %v\n", tui.CLIDim("HDR:"), p.Proton.EnableHDR)
-	fmt.Printf("%s  %v\n", tui.CLIDim("Wayland:"), p.Proton.EnableWayland)
-	fmt.Printf("%s  %v\n", tui.CLIDim("NGX updater:"), p.Proton.EnableNGXUpdater)
-	fmt.Printf("%s  %v\n", tui.CLIDim("VKD3D heap:"), p.Proton.VKD3DHeap)
-	if p.Proton.VKD3DHeap {
+	fmt.Println(renderField("HDR:", profile.FieldProtonEnableHDR, p, resolved.Proton.EnableHDR))
+	fmt.Println(renderField("Wayland:", profile.FieldProtonEnableWayland, p, resolved.Proton.EnableWayland))
+	fmt.Println(renderField("NGX updater:", profile.FieldProtonEnableNGXUpdater, p, resolved.Proton.EnableNGXUpdater))
+	fmt.Println(renderField("VKD3D heap:", profile.FieldProtonVKD3DHeap, p, resolved.Proton.VKD3DHeap))
+	if resolved.Proton.VKD3DHeap {
 		if notice := protonCompatibilityNotice(g.AppID); notice != "" {
 			fmt.Printf("    %s\n", tui.CLIDim(notice))
 		}

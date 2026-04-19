@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add live profile inheritance: game profiles store only overridden fields; unset fields resolve from defaults at apply time. New `spela <subsystem> reset` verbs (`proton reset`, `dlss reset`, `overlay reset`, `gpu profile-reset`, `cpu profile-reset`) set a field back to inherited. `spela <subsystem> show` marks each field as `[inherited]` or `[override]` so the relationship is visible at a glance. Existing profile YAMLs are migrated transparently on load.
+
 ### Changed
 
 - Collapse TUI theme to a single neon-accent dark palette with canonical tokens (bg, fg, fg-muted, accent-override magenta, accent-focus cyan, border); legacy `theme: dark` / `theme: light` values are ignored at load and stripped so they do not re-persist; TUI options modal no longer exposes a theme selector.
