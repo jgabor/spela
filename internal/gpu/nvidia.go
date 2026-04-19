@@ -111,33 +111,6 @@ func GetGPUInfo() (map[string]string, error) {
 	return getInfoSMI()
 }
 
-// DriverVersionString returns the raw NVIDIA driver version string (e.g.
-// "580.94.16"), obtained via NVML when available or nvidia-smi otherwise.
-//
-// Returns ("", nil) when no NVIDIA driver/GPU is detected — callers that
-// need the distinction between "non-NVIDIA" and "probe failed" should
-// branch on the empty return plus nil error.
-//
-// Intended for feature-gating code paths that must compare the driver
-// against a minimum required version (e.g. vkd3d-proton descriptor_heap
-// support). The returned string may be two- or three-component and may
-// contain trailing whitespace; callers should pass it through
-// proton.ParseDriverVersion for structured handling.
-func DriverVersionString() (string, error) {
-	if nvmlAvailable {
-		if driver, ret := nvml.SystemGetDriverVersion(); ret == nvml.SUCCESS {
-			return driver, nil
-		}
-		// NVML is up but the driver query failed — fall through to smi.
-	}
-	out, err := runNvidiaSMI("--query-gpu=driver_version", "--format=csv,noheader,nounits")
-	if err != nil {
-		// nvidia-smi not present or failed — treat as "no NVIDIA driver".
-		return "", nil
-	}
-	return strings.TrimSpace(out), nil
-}
-
 func getInfoSMI() (map[string]string, error) {
 	out, err := runNvidiaSMI("--query-gpu=name,driver_version,memory.total,temperature.gpu,power.draw", "--format=csv,noheader,nounits")
 	if err != nil {
