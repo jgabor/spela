@@ -22,6 +22,34 @@ var knownDLLs = map[string]game.DLLType{
 	"amd_fidelityfx_dx12.dll": game.DLLTypeFSR,
 }
 
+// KnownDLLTypeInfo describes one DLL family tracked by Spela: the manifest
+// key (also the cache directory name), the in-game file name (for swapping),
+// the game.DLLType this file is categorised as, and a short display label.
+type KnownDLLTypeInfo struct {
+	ManifestKey string       // "dlss" | "dlssg" | "dlssd" | "xess" | "fsr"
+	Filename    string       // "nvngx_dlss.dll", etc.
+	Type        game.DLLType // canonical category
+	Label       string       // "DLSS", "DLSS-G", "DLSS-D", "XeSS", "FSR"
+}
+
+// knownDLLTypeOrder is the ordered, de-duplicated catalogue of DLL families.
+// Order is load-bearing (rendered left-to-right in the deployment table).
+var knownDLLTypeOrder = []KnownDLLTypeInfo{
+	{ManifestKey: "dlss", Filename: "nvngx_dlss.dll", Type: game.DLLTypeDLSS, Label: "DLSS"},
+	{ManifestKey: "dlssg", Filename: "nvngx_dlssg.dll", Type: game.DLLTypeDLSSG, Label: "DLSS-G"},
+	{ManifestKey: "dlssd", Filename: "nvngx_dlssd.dll", Type: game.DLLTypeDLSSD, Label: "DLSS-D"},
+	{ManifestKey: "xess", Filename: "libxess.dll", Type: game.DLLTypeXeSS, Label: "XeSS"},
+	{ManifestKey: "fsr", Filename: "amd_fidelityfx_vk.dll", Type: game.DLLTypeFSR, Label: "FSR"},
+}
+
+// KnownDLLTypes returns the full catalogue of DLL families recognised by the
+// detector + manifest. The returned slice is a fresh copy and safe to mutate.
+func KnownDLLTypes() []KnownDLLTypeInfo {
+	out := make([]KnownDLLTypeInfo, len(knownDLLTypeOrder))
+	copy(out, knownDLLTypeOrder)
+	return out
+}
+
 func ScanDirectory(dir string) ([]game.DetectedDLL, error) {
 	var results []game.DetectedDLL
 

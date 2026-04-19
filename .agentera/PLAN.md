@@ -103,7 +103,7 @@ Risks the plan accepts: Task 5 is the densest cycle (inheritance rendering + thr
 ### Task 6: DLLs resource and Metrics resource relocation
 
 **Depends on**: Task 3
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN the dlls resource is selected THEN two sections are visible at once: a library section listing DLL types with latest and cached versions, and a deployment section showing a games × DLL types table with the installed version per cell.
 ▸ GIVEN a game has an installed DLL older than the latest cached version WHEN the deployment table renders THEN the cell visibly marks the stale state.

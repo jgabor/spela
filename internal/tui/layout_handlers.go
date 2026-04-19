@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -153,9 +154,11 @@ func (m LayoutModel) handleGlobalKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd
 		if m.railFocused {
 			m.railFocused = false
 			// For resources with a single interactive pane (Defaults in
-			// Task 4), mark innerFocused so the renderer draws its border
-			// in the accent-focus color and so input routes into it.
-			if m.rail.Active() == ResourceDefaults {
+			// Task 4, DLLs and Metrics in Task 6), mark innerFocused so
+			// the renderer draws its border in the accent-focus color and
+			// so input routes into it.
+			switch m.rail.Active() {
+			case ResourceDefaults, ResourceDLLs, ResourceMetrics:
 				m.pane.SetInnerFocused(true)
 			}
 			return m, nil, true
@@ -207,6 +210,24 @@ func (m LayoutModel) handleAppMessages(msg tea.Msg, cmds []tea.Cmd) (LayoutModel
 	case batchCompleteMsg:
 		m.batchMessage = msg.message
 		cmds = append(cmds, m.messageBar.SetMessage(msg.message, MessageSuccess))
+
+	case dllsUpdateAllCompleteMsg:
+		// Refresh the in-memory games list in case DLL versions changed,
+		// then flash a summary in the message bar. The DLLs resource also
+		// handles this message in its own Update to refresh the cached
+		// version index; routing both paths keeps responsibilities local.
+		msgType := MessageSuccess
+		for _, v := range msg.results {
+			if strings.HasPrefix(v, "err:") {
+				msgType = MessageError
+				break
+			}
+		}
+		cmds = append(cmds, m.messageBar.SetMessage(msg.summary, msgType))
+		if err := m.db.Save(); err != nil {
+			cmds = append(cmds, m.messageBar.SetMessage(
+				fmt.Sprintf("Update-all: saved partial state: %v", err), MessageError))
+		}
 
 	case messageClearMsg:
 		m.messageBar, _ = m.messageBar.Update(msg)
@@ -339,6 +360,10 @@ func (m LayoutModel) handleRescanGamesMsg(msg rescanGamesMsg, cmds []tea.Cmd) (L
 	m.db = msg.db
 	games := msg.db.List()
 	m.pane.sidebar = m.pane.sidebar.SetGames(games)
+	// Refresh the DLLs resource so its library + deployment sections
+	// reflect any newly detected DLLs after a rescan.
+	manifest, _ := dll.LoadManifest()
+	m.pane.SetDLLsData(games, manifest)
 	cmds = append(cmds, m.messageBar.SetMessage(
 		fmt.Sprintf("Rescan complete: %d games found", len(games)),
 		MessageSuccess,

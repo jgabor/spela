@@ -51,6 +51,21 @@ func NewHelp(styles *Styles) HelpModel {
 				},
 			},
 			{
+				Title: "DLLs resource",
+				Bindings: []HelpBinding{
+					{"j/↓", "Focus next game row in the deployment table"},
+					{"k/↑", "Focus previous game row"},
+					{"U", "Update every stale cell to the latest cached version"},
+					{"ctrl+u", "Alias for U (update-all)"},
+				},
+			},
+			{
+				Title: "Metrics resource",
+				Bindings: []HelpBinding{
+					{"Tab", "Enter pane from rail (read-only; no other bindings)"},
+				},
+			},
+			{
 				Title: "Games profile editing",
 				Bindings: []HelpBinding{
 					{"r", "Reset focused field to inherited (no-op if already inherited)"},

@@ -3,11 +3,14 @@ package dll
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/jgabor/spela/internal/xdg"
 )
@@ -18,6 +21,40 @@ type ProgressCallback func(downloaded, total int64)
 
 func GetDLLCachePath(name, version string) string {
 	return xdg.CachePath(filepath.Join("dlls", name, version+".dll"))
+}
+
+// GetDLLCacheDir returns the per-type cache directory where downloaded DLL
+// payloads are stored as "<version>.dll" files.
+func GetDLLCacheDir(name string) string {
+	return xdg.CachePath(filepath.Join("dlls", name))
+}
+
+// ListCachedVersions returns the list of cached DLL versions on disk for the
+// given DLL type (manifest key, e.g. "dlss"). Versions are the file basenames
+// with the ".dll" suffix trimmed. Returns an empty slice when the per-type
+// cache directory does not yet exist — that is not an error, just "nothing
+// has been downloaded yet".
+func ListCachedVersions(name string) ([]string, error) {
+	dir := GetDLLCacheDir(name)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var versions []string
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if !strings.HasSuffix(name, ".dll") {
+			continue
+		}
+		versions = append(versions, strings.TrimSuffix(name, ".dll"))
+	}
+	return versions, nil
 }
 
 func DownloadDLL(dll *DLL, dllName string) (string, error) {

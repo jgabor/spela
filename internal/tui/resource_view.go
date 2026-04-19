@@ -5,11 +5,14 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/jgabor/spela/internal/dll"
+	"github.com/jgabor/spela/internal/game"
 )
 
 // resourcePaneModel renders whichever resource is currently active on the
 // rail. In Task 4 both ResourceGames and ResourceDefaults have substantive
-// wiring; ResourceDLLs and ResourceMetrics remain stubs until Task 6.
+// wiring; in Task 6 the DLLs and Metrics panes are filled in.
 //
 // Focus mechanics per resource:
 //
@@ -22,13 +25,18 @@ import (
 //   - ResourceDefaults: renders a root DetailModel directly (no sidebar —
 //     there's only one defaults profile). innerFocused toggles between the
 //     rail and the detail pane. j/k in the detail moves field focus.
-//   - ResourceDLLs / ResourceMetrics: stubs for Task 6.
+//   - ResourceDLLs: library + deployment table, j/k selects a game row,
+//     U / ctrl+u triggers update-all. innerFocused gates key routing.
+//   - ResourceMetrics: relocation target for the existing thermal and
+//     sparkline widgets (HeaderModel feeds the live sample buffers).
 type resourcePaneModel struct {
 	styles         *Styles
 	services       *Services
-	sidebar        SidebarModel // ResourceGames: list of games on the left
-	content        ContentModel // ResourceGames: detail on the right
-	defaultsDetail DetailModel  // ResourceDefaults: root detail renderer
+	sidebar        SidebarModel         // ResourceGames: list of games on the left
+	content        ContentModel         // ResourceGames: detail on the right
+	defaultsDetail DetailModel          // ResourceDefaults: root detail renderer
+	dllsResource   DLLsResourceModel    // ResourceDLLs: library + deployment
+	metricsView    MetricsResourceModel // ResourceMetrics: relocated metrics widgets
 	// innerFocused flips true when the user tabs off the rail into the
 	// resource pane. Meaningful for ResourceGames (sidebar vs detail) and
 	// ResourceDefaults (detail pane). Ignored for the stub resources.
@@ -39,9 +47,11 @@ type resourcePaneModel struct {
 
 func newResourcePane(styles *Styles, sidebar SidebarModel, content ContentModel) resourcePaneModel {
 	return resourcePaneModel{
-		styles:  styles,
-		sidebar: sidebar,
-		content: content,
+		styles:       styles,
+		sidebar:      sidebar,
+		content:      content,
+		dllsResource: NewDLLsResource(styles),
+		metricsView:  NewMetricsResource(styles),
 	}
 }
 
@@ -75,6 +85,31 @@ func (p *resourcePaneModel) SetSize(width, height int) {
 	p.sidebar.SetSize(sidebarWidth-4, height)
 	p.content.SetSize(width-sidebarWidth-4, height)
 	p.defaultsDetail.SetSize(width-4, height)
+	p.dllsResource.SetSize(width-4, height)
+	p.metricsView.SetSize(width-4, height)
+}
+
+// SetDLLsData wires the games list and manifest into the DLLs resource
+// model. Called by the layout on construction and after game rescans so the
+// library + deployment sections stay fresh.
+func (p *resourcePaneModel) SetDLLsData(games []*game.Game, manifest *dll.Manifest) {
+	p.dllsResource = p.dllsResource.SetGames(games).SetManifest(manifest).RefreshCached()
+}
+
+// SetMetricsData threads the header's rolling buffers and the latest GPU /
+// CPU snapshot into the Metrics resource. HeaderModel owns the 2-second
+// tick loop; this method merely forwards the current state so the Metrics
+// pane renders identically to what the header sparkline already draws.
+func (p *resourcePaneModel) SetMetricsData(h HeaderModel) {
+	p.metricsView = p.metricsView.SetData(
+		h.gpuMetrics,
+		h.cpuMetrics,
+		h.alerts,
+		h.tempBuffer,
+		h.utilBuffer,
+		h.powerBuffer,
+		h.cpuBuffer,
+	)
 }
 
 // View renders whichever resource's content is active.
@@ -83,11 +118,11 @@ func (p resourcePaneModel) View(active Resource, paneFocused bool) string {
 	case ResourceGames:
 		return p.renderGames(paneFocused)
 	case ResourceDLLs:
-		return p.renderStub("DLLs", "Library and deployment table render here (Task 6).")
+		return p.dllsResource.View(paneFocused && p.innerFocused)
 	case ResourceDefaults:
 		return p.renderDefaults(paneFocused)
 	case ResourceMetrics:
-		return p.renderStub("Metrics", "Thermal and sparkline widgets relocate here (Task 6).")
+		return p.metricsView.View(paneFocused && p.innerFocused)
 	}
 	return p.renderStub("Unknown", "(unreachable)")
 }
@@ -153,13 +188,27 @@ func (p resourcePaneModel) renderStub(title, body string) string {
 // called; by the time a message reaches Update, the rail has already said
 // "not mine" (or focus is already inside the pane).
 func (p resourcePaneModel) Update(msg tea.Msg, active Resource) (resourcePaneModel, tea.Cmd) {
+	// Batch-complete messages from the DLLs pane are delivered as tea.Msgs
+	// and must reach it regardless of which resource is active at the
+	// moment the message fires — the user may have navigated away while
+	// the update-all batch was running. Route these unconditionally.
+	if m, ok := msg.(dllsUpdateAllCompleteMsg); ok {
+		next, cmd := p.dllsResource.Update(m)
+		p.dllsResource = next
+		return p, cmd
+	}
 	switch active {
 	case ResourceGames:
 		return p.updateGames(msg)
 	case ResourceDefaults:
 		return p.updateDefaults(msg)
+	case ResourceDLLs:
+		next, cmd := p.dllsResource.Update(msg)
+		p.dllsResource = next
+		return p, cmd
 	}
-	// DLLs and Metrics stubs ignore input until Task 6.
+	// Metrics pane has no interactive state — sparklines update via
+	// HeaderModel ticks, forwarded in SetMetricsData.
 	return p, nil
 }
 

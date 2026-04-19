@@ -175,11 +175,11 @@ func TestRail_HotkeyFromLayoutStaysOnRail(t *testing.T) {
 	}
 }
 
-// TestRail_RouterRendersStub verifies the resource router renders a
-// placeholder for the resources still pending implementation. As of Task 4,
-// Defaults is no longer a stub (covered by detail_test.go); only DLLs and
-// Metrics remain as placeholders until Task 6.
-func TestRail_RouterRendersStub(t *testing.T) {
+// TestRail_RouterRendersResources verifies the resource router dispatches
+// to the correct renderer for DLLs and Metrics. As of Task 6 both panes
+// have substantive content: the DLLs view always renders its "Library"
+// title, and the Metrics view always renders its "Metrics" title.
+func TestRail_RouterRendersResources(t *testing.T) {
 	styles := NewStyles(DefaultTheme, true)
 	svc := testServices()
 	sidebar, _ := NewSidebar(nil, styles, svc)
@@ -192,14 +192,14 @@ func TestRail_RouterRendersStub(t *testing.T) {
 		resource Resource
 		wantSub  string
 	}{
-		{ResourceDLLs, "DLLs"},
+		{ResourceDLLs, "Library"},
 		{ResourceMetrics, "Metrics"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.resource.String(), func(t *testing.T) {
 			got := pane.View(tc.resource, true)
 			if !strings.Contains(got, tc.wantSub) {
-				t.Errorf("stub for %v missing title %q in output:\n%s", tc.resource, tc.wantSub, got)
+				t.Errorf("render for %v missing %q in output:\n%s", tc.resource, tc.wantSub, got)
 			}
 		})
 	}

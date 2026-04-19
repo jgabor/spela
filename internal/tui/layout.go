@@ -80,6 +80,11 @@ func NewLayout(db *game.Database, svc *Services) LayoutModel {
 	content := NewContent(styles, cfg.ConfirmDestructive, svc)
 	pane := newResourcePane(styles, sidebar, content)
 	pane.setServices(svc)
+	// Seed the DLLs resource with the current games + cached manifest so
+	// the library and deployment sections render immediately on first
+	// activation of ResourceDLLs (no lazy-load race with the rail hotkey).
+	manifest, _ := dll.LoadManifest()
+	pane.SetDLLsData(games, manifest)
 
 	return LayoutModel{
 		styles:       styles,
@@ -109,6 +114,11 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	header, headerCmd := m.header.Update(msg)
 	m.header = header
 	cmds = append(cmds, headerCmd)
+	// Relay the header's latest sample buffers and snapshot to the Metrics
+	// resource so its sparklines and gauges reflect the same data the
+	// header renders. No separate polling loop (Task 6 relocation preserves
+	// the single metrics source-of-truth).
+	m.pane.SetMetricsData(m.header)
 
 	// Route to active dialog first (intercepts all input).
 	if m.activeDialog != nil {
