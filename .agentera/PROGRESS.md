@@ -1,5 +1,16 @@
 # Progress
 
+## Cycle 73 · 2026-04-24 15:52
+
+**Phase**: build
+**What**: Task 2 exposed launch preparation summaries in the CLI and Steam wrapper path. Summaries now show profile impact groups, launch environment, DLL file status, hardware mutation, overlay setup, and direct Steam URI cleanup limits before preparation mutates state.
+**Commit**: this commit (`feat(cli): summarize launch preparation`)
+**Inspiration**: Trusted Profile Loop Task 2 acceptance criteria and Task 1's shared profile explanation vocabulary.
+**Discovered**: Launch-time DLL mutation is not currently part of preparation, so the honest summary says no launch-time DLL file mutation is planned while still listing detected DLLs.
+**Verified**: `go test ./cmd/spela ./cmd/spela/commands -run 'TestRunLaunch|TestRunWrapperMode' -v` passed wrapper and summary tests. `mage test` passed. `mage lint` reported 0 issues. `mage build` passed when rerun alone. CLI smoke with temp XDG state ran `go run ./cmd/spela launch --dry-run 'Cyberpunk 2077'` and printed compatibility/default source, environment `PROTON_ENABLE_HDR`, DLL `nvngx_dlss.dll`, no hardware mutation, overlay not planned, and direct Steam URI cleanup guidance.
+**Next**: Task 3 can strengthen restore confidence without changing the TUI or GUI surfaces yet.
+**Context**: intent - expose CLI/preflight launch summaries · constraints - Task 2 only, wrapper-first, no dependency, no TUI/GUI/restore implementation · unknowns - future DLL launch mutation remains absent · scope - launch command, wrapper summary hook, focused CLI tests, artifacts
+
 ## Cycle 72 · 2026-04-24
 
 **Phase**: build

@@ -73,10 +73,10 @@ func runWrapperMode(args []string) error {
 		fmt.Fprintln(os.Stderr, "Warning: could not detect game for wrapper invocation")
 	}
 
-	var p *profile.Profile
+	var rawProfile, defaults, p *profile.Profile
 	if g != nil {
 		var profileErr error
-		p, profileErr = profile.LoadEffective(g.AppID)
+		rawProfile, defaults, p, profileErr = commands.LoadLaunchProfiles(g.AppID)
 		if profileErr != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to load profile for %s: %v\n", g.Name, profileErr)
 		}
@@ -90,6 +90,9 @@ func runWrapperMode(args []string) error {
 	l := launcher.New(g)
 	l.Profile = p
 	l.Environment = e
+	if g != nil {
+		commands.PrintLaunchSummary(g, rawProfile, defaults, p, invocation.Command)
+	}
 	if err := l.Prepare(); err != nil {
 		return fmt.Errorf("failed to prepare launch: %w", err)
 	}

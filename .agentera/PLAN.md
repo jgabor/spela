@@ -49,7 +49,7 @@ Define one behavioral vocabulary for profile source, launch impact, and restore 
 ### Task 2: Expose CLI and preflight summaries
 
 **Depends on**: Task 1
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN a user asks what a game launch will do WHEN Spela summarizes preparation THEN environment, DLL, hardware, overlay, and compatibility impacts are visible before mutation.
 ▸ GIVEN no profile-specific changes exist WHEN Spela summarizes preparation THEN the summary says no profile mutation is planned.
