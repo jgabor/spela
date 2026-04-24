@@ -2,119 +2,128 @@
 
 ## North Star
 
-Linux gamers who left Windows behind shouldn't leave their performance behind too.
+Linux gamers who left Windows behind should not leave control behind too.
 
-On Windows, NVIDIA App gives you per-game profiles, DLSS model selection, and an
-overlay — one tool, one config. On Linux, that experience is scattered across four
-or five tools that don't talk to each other: MangoHud for the overlay, LACT or GWE
-for GPU tuning, DLSS Updater for DLL swaps, GameMode for system tweaks, and manual
-env vars for everything else. Every new game means touching three configs.
+On Windows, NVIDIA App turns a game into one remembered intent: profile, DLSS,
+driver settings, overlay, and launch behavior move together. On Linux, that
+intent fractures across MangoHud, LACT, ProtonPlus, DLSS tools, GameMode, Steam
+launch options, and hand-edited environment variables. The tools exist, but the
+game does not have one trusted home.
 
-Spela replaces the juggle. One tool that manages DLSS DLLs, applies GPU and CPU
-profiles, launches games with the right environment, and renders an intelligent
-overlay — all from a single per-game config that remembers what works. The NVIDIA
-App experience, native on Linux, for people who refuse to compromise.
+Spela makes the game profile that home. Configure the game once, launch it the
+normal Steam way with `spela %command%`, and trust Spela to prepare the session,
+explain what changed, watch what happens, and restore the system afterward.
+
+The dream is not another launcher. The dream is a Linux gaming rig that feels
+deliberate: every game carries its own known-good operating envelope, every
+change is reversible, and performance knowledge compounds instead of leaking
+into scattered config files.
 
 ## Who It's For
 
 ### The Dual-Booter Who Stopped Dual-Booting
 
 They ran Windows for years. They know what 144fps with DLSS Quality looks like.
-They know their 4090 can hold +150 core with stable thermals. They switched to
-Linux full-time because they believe in it, but they refuse to accept that "gaming
-on Linux" means less control than they had before. They don't want magic — they want
-the same level of precision they had on Windows, without the OS.
+They know their GPU can hold a stable offset with safe thermals. They switched
+to Linux full-time because they believe in it, but they refuse to accept less
+control than they had before.
 
-Their frustration: every new game means the same ritual. Find the prefix, check
-which DLSS version shipped, swap the DLL, set the env vars, configure the shader
-cache, hope Proton didn't change something since last time. It's not hard — it's
-tedious. And tedium compounds across a library of 50+ games.
+Their frustration: every new game repeats the same ritual. Find the prefix,
+check which DLSS DLL shipped, set compatibility flags, tune the GPU, shape the
+overlay, and hope Proton did not change the ground under them. None of it is
+impossible. All of it is waste.
 
 ### The Linux-Native Who Got Serious Hardware
 
-They never dual-booted. They grew up on Linux, gamed on whatever worked, and
-didn't think much about GPU tuning. Then they bought a 4070 Ti and realized they
-had no idea how to make it perform. They don't miss NVIDIA Control Panel because
-they never used it — they just know that MangoHud shows their GPU is throttling and
-they have no single place to fix it. They installed LACT for clocks, GOverlay for
-the HUD config, and still copy DLLs by hand from a Reddit thread.
+They never dual-booted. They bought a powerful NVIDIA GPU and discovered that
+Linux gaming performance is not one control surface. MangoHud shows the problem.
+LACT changes hardware state. Proton tools change compatibility. Steam launch
+options carry brittle one-off knowledge.
 
-Their frustration: not that the tools don't exist, but that the tools don't know
-about each other. Changing a GPU profile in LACT doesn't update the overlay.
-Swapping a DLSS DLL doesn't update the game's launch config. Every knob lives in
-a different app with a different config format. They want one place.
+Their frustration: the tools do not share intent. A GPU profile does not know
+which game needs it. A DLSS swap does not know which overlay should report it.
+An environment tweak works until they forget why it exists.
+
+### The Steam Wrapper User
+
+They do not want another place to launch games. Their library already lives in
+Steam, and their muscle memory should stay there. They want to add
+`spela %command%`, configure the profile once, and keep pressing Play.
+
+Their frustration: launchers that pretend to own the session but cannot track
+the real process. They would rather have honest wrapper behavior than a polished
+button that skips cleanup.
 
 ## Principles
 
-- **Correctness over convenience.** Never guess. If Spela sets a value, it's the
-  right value. Backups before mutations, verification after. No silent failures,
-  no "close enough."
-- **Transparency over magic.** Show everything Spela does — every env var set,
-  every DLL swapped, every clock offset applied. The user should be able to
-  reproduce any action by hand.
-- **Unity over fragmentation.** One profile, one config, one tool. Resist becoming
-  another single-purpose utility in a five-tool stack.
-- **Composability over monoliths.** Small, orthogonal pieces that combine. Profiles,
-  launching, DLL management, hardware control, and the overlay are separate concerns
-  that compose — but they compose inside Spela, not across five apps.
-- **Depth over breadth.** Go deep on NVIDIA before going wide on AMD. Master NVML
-  setters, runtime tuning, and driver-level intelligence before chasing vendor parity.
+- **Correctness over convenience.** Never mutate system or game state without a safe restore path.
+- **Transparency over magic.** Show every env var, DLL, profile value, warning, and privileged change.
+- **Profile as source of truth.** One per-game intent owns launch preparation, DLLs, hardware, overlay, and environment.
+- **Wrapper-first honesty.** Steam `%command%` is the preferred path; Spela avoids unsafe launch claims.
+- **Unity over fragmentation.** Resist becoming another single-purpose tool in the Linux gaming pile.
+- **Depth over breadth.** Master NVIDIA, DLSS, NVML, and Proton edges before chasing vendor parity.
 
 ## Direction
 
-**Unified control.** Spela's core promise: one per-game profile that owns DLSS
-configuration, GPU clocks, CPU governor, environment variables, overlay position,
-and launch parameters. Change one setting, and every layer — CLI, TUI, GUI, overlay,
-launcher — sees it. No export, no sync, no "also update your MangoHud config."
-ProtonForge and LACT each cover a slice; Spela covers the stack.
+**Trusted per-game profiles.** Spela's core promise is one profile that composes
+DLSS, GPU, CPU, Proton, overlay, and environment behavior. Defaults remain live.
+Game overrides are explicit. Every interface sees the same resolved truth.
 
-**Next-generation overlay.** A Vulkan layer that replaces MangoHud — not by doing
-the same thing prettier, but by being fundamentally smarter. A thin C rendering
-layer paired with a Go intelligence process connected via shared memory. Runtime
-GPU tuning from inside the game — clock offsets, power limits, fan curves — through
-NVML setters, something no other Linux tool offers. Smart alerts that detect thermal
-throttling and suggest fixes. Session comparison that tells you when performance
-regresses. The overlay doesn't just show numbers; it understands what they mean.
-This is SpecialK's territory on Windows — unclaimed on Linux.
+**Steam-native lifecycle.** Spela is not trying to replace Steam. The primary
+path is the wrapper: `spela %command%`. That lets Spela prepare before the game,
+preserve Steam's command environment, run the real process, and clean up when it
+exits. If Spela cannot honestly track lifetime, it says so.
 
-**NVIDIA depth.** Spela is an NVIDIA-first tool. Deep NVML integration: direct
-API calls for metrics (~50x faster than nvidia-smi), driver-reported throttle
-reasons, runtime clock and power limit adjustment via privileged setters. The goal
-is to expose every tunable NVIDIA's driver offers through a clean interface — the
-control that NVIDIA App provides on Windows, but with the transparency and
-composability that Linux users expect. AMD and Intel come later, after NVIDIA
-depth is exhaustive.
+**Resource-centric control.** The TUI and GUI are configuration and inspection
+surfaces, not launchers. Games, DLLs, Defaults, and Metrics are peer resources.
+The UI exists to show state, edit intent, expose inheritance, and report what
+the wrapper will do later.
 
-**Game intelligence.** Spela learns. Community-shared profiles so a new Cyberpunk
-player doesn't start from scratch. Per-game recommendations based on hardware —
-"your 4070 with this game at 1440p runs best with DLSS Balanced." Automatic
-detection of what settings a game actually supports. Knowledge that compounds
-across the community, not just across one user's library. This is the long horizon
-— it requires a critical mass of profiles and users to be meaningful.
+**Next-generation overlay.** The long frontier is a Vulkan overlay that does not
+only display numbers. A thin rendering layer and a Go intelligence process can
+share live telemetry, detect throttling, explain regressions, and eventually let
+users tune GPU behavior from inside the session. MangoHud reports. Spela should
+understand.
+
+**DLSS and frame-generation intelligence.** DLSS is no longer one DLL swap. DLSS
+4, model presets, Ray Reconstruction, Frame Generation, and Multi Frame
+Generation turn upscaling into policy. Spela should know which model belongs to
+which game, GPU, resolution, and user preference, then make that choice visible
+and reversible.
+
+**NVIDIA depth.** Spela remains NVIDIA-first. Deep NVML integration, direct
+metrics, throttle reasons, clock offsets, power limits, fan control, and
+driver-specific behavior matter more than shallow cross-vendor checkboxes. AMD
+and Intel can come later, after NVIDIA control is exhaustive.
+
+**Community memory.** The horizon is shared performance knowledge: known-good
+profiles, DLSS recommendations, compatibility notes, and session comparisons
+that help the next player start from evidence instead of folklore.
 
 ## Identity
 
 ### Personality
 
-▸ precise · transparent · unapologetic
+▸ precise · honest · unapologetic
 
 ### Voice
 
-Technical and direct. Spela talks like a knowledgeable friend who respects your
-time — no marketing fluff, no hedging, no "we recommend." It says "DLSS 3.8.10
-outperforms 3.7.20 on Ada at 1440p" not "you might want to try updating your DLSS."
-When something fails, it says what failed and why, not "an error occurred."
+Spela speaks like a technical friend who respects your time. It names the real
+condition, the real action, and the real risk. No hedging, no marketing gloss,
+no generic failure text.
+
+It says "direct Steam URI launch cannot track cleanup" instead of pretending a
+button is safe. It says which DLSS model is active, which value is inherited,
+and which privileged change will happen before it asks for trust.
 
 ### Emotional Register
 
-Empowering. Using Spela should feel like gaining control you didn't know you were
-missing. The satisfaction of seeing every knob in one place, clearly labeled, doing
-exactly what you told it to. Not exciting — grounding. The feeling of "I understand
-my system now."
+Control room at night. Dark, precise, dense with useful signal. Spela should
+feel grounding: the moment where a messy Linux gaming stack becomes one
+instrument panel and every indicator means something.
 
 ### Naming
 
-▸ Swedish: *spela* means "to play" — direct, unpretentious, rooted in the language
-  of the developer
-▸ Internal naming follows the same ethos: plain words, no abbreviations, no cleverness
-  for its own sake
+▸ Swedish: *spela* means "to play"; direct, plain, and rooted.
+▸ Internal names use full words over abbreviations.
+▸ Cleverness loses to clarity whenever a user or agent must act on the name.
