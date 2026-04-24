@@ -1,5 +1,237 @@
 # Health
 
+## Audit 6 · 2026-04-24
+
+Audit 5 remediation materially improved launch, GUI, TUI, and artifact health. The codebase can close the plan cleanly, with only approval-gated release/dependency work and test harness debt left.
+
+**Dimensions assessed**: Architecture, Patterns, Coupling, Complexity, Tests, Dependencies, Versions, Security, Freshness
+**Findings**: 0 critical, 4 warnings, 0 info (0 filtered by confidence)
+**Overall trajectory**: ⮉ improving vs Audit 5
+**Grades**: Architecture [A-] | Patterns [A-] | Coupling [B] | Complexity [B] | Tests [B-] | Dependencies [B-] | Versions [B] | Security [A] | Freshness [A]
+
+### Architecture: A-
+
+No findings. Wrapper launch now calls `Launcher.Prepare()`, and direct Steam URI launch returns `%command%` guidance instead of pretending cleanup can track Steam.
+
+### Patterns: A-
+
+No findings. Profile load errors, boolean parsing, governor validation, and GUI logging now follow shared boundary helpers.
+
+### Coupling: B
+
+No findings. GUI actions now route through `guiApplicationBoundary`, and TUI DLL updates route through `Services.UpdateCachedDLL`.
+
+### Complexity: B
+
+No findings. TUI routing split into focused helpers, and current complexity is covered by routing and resource-scope tests.
+
+### Tests: B-
+
+#### ⇉ GUI backend tests are outside default `mage test`, warning (confidence: 92)
+
+- **Location**: `magefile.go:101-104`, `internal/gui/application_test.go:1`
+- **Evidence**: `mage test` runs `go test -v ./...`; GUI backend tests require `dev`, `production`, or `bindings` tags.
+- **Impact**: GUI boundary regressions can pass the default project test target.
+- **Suggested action**: Include a tagged GUI backend test in the standard verification path.
+
+#### ⇉ Playwright e2e harness is stale against the GUI, warning (confidence: 95)
+
+- **Location**: `internal/gui/frontend/e2e/fixtures.js:82-100`, `internal/gui/frontend/e2e/smoke.spec.js:4-13`
+- **Evidence**: `npm run test:e2e` failed 27 of 28 tests; fixtures mock `window.go.main.App` and tests expect old Games/Monitor navigation.
+- **Impact**: Frontend end-to-end coverage is not a usable regression guard.
+- **Suggested action**: Rebase the harness on `window.go.gui.App` and the current GUI navigation surface.
+
+### Dependencies: B-
+
+#### ⇉ Frontend audit advisories remain approval-blocked, warning (confidence: 95)
+
+- **Location**: `internal/gui/frontend/package.json:15-23`, `internal/gui/frontend/package-lock.json`
+- **Evidence**: `npm audit --json` reports 7 moderate advisories; fixes require semver-major Vite, Svelte, and plugin upgrades.
+- **Impact**: Dev-server and Svelte SSR risk remains until the major upgrade is approved and tested.
+- **Suggested action**: Plan the Vite 8 and Svelte 5 upgrade when approval exists.
+
+### Versions: B
+
+#### ⇉ Local release tags are not published remotely, warning (confidence: 95)
+
+- **Location**: local tags `v0.5.0`, `v0.5.1`; origin tag refs
+- **Evidence**: `git tag --list` shows both tags; `git ls-remote --tags origin 'v0.5.0*' 'v0.5.1*'` returns no refs.
+- **Impact**: Release consumers and compare links cannot resolve the v0.5.x tags on origin.
+- **Suggested action**: Push `main`, `v0.5.0`, and `v0.5.1` when the user approves.
+
+### Security: A
+
+No findings. Lightweight scans found no hardcoded secrets, SQL construction, dynamic JS execution, or suspicious shell construction in source.
+
+> This is a lightweight surface scan. For comprehensive security analysis, use dedicated tools: semgrep, Snyk, Bandit (Python), npm audit (Node), govulncheck (Go), or similar static analysis and vulnerability scanning tools appropriate to your stack.
+
+### Freshness: A
+
+No findings. PROGRESS, TODO, CHANGELOG, DOCS, DESIGN, and PLAN all have plan-current commit dates; HEALTH is updated by this audit.
+
+### Trends vs Audit 5
+
+- **Improved**: Architecture [C→A-], Patterns [B→A-], Coupling [C+→B], Complexity [C+→B], Freshness [C+→A].
+- **Stable**: Dependencies [B-] and Versions [B] remain limited by explicit user approval gates.
+- **Degraded**: Tests [B→B-] because the e2e harness is confirmed stale and GUI backend tests are outside `mage test`.
+- **Resolved**: Audit 5 critical launch lifecycle split and all implementation-owned warnings.
+- **New findings**: Default test target misses tagged GUI backend tests.
+
+### Patterns Observed
+
+- **Module structure**: Internal package boundaries remain coherent; UI code now uses narrower application and service seams.
+- **Error handling**: `%w` wrapping and explicit boundary validation dominate user-facing flows.
+- **Testing approach**: Behavior-first Go tests cover plan-critical paths; frontend e2e remains stale.
+- **Dependency patterns**: Go dependencies are exact and clean; frontend packages are exact-pinned but blocked on major upgrades.
+- **Launch model**: Steam wrapper is the supported launch path; direct launches are rejected with setup guidance.
+
+## Audit 5 · 2026-04-24
+
+The v0.5.0 release cleared the old version-health critical, but the heavy TUI/profile work exposed a more important launch-path split. The codebase is not collapsing, but new work should fix orchestration drift before GUI parity expands the same seams.
+
+**Dimensions assessed**: Architecture, Patterns, Coupling, Complexity, Tests, Dependencies, Versions, Security, Freshness
+**Findings**: 1 critical, 10 warnings, 3 info (0 filtered by confidence)
+**Overall trajectory**: ⮋ degrading vs Audit 4 (version recovered, architecture/complexity/deps/freshness slipped)
+**Grades**: Architecture [C] | Patterns [B] | Coupling [C+] | Complexity [C+] | Tests [B] | Dependencies [B-] | Versions [B] | Security [A-] | Freshness [C+]
+
+### Architecture: C
+
+#### ⇶ Wrapper mode bypasses launcher preparation, critical (confidence: 92)
+
+- **Location**: `cmd/spela/main.go:85-113`, `internal/launcher/launcher.go:59-74`, `internal/launcher/launcher.go:151-166`
+- **Evidence**: Wrapper mode manually applies profiles then calls `l.Launch`; `Prepare()` owns VKD3D preflight and overlay IPC setup.
+- **Impact**: Steam `%command%`, the primary path, can skip overlay startup and compatibility warnings.
+- **Suggested action**: Route wrapper mode through one preparation pipeline while preserving wrapper-provided environment.
+
+#### ⇉ Direct Steam URI launches have cleanup-lifetime mismatch, warning (confidence: 78)
+
+- **Location**: `cmd/spela/commands/launch.go:62-76`, `internal/gui/app.go:795-814`
+- **Evidence**: CLI and GUI launch `steam steam://rungameid/<id>` through `Launcher.Launch`, whose cleanup runs when that command exits.
+- **Impact**: Profile effects may be restored before the actual game process exits.
+- **Suggested action**: Prefer wrapper launch guidance, or track a real game process lifetime.
+
+### Patterns: B
+
+#### ⇉ Default profile load errors are discarded, warning (confidence: 88)
+
+- **Location**: `internal/profile/storage.go:53`, `internal/profile/storage.go:87`, `cmd/spela/commands/proton.go:238`
+- **Evidence**: `defaults, _ := LoadDefault()` treats missing and corrupt defaults the same.
+- **Impact**: Corrupt defaults can silently resolve inheritance against zero values.
+- **Suggested action**: Ignore only `fs.ErrNotExist`; surface parse and read errors.
+
+#### ⇉ Boolean parsing differs across profile commands, warning (confidence: 92)
+
+- **Location**: `cmd/spela/commands/proton.go:264-275`, `cmd/spela/commands/dlss.go:259-274`
+- **Evidence**: Proton rejects invalid bools; DLSS stores any non-true value as false.
+- **Impact**: A typo can persist an unintended false override.
+- **Suggested action**: Move `parseBoolFlag` to a shared command helper and use it everywhere.
+
+#### ⇉ GUI logs bypass centralized logging, warning (confidence: 85)
+
+- **Location**: `internal/gui/app.go:10`, `internal/gui/app.go:779`
+- **Evidence**: GUI imports `log/slog` directly instead of `internal/logging`.
+- **Impact**: GUI logs bypass the repository's logging seam and test redirection.
+- **Suggested action**: Add needed helpers to `internal/logging` and route GUI logs through them.
+
+### Coupling: C+
+
+#### ⇉ GUI remains an over-intimate domain facade, warning (confidence: 90)
+
+- **Location**: `internal/gui/app.go:14-22`, `internal/gui/app.go:384-437`, `internal/gui/app.go:642-817`
+- **Evidence**: Wails methods import and orchestrate config, CPU, DLL, game, GPU, launcher, profile, proton, and Steam directly.
+- **Impact**: GUI parity work will ripple across domain packages through bindings.
+- **Suggested action**: Introduce a narrow application-service layer before the GUI redesign.
+
+#### ⇉ DLLs TUI resource bypasses Services seam, warning (confidence: 85)
+
+- **Location**: `internal/tui/services.go:12-35`, `internal/tui/dlls_resource.go:262-326`
+- **Evidence**: The resource pane directly calls DLL cache and swap functions, then mutates `game.Game` DLL state.
+- **Impact**: Batch DLL behavior now lives inside a view model.
+- **Suggested action**: Move DLL inventory/update operations behind `Services` or a shared service.
+
+### Complexity: C+
+
+#### ⇉ TUI routing complexity is concentrating again, warning (confidence: 92)
+
+- **Location**: `internal/tui/content.go:210-389`, `internal/tui/layout_handlers.go:62-175`, `internal/tui/layout_handlers.go:179-284`
+- **Evidence**: Key routing, modal routing, pending actions, profile actions, DLL actions, and message handling share large switches.
+- **Impact**: The old `Layout.Update` problem is returning in adjacent handler functions.
+- **Suggested action**: Split mode handlers by modal, profile, DLL, rail/focus, and app-message concerns.
+
+#### ⇢ Field formatting duplicates profile knowledge, info (confidence: 80)
+
+- **Location**: `internal/profile/inheritance.go:9-58`, `internal/tui/detail.go:430-515`
+- **Evidence**: Profile owns field keys; TUI separately owns labels and a 35-case value formatter.
+- **Impact**: Adding profile fields requires coordinated UI edits.
+- **Suggested action**: Consolidate field metadata or add stronger coverage for label/formatter completeness.
+
+### Tests: B
+
+Recent profile, proton, launcher, and TUI tests materially improved the highest-risk areas. The suite is green, and recent tests mostly exercise behavior rather than private implementation.
+
+#### ⇉ GUI backend and env remain test gaps, warning (confidence: 90)
+
+- **Location**: `internal/gui/`, `internal/env/env.go`
+- **Evidence**: GUI backend has no Go tests; frontend has shallow component coverage; env has no direct tests.
+- **Impact**: GUI parity and launch environment behavior can drift silently.
+- **Suggested action**: Add mapper/service tests for GUI and direct tests for env map isolation and command application.
+
+### Dependencies: B-
+
+#### ⇉ Frontend audit reports moderate vulnerabilities, warning (confidence: 90)
+
+- **Location**: `internal/gui/frontend/package-lock.json`, `internal/gui/frontend/package.json:15-23`
+- **Evidence**: npm audit reports moderate advisories through Vite/esbuild/Svelte; package.json uses caret ranges.
+- **Impact**: Mostly dev-server/SSR risk, but dependency health is no longer clean.
+- **Suggested action**: Plan a tested frontend stack upgrade and decide whether npm pins should match Go exact pinning.
+
+### Versions: B
+
+#### ⇉ v0.5.0 tag is not published remotely, warning (confidence: 95)
+
+- **Location**: `CHANGELOG.md:8-28`, git remote tags
+- **Evidence**: Changelog and local tag are current; `git ls-remote --tags origin "v0.5.0*"` returns no tag.
+- **Impact**: Release consumers and compare links cannot resolve the remote v0.5.0 tag.
+- **Suggested action**: Push `v0.5.0` when the user approves.
+
+### Security: A-
+
+No hardcoded secrets, dynamic JS execution, shell string execution, or SQL construction patterns were found in the lightweight scan.
+
+#### ⇢ Root CPU governor path lacks value validation, info (confidence: 68)
+
+- **Location**: `cmd/spela/commands/apply_profile.go:79-80`, `cmd/spela/commands/cpu_set.go:117-123`, `internal/cpu/cpu.go:60-80`
+- **Evidence**: Profile strings are stored and later written to sysfs as governor values.
+- **Impact**: No injection path, but invalid values cross a privileged boundary before sysfs rejects them.
+- **Suggested action**: Validate against available governors before save and before privileged apply.
+
+> This is a lightweight surface scan. For comprehensive security analysis, use dedicated tools: semgrep, Snyk, Bandit (Python), npm audit (Node), govulncheck (Go), or similar static analysis and vulnerability scanning tools appropriate to your stack.
+
+### Freshness: C+
+
+#### ⇢ DESIGN and DOCS are stale against v0.5.0, info (confidence: 60)
+
+- **Location**: `.agentera/DESIGN.md:131-140`, `.agentera/DESIGN.md:263-314`, `.agentera/DOCS.md:30-40`
+- **Evidence**: DESIGN still describes theme variants, tab bars, and Launch/Profile tabs; DOCS index dates predate v0.5.0 work.
+- **Impact**: Future UI work can start from stale visual and documentation contracts.
+- **Suggested action**: Run `/visualisera` for DESIGN and `/dokumentera` for DOCS after this audit.
+
+### Trends vs Audit 4
+
+- **Improved**: Tests [B-→B] from profile/proton/launcher/TUI coverage; Versions [D→B] because v0.5.0 cleared local release staleness.
+- **Degraded**: Architecture [B+→C], Patterns [B+→B], Complexity [B→C+], Dependencies [A→B-], Freshness [A→C+].
+- **Stable**: Coupling [C+] remains elevated; Security [A→A-] has only an info-level validation gap.
+- **Resolved**: Audit 4's v0.2.1 stale-release critical is obsolete locally.
+- **New findings**: Wrapper preparation bypass, frontend audit advisories, stale DESIGN/DOCS after v0.5.0.
+
+### Patterns Observed
+
+- **Module structure**: Internal package boundaries remain coherent; UI packages are composition-heavy.
+- **Error handling**: `%w` wrapping dominates, but default-profile load errors are inconsistently surfaced.
+- **Testing approach**: Behavior-first Go tests now cover the recent profile/proton/TUI work well.
+- **Dependency patterns**: Go dependencies are exact and tidy; frontend uses lockfile reproducibility with caret package ranges.
+- **Launch model**: Steam wrapper is the strategic path, but orchestration is split from `Launcher.Prepare()`.
+
 ## Audit 4 — 2026-04-19 (full: post-TUI-refactor + GUI DLL progress)
 
 TUI complexity refactor landed cleanly — Layout.Update() shrank from 366 to 74 lines, profile_widget.go and content.go both split successfully with all 99 tests intact. The GUI DLL progress work (Cycle 49) is a textbook use of the existing slog + defer + event-emit patterns. The one thing that's sliding is version health: v0.2.1 is now 37 days old with 51 unreleased feat/fix commits, which puts the project deep into "should have shipped" territory per the versioning convention.
