@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Upgrade the frontend toolchain to Vite 8 and Svelte 5 with exact pins and Svelte 5-compatible mounting.
+- Include tagged GUI backend tests in the default Mage test target.
+
+### Fixed
+
+- Rebase Playwright e2e mocks and expectations on the current Wails `gui.App` bindings and resource-centric GUI surface.
+
 ## [0.5.1] - 2026-04-24
 
 This patch release hardens the Steam wrapper launch lifecycle, profile input validation, GUI backend boundaries, TUI DLL updates, and frontend dependency pinning after the v0.5.0 redesign.

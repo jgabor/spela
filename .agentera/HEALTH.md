@@ -1,5 +1,47 @@
 # Health
 
+## Audit 7 · 2026-04-24
+
+The actionable Audit 6 warnings are closed. Test and dependency health are materially better; only the release-publication gate remains because tags must not be pushed without explicit approval.
+
+**Dimensions assessed**: Tests, Dependencies, Versions, Freshness
+**Findings**: 0 critical, 1 warning, 0 info (0 filtered by confidence)
+**Overall trajectory**: ⮉ improving vs Audit 6
+**Grades**: Tests [A-] | Dependencies [A-] | Versions [B] | Freshness [A]
+
+### Tests: A-
+
+No findings. `mage test` includes tagged GUI backend tests, and Playwright e2e passes against the current resource-centric GUI.
+
+### Dependencies: A-
+
+No findings. The frontend toolchain is exact-pinned on Vite 8, Svelte 5, and plugin 7; `npm audit --json` reports 0 vulnerabilities.
+
+### Versions: B
+
+#### ⇉ Local release tags are not published remotely, warning (confidence: 95)
+
+- **Location**: local tags `v0.5.0`, `v0.5.1`; origin tag refs
+- **Evidence**: Remote publication was explicitly excluded from this remediation request.
+- **Impact**: Release consumers and compare links cannot resolve v0.5.x tags on origin.
+- **Suggested action**: Push `main`, `v0.5.0`, and `v0.5.1` when the user approves publication.
+
+### Freshness: A
+
+No findings. CHANGELOG, TODO, PROGRESS, and HEALTH now record the warning remediation and the remaining tag-publication gate.
+
+### Trends vs Audit 6
+
+- **Improved**: Tests [B-→A-] and Dependencies [B-→A-].
+- **Stable**: Versions [B] remains limited by user-gated remote publication.
+- **Resolved**: GUI backend tests outside `mage test`, stale Playwright e2e harness, and frontend audit advisories.
+
+### Patterns Observed
+
+- **Testing approach**: Default verification now covers tagged GUI backend tests and browser e2e tests are usable again.
+- **Dependency patterns**: Frontend and Go dependencies both use exact pins.
+- **Release model**: Local release state remains healthy; remote publication stays explicitly user-gated.
+
 ## Audit 6 · 2026-04-24
 
 Audit 5 remediation materially improved launch, GUI, TUI, and artifact health. The codebase can close the plan cleanly, with only approval-gated release/dependency work and test harness debt left.

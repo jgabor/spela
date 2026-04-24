@@ -25,57 +25,56 @@ test.describe('DLL section', () => {
   test('shows detected DLLs heading', async ({ page }) => {
     await page.goto('/')
     await page.getByText('Cyberpunk 2077').click()
-    await expect(page.locator('h2', { hasText: 'Detected DLLs' })).toBeVisible()
+    await expect(page.locator('h2', { hasText: 'DLL versions' })).toBeVisible()
   })
 
   test('displays DLL names and versions', async ({ page }) => {
     await page.goto('/')
     await page.getByText('Cyberpunk 2077').click()
-    await expect(page.getByText('nvngx_dlss.dll')).toBeVisible()
-    await expect(page.getByText('nvngx_dlssg.dll')).toBeVisible()
+    await expect(page.locator('.dll-row').nth(1)).toContainText('3.7.0')
   })
 
   test('shows update badge for DLLs with updates', async ({ page }) => {
     await page.goto('/')
     await page.getByText('Cyberpunk 2077').click()
-    await expect(page.getByText('→ 3.8.0')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Update all DLLs' })).toBeVisible()
   })
 
   test('does not show DLL section for games without DLLs', async ({ page }) => {
     await page.goto('/')
     await page.getByText('Elden Ring').click()
-    await expect(page.locator('h2', { hasText: 'Detected DLLs' })).not.toBeVisible()
+    await expect(page.locator('h2', { hasText: 'DLL versions' })).toBeVisible()
+    await expect(page.locator('.dll-row').nth(1)).toContainText('-')
   })
 })
 
 test.describe('profile settings', () => {
-  test('shows profile settings heading', async ({ page }) => {
+  test('shows profile settings sections', async ({ page }) => {
     await page.goto('/')
     await page.getByText('Cyberpunk 2077').click()
-    await expect(page.locator('h2', { hasText: 'Profile settings' })).toBeVisible()
+    await expect(page.locator('h2', { hasText: 'DLSS settings' })).toBeVisible()
+    await expect(page.locator('h2', { hasText: 'Proton settings' })).toBeVisible()
   })
 
-  test('displays preset dropdown', async ({ page }) => {
+  test('displays quality mode dropdown', async ({ page }) => {
     await page.goto('/')
     await page.getByText('Cyberpunk 2077').click()
-    const presetSelect = page.locator('#preset')
-    await expect(presetSelect).toBeVisible()
-    await expect(presetSelect).toHaveValue(profiles[1091500].preset)
+    const qualityField = page.locator('.field', { hasText: 'Quality mode' })
+    await expect(qualityField.locator('.trigger')).toContainText('Balanced')
   })
 
   test('displays DLSS-SR mode dropdown', async ({ page }) => {
     await page.goto('/')
     await page.getByText('Cyberpunk 2077').click()
-    const srModeSelect = page.locator('#srMode')
-    await expect(srModeSelect).toBeVisible()
-    await expect(srModeSelect).toHaveValue(profiles[1091500].srMode)
+    const presetField = page.locator('.field', { hasText: 'DLSS preset' })
+    await expect(presetField.locator('.trigger')).toBeVisible()
   })
 
   test('displays checkbox options', async ({ page }) => {
     await page.goto('/')
     await page.getByText('Cyberpunk 2077').click()
-    await expect(page.getByLabel('DLSS-SR override')).toBeVisible()
-    const frameGenField = page.locator('.field', { hasText: 'Frame generation' })
+    await expect(page.getByLabel('Override (force DLSS even if unsupported)')).toBeVisible()
+    const frameGenField = page.locator('.field', { hasText: 'Frame generation' }).first()
     await expect(frameGenField.locator('.trigger')).toBeVisible()
     await expect(page.getByLabel('HDR')).toBeVisible()
     await expect(page.getByLabel('Wayland')).toBeVisible()
@@ -86,7 +85,7 @@ test.describe('profile settings', () => {
     await page.goto('/')
     await page.getByText('Cyberpunk 2077').click()
     const profile = profiles[1091500]
-    const frameGenField = page.locator('.field', { hasText: 'Frame generation' })
+    const frameGenField = page.locator('.field', { hasText: 'Frame generation' }).first()
     const frameGenValue = profile.fgOverride
       ? profile.fgEnabled
         ? 'true'
@@ -97,12 +96,13 @@ test.describe('profile settings', () => {
     await expect(page.getByLabel('Wayland')).toBeChecked({ checked: profile.enableWayland })
   })
 
-  test('can change preset value', async ({ page }) => {
+  test('can change quality mode value', async ({ page }) => {
     await page.goto('/')
     await page.getByText('Cyberpunk 2077').click()
-    const presetSelect = page.locator('#preset')
-    await presetSelect.selectOption('performance')
-    await expect(presetSelect).toHaveValue('performance')
+    const qualityField = page.locator('.field', { hasText: 'Quality mode' })
+    await qualityField.locator('.trigger').click()
+    await qualityField.getByRole('button', { name: 'Performance', exact: true }).click()
+    await expect(qualityField.locator('.trigger')).toContainText('Performance')
   })
 
   test('can toggle checkboxes', async ({ page }) => {
@@ -133,8 +133,8 @@ test.describe('game without profile', () => {
   test('shows default profile values for new games', async ({ page }) => {
     await page.goto('/')
     await page.getByText('Elden Ring').click()
-    await expect(page.locator('h2', { hasText: 'Profile settings' })).toBeVisible()
-    const presetSelect = page.locator('#preset')
-    await expect(presetSelect).toHaveValue('balanced')
+    await expect(page.locator('h2', { hasText: 'DLSS settings' })).toBeVisible()
+    const qualityField = page.locator('.field', { hasText: 'Quality mode' })
+    await expect(qualityField.locator('.trigger')).toContainText('(default)')
   })
 })

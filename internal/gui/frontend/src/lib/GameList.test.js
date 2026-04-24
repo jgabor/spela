@@ -1,9 +1,10 @@
 import { render, screen } from '@testing-library/svelte'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('../../wailsjs/go/main/App', () => ({
+vi.mock('../../wailsjs/go/gui/App', () => ({
   GetGames: vi.fn().mockImplementation(() => new Promise(() => {})),
   ScanGames: vi.fn().mockImplementation(() => new Promise(() => {})),
+  UpdateDLLs: vi.fn().mockResolvedValue(undefined),
 }))
 
 import GameList from './GameList.svelte'

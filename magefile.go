@@ -98,9 +98,12 @@ func runInDir(dir string, cmd string, args ...string) error {
 	return c.Run()
 }
 
-// Test runs all Go tests
+// Test runs all default Go tests plus GUI backend tests behind build tags.
 func Test() error {
-	return sh.RunV("go", "test", "-v", "./...")
+	if err := sh.RunV("go", "test", "-v", "./..."); err != nil {
+		return err
+	}
+	return sh.RunV("go", "test", "-tags", "dev", "-v", "./internal/gui")
 }
 
 // TestFrontend runs frontend tests

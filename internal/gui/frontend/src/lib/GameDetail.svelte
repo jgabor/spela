@@ -1200,10 +1200,6 @@
     margin-top: 0.15rem;
   }
 
-  .field.checkbox label span {
-    text-transform: none;
-  }
-
   .save {
     width: 100%;
     padding: 0.75rem;

@@ -18,6 +18,9 @@
 
 ## Resolved
 
+- [x] ~~Audit 6 GUI backend tests outside default `mage test`~~ — fixed by running tagged GUI backend tests from `mage test`
+- [x] ~~Audit 6 stale Playwright e2e harness~~ — fixed by rebasing fixtures on `window.go.gui.App` and current GUI resource/detail views
+- [x] ~~Audit 6 frontend audit advisories~~ — fixed by upgrading to exact-pinned Vite 8, Svelte 5, and plugin 7; `npm audit` reports 0 vulnerabilities
 - [x] ~~Audit 5 launch lifecycle split~~ — fixed in 51bc71f; wrapper launches use shared preparation and cleanup
 - [x] ~~Audit 5 direct Steam URI lifetime mismatch~~ — fixed in 51bc71f and GUI boundary commits; users get `%command%` guidance
 - [x] ~~Audit 5 profile and privileged input gaps~~ — fixed in 5a3d3e8; default errors, bool parsing, governors, and env behavior covered

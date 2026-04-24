@@ -7,8 +7,8 @@ export const games = [
     installDir: '/home/user/.steam/steam/steamapps/common/Cyberpunk 2077',
     prefixPath: '/home/user/.steam/steam/steamapps/compatdata/1091500/pfx',
     dlls: [
-      { name: 'nvngx_dlss.dll', path: 'bin/x64/nvngx_dlss.dll', version: '3.7.0' },
-      { name: 'nvngx_dlssg.dll', path: 'bin/x64/nvngx_dlssg.dll', version: '3.7.0' },
+      { dllType: 'dlss', name: 'nvngx_dlss.dll', path: 'bin/x64/nvngx_dlss.dll', version: '3.7.0' },
+      { dllType: 'dlssg', name: 'nvngx_dlssg.dll', path: 'bin/x64/nvngx_dlssg.dll', version: '3.7.0' },
     ],
     hasProfile: true,
   },
@@ -17,7 +17,7 @@ export const games = [
     name: 'The Witcher 3: Wild Hunt',
     installDir: '/home/user/.steam/steam/steamapps/common/The Witcher 3',
     prefixPath: '/home/user/.steam/steam/steamapps/compatdata/292030/pfx',
-    dlls: [{ name: 'nvngx_dlss.dll', path: 'bin/nvngx_dlss.dll', version: '3.5.0' }],
+    dlls: [{ dllType: 'dlss', name: 'nvngx_dlss.dll', path: 'bin/nvngx_dlss.dll', version: '3.5.0' }],
     hasProfile: false,
   },
   {
@@ -63,6 +63,34 @@ export const profiles = {
   },
 }
 
+export const defaultProfile = {
+  preset: 'balanced',
+  srMode: 'balanced',
+  srOverride: false,
+  fgEnabled: false,
+  fgOverride: false,
+  enableHdr: false,
+  enableWayland: false,
+  enableNgxUpdater: false,
+}
+
+export const config = {
+  theme: 'dark',
+  showHints: true,
+  compactMode: false,
+  logLevel: 'info',
+  steamPath: '',
+  dllCachePath: '',
+  backupPath: '',
+  confirmDestructive: true,
+  rescanOnStartup: false,
+  autoUpdateDLLs: false,
+  checkUpdates: false,
+  autoRefreshManifest: true,
+  manifestRefreshHours: 24,
+  preferredDLLSource: 'techpowerup',
+}
+
 export const dllUpdates = {
   1091500: [
     { name: 'nvngx_dlss.dll', currentVersion: '3.7.0', latestVersion: '3.8.0', hasUpdate: true },
@@ -77,14 +105,25 @@ function createMockScript(mockData) {
     const gpuInfo = ${JSON.stringify(mockData.gpuInfo)};
     const cpuInfo = ${JSON.stringify(mockData.cpuInfo)};
     const profiles = ${JSON.stringify(mockData.profiles)};
+    const defaultProfile = ${JSON.stringify(mockData.defaultProfile)};
+    let config = ${JSON.stringify(mockData.config)};
     const dllUpdates = ${JSON.stringify(mockData.dllUpdates)};
 
     window.go = {
-      main: {
+      gui: {
         App: {
+          GetConfig: async () => config,
+          SaveConfig: async (nextConfig) => {
+            config = nextConfig;
+          },
+          GetVersion: async () => '0.5.1',
           GetGames: async () => games,
           GetGame: async (appId) => games.find((g) => g.appId === appId) || null,
           ScanGames: async () => {},
+          GetDefaultProfile: async () => defaultProfile,
+          SaveDefaultProfile: async (profile) => {
+            Object.assign(defaultProfile, profile);
+          },
           GetProfile: async (appId) => profiles[appId] || null,
           SaveProfile: async (appId, profile) => {
             profiles[appId] = profile;
@@ -95,6 +134,13 @@ function createMockScript(mockData) {
           UpdateDLLs: async () => {},
           RestoreDLLs: async () => {},
           HasDLLBackup: async () => false,
+          ListDLLInstallTypes: async () => ['dlss', 'dlssg'],
+          ListDLLVersions: async () => ['3.8.0', '3.7.0'],
+          InstallDLL: async () => {},
+          LaunchGame: async () => {
+            throw new Error('direct Steam URI launch cannot track the game lifetime; set Steam launch options to spela %command% instead');
+          },
+          VKD3DHeapCompatibilityNotice: async () => '',
         },
       },
     };
@@ -124,7 +170,7 @@ function createMockScript(mockData) {
 
 export const test = base.extend({
   page: async ({ page }, use) => {
-    const mockData = { games, gpuInfo, cpuInfo, profiles, dllUpdates }
+    const mockData = { games, gpuInfo, cpuInfo, profiles, defaultProfile, config, dllUpdates }
     await page.addInitScript(createMockScript(mockData))
     await use(page)
   },
