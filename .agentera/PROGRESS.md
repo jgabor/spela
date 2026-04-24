@@ -1,5 +1,16 @@
 # Progress
 
+## Cycle 78 · 2026-04-24 17:05
+
+**Phase**: release
+**What**: Task 7 prepared local `v0.6.0` release state for the trusted profile loop. CHANGELOG now has a semver-minor entry for user-facing profile explanation, launch preparation, restore reporting, and TUI/GUI inspection semantics. Local tag `v0.6.0` exists; no remote push was run.
+**Commit**: release 9b5f81f `chore(release): v0.6.0`; bookkeeping this commit (`chore(agentera): record Task 7 version bump`)
+**Inspiration**: `.agentera/DOCS.md` versioning convention: semver bump on release via git-cliff and magefile.
+**Discovered**: `git cliff --bumped-version` selected `v0.6.0` because the plan includes feat commits. `cliff.toml` already skips `chore(agentera)` and `chore(release)`, so internal bookkeeping stays out of generated public notes.
+**Verified**: `git cliff --unreleased --tag v0.6.0 --strip all` generated `v0.6.0` notes with Added/Documentation/Fixed groups and no agentera bookkeeping. `git cliff --bumped-version` returned `v0.6.0` before the tag; after local tagging, `git cliff --unreleased --strip all` returned only `## [Unreleased]` and `git cliff --bumped-version` returned `v0.6.0` with a no-bump warning. `git ls-remote --tags origin 'v0.6.0*'` returned no output. `mage test`, `mage lint`, and `mage build` passed.
+**Next**: Task 8 remains pending; do not start it without explicit approval.
+**Context**: intent - prepare only Task 7 release/version state · constraints - no remote push, no Task 8 freshness work, no unrelated code/docs · unknowns - publication timing remains user-gated · scope - CHANGELOG, local tag, PLAN status, progress record
+
 ## Cycle 77 · 2026-04-24
 
 **Phase**: docs

@@ -99,7 +99,7 @@ Define one behavioral vocabulary for profile source, launch impact, and restore 
 ### Task 7: Version bump per DOCS.md convention
 
 **Depends on**: Tasks 1-6
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN trusted profile loop work changes user-facing behavior WHEN release state is prepared THEN CHANGELOG.md has a semver-appropriate version entry.
 ▸ GIVEN release notes are generated WHEN the version bump completes THEN internal agentera bookkeeping is excluded from user-facing notes.
