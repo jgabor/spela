@@ -1,5 +1,24 @@
 # Progress
 
+## Cycle 79 · 2026-04-24
+
+**Phase**: docs
+**What**: Task 8 closed the trusted profile loop freshness checkpoint. CHANGELOG.md already carries the `v0.6.0` plan-level user-facing release notes, TODO.md now scopes the resolved profile-loop work to this plan, DOCS.md indexes touched documentation, and PLAN.md marks the checkpoint complete.
+**Commit**: this checkpoint commit (`chore(agentera): close trusted profile loop`)
+**Inspiration**: Task 8 acceptance criteria and the realisera plan-completion sweep contract.
+**Discovered**: The release remains local-only: tag `v0.6.0` exists locally and remote publication is still user-gated. No new code or user-facing docs were needed for the checkpoint.
+**Verified**: CHANGELOG.md has `## [0.6.0] - 2026-04-24` with Added entries for profile explanations, launch preparation summaries, and TUI/GUI semantics, a Changed README guidance entry, and a Fixed restore reporting entry. PROGRESS.md now includes `Plan Summary - Trusted Profile Loop - 2026-04-24` with produced commits. TODO.md Resolved now scopes trusted profile loop semantics, launch preparation, restore reporting, UI parity, guidance, and local release state to this plan. DOCS.md indexes README, TODO, CHANGELOG, PLAN, PROGRESS, and DOCS with 2026-04-24 current status. PLAN.md marks Task 8 complete.
+**Next**: Remote publication remains user-gated; resume vision-driven work only after the user decides the next milestone.
+**Context**: intent - close only Task 8 artifact freshness · constraints - no code changes, no remote push, no new plan · unknowns - publication timing · scope - CHANGELOG/TODO/DOCS/PROGRESS/PLAN freshness
+
+## Plan Summary - Trusted Profile Loop - 2026-04-24
+
+- **Plan**: Trusted Profile Loop (8 tasks, completed 2026-04-24)
+- **Delivered**: Profile resolution, launch preparation, restore reporting, TUI inspection, GUI inspection, README guidance, and release notes now share the same trusted profile semantics.
+- **Produced commits**: fed4ac0 Task 1 profile semantics; 60152a4 Task 2 launch preparation summaries; 32ce2dc Task 3 restore reporting; 80ab1c9 Task 4 TUI semantics; 4b3d68c Task 5 GUI semantics; 040c8c8 Task 6 README guidance; 9b5f81f Task 7 local `v0.6.0` release; 649bcc3 Task 7 bookkeeping; this checkpoint commit for Task 8 artifact freshness.
+- **Release state**: Local annotated tag `v0.6.0` exists. Remote publication remains user-gated.
+- **Follow-ups**: No profile-loop implementation task is reopened by this checkpoint.
+
 ## Cycle 78 · 2026-04-24 17:05
 
 **Phase**: release

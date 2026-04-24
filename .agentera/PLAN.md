@@ -108,7 +108,7 @@ Define one behavioral vocabulary for profile source, launch impact, and restore 
 ### Task 8: Plan-level freshness checkpoint
 
 **Depends on**: Task 7
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN this plan's user-facing work has shipped WHEN CHANGELOG.md is checked THEN it has plan-level entries covering completed tasks.
 ▸ GIVEN this plan completes WHEN PROGRESS.md is checked THEN it has a plan summary entry listing produced commits.

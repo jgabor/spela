@@ -18,6 +18,11 @@
 
 ## Resolved
 
+- [x] ~~Trusted profile loop shared semantics~~ — delivered in fed4ac0; effective values report source, launch impact, and restore coverage.
+- [x] ~~Trusted profile loop launch preparation visibility~~ — delivered in 60152a4; CLI and wrapper summaries show planned environment, DLL, hardware, overlay, and compatibility impacts.
+- [x] ~~Trusted profile loop restore confidence~~ — delivered in 32ce2dc; cleanup outcomes and DLL restore readiness are visible without hiding launch results.
+- [x] ~~Trusted profile loop TUI and GUI inspection parity~~ — delivered in 80ab1c9 and 4b3d68c; both surfaces use shared profile semantics.
+- [x] ~~Trusted profile loop guidance and release state~~ — delivered in 040c8c8 and 9b5f81f; README guidance is current and local `v0.6.0` release state exists.
 - [x] ~~Audit 6 GUI backend tests outside default `mage test`~~ — fixed by running tagged GUI backend tests from `mage test`
 - [x] ~~Audit 6 stale Playwright e2e harness~~ — fixed by rebasing fixtures on `window.go.gui.App` and current GUI resource/detail views
 - [x] ~~Audit 6 frontend audit advisories~~ — fixed by upgrading to exact-pinned Vite 8, Svelte 5, and plugin 7; `npm audit` reports 0 vulnerabilities
