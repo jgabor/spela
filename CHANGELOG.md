@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-04-24
+
+This patch release hardens the Steam wrapper launch lifecycle, profile input validation, GUI backend boundaries, TUI DLL updates, and frontend dependency pinning after the v0.5.0 redesign.
+
 ### Changed
 
 - Route TUI DLL resource cache and update workflows through injectable services, keeping deployment rendering deterministic in tests.
@@ -328,6 +332,7 @@ This release introduces a new vkd3d_heap toggle that enables the PROTON_VKD3D_HE
 - Restore interactive redo flow
 - Change summary model
 
+[0.5.1]: https://github.com/jgabor/spela/compare/v0.5.0..v0.5.1
 [0.5.0]: https://github.com/jgabor/spela/compare/v0.4.0..v0.5.0
 [0.4.0]: https://github.com/jgabor/spela/compare/v0.3.0..v0.4.0
 [0.3.0]: https://github.com/jgabor/spela/compare/v0.2.1..v0.3.0
