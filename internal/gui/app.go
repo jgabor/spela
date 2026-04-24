@@ -8,11 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/cpu"
-	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/gpu"
 	"github.com/jgabor/spela/internal/logging"
@@ -493,100 +491,15 @@ type DLLUpdateInfo struct {
 }
 
 func (a *App) CheckDLLUpdates(appID uint64) []DLLUpdateInfo {
-	if a.db == nil {
-		return []DLLUpdateInfo{}
-	}
-
-	g := a.db.GetGame(appID)
-	if g == nil {
-		return []DLLUpdateInfo{}
-	}
-
-	manifest, err := dll.GetManifest(false, "")
-	if err != nil {
-		logging.Debug("failed to get DLL manifest", "error", err)
-		return []DLLUpdateInfo{}
-	}
-
-	var updates []DLLUpdateInfo
-	for _, d := range g.DLLs {
-		info := DLLUpdateInfo{
-			Name:           d.Name,
-			CurrentVersion: d.Version,
-		}
-
-		latest := manifest.GetLatestDLL(d.Name)
-		if latest != nil {
-			info.LatestVersion = latest.Version
-			info.HasUpdate = latest.Version != d.Version
-		}
-
-		updates = append(updates, info)
-	}
-
-	return updates
+	return newGUIApplicationBoundary(a.db, a.emitDLLProgress).checkDLLUpdates(appID)
 }
 
 func (a *App) ListDLLInstallTypes(appID uint64) ([]string, error) {
-	if a.db == nil {
-		return nil, ErrDatabaseNotLoaded
-	}
-
-	g := a.db.GetGame(appID)
-	if g == nil {
-		return nil, fmt.Errorf("%w: %d", ErrGameNotFound, appID)
-	}
-
-	manifest, err := dll.GetManifest(false, "")
-	if err != nil {
-		return nil, err
-	}
-
-	validTypes := make(map[string]bool, len(g.DLLs))
-	for _, d := range g.DLLs {
-		validTypes[string(d.Type)] = true
-	}
-
-	allTypes := manifest.ListDLLNames()
-	filtered := make([]string, 0, len(allTypes))
-	for _, t := range allTypes {
-		if len(manifest.DLLs[t]) == 0 {
-			continue
-		}
-		if len(validTypes) > 0 && !validTypes[t] {
-			continue
-		}
-		filtered = append(filtered, t)
-	}
-
-	if len(filtered) == 0 {
-		return nil, fmt.Errorf("no supported DLL types detected for this game")
-	}
-
-	return filtered, nil
+	return newGUIApplicationBoundary(a.db, a.emitDLLProgress).listDLLInstallTypes(appID)
 }
 
 func (a *App) ListDLLVersions(dllType string) ([]string, error) {
-	if dllType == "" {
-		return nil, fmt.Errorf("dll type is required")
-	}
-
-	manifest, err := dll.GetManifest(false, "")
-	if err != nil {
-		return nil, err
-	}
-
-	versions, ok := manifest.DLLs[dllType]
-	if !ok {
-		return nil, fmt.Errorf("no versions found for %s", dllType)
-	}
-
-	results := make([]string, 0, len(versions))
-	for _, entry := range versions {
-		results = append(results, entry.Version)
-	}
-
-	return results, nil
+	return newGUIApplicationBoundary(a.db, a.emitDLLProgress).listDLLVersions(dllType)
 }
 
 func (a *App) emitDLLProgress(stage string) {
@@ -596,165 +509,20 @@ func (a *App) emitDLLProgress(stage string) {
 	runtime.EventsEmit(a.ctx, "dll:progress", stage)
 }
 
-func ensureDLLCached(target *dll.DLL, dllName string) (string, error) {
-	cachePath := dll.GetDLLCachePath(dllName, target.Version)
-	if _, err := os.Stat(cachePath); err == nil {
-		return cachePath, nil
-	}
-	return dll.DownloadDLLWithProgress(target, dllName, nil)
-}
-
 func (a *App) InstallDLL(appID uint64, dllType, version string) error {
-	defer a.emitDLLProgress("")
-
-	if a.db == nil {
-		return ErrDatabaseNotLoaded
-	}
-	if dllType == "" {
-		return fmt.Errorf("dll type is required")
-	}
-
-	g := a.db.GetGame(appID)
-	if g == nil {
-		return fmt.Errorf("%w: %d", ErrGameNotFound, appID)
-	}
-
-	a.emitDLLProgress("Resolving manifest")
-	manifest, err := dll.GetManifest(false, "")
-	if err != nil {
-		return fmt.Errorf("load DLL manifest: %w", err)
-	}
-
-	targetVersion := version
-	if targetVersion == "" {
-		targetVersion = "latest"
-	}
-
-	var targetDLL *dll.DLL
-	if targetVersion == "latest" {
-		targetDLL = manifest.GetLatestDLL(dllType)
-	} else {
-		targetDLL = manifest.GetDLLVersion(dllType, targetVersion)
-	}
-	if targetDLL == nil {
-		return fmt.Errorf("no version available for %s", dllType)
-	}
-
-	a.emitDLLProgress(fmt.Sprintf("Downloading %s %s", dllType, targetVersion))
-	cachePath, err := ensureDLLCached(targetDLL, dllType)
-	if err != nil {
-		return fmt.Errorf("download %s: %w", targetVersion, err)
-	}
-
-	gameDLLs := dll.GameDLLsFromDetected(g.DLLs)
-
-	a.emitDLLProgress(fmt.Sprintf("Installing %s", targetDLL.Filename))
-	if err := dll.InstallDLL(g.AppID, g.Name, g.InstallDir, gameDLLs, targetDLL.Filename, cachePath); err != nil {
-		return fmt.Errorf("install DLL: %w", err)
-	}
-
-	a.emitDLLProgress("Scanning install directory")
-	detected, err := dll.ScanDirectory(g.InstallDir)
-	if err != nil {
-		return fmt.Errorf("scan install directory: %w", err)
-	}
-
-	g.DLLs = detected
-	g.ScannedAt = time.Now()
-	a.emitDLLProgress("Saving database")
-	if err := a.db.Save(); err != nil {
-		return fmt.Errorf("save game database after install: %w", err)
-	}
-	return nil
+	return newGUIApplicationBoundary(a.db, a.emitDLLProgress).installDLLVersion(appID, dllType, version)
 }
 
 func (a *App) UpdateDLLs(appID uint64) error {
-	defer a.emitDLLProgress("")
-
-	if a.db == nil {
-		return ErrDatabaseNotLoaded
-	}
-
-	g := a.db.GetGame(appID)
-	if g == nil {
-		return fmt.Errorf("%w: %d", ErrGameNotFound, appID)
-	}
-
-	a.emitDLLProgress("Resolving manifest")
-	manifest, err := dll.GetManifest(false, "")
-	if err != nil {
-		return fmt.Errorf("load DLL manifest: %w", err)
-	}
-
-	gameDLLs := dll.GameDLLsFromDetected(g.DLLs)
-
-	for _, d := range g.DLLs {
-		latest := manifest.GetLatestDLL(d.Name)
-		if latest == nil || latest.Version == d.Version {
-			continue
-		}
-
-		a.emitDLLProgress(fmt.Sprintf("Downloading %s %s", d.Name, latest.Version))
-		cachePath, err := ensureDLLCached(latest, d.Name)
-		if err != nil {
-			return fmt.Errorf("download %s: %w", d.Name, err)
-		}
-
-		a.emitDLLProgress(fmt.Sprintf("Swapping %s", d.Name))
-		if err := dll.SwapDLL(appID, g.Name, gameDLLs, d.Name, cachePath); err != nil {
-			return fmt.Errorf("swap %s: %w", d.Name, err)
-		}
-	}
-
-	a.emitDLLProgress("Scanning install directory")
-	detected, err := dll.ScanDirectory(g.InstallDir)
-	if err != nil {
-		logging.Warn("scan after update failed", "appID", appID, "error", err)
-	} else {
-		g.DLLs = detected
-		g.ScannedAt = time.Now()
-	}
-	a.emitDLLProgress("Saving database")
-	if err := a.db.Save(); err != nil {
-		return fmt.Errorf("save game database after update: %w", err)
-	}
-	return nil
+	return newGUIApplicationBoundary(a.db, a.emitDLLProgress).updateDLLs(appID)
 }
 
 func (a *App) RestoreDLLs(appID uint64) error {
-	defer a.emitDLLProgress("")
-
-	if a.db == nil {
-		return ErrDatabaseNotLoaded
-	}
-
-	g := a.db.GetGame(appID)
-	if g == nil {
-		return fmt.Errorf("%w: %d", ErrGameNotFound, appID)
-	}
-
-	a.emitDLLProgress("Restoring backup")
-	if err := dll.RestoreBackup(appID); err != nil {
-		return fmt.Errorf("restore backup: %w", err)
-	}
-
-	a.emitDLLProgress("Scanning install directory")
-	detected, err := dll.ScanDirectory(g.InstallDir)
-	if err != nil {
-		logging.Warn("scan after restore failed", "appID", appID, "error", err)
-	} else {
-		g.DLLs = detected
-		g.ScannedAt = time.Now()
-	}
-	a.emitDLLProgress("Saving database")
-	if err := a.db.Save(); err != nil {
-		return fmt.Errorf("save game database after restore: %w", err)
-	}
-	return nil
+	return newGUIApplicationBoundary(a.db, a.emitDLLProgress).restoreDLLs(appID)
 }
 
 func (a *App) HasDLLBackup(appID uint64) bool {
-	return dll.BackupExists(appID)
+	return newGUIApplicationBoundary(a.db, a.emitDLLProgress).hasDLLBackup(appID)
 }
 
 func (a *App) LaunchGame(appID uint64) error {

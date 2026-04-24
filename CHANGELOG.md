@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Route GUI profile, compatibility, and direct-launch responses through a narrow backend boundary, with GUI logs captured by the shared logger.
+- Route GUI profile, DLL, compatibility, and direct-launch responses through a narrow backend boundary, with GUI logs captured by the shared logger.
 
 ### Fixed
 
