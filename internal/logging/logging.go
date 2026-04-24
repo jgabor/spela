@@ -1,5 +1,5 @@
 // Package logging is the centralized slog wrapper for spela. It exposes
-// level-specific helpers (Warn, Info) and a SetHandler hook so tests can
+// level-specific helpers and a SetHandler hook so tests can
 // redirect output to a buffer without touching slog.SetDefault directly.
 package logging
 
@@ -12,6 +12,20 @@ var (
 	mu     sync.RWMutex
 	logger = slog.Default()
 )
+
+// Debug emits a debug-level record using the current logger.
+func Debug(msg string, args ...any) {
+	mu.RLock()
+	defer mu.RUnlock()
+	logger.Debug(msg, args...)
+}
+
+// Error emits an error-level record using the current logger.
+func Error(msg string, args ...any) {
+	mu.RLock()
+	defer mu.RUnlock()
+	logger.Error(msg, args...)
+}
 
 // Warn emits a warning-level record using the current logger.
 func Warn(msg string, args ...any) {

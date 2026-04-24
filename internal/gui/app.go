@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"time"
 
@@ -16,9 +15,8 @@ import (
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/gpu"
+	"github.com/jgabor/spela/internal/logging"
 	"github.com/jgabor/spela/internal/profile"
-	"github.com/jgabor/spela/internal/proton"
-	"github.com/jgabor/spela/internal/steam"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -185,7 +183,7 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	db, err := game.LoadDatabase()
 	if err != nil {
-		slog.Error("failed to load game database", "error", err)
+		logging.Error("failed to load game database", "error", err)
 	}
 	a.db = db
 }
@@ -381,34 +379,15 @@ func stringToBoolPtr(s string) *bool {
 }
 
 func (a *App) GetProfile(appID uint64) *ProfileInfo {
-	perGameProfile, err := profile.Load(appID)
-	if err != nil {
-		return nil
-	}
-	if perGameProfile != nil {
-		return profileInfoFromProfile(perGameProfile, false)
-	}
-
-	defaultProfile, err := profile.LoadDefault()
-	if err != nil {
-		return nil
-	}
-	if defaultProfile == nil {
-		return nil
-	}
-	return profileInfoFromProfile(defaultProfile, true)
+	return defaultGUIApplicationBoundary(a.db).getProfile(appID)
 }
 
 func (a *App) GetDefaultProfile() *ProfileInfo {
-	p, err := profile.LoadDefault()
-	if err != nil {
-		return nil
-	}
-	return profileInfoFromProfile(p, false)
+	return defaultGUIApplicationBoundary(a.db).getDefaultProfile()
 }
 
 func (a *App) SaveProfile(appID uint64, info ProfileInfo) error {
-	return profile.Save(appID, profileFromInfo(info))
+	return defaultGUIApplicationBoundary(a.db).saveGameProfile(appID, info)
 }
 
 // VKD3DHeapCompatibilityNotice returns a human-readable inline notice
@@ -416,24 +395,11 @@ func (a *App) SaveProfile(appID uint64, info ProfileInfo) error {
 // An empty string means the environment is compatible or checks skipped
 // cleanly. Mirrors the helper used by the CLI `proton show` command.
 func (a *App) VKD3DHeapCompatibilityNotice(appID uint64) string {
-	cfg, _ := config.Load()
-	steamRoot := ""
-	if cfg != nil {
-		steamRoot = cfg.SteamPath
-	}
-	if steamRoot == "" {
-		steamRoot = steam.FindSteamPath()
-	}
-	return proton.CompatibilityNotice(appID, proton.NoticeDeps{
-		SteamRoot:         steamRoot,
-		ResolveForAppID:   proton.ResolveForAppID,
-		SupportsVKD3DHeap: proton.SupportsVKD3DHeap,
-		DriverVersion:     gpu.DriverVersionString,
-	})
+	return defaultGUIApplicationBoundary(a.db).vkd3dHeapCompatibilityNotice(appID)
 }
 
 func (a *App) SaveDefaultProfile(info ProfileInfo) error {
-	return profile.SaveDefault(profileFromInfo(info))
+	return defaultGUIApplicationBoundary(a.db).saveDefault(info)
 }
 
 type GPUInfo struct {
@@ -538,7 +504,7 @@ func (a *App) CheckDLLUpdates(appID uint64) []DLLUpdateInfo {
 
 	manifest, err := dll.GetManifest(false, "")
 	if err != nil {
-		slog.Debug("failed to get DLL manifest", "error", err)
+		logging.Debug("failed to get DLL manifest", "error", err)
 		return []DLLUpdateInfo{}
 	}
 
@@ -743,7 +709,7 @@ func (a *App) UpdateDLLs(appID uint64) error {
 	a.emitDLLProgress("Scanning install directory")
 	detected, err := dll.ScanDirectory(g.InstallDir)
 	if err != nil {
-		slog.Warn("scan after update failed", "appID", appID, "error", err)
+		logging.Warn("scan after update failed", "appID", appID, "error", err)
 	} else {
 		g.DLLs = detected
 		g.ScannedAt = time.Now()
@@ -775,7 +741,7 @@ func (a *App) RestoreDLLs(appID uint64) error {
 	a.emitDLLProgress("Scanning install directory")
 	detected, err := dll.ScanDirectory(g.InstallDir)
 	if err != nil {
-		slog.Warn("scan after restore failed", "appID", appID, "error", err)
+		logging.Warn("scan after restore failed", "appID", appID, "error", err)
 	} else {
 		g.DLLs = detected
 		g.ScannedAt = time.Now()
@@ -792,14 +758,5 @@ func (a *App) HasDLLBackup(appID uint64) bool {
 }
 
 func (a *App) LaunchGame(appID uint64) error {
-	if a.db == nil {
-		return ErrDatabaseNotLoaded
-	}
-
-	g := a.db.GetGame(appID)
-	if g == nil {
-		return fmt.Errorf("%w: %d", ErrGameNotFound, appID)
-	}
-
-	return fmt.Errorf("direct Steam URI launch cannot track the game lifetime; set %s's Steam launch options to `spela %%command%%` instead", g.Name)
+	return defaultGUIApplicationBoundary(a.db).rejectDirectLaunch(appID)
 }
