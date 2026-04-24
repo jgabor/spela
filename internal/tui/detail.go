@@ -366,7 +366,7 @@ func (m *DetailModel) rebuildResolved() {
 const overrideMarkerGlyph = "◆"
 
 // View renders the detail as a single column: for each group, a bold header
-// line then one row per field formatted as `  marker label  value`.
+// line then one row per field formatted as `  marker label  value  semantics`.
 //
 // Per-row styling (Task 5):
 //   - Focused row wins: rendered with FocusStyle (accent-focus cyan, bold).
@@ -399,12 +399,13 @@ func (m DetailModel) View() string {
 
 		value := formatFieldValue(m.resolved, row.field)
 		overridden := !m.isRoot && m.raw != nil && m.raw.IsOverridden(row.field)
+		semantics := m.formatFieldSemantics(row.field)
 
 		marker := "  "
 		if overridden {
 			marker = s.OverrideMarkerStyle().Render(overrideMarkerGlyph) + " "
 		}
-		body := fmt.Sprintf("%-20s  %s", row.label, value)
+		body := fmt.Sprintf("%-20s  %-12s  %s", row.label, value, semantics)
 
 		if i == focusedRow {
 			// Focus styling applies to the whole row body (the marker keeps
@@ -425,6 +426,26 @@ func (m DetailModel) View() string {
 	}
 
 	return b.String()
+}
+
+func (m DetailModel) formatFieldSemantics(field string) string {
+	impact, impactErr := profile.FieldLaunchImpact(field)
+	restore, restoreErr := profile.FieldRestoreCoverage(field)
+	if impactErr != nil || restoreErr != nil {
+		return ""
+	}
+	if m.isRoot {
+		return fmt.Sprintf("impact %s · restore %s", impact, restore)
+	}
+	raw := m.raw
+	if raw == nil {
+		raw = &profile.Profile{}
+	}
+	explanation, err := raw.ExplainField(field, m.defaults)
+	if err != nil {
+		return fmt.Sprintf("impact %s · restore %s", impact, restore)
+	}
+	return fmt.Sprintf("source %s · impact %s · restore %s", explanation.Source, explanation.Impact, explanation.Restore)
 }
 
 // formatFieldValue returns a display string for the given field on the

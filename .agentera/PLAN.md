@@ -70,7 +70,7 @@ Define one behavioral vocabulary for profile source, launch impact, and restore 
 ### Task 4: Align TUI profile semantics
 
 **Depends on**: Task 1
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN a game profile is inspected in the TUI WHEN values render THEN source, impact, and restore meanings match the shared semantics.
 ▸ GIVEN defaults change an inherited value WHEN the TUI reloads the profile THEN inherited state remains clear and no override is implied.
