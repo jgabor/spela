@@ -80,7 +80,7 @@ Define one behavioral vocabulary for profile source, launch impact, and restore 
 ### Task 5: Align GUI profile semantics
 
 **Depends on**: Task 1
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN a game profile is inspected in the GUI WHEN values render THEN source, impact, and restore meanings match the shared semantics.
 ▸ GIVEN defaults change an inherited value WHEN the GUI reloads the profile THEN inherited state remains clear and no override is implied.

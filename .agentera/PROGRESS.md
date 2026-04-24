@@ -1,5 +1,16 @@
 # Progress
 
+## Cycle 76 · 2026-04-24 16:45
+
+**Phase**: build
+**What**: Task 5 aligned GUI profile inspection with shared profile semantics. Game profiles now load resolved effective values plus source, impact, and restore metadata from `internal/profile`, and saves preserve inherited intent unless a rendered field changes.
+**Commit**: this commit (`feat(gui): show profile semantics`)
+**Inspiration**: Trusted Profile Loop Task 5 acceptance criteria, Task 1 shared semantics, and the firm GUI-as-configuration-surface decision.
+**Discovered**: The GUI boundary previously returned raw game profile values when a game profile existed, so inherited fields could render as zero choices instead of default-backed effective values. A concurrent Mage lint/build run can race on Mage's transient output file, so build verification was rerun alone.
+**Verified**: Focused GUI backend tests `go test -tags dev ./internal/gui -run 'TestGUIBoundaryProfile' -v` passed, proving resolved inherited values, source/impact/restore metadata, live default reload clarity, changed-field override preservation, and unrendered override preservation. Frontend `npm test -- --run src/lib/GameDetail.test.js` rendered `source override · impact environment · restore ephemeral_launch_environment`, `source default · impact system_state · restore restorable_mutation`, and `source default · impact compatibility · restore ephemeral_launch_environment`. Full `npm test`, `go test -tags dev ./internal/gui -v`, `mage test`, `mage lint`, and `mage build` passed.
+**Next**: Task 6 can update user-facing guidance for wrapper-first launch, profile sources, and restore coverage.
+**Context**: intent - align only GUI profile semantics · constraints - no launcher, TUI, dependency, version, or broad docs scope · unknowns - Task 6 will decide user-facing wording · scope - GUI boundary profile mapping, frontend profile metadata rendering, focused GUI tests, Task 5 artifacts
+
 ## Cycle 75 · 2026-04-24 16:21
 
 **Phase**: build

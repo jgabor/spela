@@ -5,6 +5,7 @@ package gui
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/jgabor/spela/internal/config"
@@ -78,15 +79,26 @@ func (b guiApplicationBoundary) getProfile(appID uint64) *ProfileInfo {
 	if err != nil {
 		return nil
 	}
-	if perGameProfile != nil {
-		return profileInfoFromProfile(perGameProfile, false)
-	}
-
 	defaultProfile, err := b.loadDefaultProfile()
-	if err != nil || defaultProfile == nil {
+	if err != nil {
 		return nil
 	}
-	return profileInfoFromProfile(defaultProfile, true)
+	if perGameProfile != nil {
+		explanations, err := perGameProfile.Explain(defaultProfile)
+		if err != nil {
+			return nil
+		}
+		return profileInfoFromProfileWithSemantics(perGameProfile.ResolveForApply(defaultProfile), explanations, false)
+	}
+
+	if defaultProfile == nil {
+		return nil
+	}
+	explanations, err := (*profile.Profile)(nil).Explain(defaultProfile)
+	if err != nil {
+		return nil
+	}
+	return profileInfoFromProfileWithSemantics(defaultProfile, explanations, true)
 }
 
 func (b guiApplicationBoundary) getDefaultProfile() *ProfileInfo {
@@ -98,11 +110,81 @@ func (b guiApplicationBoundary) getDefaultProfile() *ProfileInfo {
 }
 
 func (b guiApplicationBoundary) saveGameProfile(appID uint64, info ProfileInfo) error {
-	return b.saveProfile(appID, profileFromInfo(info))
+	current, err := b.loadProfile(appID)
+	if err != nil {
+		return err
+	}
+	defaults, err := b.loadDefaultProfile()
+	if err != nil {
+		return fmt.Errorf("load default profile: %w", err)
+	}
+	return b.saveProfile(appID, profileFromInfoPreservingIntent(info, current, defaults))
 }
 
 func (b guiApplicationBoundary) saveDefault(info ProfileInfo) error {
 	return b.saveDefaultProfile(profileFromInfo(info))
+}
+
+var guiProfileFields = []string{
+	profile.FieldDLSSSRMode,
+	profile.FieldDLSSSRPreset,
+	profile.FieldDLSSSRModelPreset,
+	profile.FieldDLSSSROverride,
+	profile.FieldDLSSRRMode,
+	profile.FieldDLSSRRPreset,
+	profile.FieldDLSSRROverride,
+	profile.FieldDLSSFGEnabled,
+	profile.FieldDLSSFGOverride,
+	profile.FieldDLSSFGIndicator,
+	profile.FieldDLSSMultiFrame,
+	profile.FieldDLSSIndicator,
+	profile.FieldGPUShaderCache,
+	profile.FieldGPUShaderCachePath,
+	profile.FieldGPUThreadedOptimization,
+	profile.FieldGPUClockOffset,
+	profile.FieldGPUMemoryOffset,
+	profile.FieldGPUPowerMizer,
+	profile.FieldCPUGovernor,
+	profile.FieldCPUSMT,
+	profile.FieldProtonEnableHDR,
+	profile.FieldProtonEnableWayland,
+	profile.FieldProtonEnableNGXUpdater,
+	profile.FieldProtonVKD3DHeap,
+}
+
+func profileFromInfoPreservingIntent(info ProfileInfo, current *profile.Profile, defaults *profile.Profile) *profile.Profile {
+	next := &profile.Profile{}
+	if current != nil {
+		next.Name = current.Name
+		for _, field := range profile.AllFields() {
+			if current.IsOverridden(field) {
+				_ = profile.CopyField(next, current, field)
+				next.MarkOverride(field)
+			}
+		}
+	}
+	incoming := profileFromInfo(info)
+	for _, field := range guiProfileFields {
+		incoming.MarkOverride(field)
+	}
+
+	if current == nil {
+		current = &profile.Profile{}
+	}
+	for _, field := range guiProfileFields {
+		previous, previousErr := current.ExplainField(field, defaults)
+		incomingField, incomingErr := incoming.ExplainField(field, nil)
+		if previousErr != nil || incomingErr != nil {
+			continue
+		}
+		if previous.Source == profile.ExplanationSourceOverride || !reflect.DeepEqual(previous.Value, incomingField.Value) {
+			_ = profile.CopyField(next, incoming, field)
+			next.MarkOverride(field)
+			continue
+		}
+		_ = next.Reset(field)
+	}
+	return next
 }
 
 func (b guiApplicationBoundary) vkd3dHeapCompatibilityNotice(appID uint64) string {

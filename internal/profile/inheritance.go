@@ -211,6 +211,28 @@ func (p *Profile) MarkOverride(field string) {
 	p.Overrides[field] = true
 }
 
+// CopyField copies one inheritance-tracked field from src to dst. It does not
+// change override state; callers decide whether the copied value is inherited
+// or pinned in their context.
+func CopyField(dst *Profile, src *Profile, field string) error {
+	if dst == nil || src == nil {
+		return fmt.Errorf("copy %s: nil profile", field)
+	}
+	if !IsValidField(field) {
+		return fmt.Errorf("unknown profile field: %q", field)
+	}
+	srcVal, err := fieldAccessor(src, field)
+	if err != nil {
+		return err
+	}
+	dstVal, err := fieldAccessor(dst, field)
+	if err != nil {
+		return err
+	}
+	dstVal.Set(deepCopyValue(srcVal))
+	return nil
+}
+
 // PinField copies the currently-resolved value of `field` onto this profile
 // and marks it as an override. The "resolved value" is the value that would
 // be used at apply time given the supplied defaults: if `p` already has the

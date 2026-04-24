@@ -26,10 +26,11 @@ func TestGUIBoundaryProfilePassUsesGameProfile(t *testing.T) {
 		if appID != 1091500 {
 			t.Fatalf("unexpected appID: %d", appID)
 		}
-		return &profile.Profile{Proton: profile.ProtonSettings{EnableHDR: true}}, nil
+		p := &profile.Profile{Proton: profile.ProtonSettings{EnableHDR: true}}
+		p.MarkOverride(profile.FieldProtonEnableHDR)
+		return p, nil
 	}
 	boundary.loadDefaultProfile = func() (*profile.Profile, error) {
-		t.Fatal("default profile should not load when game profile exists")
 		return nil, nil
 	}
 
@@ -50,6 +51,101 @@ func TestGUIBoundaryProfileFailReturnsNil(t *testing.T) {
 
 	if info := boundary.getProfile(1091500); info != nil {
 		t.Fatalf("expected nil profile on load failure, got %+v", *info)
+	}
+}
+
+func TestGUIBoundaryProfileSemanticsPassResolvesInheritedValues(t *testing.T) {
+	boundary := defaultGUIApplicationBoundary(nil)
+	gameProfile := &profile.Profile{Proton: profile.ProtonSettings{VKD3DHeap: false}}
+	gameProfile.MarkOverride(profile.FieldProtonVKD3DHeap)
+	boundary.loadProfile = func(uint64) (*profile.Profile, error) { return gameProfile, nil }
+	boundary.loadDefaultProfile = func() (*profile.Profile, error) {
+		return &profile.Profile{
+			Proton: profile.ProtonSettings{EnableHDR: true, VKD3DHeap: true},
+			GPU:    profile.GPUSettings{ClockOffset: 100},
+		}, nil
+	}
+
+	info := boundary.getProfile(1091500)
+	if info == nil {
+		t.Fatal("expected profile info")
+	}
+	if !info.EnableHDR || info.VKD3DHeap {
+		t.Fatalf("expected resolved HDR default and VKD3D override, got %+v", *info)
+	}
+	semantics := semanticsByField(info.Semantics)
+	assertProfileSemantic(t, semantics[profile.FieldProtonEnableHDR], "default", "compatibility", "ephemeral_launch_environment")
+	assertProfileSemantic(t, semantics[profile.FieldProtonVKD3DHeap], "override", "compatibility", "ephemeral_launch_environment")
+	assertProfileSemantic(t, semantics[profile.FieldGPUClockOffset], "default", "system_state", "restorable_mutation")
+
+	boundary.loadDefaultProfile = func() (*profile.Profile, error) {
+		return &profile.Profile{Proton: profile.ProtonSettings{EnableHDR: false, VKD3DHeap: true}}, nil
+	}
+	reloaded := boundary.getProfile(1091500)
+	if reloaded == nil || reloaded.EnableHDR {
+		t.Fatalf("expected live inherited HDR default to reload as false, got %+v", reloaded)
+	}
+	assertProfileSemantic(t, semanticsByField(reloaded.Semantics)[profile.FieldProtonEnableHDR], "default", "compatibility", "ephemeral_launch_environment")
+}
+
+func TestGUIBoundaryProfileSemanticsFailPreservesInheritedIntentOnSave(t *testing.T) {
+	boundary := defaultGUIApplicationBoundary(nil)
+	defaults := &profile.Profile{Proton: profile.ProtonSettings{EnableHDR: true, VKD3DHeap: true}}
+	current := &profile.Profile{
+		Proton:  profile.ProtonSettings{VKD3DHeap: false},
+		Overlay: profile.OverlaySettings{Enabled: true},
+	}
+	current.MarkOverride(profile.FieldProtonVKD3DHeap)
+	current.MarkOverride(profile.FieldOverlayEnabled)
+	boundary.loadProfile = func(uint64) (*profile.Profile, error) { return current, nil }
+	boundary.loadDefaultProfile = func() (*profile.Profile, error) { return defaults, nil }
+	var saved *profile.Profile
+	boundary.saveProfile = func(appID uint64, p *profile.Profile) error {
+		if appID != 1091500 {
+			t.Fatalf("unexpected appID: %d", appID)
+		}
+		saved = p
+		return nil
+	}
+
+	info := boundary.getProfile(1091500)
+	info.EnableHDR = false
+	if err := boundary.saveGameProfile(1091500, *info); err != nil {
+		t.Fatal(err)
+	}
+	if saved == nil {
+		t.Fatal("expected saved profile")
+	}
+	if !saved.IsOverridden(profile.FieldProtonEnableHDR) || !saved.IsOverridden(profile.FieldProtonVKD3DHeap) {
+		t.Fatalf("expected changed HDR and existing VKD3D overrides, got %+v", saved.Overrides)
+	}
+	if saved.IsOverridden(profile.FieldGPUClockOffset) {
+		t.Fatalf("unchanged inherited clock offset should not become an override: %+v", saved.Overrides)
+	}
+	if !saved.IsOverridden(profile.FieldOverlayEnabled) {
+		t.Fatalf("unrendered existing overlay override should be preserved: %+v", saved.Overrides)
+	}
+	resolved := saved.ResolveForApply(defaults)
+	if resolved.Proton.EnableHDR || resolved.Proton.VKD3DHeap {
+		t.Fatalf("expected saved effective false/false, got HDR=%v VKD3D=%v", resolved.Proton.EnableHDR, resolved.Proton.VKD3DHeap)
+	}
+	if !resolved.Overlay.Enabled {
+		t.Fatal("expected unrendered overlay override to remain effective")
+	}
+}
+
+func semanticsByField(items []ProfileFieldSemantics) map[string]ProfileFieldSemantics {
+	out := make(map[string]ProfileFieldSemantics, len(items))
+	for _, item := range items {
+		out[item.Field] = item
+	}
+	return out
+}
+
+func assertProfileSemantic(t *testing.T, item ProfileFieldSemantics, source, impact, restore string) {
+	t.Helper()
+	if item.Source != source || item.Impact != impact || item.Restore != restore {
+		t.Fatalf("expected source=%s impact=%s restore=%s, got %+v", source, impact, restore, item)
 	}
 }
 

@@ -173,6 +173,7 @@
   let lastGameId = null
   let lastProfileMode = profileMode
   let frameGenerationMode = '(default)'
+  let semanticsByField = {}
 
   $: if (profileMode !== lastProfileMode) {
     lastProfileMode = profileMode
@@ -195,6 +196,19 @@
     frameGenerationMode = profile.fgOverride
       ? (profile.fgEnabled ? 'true' : 'false')
       : '(default)'
+  }
+
+  $: semanticsByField = Object.fromEntries((profile?.semantics || []).map(item => [item.field, item]))
+
+  function semanticText(field) {
+    const semantic = semanticsByField[field]
+    if (!semantic) {
+      return ''
+    }
+    if (profileMode === 'default') {
+      return `impact ${semantic.impact} · restore ${semantic.restore}`
+    }
+    return `source ${semantic.source} · impact ${semantic.impact} · restore ${semantic.restore}`
   }
 
   // Re-check vkd3d_heap compatibility when the toggle flips, the selected
@@ -584,6 +598,7 @@
               options={srModeOptions}
             />
             <span class="hint">Resolution preset for DLSS super resolution.</span>
+            <span class="profile-meta">{semanticText('dlss.sr_mode')}</span>
           </div>
 
           <div class="field">
@@ -593,18 +608,21 @@
               options={srPresetOptions}
             />
             <span class="hint">A-F: CNN (DLSS 2/3), J-M: Transformer (DLSS 4/4.5)</span>
+            <span class="profile-meta">{semanticText('dlss.sr_preset')}</span>
           </div>
 
           <div class="field checkbox">
             <input type="checkbox" id="srOverride" bind:checked={profile.srOverride} />
             <label for="srOverride">Override (force DLSS even if unsupported)</label>
             <span class="hint">Use DLSS even if the game does not expose it.</span>
+            <span class="profile-meta">{semanticText('dlss.sr_override')}</span>
           </div>
 
           <div class="field checkbox">
             <input type="checkbox" id="indicator" bind:checked={profile.indicator} />
             <label for="indicator">Show DLSS indicator</label>
             <span class="hint">Display a small on-screen DLSS status overlay.</span>
+            <span class="profile-meta">{semanticText('dlss.indicator')}</span>
           </div>
 
           <div class="field">
@@ -615,6 +633,7 @@
               on:change={(event) => updateFrameGeneration(event.detail)}
             />
             <span class="hint">Generate extra frames for higher FPS.</span>
+            <span class="profile-meta">{semanticText('dlss.fg_enabled')}</span>
           </div>
 
           <div class="field">
@@ -624,6 +643,7 @@
               options={multiFrameOptions}
             />
             <span class="hint">Extra frames to generate (0=off).</span>
+            <span class="profile-meta">{semanticText('dlss.multi_frame')}</span>
           </div>
         </div>
       </div>
@@ -636,12 +656,14 @@
             <input type="checkbox" id="shaderCache" bind:checked={profile.shaderCache} />
             <label for="shaderCache">Shader cache</label>
             <span class="hint">Enable shader caching for faster reloads.</span>
+            <span class="profile-meta">{semanticText('gpu.shader_cache')}</span>
           </div>
 
           <div class="field checkbox">
             <input type="checkbox" id="threadedOptimization" bind:checked={profile.threadedOptimization} />
             <label for="threadedOptimization">Threaded optimization</label>
             <span class="hint">Use multi-core rendering when supported.</span>
+            <span class="profile-meta">{semanticText('gpu.threaded_optimization')}</span>
           </div>
 
           <div class="field">
@@ -651,6 +673,7 @@
               options={powerMizerOptions}
             />
             <span class="hint">GPU power policy for the game.</span>
+            <span class="profile-meta">{semanticText('gpu.power_mizer')}</span>
           </div>
 
           <div class="field">
@@ -660,6 +683,7 @@
               options={clockOffsetOptions}
             />
             <span class="hint">GPU core clock offset in MHz.</span>
+            <span class="profile-meta">{semanticText('gpu.clock_offset')}</span>
           </div>
 
           <div class="field">
@@ -669,6 +693,7 @@
               options={memoryOffsetOptions}
             />
             <span class="hint">GPU memory clock offset in MHz.</span>
+            <span class="profile-meta">{semanticText('gpu.memory_offset')}</span>
           </div>
         </div>
       </div>
@@ -684,6 +709,7 @@
               options={governorOptions}
             />
             <span class="hint">CPU frequency scaling governor for the game.</span>
+            <span class="profile-meta">{semanticText('cpu.governor')}</span>
           </div>
 
           <div class="field">
@@ -693,6 +719,7 @@
               options={smtOptions}
             />
             <span class="hint">Simultaneous multi-threading (hyperthreading).</span>
+            <span class="profile-meta">{semanticText('cpu.smt')}</span>
           </div>
         </div>
       </div>
@@ -705,24 +732,28 @@
             <input type="checkbox" id="enableHdr" bind:checked={profile.enableHdr} />
             <label for="enableHdr">HDR</label>
             <span class="hint">Enable HDR output for supported displays.</span>
+            <span class="profile-meta">{semanticText('proton.enable_hdr')}</span>
           </div>
 
           <div class="field checkbox">
             <input type="checkbox" id="enableWayland" bind:checked={profile.enableWayland} />
             <label for="enableWayland">Wayland</label>
             <span class="hint">Prefer native Wayland when available.</span>
+            <span class="profile-meta">{semanticText('proton.enable_wayland')}</span>
           </div>
 
           <div class="field checkbox">
             <input type="checkbox" id="enableNgxUpdater" bind:checked={profile.enableNgxUpdater} />
             <label for="enableNgxUpdater">NGX Updater</label>
             <span class="hint">Allow Proton to update DLSS DLLs.</span>
+            <span class="profile-meta">{semanticText('proton.enable_ngx_updater')}</span>
           </div>
 
           <div class="field checkbox">
             <input type="checkbox" id="vkd3dHeap" bind:checked={profile.vkd3dHeap} />
             <label for="vkd3dHeap">VKD3D Heap</label>
             <span class="hint">Enable the VKD3D descriptor heap code path (PROTON_VKD3D_HEAP=1). Requires a recent Proton-CachyOS build and a current NVIDIA driver.</span>
+            <span class="profile-meta">{semanticText('proton.vkd3d_heap')}</span>
             {#if profile.vkd3dHeap && vkd3dHeapNotice}
               <div class="vkd3d-notice" data-level={vkd3dHeapNotice.startsWith('⚠') ? 'warn' : 'info'}>
                 {vkd3dHeapNotice}
@@ -1255,6 +1286,20 @@
   }
 
   .field.checkbox .hint {
+    grid-column: 2;
+  }
+
+  .profile-meta {
+    display: block;
+    margin-top: 0.2rem;
+    color: var(--accent-secondary);
+    font-size: 0.68rem;
+    line-height: 1.3;
+    text-transform: none;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  }
+
+  .field.checkbox .profile-meta {
     grid-column: 2;
   }
 

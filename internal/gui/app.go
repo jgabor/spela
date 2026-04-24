@@ -255,34 +255,46 @@ func gameInfoFromGame(g *game.Game) GameInfo {
 }
 
 type ProfileInfo struct {
-	SRMode               string `json:"srMode"`
-	SRPreset             string `json:"srPreset"`
-	SRModelPreset        string `json:"srModelPreset"`
-	SROverride           bool   `json:"srOverride"`
-	RRMode               string `json:"rrMode"`
-	RRPreset             string `json:"rrPreset"`
-	RROverride           bool   `json:"rrOverride"`
-	FGEnabled            bool   `json:"fgEnabled"`
-	FGOverride           bool   `json:"fgOverride"`
-	FGIndicator          bool   `json:"fgIndicator"`
-	MultiFrame           int    `json:"multiFrame"`
-	Indicator            bool   `json:"indicator"`
-	ShaderCache          bool   `json:"shaderCache"`
-	ShaderCachePath      string `json:"shaderCachePath"`
-	ThreadedOptimization bool   `json:"threadedOptimization"`
-	PowerMizer           string `json:"powerMizer"`
-	ClockOffset          int    `json:"clockOffset"`
-	MemoryOffset         int    `json:"memoryOffset"`
-	Governor             string `json:"governor"`
-	SMT                  string `json:"smt"`
-	EnableHDR            bool   `json:"enableHdr"`
-	EnableWayland        bool   `json:"enableWayland"`
-	EnableNGXUpdater     bool   `json:"enableNgxUpdater"`
-	VKD3DHeap            bool   `json:"vkd3dHeap"`
-	InheritedFromDefault bool   `json:"inheritedFromDefault"`
+	SRMode               string                  `json:"srMode"`
+	SRPreset             string                  `json:"srPreset"`
+	SRModelPreset        string                  `json:"srModelPreset"`
+	SROverride           bool                    `json:"srOverride"`
+	RRMode               string                  `json:"rrMode"`
+	RRPreset             string                  `json:"rrPreset"`
+	RROverride           bool                    `json:"rrOverride"`
+	FGEnabled            bool                    `json:"fgEnabled"`
+	FGOverride           bool                    `json:"fgOverride"`
+	FGIndicator          bool                    `json:"fgIndicator"`
+	MultiFrame           int                     `json:"multiFrame"`
+	Indicator            bool                    `json:"indicator"`
+	ShaderCache          bool                    `json:"shaderCache"`
+	ShaderCachePath      string                  `json:"shaderCachePath"`
+	ThreadedOptimization bool                    `json:"threadedOptimization"`
+	PowerMizer           string                  `json:"powerMizer"`
+	ClockOffset          int                     `json:"clockOffset"`
+	MemoryOffset         int                     `json:"memoryOffset"`
+	Governor             string                  `json:"governor"`
+	SMT                  string                  `json:"smt"`
+	EnableHDR            bool                    `json:"enableHdr"`
+	EnableWayland        bool                    `json:"enableWayland"`
+	EnableNGXUpdater     bool                    `json:"enableNgxUpdater"`
+	VKD3DHeap            bool                    `json:"vkd3dHeap"`
+	InheritedFromDefault bool                    `json:"inheritedFromDefault"`
+	Semantics            []ProfileFieldSemantics `json:"semantics"`
+}
+
+type ProfileFieldSemantics struct {
+	Field   string `json:"field"`
+	Source  string `json:"source"`
+	Impact  string `json:"impact"`
+	Restore string `json:"restore"`
 }
 
 func profileInfoFromProfile(p *profile.Profile, inheritedFromDefault bool) *ProfileInfo {
+	return profileInfoFromProfileWithSemantics(p, nil, inheritedFromDefault)
+}
+
+func profileInfoFromProfileWithSemantics(p *profile.Profile, semantics []profile.FieldExplanation, inheritedFromDefault bool) *ProfileInfo {
 	if p == nil {
 		return nil
 	}
@@ -313,7 +325,24 @@ func profileInfoFromProfile(p *profile.Profile, inheritedFromDefault bool) *Prof
 		EnableNGXUpdater:     p.Proton.EnableNGXUpdater,
 		VKD3DHeap:            p.Proton.VKD3DHeap,
 		InheritedFromDefault: inheritedFromDefault,
+		Semantics:            profileFieldSemanticsFromExplanations(semantics),
 	}
+}
+
+func profileFieldSemanticsFromExplanations(explanations []profile.FieldExplanation) []ProfileFieldSemantics {
+	if len(explanations) == 0 {
+		return nil
+	}
+	items := make([]ProfileFieldSemantics, 0, len(explanations))
+	for _, explanation := range explanations {
+		items = append(items, ProfileFieldSemantics{
+			Field:   explanation.Field,
+			Source:  string(explanation.Source),
+			Impact:  string(explanation.Impact),
+			Restore: string(explanation.Restore),
+		})
+	}
+	return items
 }
 
 func profileFromInfo(info ProfileInfo) *profile.Profile {
