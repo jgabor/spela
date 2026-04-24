@@ -18,6 +18,15 @@
 
 ## Resolved
 
+- [x] ~~Audit 5 launch lifecycle split~~ — fixed in 51bc71f; wrapper launches use shared preparation and cleanup
+- [x] ~~Audit 5 direct Steam URI lifetime mismatch~~ — fixed in 51bc71f and GUI boundary commits; users get `%command%` guidance
+- [x] ~~Audit 5 profile and privileged input gaps~~ — fixed in 5a3d3e8; default errors, bool parsing, governors, and env behavior covered
+- [x] ~~Audit 5 GUI domain/logging seam~~ — fixed in 8c5a0ed and 6e52e3f; GUI actions route through a boundary and shared logging
+- [x] ~~Audit 5 TUI DLL workflow and profile-field drift~~ — fixed in 1778e67; services own DLL workflows and field display coverage exists
+- [x] ~~Audit 5 TUI routing hotspot~~ — fixed in f2e2584; routing helpers preserve modal, resource, message, and DLL behavior
+- [x] ~~Audit 5 frontend dependency health~~ — addressed in ab10940; exact pins added, semver-major advisory fix remains approval-blocked in PROGRESS.md
+- [x] ~~Audit 5 release freshness~~ — addressed by local `v0.5.1` in a6ce00a and d76d253; remote push remains user-gated
+- [x] ~~Audit 5 stale DESIGN/DOCS artifacts~~ — resolved by Task 8 checkpoint; DESIGN and DOCS reflect resource-centric neon TUI contracts
 - [x] ~~DLL database not persisted after operations~~ — fixed in prior refactoring
 - [x] ~~Game launch bypasses launcher package~~ — fixed in prior refactoring
 - [x] ~~Missing profile fields~~ — fixed in prior refactoring

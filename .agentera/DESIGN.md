@@ -128,34 +128,22 @@ metric-dll-update:   "#FFD75F"  # thermal-hot — update available
 metric-dll-missing:  "#6C6C7A"  # text-dim — not installed
 ```
 
-### Theme Variants
+### Neon Dark Theme
 
-Three themes share the same semantic token names. The brand palette is immutable across
-themes (spela's identity doesn't change with the background). Surface, text, and subtle
-accent colors adapt.
+Spela has one TUI theme: dark terminal surfaces with neon semantic accents. Magenta marks
+profile overrides and stale deployment cells. Cyan marks focus and active navigation.
 
 <!-- design:theme -->
 ```yaml
-default:
-  surface-base:      "#000000"
-  surface-raised:    "#1C1C1C"
-  text-primary:      "#F5F5FD"
-  border-default:    "#64297D"  # brand-deep
-  border-focus:      "#9C41AA"  # brand-primary
-
-dark:
-  surface-base:      "#121212"  # ANSI 233 — slightly lighter than true black
-  surface-raised:    "#1E1E1E"  # ANSI 234
-  text-primary:      "#E8E8F0"  # ANSI 253
-  border-default:    "#37306B"  # ANSI 55 — deep violet
-  border-focus:      "#8787AF"  # ANSI 99 — slate blue
-
-light:
-  surface-base:      "#F5F5FD"  # Ghost White as background
-  surface-raised:    "#EBEBF5"  # ANSI 254
-  text-primary:      "#2A2A35"  # ANSI 235
-  border-default:    "#D7AFD7"  # ANSI 183 — light violet
-  border-focus:      "#64297D"  # brand-deep
+theme:
+  mode: single-neon-dark
+  background:        surface-base
+  foreground:        text-primary
+  foreground-muted:  text-dim
+  border:            brand-deep
+  accent-override:   "#FA76C2"  # magenta — overrides, stale DLL deployments
+  accent-focus:      "#5FAFFF"  # cyan — focused rail item, active field, active pane
+  accent-brand:      brand-primary
 ```
 
 ## Typography
@@ -170,7 +158,7 @@ heading:
   weight: bold
   color: brand-primary
   decoration: none
-  usage: panel titles, section headers, tab labels
+  usage: panel titles, section headers, resource labels
 
 subheading:
   weight: bold
@@ -259,10 +247,6 @@ border-separator:
   style: normal           # lipgloss.NormalBorder(), bottom only
   color: text-muted
   usage: header bottom edge, section dividers
-
-border-tab:
-  style: none             # no border — tabs use color/underline for selection
-  usage: tab bar items
 ```
 
 ## Components
@@ -273,10 +257,13 @@ border-tab:
 ┌─────────────────────────────────────────────────┐
 │  Header: Logo + Live Metrics + Sparklines       │
 │─────────────────────────────────────────────────│
-│ [1]Games │ [2]DLLs  [3]Profile  [4]Launch       │
+│ [1] Games                                        │
+│ [2] DLLs                                         │
+│ [3] Defaults                                     │
+│ [4] Metrics                                      │
 │          │                                       │
-│  Sidebar │  Content (tabbed)                     │
-│  30%     │  70%                                  │
+│ Left Rail│  Resource Pane                        │
+│  fixed   │  remaining width                      │
 │          │                                       │
 │          │                                       │
 ├─────────────────────────────────────────────────┤
@@ -294,24 +281,16 @@ header:
   border: border-separator (bottom only)
 
 sidebar:
-  width-ratio: 0.30
-  width-min: 25
-  width-max: 50
+  width-min: 18
+  width-max: 28
   border: border-panel
-  title-format: "[{jump-key}] {title}"
+  title-format: "Resources"
 
 content:
   width: remaining after sidebar
   border: border-panel
-  title-format: "[{jump-key}] {title}"
-  tabs: yes — rendered in title area
-
-tab-bar:
-  position: content panel title line
-  format: "[{key}]{label}"
-  active: bold, brand-primary foreground
-  inactive: text-dim foreground
-  separator: "  "      # 2 spaces between tabs
+  title-format: "{active-resource}"
+  resources: [Games, DLLs, Defaults, Metrics]
 
 message-bar:
   height: 1
@@ -374,32 +353,34 @@ gauge-mini:
   usage: compact mode inline gauges, table cells
 ```
 
-### Navigation Stack
+### Resource Navigation
 
-LIFO context stack with breadcrumb rendering. Replaces binary focus with deep drill-down.
+Permanent left rail with four peer resources. `tab` moves focus into the active pane;
+`1`-`4` switch resources globally. Steam `%command%` remains the launch path.
 
 <!-- design:components-navigation -->
 ```yaml
-navigation-stack:
+resource-rail:
   breadcrumb-separator: " > "
   breadcrumb-root: "spela"
   breadcrumb-style-active: bold, brand-primary
   breadcrumb-style-trail: text-dim
   pop-key: "esc"
-  
+
   # Example breadcrumb trails:
-  # spela > Games > Cyberpunk 2077 > Profile
-  # spela > Games > Cyberpunk 2077 > DLLs > Install > Select Version
-  # spela > Default Profile
+  # spela > Games > Cyberpunk 2077
+  # spela > DLLs > Deployment
+  # spela > Defaults
+  # spela > Metrics
   # spela > Settings
 
 jump-keys:
-  sidebar: "1"
-  tab-dlls: "2"
-  tab-profile: "3"
-  tab-launch: "4"
+  games: "1"
+  dlls: "2"
+  defaults: "3"
+  metrics: "4"
   format: "[{key}]{label}"
-  style-key: brand-accent, bold
+  style-key: accent-focus, bold
   style-label: text-primary
 ```
 
@@ -486,9 +467,10 @@ filter-legend:
   style: text-dim
 ```
 
-### Profile Widget
+### Profile Detail
 
-Grid editor for per-game settings. Two-column at width >= 80, single column below.
+Single-column grouped renderer shared by Games and Defaults. Games show live inheritance;
+Defaults show root values without inheritance markers.
 
 <!-- design:components-profile -->
 ```yaml
@@ -501,15 +483,18 @@ profile-field:
   format: "{label}: {value}"
   label-style: label
   value-style: value
-  value-selected-style: value-emphasis, brand-accent background
+  value-inherited-style: text-dim
+  value-override-style: text-primary
+  value-selected-style: value-emphasis, accent-focus background
   disabled-format: "{label}: {value} (coming soon)"
   disabled-style: disabled
-  modified-indicator: "●"
-  modified-color: status-warning
+  override-indicator: "◆"
+  override-color: accent-override
+  stale-dll-color: accent-override
 
 profile-layout:
-  columns: 2 (if width >= 80, else 1)
-  column-gap: 2
+  columns: 1
+  order: [proton, dlss, gpu, cpu, overlay]
   group-gap: 1 line
 ```
 
@@ -577,7 +562,7 @@ loading-spinner:
   frames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
   interval: 80
   color: brand-accent
-  usage: async operations (DLL download, profile apply, game launch)
+  usage: async operations (DLL download, profile apply, resource update)
 
 transition-modal:
   type: instant
@@ -594,8 +579,8 @@ not the visual language itself. The design tokens remain constant.
 ```yaml
 standard:
   header: visible (logo + metrics + sparklines)
-  sidebar: visible (30% width)
-  content: visible (tabbed, 70% width)
+  sidebar: visible (resource rail)
+  content: visible (active resource pane)
   status-bar: visible
   sparklines: visible
   gauges: visible
@@ -603,8 +588,8 @@ standard:
 
 compact:
   header: condensed (metrics only, no logo, 2 lines)
-  sidebar: visible (25% width, narrower)
-  content: visible (tabbed, 75% width)
+  sidebar: visible (narrow resource rail)
+  content: visible (active resource pane)
   status-bar: visible
   sparklines: hidden (values only)
   gauges: mini variant
@@ -614,7 +599,7 @@ compact:
 focused:
   header: hidden
   sidebar: hidden
-  content: fullscreen (100% width, no tabs — current tab fills screen)
+  content: fullscreen (100% width, current resource fills screen)
   status-bar: visible (minimal — breadcrumb + esc hint only)
   sparklines: hidden
   gauges: hidden
@@ -653,7 +638,7 @@ structural:
   - pattern: hardcoded-ansi-color
     rule: prohibited
     scope: all TUI code
-    reason: "All colors via theme tokens. Hardcoded values break theme switching."
+    reason: "All colors via theme tokens. Hardcoded values break the neon dark contract."
   
   - pattern: hardcoded-dimensions
     rule: prohibited-except-min-max
@@ -668,7 +653,7 @@ structural:
   - pattern: nested-dialog-without-stack
     rule: prohibited
     scope: modal management
-    reason: "All modals go through navigation stack. No ad-hoc activeDialog guards."
+    reason: "All modals go through the compositor stack. No ad-hoc activeDialog guards."
   
   - pattern: sleep-in-animation
     rule: prohibited

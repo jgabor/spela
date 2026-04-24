@@ -1,6 +1,6 @@
 # Plan: Audit 5 Remediation
 
-<!-- Level: full | Created: 2026-04-24 | Status: active -->
+<!-- Level: full | Created: 2026-04-24 | Status: complete -->
 <!-- Reviewed: 2026-04-24 | Critic issues: 12 found, 12 addressed, 0 dismissed -->
 
 ## What
@@ -121,7 +121,7 @@ Converge launch behavior around one preparation lifecycle. Harden profile and pr
 ### Task 8: Plan-level freshness checkpoint
 
 **Depends on**: Task 7
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN this plan's user-facing work has shipped WHEN CHANGELOG.md is checked THEN it has plan-level Added, Changed, or Fixed entries covering completed tasks.
 ▸ GIVEN this plan is otherwise complete WHEN PROGRESS.md is checked THEN it has a plan summary entry listing produced commits.

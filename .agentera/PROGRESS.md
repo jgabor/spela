@@ -1,5 +1,24 @@
 # Progress
 
+## Cycle 70 · 2026-04-24
+
+**Phase**: docs
+**What**: Task 8 completed the Audit 5 remediation freshness checkpoint. CHANGELOG.md already held plan-level `v0.5.1` Changed/Fixed entries for Tasks 1-7. TODO.md now cross-references each resolved Audit 5 finding. DOCS.md has current artifact mapping and index dates. DESIGN.md no longer describes pre-v0.5.0 launch tabs or theme variants; it now describes the resource-centric neon dark TUI contract. PLAN.md marks Task 8 complete and the plan complete.
+**Commit**: this checkpoint commit (`chore(agentera): complete Audit 5 freshness checkpoint`)
+**Inspiration**: Task 8 acceptance criteria, Audit 5 freshness finding, and the user-approved documentation/design update gate.
+**Discovered**: Task 7 remains local-release complete but remote-publication gated. Local tags `v0.5.0` and `v0.5.1` exist; publication remains `git push origin main && git push origin v0.5.0 v0.5.1` for the user.
+**Verified**: CHANGELOG.md has `## [0.5.1] - 2026-04-24` with Changed entries for TUI DLL services, GUI backend boundaries, and dependency pinning plus Fixed entries for launch lifecycle, profile/input validation, and DLL batch failure reporting. PROGRESS.md includes `Plan Summary - Audit 5 remediation - 2026-04-24` with produced commits and release/tag state. TODO.md Resolved contains Audit 5 cross-references for launch, profile/input, GUI, TUI, dependency, release, and stale-doc findings. DOCS.md audit date, mapping, and index now include current agentera artifacts. DESIGN.md grep for stale launch-tab/theme-variant terms no longer finds `Theme Variants`, `tab-bar`, `tab-launch`, `Launch tab`, or `theme switching`; the file describes Games, DLLs, Defaults, and Metrics with magenta override and cyan focus tokens. The visualisera validator returned `valid: true` with no errors. Task 8 is marked `■ complete` in PLAN.md after these checks.
+**Next**: No further plan implementation tasks remain. Remote publication remains user-gated.
+**Context**: intent - close only Task 8 artifact freshness · constraints - no code changes, no dependency updates, no remote push, preserve pre-existing HEALTH changes · unknowns - remote publication timing · scope - CHANGELOG inspection, TODO/DOCS/DESIGN/PROGRESS/PLAN artifact updates
+
+## Plan Summary - Audit 5 remediation - 2026-04-24
+
+- **Plan**: Audit 5 Remediation (8 tasks, completed 2026-04-24)
+- **Delivered**: Wrapper launches now share preparation and cleanup. Profile and privileged inputs fail visibly. GUI domain actions route through an application boundary. TUI DLL workflows use services, routing hotspots are split, frontend toolchain versions are pinned, and docs/design artifacts match the v0.5.x resource-centric TUI contract.
+- **Produced commits**: 51bc71f Task 1 launch lifecycle; 086c8a7 and 43a117b Task 1 evidence; 5a3d3e8 Task 2 input hardening; 02ce9ae Task 2 artifacts; 8c5a0ed, 83ff5e5, 6e52e3f, and 3e795cc Task 3 GUI boundary; 1778e67 and 9982a4f Task 4 TUI DLL services; f2e2584 and 9fd2524 Task 5 routing; ab10940 and b174608 Task 6 frontend dependency health; a6ce00a, 58e17a3, d76d253, and 2a32626 Task 7 release state; this checkpoint commit for Task 8 artifact freshness.
+- **Release state**: Local `v0.5.1` exists and `CHANGELOG.md` Unreleased is empty. Remote publication remains user-gated: `git push origin main && git push origin v0.5.0 v0.5.1`.
+- **Follow-ups**: Semver-major frontend upgrade remains approval-gated. Remote tag publication remains user-gated. No implementation task is reopened by this checkpoint.
+
 ## Cycle 69 · 2026-04-24
 
 **Phase**: release
