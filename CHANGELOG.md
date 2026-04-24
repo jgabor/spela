@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Route GUI profile, compatibility, and direct-launch responses through a narrow backend boundary, with GUI logs captured by the shared logger.
+
 ### Fixed
 
 - Surface corrupt default profile errors, reject invalid profile booleans consistently, validate CPU governors before privileged writes, and cover env behavior directly.

@@ -70,7 +70,7 @@ Converge launch behavior around one preparation lifecycle. Harden profile and pr
 ### Task 3: Establish GUI application boundaries
 
 **Depends on**: Task 1, Task 2
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN the GUI performs profile, DLL, compatibility, or launch actions WHEN those actions run THEN results match non-GUI behavior for the same game and profile state.
 ▸ GIVEN GUI actions report failures WHEN logs are captured THEN they appear through the repository logging path.

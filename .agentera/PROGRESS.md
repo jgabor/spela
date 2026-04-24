@@ -1,5 +1,16 @@
 # Progress
 
+## Cycle 64 · 2026-04-24 08:46
+
+**Phase**: build
+**What**: Task 3 established a GUI application boundary for profile responses, compatibility notices, and direct-launch refusal. GUI log emission now routes through `internal/logging` instead of importing `log/slog` directly. Boundary tests cover one profile success, one profile failure, one compatibility success, one direct-launch failure, and centralized GUI log capture.
+**Commit**: 8c5a0ed refactor(gui): add application boundary
+**Inspiration**: Audit 5 GUI boundary findings and the existing repository logging seam.
+**Discovered**: Running Mage targets concurrently can race on Mage's generated temp file; sequential `mage lint`, `mage test`, and `mage build` are the reliable verification path.
+**Verified**: `go test -tags dev ./internal/gui -run 'TestGUIBoundary|TestGUILogging' -v` PASS: profile mapping used a game profile and returned nil on load failure, compatibility delegated through injected domain notice dependencies, direct GUI launch returned `cannot track the game lifetime` plus `spela %command%`, and GUI startup error logs were captured via `logging.SetHandler`. `go test -tags dev ./internal/gui -v` PASS for all GUI backend boundary tests. `go test ./...` PASS, `mage lint` 0 issues, `mage test` PASS, and `mage build` completed the Wails binary plus frontend bundle. Test volume stayed within the cap: profile has one pass and one fail; compatibility, launch, and logging each have one focused boundary test.
+**Next**: Task 4 remains pending, but no TUI resource workflow work started in this cycle.
+**Context**: intent - close Audit 5 GUI boundary/logging seam without GUI redesign · constraints - only Task 3, preserve direct-launch `%command%` guidance, no new dependencies, no TUI scope · unknowns - full DLL workflow extraction remains Task 4/TUI-owned · scope - GUI backend boundary, centralized logging helpers, GUI backend tests, Task 3 artifacts
+
 ## Cycle 63 · 2026-04-24 08:37
 
 **Phase**: build
