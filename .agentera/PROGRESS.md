@@ -4,7 +4,7 @@
 
 **Phase**: release
 **What**: Task 7 retry reconciled the release metadata with the git-cliff convention after post-tag bookkeeping. Agentera operational commits are now excluded from generated release notes, so local `v0.5.1` remains the correct remediation release and `## [Unreleased]` stays empty for the next user-facing change.
-**Commit**: pending local retry commit
+**Commit**: d76d253 chore(release): reconcile Task 7 version state
 **Inspiration**: Inspektera's Task 7 retry finding and `.agentera/DOCS.md` versioning contract.
 **Discovered**: `chore(agentera)` commits after a local tag can make git-cliff report a phantom patch release. The release-worthy state did not change after `v0.5.1`; only agentera bookkeeping did. Remaining user-gated publication action: `git push origin main && git push origin v0.5.0 v0.5.1`. No remote push was run.
 **Verified**: Final-state checks after the retry: `git cliff --unreleased --strip all` returns only `## [Unreleased]` with no Changed/Fixed/Added bullets, and `git cliff --bumped-version` returns `v0.5.1`. `git tag --list 'v0.5.0' 'v0.5.1'` returns both local tags; `git ls-remote --tags origin 'v0.5.0*' 'v0.5.1*'` returns no tags, so publication remains user-gated. `CHANGELOG.md` keeps `## [Unreleased]` empty with rationale here: no release-worthy commits remain after excluding agentera bookkeeping. `mage test`, `mage lint`, `mage build`, and `mage install` pass, proving release metadata does not break test, build, or install.
