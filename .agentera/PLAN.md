@@ -100,7 +100,7 @@ Converge launch behavior around one preparation lifecycle. Harden profile and pr
 ### Task 6: Resolve frontend dependency health
 
 **Depends on**: none
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN frontend dependencies are audited WHEN the task completes THEN no moderate-or-higher advisories remain, or remaining advisories have explicit rationale.
 ▸ GIVEN dependency versions are updated WHEN the frontend installs from the lockfile THEN the install is reproducible.
@@ -138,4 +138,4 @@ Converge launch behavior around one preparation lifecycle. Harden profile and pr
 
 ## Surprises
 
-[Empty; populated by realisera during execution when reality diverges from plan.]
+- Task 6 audit remediation is approval-blocked at the clean fix: `npm audit` still reports 7 moderate advisories through Vite, esbuild, Svelte, `svelte-hmr`, `vitefu`, and `@sveltejs/vite-plugin-svelte-inspector`. npm's fixes require semver-major upgrades to `vite@8.0.10`, `svelte@5.55.5`, and `@sveltejs/vite-plugin-svelte@7.0.0`, so this task pinned the current toolchain and recorded the blocker instead of forcing the upgrade.
