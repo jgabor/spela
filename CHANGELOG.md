@@ -9,10 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Route TUI DLL resource cache and update workflows through injectable services, keeping deployment rendering deterministic in tests.
 - Route GUI profile, DLL, compatibility, and direct-launch responses through a narrow backend boundary, with GUI logs captured by the shared logger.
 
 ### Fixed
 
+- Report TUI DLL batch update failures without rendering a false success footer.
 - Surface corrupt default profile errors, reject invalid profile booleans consistently, validate CPU governors before privileged writes, and cover env behavior directly.
 - Route Steam wrapper launches through the shared preparation lifecycle, preserve wrapper-provided environment, and reject unsafe direct Steam URI launches.
 

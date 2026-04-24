@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jgabor/spela/internal/config"
+	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/profile"
 )
@@ -35,6 +36,11 @@ func testServices() *Services {
 		BackupExists: func(appID uint64) bool {
 			return false
 		},
+		KnownDLLTypes: dll.KnownDLLTypes,
+		ListCachedDLLs: func(manifestKey string) ([]string, error) {
+			return nil, nil
+		},
+		UpdateCachedDLL: defaultUpdateCachedDLL,
 		VKD3DNotice: func(appID uint64) string {
 			return ""
 		},

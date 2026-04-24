@@ -50,7 +50,7 @@ func newResourcePane(styles *Styles, sidebar SidebarModel, content ContentModel)
 		styles:       styles,
 		sidebar:      sidebar,
 		content:      content,
-		dllsResource: NewDLLsResource(styles),
+		dllsResource: NewDLLsResource(styles, nil),
 		metricsView:  NewMetricsResource(styles),
 	}
 }
@@ -60,6 +60,7 @@ func newResourcePane(styles *Styles, sidebar SidebarModel, content ContentModel)
 // called from LayoutModel construction.
 func (p *resourcePaneModel) setServices(svc *Services) {
 	p.services = svc
+	p.dllsResource.services = svc
 	p.refreshDefaultsDetail()
 }
 

@@ -45,13 +45,68 @@ func TestDetail_FieldEnumeration_GroupOrder(t *testing.T) {
 }
 
 // TestDetail_FieldEnumeration_AllFieldsHaveLabels is the adversarial
-// companion: every key in profile.AllFields() must have an entry in
-// fieldLabels so no field renders with a raw "proton.vkd3d_heap" key.
+// companion: every key in profile.AllFields() must have a label and a
+// non-default value display so no supported field silently disappears.
 func TestDetail_FieldEnumeration_AllFieldsHaveLabels(t *testing.T) {
+	displayProfile := profileWithAllDisplayValues()
 	for _, field := range profile.AllFields() {
 		if label, ok := fieldLabels[field]; !ok || label == "" {
 			t.Errorf("field %q is missing a display label in fieldLabels", field)
 		}
+		if value := formatFieldValue(displayProfile, field); value == "(default)" || value == "" {
+			t.Errorf("field %q is missing a value display", field)
+		}
+	}
+}
+
+func profileWithAllDisplayValues() *profile.Profile {
+	smt := true
+	return &profile.Profile{
+		Proton: profile.ProtonSettings{
+			EnableHDR:        true,
+			EnableWayland:    true,
+			EnableNGXUpdater: true,
+			VKD3DHeap:        true,
+		},
+		DLSS: profile.DLSSSettings{
+			SRMode:        profile.DLSSModeQuality,
+			SRPreset:      profile.DLSSPresetK,
+			SRModelPreset: profile.DLSSModelPresetK,
+			SROverride:    true,
+			RRMode:        profile.DLSSModeBalanced,
+			RRPreset:      profile.DLSSPresetJ,
+			RROverride:    true,
+			FGEnabled:     true,
+			FGOverride:    true,
+			MultiFrame:    2,
+			Indicator:     true,
+			FGIndicator:   true,
+		},
+		GPU: profile.GPUSettings{
+			ClockOffset:          150,
+			MemoryOffset:         500,
+			PowerLimit:           350,
+			FanSpeed:             65,
+			PowerMizer:           "prefer_max_performance",
+			ShaderCache:          true,
+			ShaderCachePath:      "/tmp/cache",
+			ThreadedOptimization: true,
+		},
+		CPU: profile.CPUSettings{
+			Governor: "performance",
+			SMT:      &smt,
+			Affinity: "0-7",
+		},
+		Overlay: profile.OverlaySettings{
+			Enabled:       true,
+			Position:      "top-left",
+			ShowFPS:       true,
+			ShowFrametime: true,
+			ShowCPU:       true,
+			ShowGPU:       true,
+			ShowVRAM:      true,
+			ToggleKey:     "F12",
+		},
 	}
 }
 

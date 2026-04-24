@@ -39,7 +39,8 @@ import (
 //     in a single batched action; per-cell success/failure is reflected in
 //     the lastBatchResult map after completion.
 type DLLsResourceModel struct {
-	styles *Styles
+	styles   *Styles
+	services *Services
 	// games is the list the pane iterates for the deployment matrix. It is
 	// a snapshot taken from the game database at construction / refresh
 	// time — the pane does not watch the database for live changes.
@@ -65,7 +66,8 @@ type DLLsResourceModel struct {
 	// lastBatchResult maps "appID:manifestKey" to a short status snippet
 	// (empty = not touched, "ok" = updated, "err: <reason>" = failed).
 	// Rendered inline after a successful update-all cycle.
-	lastBatchResult map[string]string
+	lastBatchResult  map[string]string
+	lastBatchSummary string
 	// busy is true while an update-all batch is in flight.
 	busy  bool
 	width int
@@ -81,18 +83,40 @@ type dllsUpdateAllCompleteMsg struct {
 
 // NewDLLsResource constructs an empty DLLs resource. Use SetGames and
 // RefreshCached before rendering.
-func NewDLLsResource(styles *Styles) DLLsResourceModel {
+func NewDLLsResource(styles *Styles, services *Services) DLLsResourceModel {
 	return DLLsResourceModel{
-		styles: styles,
-		cached: make(map[string][]string),
+		styles:   styles,
+		services: services,
+		cached:   make(map[string][]string),
 	}
+}
+
+func (m DLLsResourceModel) knownDLLTypes() []dll.KnownDLLTypeInfo {
+	if m.services != nil && m.services.KnownDLLTypes != nil {
+		return m.services.KnownDLLTypes()
+	}
+	return dll.KnownDLLTypes()
+}
+
+func (m DLLsResourceModel) listCachedDLLs(manifestKey string) ([]string, error) {
+	if m.services != nil && m.services.ListCachedDLLs != nil {
+		return m.services.ListCachedDLLs(manifestKey)
+	}
+	return dll.ListCachedVersions(manifestKey)
+}
+
+func (m DLLsResourceModel) updateCachedDLL(req DLLUpdateRequest) error {
+	if m.services != nil && m.services.UpdateCachedDLL != nil {
+		return m.services.UpdateCachedDLL(req)
+	}
+	return defaultUpdateCachedDLL(req)
 }
 
 // SetGames replaces the tracked game list and recomputes which DLL types
 // have at least one install. Called on construction and after a rescan.
 func (m DLLsResourceModel) SetGames(games []*game.Game) DLLsResourceModel {
 	m.games = games
-	m.typesInUse = computeTypesInUse(games)
+	m.typesInUse = m.computeTypesInUse(games)
 	m.deploymentGames = gamesWithAnyDLL(games, m.typesInUse)
 	if m.gameRowCursor >= len(m.deploymentGames) {
 		m.gameRowCursor = max(len(m.deploymentGames)-1, 0)
@@ -112,9 +136,10 @@ func (m DLLsResourceModel) SetManifest(man *dll.Manifest) DLLsResourceModel {
 // key. Called on construction and after an update-all batch completes (new
 // versions may have just been downloaded).
 func (m DLLsResourceModel) RefreshCached() DLLsResourceModel {
-	cached := make(map[string][]string, len(dll.KnownDLLTypes()))
-	for _, info := range dll.KnownDLLTypes() {
-		versions, _ := dll.ListCachedVersions(info.ManifestKey)
+	types := m.knownDLLTypes()
+	cached := make(map[string][]string, len(types))
+	for _, info := range types {
+		versions, _ := m.listCachedDLLs(info.ManifestKey)
 		sort.Slice(versions, func(i, j int) bool {
 			return dll.CompareVersions(versions[i], versions[j]) > 0
 		})
@@ -131,7 +156,7 @@ func (m *DLLsResourceModel) SetSize(width, height int) {
 
 // computeTypesInUse returns the ordered list of DLL types that at least one
 // tracked game installs, preserving the KnownDLLTypes order.
-func computeTypesInUse(games []*game.Game) []dll.KnownDLLTypeInfo {
+func (m DLLsResourceModel) computeTypesInUse(games []*game.Game) []dll.KnownDLLTypeInfo {
 	installed := make(map[game.DLLType]bool)
 	for _, g := range games {
 		for _, d := range g.DLLs {
@@ -139,7 +164,7 @@ func computeTypesInUse(games []*game.Game) []dll.KnownDLLTypeInfo {
 		}
 	}
 	var out []dll.KnownDLLTypeInfo
-	for _, info := range dll.KnownDLLTypes() {
+	for _, info := range m.knownDLLTypes() {
 		if installed[info.Type] {
 			out = append(out, info)
 		}
@@ -223,6 +248,7 @@ func (m DLLsResourceModel) Update(msg tea.Msg) (DLLsResourceModel, tea.Cmd) {
 	case dllsUpdateAllCompleteMsg:
 		m.busy = false
 		m.lastBatchResult = msg.results
+		m.lastBatchSummary = msg.summary
 		// Freshly-downloaded payloads may have been cached; refresh so the
 		// library section and stale markers reflect the new state.
 		m = m.RefreshCached()
@@ -292,31 +318,21 @@ func (m DLLsResourceModel) updateAllCmd() tea.Cmd {
 		}
 	}
 
-	manifest := m.manifest
 	return func() tea.Msg {
 		results := make(map[string]string, len(cells))
 		succeeded := 0
 		failed := 0
 		for _, c := range cells {
 			key := fmt.Sprintf("%d:%s", c.g.AppID, c.typeInfo.ManifestKey)
-			cachePath := dll.GetDLLCachePath(c.typeInfo.ManifestKey, c.latest)
-			// The newest cached version was listed from disk, so the
-			// payload is known to exist. If the manifest is present and
-			// carries a matching entry, re-download is skipped (SwapDLL
-			// copies the cached file into the game directory).
-			_ = manifest // retained for future hash-verification hook
-			gameDLLs := dll.GameDLLsFromDetected(c.g.DLLs)
-			if err := dll.SwapDLL(c.g.AppID, c.g.Name, gameDLLs, c.installedOn, cachePath); err != nil {
+			if err := m.updateCachedDLL(DLLUpdateRequest{
+				Game:          c.g,
+				TypeInfo:      c.typeInfo,
+				LatestVersion: c.latest,
+				InstalledName: c.installedOn,
+			}); err != nil {
 				results[key] = fmt.Sprintf("err: %v", err)
 				failed++
 				continue
-			}
-			// Mutate the in-memory game's DLL list so subsequent renders
-			// reflect the new installed version without a rescan.
-			for i := range c.g.DLLs {
-				if c.g.DLLs[i].Type == c.typeInfo.Type {
-					c.g.DLLs[i].Version = c.latest
-				}
 			}
 			results[key] = "ok"
 			succeeded++
@@ -373,7 +389,7 @@ func (m DLLsResourceModel) renderLibrary() string {
 	b.WriteString(header)
 	b.WriteString("\n")
 
-	for _, info := range dll.KnownDLLTypes() {
+	for _, info := range m.knownDLLTypes() {
 		latestStr := "-"
 		if m.manifest != nil {
 			if latest := m.manifest.GetLatestDLL(info.ManifestKey); latest != nil {
@@ -500,9 +516,26 @@ func (m DLLsResourceModel) renderFooter() string {
 		parts = append(parts, s.Warning.Render("updating..."))
 	}
 	if !m.busy && m.lastBatchResult != nil {
-		parts = append(parts, s.Success.Render("update-all finished"))
+		status := m.lastBatchSummary
+		if status == "" {
+			status = "update-all finished"
+		}
+		if batchHasFailures(m.lastBatchResult) {
+			parts = append(parts, s.Warning.Render(status))
+		} else {
+			parts = append(parts, s.Success.Render(status))
+		}
 	}
 	return strings.Join(parts, "  ")
+}
+
+func batchHasFailures(results map[string]string) bool {
+	for _, status := range results {
+		if strings.HasPrefix(status, "err:") {
+			return true
+		}
+	}
+	return false
 }
 
 // gameColumnWidth returns the rendered width for the row-label column. The

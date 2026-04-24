@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -17,9 +18,18 @@ import (
 // section exercises latest-version resolution without touching disk.
 func makeDLLsResource(games []*game.Game, cached map[string][]string, manifest *dll.Manifest) DLLsResourceModel {
 	styles := NewStyles(DefaultTheme, true)
-	m := NewDLLsResource(styles)
+	m := NewDLLsResource(styles, testServices())
 	m = m.SetGames(games)
 	m = m.SetManifest(manifest)
+	m.cached = cached
+	m.SetSize(120, 40)
+	return m
+}
+
+func makeDLLsResourceWithServices(games []*game.Game, cached map[string][]string, services *Services) DLLsResourceModel {
+	styles := NewStyles(DefaultTheme, true)
+	m := NewDLLsResource(styles, services)
+	m = m.SetGames(games)
 	m.cached = cached
 	m.SetSize(120, 40)
 	return m
@@ -152,6 +162,78 @@ func TestDLLsResource_UpdateAllCompleteRefreshesCache(t *testing.T) {
 	}
 	if next.lastBatchResult["1091500:dlss"] != "ok" {
 		t.Errorf("expected per-cell ok in lastBatchResult, got %v", next.lastBatchResult)
+	}
+}
+
+func TestDLLsResource_UpdateAll_PassReportsEachCell(t *testing.T) {
+	g1 := testGame("Alpha", testDLL(game.DLLTypeDLSS, "3.7.0"))
+	g2 := testGame("Beta", testDLL(game.DLLTypeDLSS, "3.7.0"))
+	g2.AppID = 2
+	svc := testServices()
+	var calls int
+	svc.UpdateCachedDLL = func(req DLLUpdateRequest) error {
+		calls++
+		for i := range req.Game.DLLs {
+			if req.Game.DLLs[i].Type == req.TypeInfo.Type {
+				req.Game.DLLs[i].Version = req.LatestVersion
+			}
+		}
+		return nil
+	}
+	m := makeDLLsResourceWithServices([]*game.Game{g1, g2}, map[string][]string{
+		"dlss": {"3.8.10"},
+	}, svc)
+
+	next, cmd := m.Update(keyMsg("U"))
+	if cmd == nil || !next.busy {
+		t.Fatalf("expected update command and busy state")
+	}
+	msg, ok := execCmd(cmd).(dllsUpdateAllCompleteMsg)
+	if !ok {
+		t.Fatalf("expected dllsUpdateAllCompleteMsg")
+	}
+	next, _ = next.Update(msg)
+
+	if calls != 2 {
+		t.Fatalf("UpdateCachedDLL calls = %d, want 2", calls)
+	}
+	if next.lastBatchResult["1091500:dlss"] != "ok" || next.lastBatchResult["2:dlss"] != "ok" {
+		t.Fatalf("expected per-cell ok results, got %v", next.lastBatchResult)
+	}
+	if strings.Contains(stripANSI(next.renderDeployment()), "err:") {
+		t.Fatalf("success path should not render errors")
+	}
+}
+
+func TestDLLsResource_UpdateAll_FailReportsFailedCellWithoutSuccessFooter(t *testing.T) {
+	g := testGame("Alpha", testDLL(game.DLLTypeDLSS, "3.7.0"))
+	svc := testServices()
+	svc.UpdateCachedDLL = func(req DLLUpdateRequest) error {
+		return errors.New("copy denied")
+	}
+	m := makeDLLsResourceWithServices([]*game.Game{g}, map[string][]string{
+		"dlss": {"3.8.10"},
+	}, svc)
+
+	next, cmd := m.Update(keyMsg("U"))
+	if cmd == nil {
+		t.Fatalf("expected update command")
+	}
+	msg := execCmd(cmd).(dllsUpdateAllCompleteMsg)
+	next, _ = next.Update(msg)
+
+	if got := next.lastBatchResult["1091500:dlss"]; !strings.Contains(got, "copy denied") {
+		t.Fatalf("expected failed cell result, got %q", got)
+	}
+	if g.DLLs[0].Version != "3.7.0" {
+		t.Fatalf("failed update must not mutate version, got %q", g.DLLs[0].Version)
+	}
+	footer := stripANSI(next.renderFooter())
+	if strings.Contains(footer, "update-all finished") {
+		t.Fatalf("failure footer must not claim success, got %q", footer)
+	}
+	if !strings.Contains(footer, "1 failed") {
+		t.Fatalf("failure footer should report failure count, got %q", footer)
 	}
 }
 
