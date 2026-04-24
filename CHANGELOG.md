@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Route Steam wrapper launches through the shared preparation lifecycle, preserve wrapper-provided environment, and reject unsafe direct Steam URI launches.
+
 ## [0.5.0] - 2026-04-19
 
 Ground-up TUI redesign around a resource-centric spine: the shell becomes a permanent left rail of four peer resources (Games, DLLs, Defaults, Metrics) with 1-4 hotkeys, the Launch tab is removed, and profiles gain live inheritance so game profiles store only overridden fields and fall back to the default profile at apply time. The theme collapses to a single neon-accent dark palette with canonical tokens for inherited versus overridden state.

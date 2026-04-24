@@ -1,5 +1,16 @@
 # Progress
 
+## Cycle 62 · 2026-04-24 08:18
+
+**Phase**: build
+**What**: Converged launch lifecycle so Steam `%command%` wrapper launches use the same preparation path as supported launcher launches. Wrapper mode now calls `Launcher.Prepare()`, preserves Steam-provided command environment after profile preparation, and surfaces preparation failures. `Prepare()` returns errors, runs registered cleanup once on failure, and clears cleanup after execution. Direct Steam URI launch requests from CLI and GUI now return explicit `%command%` guidance instead of claiming a safely wrapped game lifetime.
+**Commit**: 51bc71f fix(launcher): converge launch preparation lifecycle
+**Inspiration**: Audit 5 critical and warning findings, plus the existing `Launcher.Prepare()` ownership of vkd3d preflight, overlay IPC setup, profile apply, and cleanup registration.
+**Discovered**: The Wails production binary starts GTK and is the wrong smoke target for CLI wrapper verification. Plain `go build ./cmd/spela` is the correct behavioral entrypoint for this path.
+**Verified**: `mage test` PASS across project packages; `mage lint` reports 0 issues; `mage build` built the Wails binary and frontend bundle. Behavioral smoke with seeded XDG game/profile state using a plain CLI build: `spela SteamAppId=1091500 SPELA_USER_SETTING=keep /usr/bin/env` printed `Launching Cyberpunk 2077 with profile...`, `SPELA_USER_SETTING=keep`, `PROTON_ENABLE_HDR=1`, and `SPELA_OVERLAY_IPC=/tmp/.../overlay-1091500.dat`, then `IPC removed after launch cleanup`. `spela launch 1091500` printed `direct Steam URI launch cannot track the game lifetime; set the game's Steam launch options to \`spela %command%\` instead`.
+**Next**: Task 2 can harden default profile errors and privileged input validation.
+**Context**: intent — close Audit 5 launch-path split without expanding GUI parity · constraints — only Task 1, preserve wrapper env, no new dependencies, no TUI launch scope · unknowns — direct GUI tests still absent, deferred to Task 3 boundary work · scope — launcher lifecycle, CLI wrapper/launch command, GUI direct-launch rejection, targeted lifecycle tests
+
 ## Cycle 61 — 2026-04-19
 
 **Phase**: bookkeeping
