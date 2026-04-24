@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Surface corrupt default profile errors, reject invalid profile booleans consistently, validate CPU governors before privileged writes, and cover env behavior directly.
 - Route Steam wrapper launches through the shared preparation lifecycle, preserve wrapper-provided environment, and reject unsafe direct Steam URI launches.
 
 ## [0.5.0] - 2026-04-19

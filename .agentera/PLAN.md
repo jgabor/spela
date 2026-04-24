@@ -59,7 +59,7 @@ Converge launch behavior around one preparation lifecycle. Harden profile and pr
 ### Task 2: Harden profile and privileged inputs
 
 **Depends on**: none
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN the default profile is missing WHEN effective values load THEN inheritance still falls back safely.
 ▸ GIVEN the default profile is unreadable or invalid WHEN effective values load THEN Spela surfaces the error instead of using zero values.

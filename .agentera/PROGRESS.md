@@ -1,5 +1,16 @@
 # Progress
 
+## Cycle 63 · 2026-04-24 08:37
+
+**Phase**: build
+**What**: Task 2 hardened profile and privileged inputs. Default profile errors now propagate anywhere effective profile values are loaded or shown, while a missing default still resolves inherited fields safely. Boolean profile flags now share one parser across Proton, DLSS, GPU, and Overlay setters. CPU governor values are checked against available governors before profile save and before the hidden privileged apply command performs any setter work. `internal/env` now has direct coverage for map isolation and command environment application.
+**Commit**: 5a3d3e8 fix(profile): harden profile input validation
+**Inspiration**: Audit 5 profile/input findings and the existing live-inheritance model from Decision 1.
+**Discovered**: The Wails production binary again proved unsuitable for CLI smoke checks; the plain `go build ./cmd/spela` binary is the reliable entrypoint for command behavior.
+**Verified**: `go test ./internal/profile -run 'TestLoadEffective_(MissingDefaultFallsBackSafely|InvalidDefaultSurfacesError)' -v` PASS: missing defaults preserve override HDR and inherited Wayland falls to zero; invalid default YAML returns `load default profile`. `go test ./cmd/spela/commands -run 'TestParseBoolFlag|TestRunCPUSet_Governor|TestApplyProfile_Governor' -v` PASS: invalid bool text is rejected by the shared parser, CPU governor save rejects before profile write, and apply-profile validates before privileged setters. `go test ./internal/cpu -run 'TestValidateGovernorAvailable' -v` PASS: listed governors accepted, unlisted rejected. `go test ./internal/env -v` PASS with exactly one pass and one fail test for map isolation, and one pass and one fail test for command env application. Full `mage test` PASS, `mage lint` 0 issues, `mage build` completed Wails and frontend bundle. Plain CLI smoke with seeded XDG state: missing default `spela proton show 1091500` exited 0 and printed HDR true `[override]` plus inherited false fields; invalid default exited 1 with `Error: load default profile: yaml: line 2`; `spela dlss set 1091500 --fg=maybe` exited 1 with `invalid bool "maybe"`; `spela cpu set 1091500 --governor=notagovernor` exited 1 with `CPU governor "notagovernor" is not available`.
+**Next**: Task 3 can establish GUI application boundaries without reopening launch lifecycle or profile validation.
+**Context**: intent — close Audit 5 profile/input seams before GUI boundary work · constraints — only Task 2, live inheritance unchanged, no dependency changes, preserve existing YAML semantics · unknowns — none after CLI smoke; Wails binary remains wrong for CLI smoke · scope — profile loading, command bool/governor validation, CPU governor availability check, env tests, Task 2 artifacts
+
 ## Cycle 62 · 2026-04-24 08:18
 
 **Phase**: build
