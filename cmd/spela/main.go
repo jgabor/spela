@@ -82,14 +82,7 @@ func runWrapperMode(args []string) error {
 		}
 	}
 
-	restore := profile.NewRestorePoint()
-	restore.SaveAllProfileEnvVars()
-
 	e := env.New()
-	var cleanups []func()
-	if p != nil {
-		cleanups = p.Apply(e)
-	}
 	for key, value := range invocation.Environment {
 		e.Set(key, value)
 	}
@@ -97,10 +90,11 @@ func runWrapperMode(args []string) error {
 	l := launcher.New(g)
 	l.Profile = p
 	l.Environment = e
-
-	l.OnCleanup(restore.Restore)
-	for _, cleanup := range cleanups {
-		l.OnCleanup(cleanup)
+	if err := l.Prepare(); err != nil {
+		return fmt.Errorf("failed to prepare launch: %w", err)
+	}
+	for key, value := range invocation.Environment {
+		e.Set(key, value)
 	}
 
 	if p != nil {

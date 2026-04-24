@@ -16,7 +16,6 @@ import (
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/gpu"
-	"github.com/jgabor/spela/internal/launcher"
 	"github.com/jgabor/spela/internal/profile"
 	"github.com/jgabor/spela/internal/proton"
 	"github.com/jgabor/spela/internal/steam"
@@ -284,7 +283,7 @@ type ProfileInfo struct {
 	EnableWayland        bool   `json:"enableWayland"`
 	EnableNGXUpdater     bool   `json:"enableNgxUpdater"`
 	VKD3DHeap            bool   `json:"vkd3dHeap"`
-	InheritedFromDefault bool `json:"inheritedFromDefault"`
+	InheritedFromDefault bool   `json:"inheritedFromDefault"`
 }
 
 func profileInfoFromProfile(p *profile.Profile, inheritedFromDefault bool) *ProfileInfo {
@@ -802,16 +801,5 @@ func (a *App) LaunchGame(appID uint64) error {
 		return fmt.Errorf("%w: %d", ErrGameNotFound, appID)
 	}
 
-	p, _ := profile.LoadEffective(appID)
-
-	l := launcher.New(g)
-	l.Profile = p
-	l.Prepare()
-
-	steamURL := fmt.Sprintf("steam://rungameid/%d", appID)
-	if err := l.Launch([]string{"steam", steamURL}); err != nil {
-		return fmt.Errorf("failed to launch game: %w", err)
-	}
-
-	return nil
+	return fmt.Errorf("direct Steam URI launch cannot track the game lifetime; set %s's Steam launch options to `spela %%command%%` instead", g.Name)
 }

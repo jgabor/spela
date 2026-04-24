@@ -58,7 +58,7 @@ func TestPrepare_VKD3DHeap_ProtonIncompat_LogsWarn(t *testing.T) {
 		DriverOK:       true,
 		DriverDetected: "580.94.16",
 	})
-	l.Prepare()
+	requirePrepare(t, l)
 
 	out := logs.String()
 	if !strings.Contains(out, "level=WARN") {
@@ -92,7 +92,7 @@ func TestPrepare_VKD3DHeap_ProtonIncompat_NoWarnWhenDisabled(t *testing.T) {
 		t.Fatal("preflight invoked compatibility check with vkd3d_heap=false")
 		return proton.CompatibilityResult{}
 	}
-	l.Prepare()
+	requirePrepare(t, l)
 
 	if s := logs.String(); strings.Contains(s, "vkd3d_heap") {
 		t.Errorf("unexpected vkd3d log with toggle off, got:\n%s", s)
@@ -111,7 +111,7 @@ func TestPrepare_VKD3DHeap_DriverIncompat_LogsWarn(t *testing.T) {
 		DriverOK:       false,
 		DriverDetected: "570.86.0",
 	})
-	l.Prepare()
+	requirePrepare(t, l)
 
 	out := logs.String()
 	if !strings.Contains(out, "level=WARN") {
@@ -140,7 +140,7 @@ func TestPrepare_VKD3DHeap_DriverOK_NoDriverWarn(t *testing.T) {
 		DriverOK:       true,
 		DriverDetected: "580.94.16",
 	})
-	l.Prepare()
+	requirePrepare(t, l)
 
 	if s := logs.String(); strings.Contains(s, "NVIDIA driver below minimum") {
 		t.Errorf("unexpected driver warn when driver OK, got:\n%s", s)
@@ -159,7 +159,7 @@ func TestPrepare_VKD3DHeap_BothCompatible_NoLogs(t *testing.T) {
 		DriverOK:       true,
 		DriverDetected: "580.94.16",
 	})
-	l.Prepare()
+	requirePrepare(t, l)
 
 	if s := logs.String(); strings.Contains(s, "vkd3d_heap") {
 		t.Errorf("expected zero vkd3d log lines on happy path, got:\n%s", s)
@@ -175,7 +175,7 @@ func TestPrepare_VKD3DHeap_BothIncompat_LogsTwoWarns(t *testing.T) {
 		DriverOK:       false,
 		DriverDetected: "570.86.0",
 	})
-	l.Prepare()
+	requirePrepare(t, l)
 
 	out := logs.String()
 	if !strings.Contains(out, "vkd3d_heap: Proton build does not support descriptor_heap") {
@@ -200,7 +200,7 @@ func TestPrepare_VKD3DHeap_ResolverError_LogsInfo(t *testing.T) {
 		ProtonSkip: "could not resolve active Proton for this game; skipping compatibility check",
 		DriverOK:   true,
 	})
-	l.Prepare()
+	requirePrepare(t, l)
 
 	out := logs.String()
 	if !strings.Contains(out, "level=INFO") {
@@ -225,7 +225,7 @@ func TestPrepare_VKD3DHeap_ResolverError_DriverHardStillWarns(t *testing.T) {
 		DriverOK:       false,
 		DriverDetected: "570.86.0",
 	})
-	l.Prepare()
+	requirePrepare(t, l)
 
 	out := logs.String()
 	if !strings.Contains(out, "level=INFO") || !strings.Contains(out, "could not resolve Proton") {
@@ -249,7 +249,7 @@ func TestPrepare_VKD3DHeap_Disabled_NoLogs(t *testing.T) {
 		t.Fatal("preflight invoked compatibility check with vkd3d_heap=false")
 		return proton.CompatibilityResult{}
 	}
-	l.Prepare()
+	requirePrepare(t, l)
 
 	if s := logs.String(); strings.Contains(s, "vkd3d_heap") {
 		t.Errorf("preflight emitted logs with toggle disabled, got:\n%s", s)
@@ -267,7 +267,7 @@ func TestPrepare_VKD3DHeap_EnabledInvokesChecker(t *testing.T) {
 		invoked = true
 		return proton.CompatibilityResult{ProtonOK: true, DriverOK: true}
 	}
-	l.Prepare()
+	requirePrepare(t, l)
 
 	if !invoked {
 		t.Fatal("preflight did not invoke the compatibility check when vkd3d_heap=true")

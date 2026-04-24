@@ -59,13 +59,14 @@ func runLaunch(cmd *cobra.Command, args []string) error {
 		return runLaunchDryRun(g, p, args)
 	}
 
+	if launchGameID != 0 || len(args) == 1 {
+		return fmt.Errorf("direct Steam URI launch cannot track the game lifetime; set the game's Steam launch options to `spela %%command%%` instead")
+	}
+
 	l := launcher.New(g)
 	l.Profile = p
-	l.Prepare()
-
-	launchArgs := args
-	if launchGameID != 0 || len(args) == 1 {
-		launchArgs = []string{"steam", fmt.Sprintf("steam://rungameid/%d", g.AppID)}
+	if err := l.Prepare(); err != nil {
+		return fmt.Errorf("failed to prepare launch: %w", err)
 	}
 
 	if p != nil {
@@ -73,7 +74,7 @@ func runLaunch(cmd *cobra.Command, args []string) error {
 	} else {
 		fmt.Printf("Launching %s (no profile)...\n", g.Name)
 	}
-	return l.Launch(launchArgs)
+	return l.Launch(args)
 }
 
 func runLaunchDryRun(g *game.Game, p *profile.Profile, args []string) error {

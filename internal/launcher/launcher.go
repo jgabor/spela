@@ -1,6 +1,7 @@
 package launcher
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -59,7 +60,7 @@ func (l *Launcher) OnCleanup(fn func()) {
 // Prepare applies the profile settings, creates a restore point for
 // environment variables, registers all cleanup closures, and starts the
 // overlay collector if enabled. Call before Launch.
-func (l *Launcher) Prepare() {
+func (l *Launcher) Prepare() error {
 	restore := profile.NewRestorePoint()
 	restore.SaveAllProfileEnvVars()
 	l.OnCleanup(restore.Restore)
@@ -70,8 +71,13 @@ func (l *Launcher) Prepare() {
 			l.OnCleanup(c)
 		}
 		l.vkd3dPreflight()
-		l.setupOverlay()
+		if err := l.setupOverlay(); err != nil {
+			l.runCleanup()
+			return err
+		}
 	}
+
+	return nil
 }
 
 // vkd3dPreflight emits slog warnings when vkd3d_heap is enabled but the
@@ -148,9 +154,9 @@ func defaultVKD3DCompatibilityCheck(appID uint64) proton.CompatibilityResult {
 	})
 }
 
-func (l *Launcher) setupOverlay() {
+func (l *Launcher) setupOverlay() error {
 	if l.Profile == nil || !l.Profile.Overlay.Enabled || l.Game == nil {
-		return
+		return nil
 	}
 
 	collect := overlay.BuildGPUCollector(l.Profile.Overlay.Position)
@@ -159,11 +165,11 @@ func (l *Launcher) setupOverlay() {
 		500*time.Millisecond, collect,
 	)
 	if err != nil {
-		logging.Warn("overlay collector failed to start", "error", err)
-		return
+		return fmt.Errorf("setup overlay collector: %w", err)
 	}
 	l.Environment.Set("SPELA_OVERLAY_IPC", ipcPath)
 	l.OnCleanup(cleanup)
+	return nil
 }
 
 func (l *Launcher) Launch(args []string) error {
@@ -203,6 +209,7 @@ func (l *Launcher) runCleanup() {
 	for i := len(l.cleanup) - 1; i >= 0; i-- {
 		l.cleanup[i]()
 	}
+	l.cleanup = nil
 }
 
 func IsWrapperMode(args []string) bool {

@@ -45,16 +45,17 @@ func TestRunWrapperModeIgnoresInvalidProfile(t *testing.T) {
 	}
 }
 
-func TestRunWrapperModeAppliesValidProfile(t *testing.T) {
+func TestRunWrapperModePreparesLaunchAndPreservesWrapperEnv(t *testing.T) {
 	tempDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tempDir, "config"))
 	t.Setenv("XDG_DATA_HOME", filepath.Join(tempDir, "data"))
+	t.Setenv("XDG_RUNTIME_DIR", filepath.Join(tempDir, "runtime"))
 
 	profilePath := filepath.Join(tempDir, "config", "spela", "profiles", "1091500.yaml")
 	if err := os.MkdirAll(filepath.Dir(profilePath), 0o755); err != nil {
 		t.Fatalf("failed to create profile dir: %v", err)
 	}
-	profileData := "proton:\n  enable_hdr: true\n"
+	profileData := "proton:\n  enable_hdr: true\noverlay:\n  enabled: true\n  position: top-right\n"
 	if err := os.WriteFile(profilePath, []byte(profileData), 0o644); err != nil {
 		t.Fatalf("failed to write valid profile: %v", err)
 	}
@@ -62,7 +63,7 @@ func TestRunWrapperModeAppliesValidProfile(t *testing.T) {
 	writeTestDatabase(t, tempDir)
 
 	stdout, stderr := captureOutput(t, func() error {
-		return runWrapperMode([]string{"SteamAppId=1091500", "/usr/bin/env"})
+		return runWrapperMode([]string{"SteamAppId=1091500", "SPELA_USER_SETTING=keep", "/usr/bin/env"})
 	})
 
 	if stderr != "" {
@@ -73,6 +74,16 @@ func TestRunWrapperModeAppliesValidProfile(t *testing.T) {
 	}
 	if !strings.Contains(stdout, "PROTON_ENABLE_HDR=1") {
 		t.Fatalf("expected profile environment to be applied, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "SPELA_USER_SETTING=keep") {
+		t.Fatalf("expected wrapper environment to be preserved, got %q", stdout)
+	}
+	ipcPath := envValue(stdout, "SPELA_OVERLAY_IPC")
+	if ipcPath == "" {
+		t.Fatalf("expected wrapper launch to prepare overlay IPC, got %q", stdout)
+	}
+	if _, err := os.Stat(ipcPath); !os.IsNotExist(err) {
+		t.Fatalf("expected overlay IPC cleanup after launch, stat err = %v", err)
 	}
 }
 
@@ -134,4 +145,13 @@ func captureOutput(t *testing.T, fn func() error) (string, string) {
 	}
 
 	return string(stdoutBytes), string(stderrBytes)
+}
+
+func envValue(output, key string) string {
+	for _, line := range strings.Split(output, "\n") {
+		if value, ok := strings.CutPrefix(line, key+"="); ok {
+			return value
+		}
+	}
+	return ""
 }

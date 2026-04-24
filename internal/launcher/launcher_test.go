@@ -2,6 +2,7 @@ package launcher
 
 import (
 	"os"
+	"path/filepath"
 	"syscall"
 	"testing"
 	"time"
@@ -91,7 +92,7 @@ func TestPrepareOverlayCreatesIPC(t *testing.T) {
 
 	l := New(g)
 	l.Profile = p
-	l.Prepare()
+	requirePrepare(t, l)
 
 	ipcPath := l.Environment.Get("SPELA_OVERLAY_IPC")
 	if ipcPath == "" {
@@ -110,12 +111,42 @@ func TestPrepareOverlayCreatesIPC(t *testing.T) {
 	}
 }
 
+func TestPrepareFailureRunsCleanupOnce(t *testing.T) {
+	runtimeFile := filepath.Join(t.TempDir(), "runtime")
+	if err := os.WriteFile(runtimeFile, []byte("not a dir"), 0o644); err != nil {
+		t.Fatalf("write runtime file: %v", err)
+	}
+	t.Setenv("XDG_RUNTIME_DIR", runtimeFile)
+
+	g := &game.Game{AppID: 12345, Name: "TestGame", InstallDir: "/tmp"}
+	p := &profile.Profile{}
+	p.Overlay.Enabled = true
+
+	l := New(g)
+	l.Profile = p
+	cleanupCount := 0
+	l.OnCleanup(func() { cleanupCount++ })
+
+	err := l.Prepare()
+	if err == nil {
+		t.Fatal("Prepare() error = nil, want overlay setup failure")
+	}
+	if cleanupCount != 1 {
+		t.Fatalf("cleanup count after Prepare failure = %d, want 1", cleanupCount)
+	}
+
+	l.runCleanup()
+	if cleanupCount != 1 {
+		t.Fatalf("cleanup count after second cleanup = %d, want 1", cleanupCount)
+	}
+}
+
 func TestPrepareNoOverlayWithoutProfile(t *testing.T) {
 	runtimeDir := t.TempDir()
 	t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
 
 	l := New(nil)
-	l.Prepare()
+	requirePrepare(t, l)
 
 	if ipc := l.Environment.Get("SPELA_OVERLAY_IPC"); ipc != "" {
 		t.Errorf("SPELA_OVERLAY_IPC = %q, want empty (no profile)", ipc)
@@ -237,3 +268,10 @@ var (
 	_ = overlay.Setup
 	_ = xdg.RuntimeDir
 )
+
+func requirePrepare(t *testing.T, l *Launcher) {
+	t.Helper()
+	if err := l.Prepare(); err != nil {
+		t.Fatalf("Prepare() error = %v", err)
+	}
+}
