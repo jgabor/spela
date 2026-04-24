@@ -1,5 +1,16 @@
 # Progress
 
+## Cycle 72 · 2026-04-24
+
+**Phase**: build
+**What**: Task 1 defined shared profile explanation semantics. Effective profile fields now report source, default value, launch impact, and restore coverage from `internal/profile` instead of leaving UI surfaces to invent their own meanings.
+**Commit**: this commit (`feat(profile): explain effective profile semantics`)
+**Inspiration**: Trusted Profile Loop Task 1 acceptance criteria and the live-inheritance model from Decision 1.
+**Discovered**: Existing profile inheritance already had complete field enumeration, so the narrowest correct change was a semantic description layer, not a CLI or UI rendering change.
+**Verified**: `go test ./internal/profile -run 'TestExplain|TestFieldSemantics' -v` passed 4/4 explanation tests, observing default, override, unset, live default-change, launch-impact, restore-coverage, and unknown-field behavior. Full profile regression `go test ./internal/profile -v` passed. Project regression `mage test` passed after the semantic constants were finalized.
+**Next**: Task 2 can expose these semantics through CLI and preflight summaries without redefining source, impact, or restore vocabulary.
+**Context**: intent - define only shared profile explanation semantics · constraints - no CLI/preflight/TUI/GUI scope, no dependency, preserve live inheritance · unknowns - game-file semantics will attach to DLL/preflight work later · scope - profile explanation API, focused tests, Task 1 artifacts
+
 ## Cycle 71 · 2026-04-24
 
 **Phase**: fix

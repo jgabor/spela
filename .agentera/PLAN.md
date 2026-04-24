@@ -1,143 +1,126 @@
-# Plan: Audit 5 Remediation
+# Plan: Trusted Profile Loop
 
-<!-- Level: full | Created: 2026-04-24 | Status: complete -->
-<!-- Reviewed: 2026-04-24 | Critic issues: 12 found, 12 addressed, 0 dismissed -->
+<!-- Level: full | Created: 2026-04-24 | Status: active -->
+<!-- Reviewed: 2026-04-24 | Critic issues: 17 found, 15 addressed, 2 dismissed -->
 
 ## What
 
-Resolve the Audit 5 health findings that block safe GUI parity and overlay work. The plan covers launch orchestration, visible profile failures, input validation, UI/domain seams, TUI routing risk, frontend dependency health, release publication, and stale agentera artifacts.
+Make Spela's trusted profile loop visible and verifiable from effective profile resolution through launch preparation, mutation, and cleanup. The plan covers profile explanation semantics, preflight launch summaries, restore confidence, and CLI/TUI/GUI parity.
 
 ## Why
 
-Spela promises one trusted per-game profile that composes launch, environment, overlay, DLLs, GPU, and CPU controls. Audit 5 shows the primary wrapper path can skip part of that lifecycle, and adjacent seams would multiply the risk if new UI work starts now.
+The refreshed vision says one per-game profile is the trusted home for DLSS, GPU, CPU, Proton, overlay, and environment intent. Users need to see what is inherited, what is overridden, what will affect launch, and what Spela can restore.
 
 ## Constraints
 
-- Steam wrapper launch remains the primary launch path.
-- The TUI remains a configuration and inspection console, not a launcher.
+- Steam `%command%` remains the preferred launch path.
+- TUI and GUI remain configuration and inspection surfaces, not launchers.
 - Live inheritance remains the profile model.
+- UI surfaces must not own independent domain workflows.
 - Existing profile YAML behavior must not silently change.
+- Schema changes require explicit migration behavior.
+- Ephemeral launch environment must stay distinct from restorable mutations.
 - No new runtime dependency may be added without explicit approval.
 - Release pushes remain user-gated.
-- Documentation and design artifact changes require explicit approval.
 
 ## Scope
 
-**In**: Audit 5 critical and warning findings, plus info findings that protect the same boundaries.
-**Out**: GUI parity redesign, Vulkan layer work, overlay feature expansion, AMD or Intel support.
-**Deferred**: Full visual identity redesign beyond aligning DESIGN.md with the shipped v0.5.0 UI.
+**In**: Effective profile explanations, launch-impact classification, preflight summaries, restore visibility, CLI/TUI/GUI parity, user-facing guidance, release bookkeeping.
+**Out**: New launcher surfaces, Vulkan overlay rendering, community profile sharing, AMD or Intel support.
+**Deferred**: DLSS recommendation intelligence, in-game tuning controls, and remote release publication.
 
 ## Design
 
-Converge launch behavior around one preparation lifecycle. Harden profile and privileged boundary inputs so invalid or corrupt state surfaces early. Keep GUI and TUI actions behind narrow application boundaries instead of letting UI views own domain workflows. Reduce TUI routing risk only where behavior is already covered. Upgrade the frontend stack deliberately, then refresh docs and design contracts to match shipped behavior.
-
-## Finding Trace
-
-- Wrapper preparation bypass: Task 1.
-- Direct Steam URI lifetime mismatch: Task 1.
-- Default profile errors, boolean parsing, CPU governor validation, env tests: Task 2.
-- GUI domain coupling, logging, and backend test gap: Task 3.
-- DLL resource coupling and field display duplication: Task 4.
-- TUI routing complexity: Task 5.
-- Frontend audit advisories and pinning policy: Task 6.
-- Missing remote v0.5.0 tag and remediation release: Task 7.
-- DESIGN.md and DOCS.md drift: Task 8.
+Define one behavioral vocabulary for profile source, launch impact, and restore coverage. Use it across CLI, TUI, and GUI without moving domain ownership into UI code. Treat launch environment as planned child-process state, while file and system changes require restore coverage. Keep versioning and freshness work at the end.
 
 ## Tasks
 
-### Task 1: Converge launch lifecycle
+### Task 1: Define profile explanation semantics
 
 **Depends on**: none
 **Status**: ■ complete
 **Acceptance**:
-▸ GIVEN a game starts through the Steam wrapper WHEN overlay or compatibility settings apply THEN the same preparation behavior runs as other supported launches.
-▸ GIVEN Steam passes environment into the wrapper WHEN Spela prepares the game THEN the user command environment is preserved.
-▸ GIVEN launch preparation fails WHEN cleanup runs THEN previously applied profile state is restored once and the failure is visible.
-▸ GIVEN direct Steam URI launch cannot track the real game lifetime WHEN a user requests it THEN Spela avoids claiming the game is safely wrapped.
-▸ GIVEN tests are added WHEN coverage is reviewed THEN do not exceed 1 pass and 1 fail test per lifecycle behavior, plus one cleanup edge case.
+▸ GIVEN defaults and game overrides exist WHEN Spela explains an effective profile THEN each visible value has a source: default, override, or unset.
+▸ GIVEN a value can affect launch WHEN Spela explains it THEN the impact is classified as environment, game file, system state, overlay, or compatibility.
+▸ GIVEN a value can mutate persistent state WHEN Spela explains it THEN restore coverage is distinct from ephemeral launch environment.
+▸ GIVEN defaults change live inherited values WHEN Spela explains a game profile THEN the user can tell why the value changed.
+▸ GIVEN tests are added WHEN coverage is reviewed THEN do not exceed 1 pass and 1 fail test per semantic boundary.
 
-### Task 2: Harden profile and privileged inputs
+### Task 2: Expose CLI and preflight summaries
 
-**Depends on**: none
-**Status**: ■ complete
+**Depends on**: Task 1
+**Status**: □ pending
 **Acceptance**:
-▸ GIVEN the default profile is missing WHEN effective values load THEN inheritance still falls back safely.
-▸ GIVEN the default profile is unreadable or invalid WHEN effective values load THEN Spela surfaces the error instead of using zero values.
-▸ GIVEN a boolean profile flag receives invalid text WHEN a user saves it THEN Spela rejects it consistently across subsystems.
-▸ GIVEN a CPU governor value is unavailable WHEN it is saved or applied with privileges THEN Spela rejects it before system state changes.
-▸ GIVEN environment behavior is tested WHEN coverage is reviewed THEN map isolation and command environment application are verified without exceeding 1 pass and 1 fail test per behavior.
+▸ GIVEN a user asks what a game launch will do WHEN Spela summarizes preparation THEN environment, DLL, hardware, overlay, and compatibility impacts are visible before mutation.
+▸ GIVEN no profile-specific changes exist WHEN Spela summarizes preparation THEN the summary says no profile mutation is planned.
+▸ GIVEN a direct Steam URI launch cannot be tracked WHEN Spela explains launch options THEN it points to the wrapper path without claiming cleanup coverage.
+▸ GIVEN tests are added WHEN coverage is reviewed THEN do not exceed 1 pass and 1 fail test per summary behavior.
 
-### Task 3: Establish GUI application boundaries
+### Task 3: Strengthen restore confidence
 
 **Depends on**: Task 1, Task 2
-**Status**: ■ complete
+**Status**: □ pending
 **Acceptance**:
-▸ GIVEN the GUI performs profile, DLL, compatibility, or launch actions WHEN those actions run THEN results match non-GUI behavior for the same game and profile state.
-▸ GIVEN GUI actions report failures WHEN logs are captured THEN they appear through the repository logging path.
-▸ GIVEN GUI behavior is tested WHEN coverage is reviewed THEN each covered use case has at most 1 pass and 1 fail test.
-▸ GIVEN GUI parity redesign is deferred WHEN this task completes THEN no new visual redesign scope has been added.
+▸ GIVEN preparation partially succeeds WHEN a later step fails THEN prior restorable mutations are restored once and the failure names the affected area.
+▸ GIVEN DLL changes are planned WHEN Spela reports restore coverage THEN backup, denylist, and non-writable path outcomes are visible.
+▸ GIVEN hardware or game-file changes are applied WHEN cleanup runs THEN restore success or failure is visible without hiding the launch result.
+▸ GIVEN an unwrapped launch path is used WHEN restore coverage is shown THEN Spela does not imply lifetime tracking or cleanup guarantees.
+▸ GIVEN tests are added WHEN coverage is reviewed THEN do not exceed 1 pass and 1 fail test per restore behavior, plus one cleanup ordering edge case because cleanup has multiple branches.
 
-### Task 4: Move TUI resource workflows out of views
+### Task 4: Align TUI profile semantics
 
-**Depends on**: Task 2
-**Status**: ■ complete
+**Depends on**: Task 1
+**Status**: □ pending
 **Acceptance**:
-▸ GIVEN stale DLL deployments exist WHEN the DLLs resource updates them THEN each cell reports success or failure without false success messages.
-▸ GIVEN DLL operations are simulated WHEN TUI behavior is tested THEN update planning and result rendering stay deterministic.
-▸ GIVEN profile fields are shown in Games and Defaults WHEN field support is reviewed THEN every supported field has a label and value display.
-▸ GIVEN tests are added WHEN coverage is reviewed THEN do not exceed 1 pass and 1 fail test per DLL workflow or field-display behavior.
+▸ GIVEN a game profile is inspected in the TUI WHEN values render THEN source, impact, and restore meanings match the shared semantics.
+▸ GIVEN defaults change an inherited value WHEN the TUI reloads the profile THEN inherited state remains clear and no override is implied.
+▸ GIVEN a user changes profile intent in the TUI WHEN the game profile is reloaded THEN effective meaning is preserved.
+▸ GIVEN UI tests are added WHEN coverage is reviewed THEN do not exceed 1 pass and 1 fail test per TUI behavior boundary.
 
-### Task 5: Reduce TUI routing hotspots
+### Task 5: Align GUI profile semantics
 
-**Depends on**: Task 4
-**Status**: ■ complete
+**Depends on**: Task 1
+**Status**: □ pending
 **Acceptance**:
-▸ GIVEN modal, pending action, profile, DLL, rail, and message flows exist WHEN key handling is exercised THEN each flow behaves as before.
-▸ GIVEN a user navigates Games, DLLs, Defaults, and Metrics WHEN resource-specific keys are pressed THEN focus and messages stay scoped to the active resource.
-▸ GIVEN routing changes complete WHEN regression tests run THEN existing TUI behavior tests pass without broad snapshot rewrites.
-▸ GIVEN tests are added WHEN coverage is reviewed THEN only changed routing boundaries receive new tests.
+▸ GIVEN a game profile is inspected in the GUI WHEN values render THEN source, impact, and restore meanings match the shared semantics.
+▸ GIVEN defaults change an inherited value WHEN the GUI reloads the profile THEN inherited state remains clear and no override is implied.
+▸ GIVEN a user changes profile intent in the GUI WHEN the game profile is reloaded THEN effective meaning is preserved.
+▸ GIVEN GUI tests are added WHEN coverage is reviewed THEN do not exceed 1 pass and 1 fail test per GUI behavior boundary.
 
-### Task 6: Resolve frontend dependency health
+### Task 6: Update user-facing guidance
 
-**Depends on**: none
-**Status**: ■ complete
+**Depends on**: Tasks 2-5
+**Status**: □ pending
 **Acceptance**:
-▸ GIVEN frontend dependencies are audited WHEN the task completes THEN no moderate-or-higher advisories remain, or remaining advisories have explicit rationale.
-▸ GIVEN dependency versions are updated WHEN the frontend installs from the lockfile THEN the install is reproducible.
-▸ GIVEN dependency policy is reviewed WHEN package metadata is checked THEN npm pinning has an explicit choice consistent with repository discipline.
-▸ GIVEN dependency upgrades affect behavior WHEN frontend verification runs THEN existing GUI behavior still passes tests and build.
-▸ GIVEN a clean path requires new runtime dependencies WHEN approval is absent THEN the task records the blocker instead of adding them.
+▸ GIVEN trusted profile behavior has changed WHEN user-facing docs are checked THEN wrapper-first launch, profile sources, and restore coverage are current.
+▸ GIVEN docs mention launch preparation WHEN they are reviewed THEN ephemeral environment and restorable mutations are not conflated.
+▸ GIVEN documentation coverage is checked WHEN DOCS.md is reviewed THEN touched project documentation is indexed and current.
 
 ### Task 7: Version bump per DOCS.md convention
 
 **Depends on**: Tasks 1-6
-**Status**: ■ complete
+**Status**: □ pending
 **Acceptance**:
-▸ GIVEN the existing v0.5.0 release tag is missing from the remote WHEN the user approves publication THEN the remote tag exists.
-▸ GIVEN the user does not approve release publication WHEN this task runs THEN the task records the external block and does not claim release health resolved.
-▸ GIVEN remediation fix work is complete WHEN release is cut THEN a semver-appropriate version entry and local tag exist.
-▸ GIVEN release notes are checked WHEN the version bump completes THEN Unreleased is reset for future work.
+▸ GIVEN trusted profile loop work changes user-facing behavior WHEN release state is prepared THEN CHANGELOG.md has a semver-appropriate version entry.
+▸ GIVEN release notes are generated WHEN the version bump completes THEN internal agentera bookkeeping is excluded from user-facing notes.
+▸ GIVEN release publication is not approved WHEN this task runs THEN local release state is recorded without pushing tags.
 
 ### Task 8: Plan-level freshness checkpoint
 
 **Depends on**: Task 7
-**Status**: ■ complete
+**Status**: □ pending
 **Acceptance**:
-▸ GIVEN this plan's user-facing work has shipped WHEN CHANGELOG.md is checked THEN it has plan-level Added, Changed, or Fixed entries covering completed tasks.
-▸ GIVEN this plan is otherwise complete WHEN PROGRESS.md is checked THEN it has a plan summary entry listing produced commits.
-▸ GIVEN this plan resolved Audit 5 findings WHEN TODO.md is checked THEN resolved entries or cross-references exist.
-▸ GIVEN the user approves documentation updates WHEN DOCS.md and DESIGN.md are checked THEN they no longer describe stale pre-v0.5.0 launch tabs or theme variants.
-▸ GIVEN the user does not approve documentation updates WHEN this checkpoint runs THEN the deferral is recorded and the stale-artifact finding remains open.
+▸ GIVEN this plan's user-facing work has shipped WHEN CHANGELOG.md is checked THEN it has plan-level entries covering completed tasks.
+▸ GIVEN this plan completes WHEN PROGRESS.md is checked THEN it has a plan summary entry listing produced commits.
+▸ GIVEN this plan resolves or creates known profile-loop issues WHEN TODO.md is checked THEN related entries are current and scoped to this plan.
+▸ GIVEN documentation coverage is checked WHEN DOCS.md is reviewed THEN the index reflects touched project documentation.
 
 ## Overall Acceptance
 
-▸ GIVEN a Steam wrapper launch with overlay and compatibility settings WHEN Spela starts a game THEN preparation, environment, warnings, overlay IPC, and cleanup behave as one lifecycle.
-▸ GIVEN corrupt profiles or invalid user input exist WHEN users configure or launch games THEN Spela fails visibly before mutating launch or system state.
-▸ GIVEN GUI and TUI surfaces perform domain actions WHEN behavior changes THEN UI code does not own independent domain workflows.
-▸ GIVEN dependency and artifact health are audited after completion WHEN Audit 5 findings are checked THEN no critical finding remains open and warning count is reduced.
+▸ GIVEN a game has defaults and overrides WHEN Spela explains its effective profile THEN users can see source, launch impact, and restore coverage.
+▸ GIVEN a wrapped launch is prepared WHEN Spela mutates state THEN planned changes and restore coverage are visible before or during the session.
+▸ GIVEN preparation fails or exits normally WHEN cleanup runs THEN restore behavior is visible and does not hide failures.
+▸ GIVEN CLI, TUI, and GUI inspect the same profile WHEN users compare surfaces THEN profile semantics match.
+▸ GIVEN direct Steam URI launch is requested WHEN Spela explains safety THEN it does not imply cleanup guarantees.
 
 ## Surprises
-
-- Task 6 audit remediation is approval-blocked at the clean fix: `npm audit` still reports 7 moderate advisories through Vite, esbuild, Svelte, `svelte-hmr`, `vitefu`, and `@sveltejs/vite-plugin-svelte-inspector`. npm's fixes require semver-major upgrades to `vite@8.0.10`, `svelte@5.55.5`, and `@sveltejs/vite-plugin-svelte@7.0.0`, so this task pinned the current toolchain and recorded the blocker instead of forcing the upgrade.
-- Task 7 cut `v0.5.1` locally because Tasks 1-6 included user-visible fixes after `v0.5.0`. Remote publication remains user-gated: `git push origin main && git push origin v0.5.0 v0.5.1`.
-- Task 7 retry fixed post-tag version-state drift by excluding `chore(agentera)` bookkeeping commits from git-cliff release notes. `v0.5.1` remains the correct local remediation release; Task 8 remains pending.

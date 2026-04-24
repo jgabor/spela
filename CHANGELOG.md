@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Define shared profile explanation semantics for effective value source, launch impact, and restore coverage.
 - Upgrade the frontend toolchain to Vite 8 and Svelte 5 with exact pins and Svelte 5-compatible mounting.
 - Include tagged GUI backend tests in the default Mage test target.
 
