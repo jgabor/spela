@@ -1,5 +1,16 @@
 # Progress
 
+## Cycle 69 · 2026-04-24
+
+**Phase**: release
+**What**: Task 7 retry reconciled the release metadata with the git-cliff convention after post-tag bookkeeping. Agentera operational commits are now excluded from generated release notes, so local `v0.5.1` remains the correct remediation release and `## [Unreleased]` stays empty for the next user-facing change.
+**Commit**: pending local retry commit
+**Inspiration**: Inspektera's Task 7 retry finding and `.agentera/DOCS.md` versioning contract.
+**Discovered**: `chore(agentera)` commits after a local tag can make git-cliff report a phantom patch release. The release-worthy state did not change after `v0.5.1`; only agentera bookkeeping did. Remaining user-gated publication action: `git push origin main && git push origin v0.5.0 v0.5.1`. No remote push was run.
+**Verified**: Final-state checks after the retry: `git cliff --unreleased --strip all` returns only `## [Unreleased]` with no Changed/Fixed/Added bullets, and `git cliff --bumped-version` returns `v0.5.1`. `git tag --list 'v0.5.0' 'v0.5.1'` returns both local tags; `git ls-remote --tags origin 'v0.5.0*' 'v0.5.1*'` returns no tags, so publication remains user-gated. `CHANGELOG.md` keeps `## [Unreleased]` empty with rationale here: no release-worthy commits remain after excluding agentera bookkeeping. `mage test`, `mage lint`, `mage build`, and `mage install` pass, proving release metadata does not break test, build, or install.
+**Next**: Task 8 remains pending; do not start it without explicit approval because it includes documentation and design artifact updates.
+**Context**: intent - fix Task 7 version-state drift after release bookkeeping · constraints - only Task 7 retry, no remote push, no Task 8 freshness work, preserve unrelated HEALTH changes · unknowns - when the user wants remote tags published · scope - git-cliff release filtering, Task 7 progress and plan bookkeeping
+
 ## Cycle 68 · 2026-04-24 09:29
 
 **Phase**: release
@@ -7,7 +18,7 @@
 **Commit**: a6ce00a chore(release): v0.5.1
 **Inspiration**: `.agentera/DOCS.md` versioning contract and `magefile.go` release helpers; `git-cliff --bumped-version` selected `v0.5.1` from post-`v0.5.0` conventional commits.
 **Discovered**: `git-cliff --unreleased --tag v0.5.1` included internal agentera bookkeeping commits, so the safer release note path was to promote the already-curated `CHANGELOG.md` Unreleased section. Remaining user-gated publication action: `git push origin main && git push origin v0.5.0 v0.5.1`. No remote push was run.
-**Verified**: `git-cliff --bumped-version` returned `v0.5.1`, proving the semver decision is patch-level. `git tag --list v0.5.1` returned `v0.5.1`, while `git ls-remote --tags origin 'v0.5.0*' 'v0.5.1*'` returned no output, proving local-only tags and an explicit user-gated publish action. `CHANGELOG.md` inspection shows `## [Unreleased]` has no bullets before `## [0.5.1] - 2026-04-24`, and the `0.5.1` entry contains the Tasks 1-6 Changed and Fixed release notes plus `[0.5.1]` compare link. `mage test`, `mage lint`, `mage build`, and `mage install` all exited 0; build/install produced the Wails binary and frontend bundle without release metadata errors.
+**Verified**: Superseded by Cycle 69 after commit `58e17a3` exposed that agentera bookkeeping commits were still included by git-cliff. Original structural checks passed for the local `v0.5.1` release; final current-state evidence lives in Cycle 69.
 **Next**: Task 8 remains pending; do not start it without approval because it includes documentation and design artifact updates.
 **Context**: intent - cut a local patch release for Audit 5 remediation · constraints - only Task 7, no remote push, no Task 8 docs/design work, preserve unrelated HEALTH changes · unknowns - when the user wants remote tags published · scope - CHANGELOG release metadata, local tag, Task 7 plan/progress bookkeeping
 

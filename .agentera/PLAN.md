@@ -140,3 +140,4 @@ Converge launch behavior around one preparation lifecycle. Harden profile and pr
 
 - Task 6 audit remediation is approval-blocked at the clean fix: `npm audit` still reports 7 moderate advisories through Vite, esbuild, Svelte, `svelte-hmr`, `vitefu`, and `@sveltejs/vite-plugin-svelte-inspector`. npm's fixes require semver-major upgrades to `vite@8.0.10`, `svelte@5.55.5`, and `@sveltejs/vite-plugin-svelte@7.0.0`, so this task pinned the current toolchain and recorded the blocker instead of forcing the upgrade.
 - Task 7 cut `v0.5.1` locally because Tasks 1-6 included user-visible fixes after `v0.5.0`. Remote publication remains user-gated: `git push origin main && git push origin v0.5.0 v0.5.1`.
+- Task 7 retry fixed post-tag version-state drift by excluding `chore(agentera)` bookkeeping commits from git-cliff release notes. `v0.5.1` remains the correct local remediation release; Task 8 remains pending.
