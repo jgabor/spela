@@ -80,7 +80,7 @@ Converge launch behavior around one preparation lifecycle. Harden profile and pr
 ### Task 4: Move TUI resource workflows out of views
 
 **Depends on**: Task 2
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN stale DLL deployments exist WHEN the DLLs resource updates them THEN each cell reports success or failure without false success messages.
 ▸ GIVEN DLL operations are simulated WHEN TUI behavior is tested THEN update planning and result rendering stay deterministic.
