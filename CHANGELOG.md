@@ -7,18 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-04-24
+
+This minor release makes the trusted profile loop visible across profile resolution, launch preparation, restore reporting, and CLI/TUI/GUI inspection surfaces.
+
+### Added
+
+- Explain effective profile values with source, launch impact, and restore coverage semantics.
+- Summarize launch preparation before mutation, including environment, DLL, hardware, overlay, and compatibility impacts.
+- Show shared profile source, launch impact, and restore coverage semantics in TUI and GUI profile inspection.
+
 ### Changed
 
-- Show shared profile source, launch impact, and restore coverage semantics in TUI game profile rows.
-- Show launch restore confidence details, including DLL backup, denylist, path write-state, and cleanup success or failure reporting.
-- Show CLI launch preparation summaries before mutation, including profile impacts, environment, DLL, hardware, overlay, and launch tracking guidance.
-- Define shared profile explanation semantics for effective value source, launch impact, and restore coverage.
-- Upgrade the frontend toolchain to Vite 8 and Svelte 5 with exact pins and Svelte 5-compatible mounting.
-- Include tagged GUI backend tests in the default Mage test target.
+- Clarify README guidance around Steam `%command%`, direct launch limits, profile sources, and restore coverage.
 
 ### Fixed
 
-- Rebase Playwright e2e mocks and expectations on the current Wails `gui.App` bindings and resource-centric GUI surface.
+- Report restore success or failure for launch cleanup without hiding the launch result.
 
 ## [0.5.1] - 2026-04-24
 
