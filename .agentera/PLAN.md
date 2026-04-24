@@ -90,7 +90,7 @@ Converge launch behavior around one preparation lifecycle. Harden profile and pr
 ### Task 5: Reduce TUI routing hotspots
 
 **Depends on**: Task 4
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN modal, pending action, profile, DLL, rail, and message flows exist WHEN key handling is exercised THEN each flow behaves as before.
 ▸ GIVEN a user navigates Games, DLLs, Defaults, and Metrics WHEN resource-specific keys are pressed THEN focus and messages stay scoped to the active resource.
