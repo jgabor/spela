@@ -298,6 +298,75 @@ func TestLayout_RailHotkeyFromDeepFocus(t *testing.T) {
 	}
 }
 
+func TestLayout_ResourceKeysStayScopedToActiveResource(t *testing.T) {
+	g1 := testGame("Alpha", testDLL(game.DLLTypeDLSS, "3.7.0"))
+	g2 := testGame("Beta", testDLL(game.DLLTypeDLSS, "3.8.10"))
+	g2.AppID = 2
+	m := testLayout(g1, g2)
+
+	result, _ := sendKey(&m, "2")
+	m = result.(LayoutModel)
+	result, _ = sendKey(&m, "tab")
+	m = result.(LayoutModel)
+	railCursor := m.rail.Cursor()
+	result, _ = sendKey(&m, "j")
+	m = result.(LayoutModel)
+	if m.rail.Cursor() != railCursor {
+		t.Errorf("DLLs j should not move rail cursor: got %d want %d", m.rail.Cursor(), railCursor)
+	}
+	if got := m.pane.dllsResource.gameRowCursor; got != 1 {
+		t.Errorf("DLLs j should move deployment cursor to 1, got %d", got)
+	}
+
+	result, _ = sendKey(&m, "3")
+	m = result.(LayoutModel)
+	result, _ = sendKey(&m, "tab")
+	m = result.(LayoutModel)
+	defaultCursor := m.pane.defaultsDetail.Cursor()
+	result, _ = sendKey(&m, "j")
+	m = result.(LayoutModel)
+	if got := m.pane.defaultsDetail.Cursor(); got != defaultCursor+1 {
+		t.Errorf("Defaults j should move detail cursor to %d, got %d", defaultCursor+1, got)
+	}
+	if m.pane.dllsResource.gameRowCursor != 1 {
+		t.Error("Defaults j should not mutate DLL row cursor")
+	}
+
+	result, _ = sendKey(&m, "4")
+	m = result.(LayoutModel)
+	result, _ = sendKey(&m, "tab")
+	m = result.(LayoutModel)
+	defaultCursor = m.pane.defaultsDetail.Cursor()
+	dllCursor := m.pane.dllsResource.gameRowCursor
+	result, _ = sendKey(&m, "j")
+	m = result.(LayoutModel)
+	if m.pane.defaultsDetail.Cursor() != defaultCursor {
+		t.Error("Metrics j should not mutate Defaults cursor")
+	}
+	if m.pane.dllsResource.gameRowCursor != dllCursor {
+		t.Error("Metrics j should not mutate DLL cursor")
+	}
+}
+
+func TestLayout_DLLUpdateAllMessageReachesDLLsWhenMetricsActive(t *testing.T) {
+	m := testLayout(testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.7.0")))
+	result, _ := sendKey(&m, "4")
+	m = result.(LayoutModel)
+	if m.rail.Active() != ResourceMetrics {
+		t.Fatalf("precondition: expected Metrics active, got %v", m.rail.Active())
+	}
+
+	updated, _ := m.Update(dllsUpdateAllCompleteMsg{
+		results: map[string]string{"1091500:dlss": "ok"},
+		summary: "Update-all: 1 updated, 0 failed",
+	})
+	m = updated.(LayoutModel)
+
+	if got := m.pane.dllsResource.lastBatchSummary; got != "Update-all: 1 updated, 0 failed" {
+		t.Errorf("DLLs resource did not receive message while Metrics active, got %q", got)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Navigation — q / esc
 // ---------------------------------------------------------------------------

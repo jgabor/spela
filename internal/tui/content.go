@@ -208,184 +208,21 @@ func (m ContentModel) profileSectionHeight() int {
 }
 
 func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
-	var cmds []tea.Cmd
-
-	if m.dlssPresetModal.Visible() {
-		var cmd tea.Cmd
-		m.dlssPresetModal, cmd = m.dlssPresetModal.Update(msg)
-		if cmd != nil {
-			cmds = append(cmds, cmd)
-		}
-		return m, tea.Batch(cmds...)
+	if next, cmd, handled := m.updateBlockingFlow(msg); handled {
+		return next, cmd
 	}
 
-	if m.dllInstallState != DLLInstallNone {
-		return m.updateDLLInstall(msg)
-	}
-
-	// Handle pending confirmation for destructive operations.
-	if m.pendingAction != PendingNone {
-		if msg, ok := msg.(tea.KeyPressMsg); ok {
-			switch msg.String() {
-			case "y", "Y":
-				action := m.pendingAction
-				m.pendingAction = PendingNone
-				switch action {
-				case PendingDLLUpdate:
-					m.dllOperating = true
-					m.dllOperatingLabel = "Updating DLLs..."
-					return m, m.updateDLLs()
-				case PendingDLLRestore:
-					m.dllOperating = true
-					m.dllOperatingLabel = "Restoring DLLs..."
-					return m, m.restoreDLLs()
-				}
-			default:
-				// Any other key cancels.
-				m.pendingAction = PendingNone
-			}
-			return m, nil
+	if key, ok := msg.(tea.KeyPressMsg); ok {
+		if next, cmd, handled := m.updateContentKey(key); handled {
+			return next, cmd
 		}
-	}
-
-	switch msg := msg.(type) {
-	case openDLSSPresetModalMsg:
-		m.dlssPresetModal.SetSize(m.width, m.height)
-		m.dlssPresetModal.Open(msg.currentPreset)
-		return m, nil
-
-	case dlssPresetSelectedMsg:
-		m.profileWidget.SetDLSSPreset(msg.preset)
-		return m, nil
-
-	case dlssPresetCancelledMsg:
-		return m, nil
-
-	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "j", "down", "k", "up":
-			// Task 4: DetailModel owns field-level cursor movement (j/k) so
-			// focus crosses group-header boundaries in a single column.
-			// This happens regardless of whether a game or the defaults is
-			// loaded; the legacy ProfileWidget still handles edit keys.
-			if !m.profileWidget.Editing() {
-				detail, _, handled := m.detail.Update(msg)
-				if handled {
-					m.detail = detail
-					return m, nil
-				}
-			}
-		case "r":
-			// Task 5: reset focused field on the game profile to inherited.
-			// Root defaults profile suppresses this binding entirely —
-			// DetailModel.ResetFocused enforces isRoot=false internally.
-			if m.game != nil && !m.dllOperating {
-				changed, err := m.detail.ResetFocused()
-				if err == nil && changed {
-					return m, m.saveResolvedProfile()
-				}
-				return m, nil
-			}
-		case "R":
-			// Task 5: shift+R resets the entire game profile to inherited.
-			// Displaces the former "R = restore DLLs" binding (now
-			// "ctrl+shift+r"). Root profile suppresses this — see
-			// DetailModel.ResetAll.
-			if m.game != nil && !m.dllOperating {
-				if m.detail.ResetAll() {
-					return m, m.saveResolvedProfile()
-				}
-				return m, nil
-			}
-		case "p":
-			// Task 5: pin the currently-resolved value on the focused
-			// inherited field. Idempotent when already overridden (no-op).
-			// Root profile suppresses this — see DetailModel.PinFocused.
-			if m.game != nil && !m.dllOperating {
-				changed, err := m.detail.PinFocused()
-				if err == nil && changed {
-					return m, m.saveResolvedProfile()
-				}
-				return m, nil
-			}
-		case "i":
-			if m.game != nil && !m.dllOperating {
-				m.dllOperating = true
-				m.dllOperatingLabel = "Installing DLL..."
-				m.dllInstallState = DLLInstallSelectType
-				m.dllTypeCursor = 0
-				return m, m.loadDLLTypes()
-			}
-		case "u":
-			if m.game != nil && len(m.game.DLLs) > 0 && m.hasUpdates && !m.dllOperating {
-				if m.confirmDestructive {
-					m.pendingAction = PendingDLLUpdate
-					return m, nil
-				}
-				m.dllOperating = true
-				m.dllOperatingLabel = "Updating DLLs..."
-				return m, m.updateDLLs()
-			}
-		case "ctrl+shift+r":
-			// Former "R" binding — displaced by Task 5's shift+R reset-all.
-			// Restore the on-disk DLL backup for the current game.
-			if m.game != nil && m.hasBackup && !m.dllOperating {
-				if m.confirmDestructive {
-					m.pendingAction = PendingDLLRestore
-					return m, nil
-				}
-				m.dllOperating = true
-				m.dllOperatingLabel = "Restoring DLLs..."
-				return m, m.restoreDLLs()
-			}
-		}
-
-	case profileSaveMsg:
-		if msg.success {
-			if m.defaultProfile {
-				p, _ := m.services.LoadDefaultProfile()
-				m.profile = p
-			} else if m.game != nil {
-				p, inherited := m.loadEffectiveProfile(m.game.AppID)
-				m.profile = p
-				m.usingDefaultProfile = inherited
-				m.profileHeight = m.profileSectionHeight()
-			}
-		}
-		return m, nil
-
-	case dllUpdateMsg:
-		m.dllOperating = false
-		if msg.success && msg.dlls != nil && m.game != nil {
-			m.game.DLLs = msg.dlls
-			m.game.ScannedAt = time.Now()
-		}
-		m.hasBackup = m.game != nil && m.services.BackupExists(m.game.AppID)
-		if msg.success {
-			m.hasUpdates = false
-			return m, m.LoadDLLUpdates()
-		}
-		return m, nil
-
-	case dllRestoreMsg:
-		m.dllOperating = false
-		if msg.success {
-			m.hasBackup = m.game != nil && m.services.BackupExists(m.game.AppID)
-		}
-		return m, nil
-
-	case dllUpdatesCheckedMsg:
-		if msg.err == nil {
-			m.hasUpdates = msg.hasUpdates
-		}
-		return m, nil
+	} else if next, cmd, handled := m.updateContentMessage(msg); handled {
+		return next, cmd
 	}
 
 	var cmd tea.Cmd
 	m.profileWidget, cmd = m.profileWidget.Update(msg)
-	cmds = append(cmds, cmd)
-
-	return m, tea.Batch(cmds...)
+	return m, cmd
 }
 
 // saveResolvedProfile emits a save command for the current game's raw

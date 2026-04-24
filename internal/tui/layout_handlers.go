@@ -41,25 +41,17 @@ func (m LayoutModel) handleHelpKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, 
 	return m, nil, true
 }
 
-// handleGlobalKeys handles the main key bindings that apply globally when no
-// overlay is active. Keymap audit summary (Task 3):
-//
-//   - Rail hotkeys `1`-`4` are handled inside rail.Update; this layer only
-//     sees them when routed from the resource pane (they are ALSO global
-//     jump keys — pressing 2 from inside the games detail snaps focus back
-//     to the rail and selects DLLs).
-//   - `r` is reserved for Task 5 (reset field). Former `r` binding (rescan
-//     games) was rebound to `ctrl+r`.
-//   - `shift+r` is reserved for Task 5 (reset whole profile). Does not
-//     collide with `R` (uppercase R on its own, no shift keyword) which
-//     remains bound to DLL restore.
-//   - `p` is reserved for Task 5 (pin field). Former sidebar `p` (profile
-//     filter) was rebound to `P` (shift+p).
-//   - `:` is reserved for the future command palette (not implemented).
-//   - `tab` toggles rail vs resource-pane focus.
-//
-// Returns (model, cmd, handled).
 func (m LayoutModel) handleGlobalKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, bool) {
+	if next, cmd, handled := m.handleSystemKey(msg); handled {
+		return next, cmd, true
+	}
+	if next, cmd, handled := m.handleRailHotkey(msg); handled {
+		return next, cmd, true
+	}
+	return m.handleFocusAndResourceKey(msg)
+}
+
+func (m LayoutModel) handleSystemKey(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, bool) {
 	switch msg.String() {
 	case "ctrl+c":
 		return m, tea.Quit, true
@@ -79,11 +71,16 @@ func (m LayoutModel) handleGlobalKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd
 		}
 		m.calculateDimensions()
 		return m, nil, true
+	case "?":
+		m.showHelp = true
+		return m, nil, true
+	}
+	return m, nil, false
+}
+
+func (m LayoutModel) handleRailHotkey(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, bool) {
+	switch msg.String() {
 	case "1", "2", "3", "4":
-		// Rail hotkeys — always focus the rail and pick the resource.
-		// Reachable from resource pane too (global scope). Inside the
-		// games detail they also work unless the games resource has an
-		// internal modal open.
 		if m.pane.HasModalOpen(m.rail.Active()) {
 			return m, nil, false
 		}
@@ -91,13 +88,15 @@ func (m LayoutModel) handleGlobalKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd
 		if rail.SelectHotkey(msg.String()) {
 			m.rail = rail
 			m.railFocused = true
-			// When switching resources, reset inner focus inside the pane.
 			m.pane.SetInnerFocused(false)
 			return m, nil, true
 		}
-	case "?":
-		m.showHelp = true
-		return m, nil, true
+	}
+	return m, nil, false
+}
+
+func (m LayoutModel) handleFocusAndResourceKey(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, bool) {
+	switch msg.String() {
 	case "o":
 		if m.railFocused {
 			m.optionsModal.SetSize(m.width, m.height)
@@ -106,8 +105,6 @@ func (m LayoutModel) handleGlobalKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd
 			return m, nil, true
 		}
 	case "ctrl+f":
-		// ctrl+f focuses the games-list search field. Requires the games
-		// resource; no-op on other resources.
 		if m.rail.Active() == ResourceGames {
 			m.railFocused = false
 			m.pane.SetInnerFocused(false)
@@ -116,62 +113,54 @@ func (m LayoutModel) handleGlobalKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd
 			return m, cmd, true
 		}
 	case "ctrl+r":
-		// ctrl+r rescans games (displaces the former `r` binding so Task 5
-		// can use bare `r` for reset-field).
 		messageCmd := m.messageBar.SetMessage("Rescanning games...", MessageInfo)
 		return m, tea.Batch(messageCmd, m.rescanGames()), true
 	case "q":
-		if m.railFocused {
-			return m, tea.Quit, true
-		}
-		if !m.pane.HasModalOpen(m.rail.Active()) {
-			// If the games resource is focused on its detail, step back to
-			// the games list first; otherwise return to the rail.
-			if m.rail.Active() == ResourceGames && m.pane.InnerFocused() {
-				m.pane.SetInnerFocused(false)
-				return m, nil, true
-			}
-			m.railFocused = true
-			m.pane.SetInnerFocused(false)
-			return m, nil, true
-		}
+		return m.handleBackOrQuitKey()
 	case "esc":
-		if !m.railFocused && !m.pane.HasModalOpen(m.rail.Active()) {
-			if m.rail.Active() == ResourceGames && m.pane.InnerFocused() {
-				m.pane.SetInnerFocused(false)
-				return m, nil, true
-			}
-			m.railFocused = true
-			m.pane.SetInnerFocused(false)
-			return m, nil, true
-		}
+		return m.handleBackKey()
 	case "tab":
-		// tab toggles focus between the rail and the currently active
-		// resource pane. Inside ResourceGames it additionally toggles the
-		// inner sidebar/detail focus so the user can tab deeper. Inside
-		// ResourceDefaults (Task 4) tab also transfers focus to the detail
-		// renderer so j/k moves field focus instead of the rail cursor.
-		if m.railFocused {
-			m.railFocused = false
-			// For resources with a single interactive pane (Defaults in
-			// Task 4, DLLs and Metrics in Task 6), mark innerFocused so
-			// the renderer draws its border in the accent-focus color and
-			// so input routes into it.
-			switch m.rail.Active() {
-			case ResourceDefaults, ResourceDLLs, ResourceMetrics:
-				m.pane.SetInnerFocused(true)
-			}
-			return m, nil, true
-		}
-		if m.rail.Active() == ResourceGames {
-			m.pane.SetInnerFocused(!m.pane.InnerFocused())
-			return m, nil, true
-		}
-		m.railFocused = true
+		return m.handleTabKey(), nil, true
+	}
+	return m, nil, false
+}
+
+func (m LayoutModel) handleBackOrQuitKey() (LayoutModel, tea.Cmd, bool) {
+	if m.railFocused {
+		return m, tea.Quit, true
+	}
+	return m.handleBackKey()
+}
+
+func (m LayoutModel) handleBackKey() (LayoutModel, tea.Cmd, bool) {
+	if m.railFocused || m.pane.HasModalOpen(m.rail.Active()) {
+		return m, nil, false
+	}
+	if m.rail.Active() == ResourceGames && m.pane.InnerFocused() {
 		m.pane.SetInnerFocused(false)
 		return m, nil, true
 	}
-	return m, nil, false
+	m.railFocused = true
+	m.pane.SetInnerFocused(false)
+	return m, nil, true
+}
+
+func (m LayoutModel) handleTabKey() LayoutModel {
+	if m.railFocused {
+		m.railFocused = false
+		switch m.rail.Active() {
+		case ResourceDefaults, ResourceDLLs, ResourceMetrics:
+			m.pane.SetInnerFocused(true)
+		}
+		return m
+	}
+	if m.rail.Active() == ResourceGames {
+		m.pane.SetInnerFocused(!m.pane.InnerFocused())
+		return m
+	}
+	m.railFocused = true
+	m.pane.SetInnerFocused(false)
+	return m
 }
 
 // handleAppMessages routes application-level messages that affect multiple components.

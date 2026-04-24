@@ -5,6 +5,7 @@ import (
 
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/profile"
 )
 
 // Content tests focus on the games-resource detail pane — the only
@@ -78,6 +79,27 @@ func TestContent_Update_ConfirmationCancelled(t *testing.T) {
 	}
 	if result.dllOperating {
 		t.Error("expected dllOperating to remain false on cancel")
+	}
+}
+
+func TestContent_ModalRoutesBeforePendingAction(t *testing.T) {
+	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
+	m := testContent(g)
+	m.pendingAction = PendingDLLUpdate
+	m.dlssPresetModal.Open(profile.DLSSPresetDefault)
+
+	result, cmd := m.Update(keyMsg("y"))
+	if !result.dlssPresetModal.Visible() {
+		t.Error("expected DLSS preset modal to remain open after unrelated key")
+	}
+	if result.pendingAction != PendingDLLUpdate {
+		t.Errorf("modal routing should not consume pending action, got %d", result.pendingAction)
+	}
+	if result.dllOperating {
+		t.Error("pending action must not start while modal is open")
+	}
+	if cmd != nil {
+		t.Error("expected no command from unrelated modal key")
 	}
 }
 
