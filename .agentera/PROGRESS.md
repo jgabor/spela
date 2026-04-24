@@ -1,5 +1,16 @@
 # Progress
 
+## Cycle 77 · 2026-04-24
+
+**Phase**: docs
+**What**: Task 6 updated user-facing guidance for the trusted profile loop. README now makes Steam `%command%` the trustworthy launch path, frames TUI and GUI as inspection/configuration surfaces, explains profile sources, and separates ephemeral launch environment from restorable mutations and DLL readiness reporting.
+**Commit**: this commit (`docs(readme): clarify trusted profile launch guidance`)
+**Inspiration**: Trusted Profile Loop Task 6 acceptance criteria and the firm wrapper-first launch decision.
+**Discovered**: README still implied normal direct CLI launch and blanket restore-on-exit. Current code rejects unwrapped direct launch when cleanup cannot be tracked, while dry-run remains the safe inspection path.
+**Verified**: README guidance was checked against `cmd/spela/commands/launch.go` direct-launch rejection and preparation summaries, `cmd/spela/commands/launch_test.go` summary and `%command%` tests, `internal/profile/explanation.go` source/impact/restore classifications, and Task 4-5 TUI/GUI tests recorded in this file. Focused verification `go test ./cmd/spela/commands ./internal/profile ./internal/tui -run 'TestRunLaunch|TestFieldSemantics|TestExplain|TestDetail_ProfileSemantics' -v` passed. DOCS.md indexes README with today's audit date, and PLAN.md marks only Task 6 complete.
+**Next**: Task 7 can prepare version state when explicitly started.
+**Context**: intent - update only user-facing guidance · constraints - no implementation, version bump, release, or later freshness task · unknowns - none for Task 6 · scope - README guidance, DOCS index, PLAN status, progress record
+
 ## Cycle 76 · 2026-04-24 16:45
 
 **Phase**: build

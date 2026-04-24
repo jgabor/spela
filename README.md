@@ -34,9 +34,13 @@ Set a game's launch options in Steam:
 spela %command%
 ```
 
-Spela detects the game, loads its profile (or the default profile), applies DLSS
-settings, GPU clocks, CPU governor, and environment variables, then launches the game.
-Everything is restored on exit.
+This is the trustworthy launch path. Spela receives Steam's real command, loads
+the effective profile, shows the planned preparation, applies the changes it can
+track, launches the game process, and runs cleanup when that process exits.
+
+Direct Steam URI launch cannot track the real game lifetime or cleanup coverage.
+For normal play, keep launching from Steam with `spela %command%` instead of using
+Spela as a separate launcher.
 
 ### CLI
 
@@ -48,8 +52,12 @@ spela dll check-updates             # check for newer DLSS DLLs
 spela dll update 1091500            # update DLLs for a game
 spela profile create 1091500        # create a game profile
 spela dlss set 1091500 --sr-mode quality --fg-enabled
-spela launch 1091500                # launch with profile applied
+spela launch --dry-run 1091500      # show launch preparation without mutation
 ```
+
+`spela launch` is primarily the wrapper entrypoint used by Steam. Dry runs are
+safe for inspection. A normal direct launch by game name or AppID is rejected when
+Spela cannot track cleanup; the command tells you to use `spela %command%`.
 
 ### TUI / GUI
 
@@ -57,6 +65,10 @@ spela launch 1091500                # launch with profile applied
 spela tui    # interactive terminal UI
 spela gui    # graphical interface (Wails + Svelte)
 ```
+
+The TUI and GUI are configuration and inspection surfaces. Use them to edit
+profiles, inspect inherited values, and review DLL or metric state. They do not
+replace the Steam wrapper launch path.
 
 ## CLI commands
 
@@ -107,9 +119,23 @@ overlay:
   position: top-left
 ```
 
-Profiles compose with a default profile (`~/.config/spela/default.yaml`). Game-specific
-settings override defaults. `spela launch` applies the effective profile and restores
-everything on exit.
+Profiles compose with a default profile (`~/.config/spela/default.yaml`). The
+effective value shown for a game has one source:
+
+- `default`: inherited live from the default profile.
+- `override`: pinned in the game profile.
+- `unset`: configured by neither the game profile nor defaults.
+
+Launch preparation groups effective values by impact: compatibility,
+environment, game file, system state, or overlay. Environment values are
+ephemeral child-process variables, not persistent mutations to restore. Hardware
+changes such as GPU clocks, power limit, fan speed, CPU governor, and SMT are
+restorable mutations when the wrapped game process exits.
+
+DLL updates are explicit file operations through `spela dll`, not implicit
+launch-time swaps. Launch preparation reports DLL safety state, including deny
+list status, backup availability, and path write-state, without claiming a file
+mutation is planned.
 
 ## Configuration
 

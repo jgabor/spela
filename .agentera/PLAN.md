@@ -90,7 +90,7 @@ Define one behavioral vocabulary for profile source, launch impact, and restore 
 ### Task 6: Update user-facing guidance
 
 **Depends on**: Tasks 2-5
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN trusted profile behavior has changed WHEN user-facing docs are checked THEN wrapper-first launch, profile sources, and restore coverage are current.
 ▸ GIVEN docs mention launch preparation WHEN they are reviewed THEN ephemeral environment and restorable mutations are not conflated.

@@ -30,7 +30,7 @@ versioning:
 
 | Document               | Path                           | Last Updated | Status    |
 |------------------------|--------------------------------|-------------|-----------|
-| README                 | README.md                      | 2026-04-01  | ■ current |
+| README                 | README.md                      | 2026-04-24  | ■ current |
 | CLAUDE.md              | CLAUDE.md                      | 2026-04-01  | ■ current |
 | Vision                 | VISION.md                      | 2026-04-01  | ■ current |
 | Todo                   | TODO.md                        | 2026-04-24  | ■ current |
