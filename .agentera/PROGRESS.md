@@ -1,5 +1,16 @@
 # Progress
 
+## Cycle 74 · 2026-04-24 16:09
+
+**Phase**: build
+**What**: Task 3 strengthened restore confidence. Cleanup steps now carry affected-area labels and report restore success or failure without replacing the launch result. CLI preparation summaries now show DLL backup, denylist, and path write-state coverage while still saying no launch-time DLL mutation is planned.
+**Commit**: this commit (`fix(launcher): report restore outcomes`)
+**Inspiration**: Trusted Profile Loop Task 3 acceptance criteria and the existing wrapper-first lifecycle boundary.
+**Discovered**: DLL launch-time mutation is still absent, so restore coverage is intentionally reported as readiness and risk state, not as a claimed launch cleanup guarantee.
+**Verified**: Focused restore tests passed for prepare failure cleanup-once with overlay area naming, cleanup success logs, cleanup failure logs while preserving child launch failure, cleanup reverse ordering, and DLL restore coverage summary. `mage test`, `mage lint`, and `mage build` passed. CLI smoke `go run ./cmd/spela launch --dry-run 'Cyberpunk 2077'` printed direct Steam URI cleanup warning, `DLL` restore coverage with `denylist: allowed`, `backup: available`, `path write: unknown (path not accessible)`, and no launch-time DLL mutation claim.
+**Next**: Task 4 can align TUI profile semantics without changing launcher ownership.
+**Context**: intent - make restore behavior visible and trustworthy · constraints - only Task 3, no TUI/GUI/docs/version scope, no dependency, keep env distinct · unknowns - future DLL launch mutation remains absent · scope - launcher cleanup reporting, profile hardware cleanup return, CLI DLL coverage summary, focused tests, artifacts
+
 ## Cycle 73 · 2026-04-24 15:52
 
 **Phase**: build

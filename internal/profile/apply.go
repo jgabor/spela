@@ -13,6 +13,12 @@ import (
 	"github.com/jgabor/spela/internal/xdg"
 )
 
+// Cleanup describes a restorable mutation that should be reverted after launch.
+type Cleanup struct {
+	Area string
+	Run  func() error
+}
+
 // ApplyEnv applies only environment variable settings from the profile,
 // without touching hardware or creating cleanup closures. Used by dry-run.
 func (p *Profile) ApplyEnv(e *env.Environment) {
@@ -21,8 +27,8 @@ func (p *Profile) ApplyEnv(e *env.Environment) {
 	p.applyGPU(e)
 }
 
-func (p *Profile) Apply(e *env.Environment) []func() {
-	var cleanup []func()
+func (p *Profile) Apply(e *env.Environment) []Cleanup {
+	var cleanup []Cleanup
 
 	cleanup = append(cleanup, p.applyProton(e)...)
 	cleanup = append(cleanup, p.applyDLSS(e)...)
@@ -30,7 +36,7 @@ func (p *Profile) Apply(e *env.Environment) []func() {
 
 	if hwCleanup, err := p.applyHardware(); err != nil {
 		logging.Warn("failed to apply hardware settings", "error", err)
-	} else if hwCleanup != nil {
+	} else if hwCleanup.Run != nil {
 		cleanup = append(cleanup, hwCleanup)
 	}
 
@@ -51,9 +57,9 @@ func (p *Profile) needsHardwareApply() bool {
 // applyHardware applies privileged GPU/CPU settings via a single pkexec
 // round-trip to spela apply-profile. Returns a cleanup function that restores
 // the previous settings on game exit.
-func (p *Profile) applyHardware() (func(), error) {
+func (p *Profile) applyHardware() (Cleanup, error) {
 	if !p.needsHardwareApply() {
-		return nil, nil
+		return Cleanup{}, nil
 	}
 
 	// Capture current state for restoration.
@@ -87,10 +93,10 @@ func (p *Profile) applyHardware() (func(), error) {
 	}
 
 	if _, err := privilege.ExecSelf(args...); err != nil {
-		return nil, fmt.Errorf("apply hardware settings: %w", err)
+		return Cleanup{}, fmt.Errorf("apply hardware settings: %w", err)
 	}
 
-	cleanup := func() {
+	cleanup := Cleanup{Area: "hardware", Run: func() error {
 		resetArgs := []string{"apply-profile", "--reset"}
 		if p.GPU.PowerLimit > 0 && prevPowerLimit > 0 {
 			resetArgs = append(resetArgs, fmt.Sprintf("--gpu-power-limit=%d", prevPowerLimit))
@@ -109,14 +115,15 @@ func (p *Profile) applyHardware() (func(), error) {
 			resetArgs = append(resetArgs, fmt.Sprintf("--cpu-smt=%s", value))
 		}
 		if _, err := privilege.ExecSelf(resetArgs...); err != nil {
-			logging.Warn("failed to restore hardware settings", "error", err)
+			return fmt.Errorf("restore hardware settings: %w", err)
 		}
-	}
+		return nil
+	}}
 
 	return cleanup, nil
 }
 
-func (p *Profile) applyProton(e *env.Environment) []func() {
+func (p *Profile) applyProton(e *env.Environment) []Cleanup {
 	if p.Proton.EnableWayland {
 		e.EnableWayland()
 	}
@@ -132,7 +139,7 @@ func (p *Profile) applyProton(e *env.Environment) []func() {
 	return nil
 }
 
-func (p *Profile) applyDLSS(e *env.Environment) []func() {
+func (p *Profile) applyDLSS(e *env.Environment) []Cleanup {
 	if p.DLSS.SROverride {
 		e.Set("DXVK_NVAPI_DRS_NGX_DLSS_SR_OVERRIDE", "on")
 		if p.DLSS.SRMode != "" {
@@ -177,7 +184,7 @@ func (p *Profile) applyDLSS(e *env.Environment) []func() {
 	return nil
 }
 
-func (p *Profile) applyGPU(e *env.Environment) []func() {
+func (p *Profile) applyGPU(e *env.Environment) []Cleanup {
 	if p.GPU.ShaderCache {
 		cachePath := p.GPU.ShaderCachePath
 		if cachePath == "" {

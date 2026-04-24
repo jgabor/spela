@@ -1,9 +1,13 @@
 package commands
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/jgabor/spela/internal/denylist"
+	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/profile"
 )
@@ -60,7 +64,12 @@ func TestRunLaunchDryRunSummarizesPreparationImpacts(t *testing.T) {
 		"PROTON_VKD3D_HEAP",
 		"DLL",
 		"no launch-time DLL file mutation planned",
+		"denylist:",
+		"denied (anti-cheat)",
+		"backup:",
+		"available",
 		"nvngx_dlss.dll",
+		"path write: no write bit",
 		"Hardware",
 		"GPU power limit:",
 		"Overlay",
@@ -128,13 +137,17 @@ func TestRunLaunchRejectsDirectSteamURI(t *testing.T) {
 
 func seedGameWithDLL(t *testing.T) {
 	t.Helper()
+	dllPath := filepath.Join(t.TempDir(), "nvngx_dlss.dll")
+	if err := os.WriteFile(dllPath, []byte("original"), 0o444); err != nil {
+		t.Fatalf("write DLL fixture: %v", err)
+	}
 	db := &game.Database{
 		Games: map[uint64]*game.Game{
 			1091500: {
 				AppID: 1091500,
 				Name:  "Cyberpunk 2077",
 				DLLs: []game.DetectedDLL{{
-					Path:    "/games/Cyberpunk 2077/bin/x64/nvngx_dlss.dll",
+					Path:    dllPath,
 					Name:    "nvngx_dlss.dll",
 					Type:    game.DLLTypeDLSS,
 					Version: "3.7.0",
@@ -144,5 +157,11 @@ func seedGameWithDLL(t *testing.T) {
 	}
 	if err := db.Save(); err != nil {
 		t.Fatalf("save database: %v", err)
+	}
+	if _, err := dll.CreateBackup(1091500, "Cyberpunk 2077", []dll.GameDLL{{Name: "nvngx_dlss.dll", Path: dllPath, Version: "3.7.0"}}); err != nil {
+		t.Fatalf("create DLL backup: %v", err)
+	}
+	if err := denylist.Deny(1091500, "Cyberpunk 2077", "anti-cheat"); err != nil {
+		t.Fatalf("denylist game: %v", err)
 	}
 }

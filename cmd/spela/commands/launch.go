@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"sort"
 	"strconv"
@@ -9,6 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jgabor/spela/internal/denylist"
+	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/env"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/launcher"
@@ -199,6 +202,17 @@ func printOverlaySummary(p *profile.Profile) {
 func printDLLSummary(g *game.Game) {
 	fmt.Printf("\n%s\n", tui.CLIPrimary("DLL"))
 	fmt.Printf("  %s\n", tui.CLIDim("no launch-time DLL file mutation planned"))
+	denied, reason := denylist.IsDenied(g.AppID)
+	if denied {
+		fmt.Printf("  %s denied (%s)\n", tui.CLIDim("denylist:"), profileVal(reason))
+	} else {
+		fmt.Printf("  %s allowed\n", tui.CLIDim("denylist:"))
+	}
+	if dll.BackupExists(g.AppID) {
+		fmt.Printf("  %s available\n", tui.CLIDim("backup:"))
+	} else {
+		fmt.Printf("  %s not created yet\n", tui.CLIDim("backup:"))
+	}
 	if len(g.DLLs) == 0 {
 		return
 	}
@@ -211,8 +225,19 @@ func printDLLSummary(g *game.Game) {
 	})
 	for _, detected := range dlls {
 		version := profileVal(detected.Version)
-		fmt.Printf("  %s %s %s\n", tui.CLIDim(string(detected.Type)+":"), detected.Name, version)
+		fmt.Printf("  %s %s %s; %s\n", tui.CLIDim(string(detected.Type)+":"), detected.Name, version, dllPathWriteOutcome(detected.Path))
 	}
+}
+
+func dllPathWriteOutcome(path string) string {
+	info, err := os.Stat(path)
+	if err != nil {
+		return "path write: unknown (path not accessible)"
+	}
+	if info.Mode().Perm()&0o222 == 0 {
+		return "path write: no write bit"
+	}
+	return "path write: write bit present"
 }
 
 func printImpactSummary(rawProfile, defaults *profile.Profile) {

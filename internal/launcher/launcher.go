@@ -33,12 +33,17 @@ type Launcher struct {
 	Profile     *profile.Profile
 	Environment *env.Environment
 	Command     []string
-	cleanup     []func()
+	cleanup     []cleanupStep
 
 	// VKD3DCompatibilityCheck is invoked during Prepare() when the
 	// profile has vkd3d_heap=true, to surface preflight warnings. Nil
 	// means "use the default that wires production Steam + NVML probes".
 	VKD3DCompatibilityCheck VKD3DCompatibilityCheckFunc
+}
+
+type cleanupStep struct {
+	area string
+	run  func() error
 }
 
 type WrapperInvocation struct {
@@ -54,7 +59,17 @@ func New(g *game.Game) *Launcher {
 }
 
 func (l *Launcher) OnCleanup(fn func()) {
-	l.cleanup = append(l.cleanup, fn)
+	l.OnCleanupResult("cleanup", func() error {
+		fn()
+		return nil
+	})
+}
+
+func (l *Launcher) OnCleanupResult(area string, fn func() error) {
+	if area == "" {
+		area = "cleanup"
+	}
+	l.cleanup = append(l.cleanup, cleanupStep{area: area, run: fn})
 }
 
 // Prepare applies the profile settings, creates a restore point for
@@ -63,17 +78,20 @@ func (l *Launcher) OnCleanup(fn func()) {
 func (l *Launcher) Prepare() error {
 	restore := profile.NewRestorePoint()
 	restore.SaveAllProfileEnvVars()
-	l.OnCleanup(restore.Restore)
+	l.OnCleanupResult("launch environment", func() error {
+		restore.Restore()
+		return nil
+	})
 
 	if l.Profile != nil {
 		cleanups := l.Profile.Apply(l.Environment)
 		for _, c := range cleanups {
-			l.OnCleanup(c)
+			l.OnCleanupResult(c.Area, c.Run)
 		}
 		l.vkd3dPreflight()
 		if err := l.setupOverlay(); err != nil {
 			l.runCleanup()
-			return err
+			return fmt.Errorf("prepare overlay: %w", err)
 		}
 	}
 
@@ -168,7 +186,10 @@ func (l *Launcher) setupOverlay() error {
 		return fmt.Errorf("setup overlay collector: %w", err)
 	}
 	l.Environment.Set("SPELA_OVERLAY_IPC", ipcPath)
-	l.OnCleanup(cleanup)
+	l.OnCleanupResult("overlay", func() error {
+		cleanup()
+		return nil
+	})
 	return nil
 }
 
@@ -207,7 +228,12 @@ func (l *Launcher) Launch(args []string) error {
 
 func (l *Launcher) runCleanup() {
 	for i := len(l.cleanup) - 1; i >= 0; i-- {
-		l.cleanup[i]()
+		step := l.cleanup[i]
+		if err := step.run(); err != nil {
+			logging.Warn("restore failed", "area", step.area, "error", err)
+			continue
+		}
+		logging.Info("restore succeeded", "area", step.area)
 	}
 	l.cleanup = nil
 }

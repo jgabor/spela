@@ -1,13 +1,18 @@
 package launcher
 
 import (
+	"bytes"
+	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
 
 	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/logging"
 	"github.com/jgabor/spela/internal/overlay"
 	"github.com/jgabor/spela/internal/profile"
 	"github.com/jgabor/spela/internal/xdg"
@@ -46,6 +51,43 @@ func TestLaunchProcess(t *testing.T) {
 
 	if err := l.Launch([]string{"true"}); err != nil {
 		t.Fatalf("Launch(true) error = %v", err)
+	}
+}
+
+func TestLaunchReportsCleanupSuccess(t *testing.T) {
+	var logs bytes.Buffer
+	restore := logging.SetHandler(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	t.Cleanup(restore)
+
+	l := New(nil)
+	l.OnCleanupResult("game files", func() error { return nil })
+
+	if err := l.Launch([]string{"true"}); err != nil {
+		t.Fatalf("Launch(true) error = %v", err)
+	}
+
+	out := logs.String()
+	if !strings.Contains(out, "restore succeeded") || !strings.Contains(out, "area=\"game files\"") {
+		t.Fatalf("cleanup success not visible in logs:\n%s", out)
+	}
+}
+
+func TestLaunchReportsCleanupFailureWithoutHidingLaunchResult(t *testing.T) {
+	var logs bytes.Buffer
+	restore := logging.SetHandler(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	t.Cleanup(restore)
+
+	l := New(nil)
+	l.OnCleanupResult("hardware", func() error { return errors.New("restore denied") })
+
+	err := l.Launch([]string{"false"})
+	if err == nil {
+		t.Fatal("Launch(false) error = nil, want child process failure")
+	}
+
+	out := logs.String()
+	if !strings.Contains(out, "restore failed") || !strings.Contains(out, "area=hardware") || !strings.Contains(out, "restore denied") {
+		t.Fatalf("cleanup failure not visible in logs:\n%s", out)
 	}
 }
 
@@ -130,6 +172,9 @@ func TestPrepareFailureRunsCleanupOnce(t *testing.T) {
 	err := l.Prepare()
 	if err == nil {
 		t.Fatal("Prepare() error = nil, want overlay setup failure")
+	}
+	if !strings.Contains(err.Error(), "overlay") {
+		t.Fatalf("Prepare() error = %q, want affected area", err.Error())
 	}
 	if cleanupCount != 1 {
 		t.Fatalf("cleanup count after Prepare failure = %d, want 1", cleanupCount)

@@ -59,7 +59,7 @@ Define one behavioral vocabulary for profile source, launch impact, and restore 
 ### Task 3: Strengthen restore confidence
 
 **Depends on**: Task 1, Task 2
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN preparation partially succeeds WHEN a later step fails THEN prior restorable mutations are restored once and the failure names the affected area.
 ▸ GIVEN DLL changes are planned WHEN Spela reports restore coverage THEN backup, denylist, and non-writable path outcomes are visible.
