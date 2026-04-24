@@ -111,7 +111,7 @@ Converge launch behavior around one preparation lifecycle. Harden profile and pr
 ### Task 7: Version bump per DOCS.md convention
 
 **Depends on**: Tasks 1-6
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN the existing v0.5.0 release tag is missing from the remote WHEN the user approves publication THEN the remote tag exists.
 ▸ GIVEN the user does not approve release publication WHEN this task runs THEN the task records the external block and does not claim release health resolved.
@@ -139,3 +139,4 @@ Converge launch behavior around one preparation lifecycle. Harden profile and pr
 ## Surprises
 
 - Task 6 audit remediation is approval-blocked at the clean fix: `npm audit` still reports 7 moderate advisories through Vite, esbuild, Svelte, `svelte-hmr`, `vitefu`, and `@sveltejs/vite-plugin-svelte-inspector`. npm's fixes require semver-major upgrades to `vite@8.0.10`, `svelte@5.55.5`, and `@sveltejs/vite-plugin-svelte@7.0.0`, so this task pinned the current toolchain and recorded the blocker instead of forcing the upgrade.
+- Task 7 cut `v0.5.1` locally because Tasks 1-6 included user-visible fixes after `v0.5.0`. Remote publication remains user-gated: `git push origin main && git push origin v0.5.0 v0.5.1`.
