@@ -143,7 +143,11 @@ func runOverlaySet(cmd *cobra.Command, args []string) error {
 	changed := false
 
 	if overlaySetEnabled != "" {
-		p.Overlay.Enabled = overlaySetEnabled == "true" || overlaySetEnabled == "1"
+		b, err := parseBoolFlag(overlaySetEnabled)
+		if err != nil {
+			return fmt.Errorf("--enabled: %w", err)
+		}
+		p.Overlay.Enabled = b
 		p.MarkOverride(profile.FieldOverlayEnabled)
 		changed = true
 	}
@@ -155,31 +159,51 @@ func runOverlaySet(cmd *cobra.Command, args []string) error {
 	}
 
 	if overlaySetShowFPS != "" {
-		p.Overlay.ShowFPS = overlaySetShowFPS == "true" || overlaySetShowFPS == "1"
+		b, err := parseBoolFlag(overlaySetShowFPS)
+		if err != nil {
+			return fmt.Errorf("--show-fps: %w", err)
+		}
+		p.Overlay.ShowFPS = b
 		p.MarkOverride(profile.FieldOverlayShowFPS)
 		changed = true
 	}
 
 	if overlaySetShowFrametime != "" {
-		p.Overlay.ShowFrametime = overlaySetShowFrametime == "true" || overlaySetShowFrametime == "1"
+		b, err := parseBoolFlag(overlaySetShowFrametime)
+		if err != nil {
+			return fmt.Errorf("--show-frametime: %w", err)
+		}
+		p.Overlay.ShowFrametime = b
 		p.MarkOverride(profile.FieldOverlayShowFrametime)
 		changed = true
 	}
 
 	if overlaySetShowCPU != "" {
-		p.Overlay.ShowCPU = overlaySetShowCPU == "true" || overlaySetShowCPU == "1"
+		b, err := parseBoolFlag(overlaySetShowCPU)
+		if err != nil {
+			return fmt.Errorf("--show-cpu: %w", err)
+		}
+		p.Overlay.ShowCPU = b
 		p.MarkOverride(profile.FieldOverlayShowCPU)
 		changed = true
 	}
 
 	if overlaySetShowGPU != "" {
-		p.Overlay.ShowGPU = overlaySetShowGPU == "true" || overlaySetShowGPU == "1"
+		b, err := parseBoolFlag(overlaySetShowGPU)
+		if err != nil {
+			return fmt.Errorf("--show-gpu: %w", err)
+		}
+		p.Overlay.ShowGPU = b
 		p.MarkOverride(profile.FieldOverlayShowGPU)
 		changed = true
 	}
 
 	if overlaySetShowVRAM != "" {
-		p.Overlay.ShowVRAM = overlaySetShowVRAM == "true" || overlaySetShowVRAM == "1"
+		b, err := parseBoolFlag(overlaySetShowVRAM)
+		if err != nil {
+			return fmt.Errorf("--show-vram: %w", err)
+		}
+		p.Overlay.ShowVRAM = b
 		p.MarkOverride(profile.FieldOverlayShowVRAM)
 		changed = true
 	}
@@ -223,7 +247,10 @@ func runOverlayShow(cmd *cobra.Command, args []string) error {
 		p = &profile.Profile{}
 	}
 
-	defaults, _ := profile.LoadDefault()
+	defaults, err := profile.LoadDefault()
+	if err != nil {
+		return fmt.Errorf("load default profile: %w", err)
+	}
 	resolved := p.ResolveForApply(defaults)
 
 	if overlayShowJSON {

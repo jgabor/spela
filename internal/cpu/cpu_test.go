@@ -82,6 +82,26 @@ func TestGetAvailableGovernors(t *testing.T) {
 	}
 }
 
+func TestValidateGovernorAvailable_AcceptsListedGovernor(t *testing.T) {
+	root := setupMockSysfs(t)
+	writeFile(t, root, "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors",
+		"performance powersave\n")
+
+	if err := ValidateGovernorAvailable(GovernorPerformance); err != nil {
+		t.Fatalf("ValidateGovernorAvailable(performance): %v", err)
+	}
+}
+
+func TestValidateGovernorAvailable_RejectsUnlistedGovernor(t *testing.T) {
+	root := setupMockSysfs(t)
+	writeFile(t, root, "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors",
+		"powersave schedutil\n")
+
+	if err := ValidateGovernorAvailable(GovernorPerformance); err == nil {
+		t.Fatal("ValidateGovernorAvailable(performance): expected error, got nil")
+	}
+}
+
 func TestSetGovernorDirect(t *testing.T) {
 	root := setupMockSysfs(t)
 

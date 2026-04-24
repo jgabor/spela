@@ -2,6 +2,7 @@ package profile
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -50,7 +51,10 @@ func Load(appID uint64) (*Profile, error) {
 	// default: equal values collapse to inherited, differing values become
 	// explicit overrides.
 	if p.Overrides == nil {
-		defaults, _ := LoadDefault()
+		defaults, err := LoadDefault()
+		if err != nil {
+			return nil, fmt.Errorf("load default profile for migration: %w", err)
+		}
 		migrateInheritance(&p, defaults)
 	}
 
@@ -84,7 +88,10 @@ func LoadEffective(appID uint64) (*Profile, error) {
 	if err != nil {
 		return nil, err
 	}
-	defaults, _ := LoadDefault()
+	defaults, err := LoadDefault()
+	if err != nil {
+		return nil, fmt.Errorf("load default profile: %w", err)
+	}
 	if p != nil {
 		return p.ResolveForApply(defaults), nil
 	}

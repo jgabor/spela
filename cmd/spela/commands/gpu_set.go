@@ -176,7 +176,11 @@ func runGPUSet(cmd *cobra.Command, args []string) error {
 	}
 
 	if gpuSetShaderCache != "" {
-		p.GPU.ShaderCache = gpuSetShaderCache == "true" || gpuSetShaderCache == "1"
+		b, err := parseBoolFlag(gpuSetShaderCache)
+		if err != nil {
+			return fmt.Errorf("--shader-cache: %w", err)
+		}
+		p.GPU.ShaderCache = b
 		p.MarkOverride(profile.FieldGPUShaderCache)
 		changed = true
 	}
@@ -192,7 +196,11 @@ func runGPUSet(cmd *cobra.Command, args []string) error {
 	}
 
 	if gpuSetThreadedOpt != "" {
-		p.GPU.ThreadedOptimization = gpuSetThreadedOpt == "true" || gpuSetThreadedOpt == "1"
+		b, err := parseBoolFlag(gpuSetThreadedOpt)
+		if err != nil {
+			return fmt.Errorf("--threaded-opt: %w", err)
+		}
+		p.GPU.ThreadedOptimization = b
 		p.MarkOverride(profile.FieldGPUThreadedOptimization)
 		changed = true
 	}
@@ -230,7 +238,10 @@ func runGPUShow(cmd *cobra.Command, args []string) error {
 		p = &profile.Profile{}
 	}
 
-	defaults, _ := profile.LoadDefault()
+	defaults, err := profile.LoadDefault()
+	if err != nil {
+		return fmt.Errorf("load default profile: %w", err)
+	}
 	resolved := p.ResolveForApply(defaults)
 
 	if gpuShowJSON {

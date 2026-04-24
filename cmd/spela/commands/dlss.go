@@ -161,7 +161,10 @@ func runDLSSShow(cmd *cobra.Command, args []string) error {
 		p = &profile.Profile{}
 	}
 
-	defaults, _ := profile.LoadDefault()
+	defaults, err := profile.LoadDefault()
+	if err != nil {
+		return fmt.Errorf("load default profile: %w", err)
+	}
 	resolved := p.ResolveForApply(defaults)
 
 	if dlssShowJSON {
@@ -257,13 +260,21 @@ func runDLSSSet(cmd *cobra.Command, args []string) error {
 	}
 
 	if dlssSetRROverride != "" {
-		p.DLSS.RROverride = dlssSetRROverride == "true" || dlssSetRROverride == "1"
+		b, err := parseBoolFlag(dlssSetRROverride)
+		if err != nil {
+			return fmt.Errorf("--rr-override: %w", err)
+		}
+		p.DLSS.RROverride = b
 		p.MarkOverride(profile.FieldDLSSRROverride)
 		changed = true
 	}
 
 	if dlssSetFGEnabled != "" {
-		p.DLSS.FGEnabled = dlssSetFGEnabled == "true" || dlssSetFGEnabled == "1"
+		b, err := parseBoolFlag(dlssSetFGEnabled)
+		if err != nil {
+			return fmt.Errorf("--fg: %w", err)
+		}
+		p.DLSS.FGEnabled = b
 		p.DLSS.FGOverride = true
 		p.MarkOverride(profile.FieldDLSSFGEnabled)
 		p.MarkOverride(profile.FieldDLSSFGOverride)
@@ -271,7 +282,11 @@ func runDLSSSet(cmd *cobra.Command, args []string) error {
 	}
 
 	if dlssSetFGOverride != "" {
-		p.DLSS.FGOverride = dlssSetFGOverride == "true" || dlssSetFGOverride == "1"
+		b, err := parseBoolFlag(dlssSetFGOverride)
+		if err != nil {
+			return fmt.Errorf("--fg-override: %w", err)
+		}
+		p.DLSS.FGOverride = b
 		p.MarkOverride(profile.FieldDLSSFGOverride)
 		changed = true
 	}

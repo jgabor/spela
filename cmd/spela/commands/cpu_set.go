@@ -115,6 +115,9 @@ func runCPUSet(cmd *cobra.Command, args []string) error {
 	changed := false
 
 	if cpuSetGovernor != "" {
+		if err := validateCPUGovernorFlag("governor", cpuSetGovernor); err != nil {
+			return err
+		}
 		if cpuSetGovernor == "default" {
 			p.CPU.Governor = ""
 			delete(p.Overrides, profile.FieldCPUGovernor)
@@ -177,7 +180,10 @@ func runCPUShow(cmd *cobra.Command, args []string) error {
 		p = &profile.Profile{}
 	}
 
-	defaults, _ := profile.LoadDefault()
+	defaults, err := profile.LoadDefault()
+	if err != nil {
+		return fmt.Errorf("load default profile: %w", err)
+	}
 	resolved := p.ResolveForApply(defaults)
 
 	if cpuShowJSON {

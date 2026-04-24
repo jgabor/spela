@@ -202,6 +202,54 @@ func TestResolveForApply_ZeroValueOverride(t *testing.T) {
 	}
 }
 
+// LoadEffective: missing default profile is safe; inherited fields resolve to
+// zero values rather than failing or inventing defaults.
+func TestLoadEffective_MissingDefaultFallsBackSafely(t *testing.T) {
+	withTempXDG(t)
+
+	p := &profile.Profile{Name: "Cyberpunk 2077"}
+	p.MarkOverride(profile.FieldProtonEnableHDR)
+	p.Proton.EnableHDR = true
+	if err := profile.Save(1091500, p); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	resolved, err := profile.LoadEffective(1091500)
+	if err != nil {
+		t.Fatalf("LoadEffective: %v", err)
+	}
+	if resolved == nil {
+		t.Fatal("LoadEffective: expected profile, got nil")
+	}
+	if !resolved.Proton.EnableHDR {
+		t.Error("overridden HDR should survive missing defaults")
+	}
+	if resolved.Proton.EnableWayland {
+		t.Error("inherited Wayland should fall back to zero with missing defaults")
+	}
+}
+
+// LoadEffective: invalid default profile is surfaced rather than resolving
+// inherited fields against a silent zero-value profile.
+func TestLoadEffective_InvalidDefaultSurfacesError(t *testing.T) {
+	withTempXDG(t)
+	cfgDir := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "spela", "profiles")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cfgDir, "default.yaml"), []byte("proton: ["), 0o644); err != nil {
+		t.Fatalf("write default: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cfgDir, "1091500.yaml"), []byte("name: Cyberpunk 2077\noverrides: {}\n"), 0o644); err != nil {
+		t.Fatalf("write profile: %v", err)
+	}
+
+	_, err := profile.LoadEffective(1091500)
+	if err == nil {
+		t.Fatal("LoadEffective: expected invalid default error, got nil")
+	}
+}
+
 // --- Load-time migration -------------------------------------------------
 
 // Pass path: a legacy profile YAML whose fields match the current defaults

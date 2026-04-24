@@ -57,7 +57,34 @@ func GetAvailableGovernors() ([]Governor, error) {
 	return governors, nil
 }
 
+func ValidateGovernorAvailable(gov Governor) error {
+	governors, err := GetAvailableGovernors()
+	if err != nil {
+		return fmt.Errorf("read available CPU governors: %w", err)
+	}
+	for _, available := range governors {
+		if available == gov {
+			return nil
+		}
+	}
+	return fmt.Errorf("CPU governor %q is not available (available: %s)", gov, formatGovernors(governors))
+}
+
+func formatGovernors(governors []Governor) string {
+	if len(governors) == 0 {
+		return "none"
+	}
+	parts := make([]string, 0, len(governors))
+	for _, gov := range governors {
+		parts = append(parts, string(gov))
+	}
+	return strings.Join(parts, ", ")
+}
+
 func SetGovernor(gov Governor) error {
+	if err := ValidateGovernorAvailable(gov); err != nil {
+		return err
+	}
 	if privilege.IsRoot() {
 		return setGovernorDirect(gov)
 	}

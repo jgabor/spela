@@ -235,7 +235,10 @@ func runProtonShow(cmd *cobra.Command, args []string) error {
 		p = &profile.Profile{}
 	}
 
-	defaults, _ := profile.LoadDefault()
+	defaults, err := profile.LoadDefault()
+	if err != nil {
+		return fmt.Errorf("load default profile: %w", err)
+	}
 	resolved := p.ResolveForApply(defaults)
 
 	if protonShowJSON {
@@ -259,17 +262,4 @@ func runProtonShow(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
-}
-
-// parseBoolFlag parses the human-facing bool forms accepted by `proton set`
-// (true/false/1/0, case-insensitive). Unknown values return an error so
-// callers can surface a usage hint rather than silently defaulting.
-func parseBoolFlag(raw string) (bool, error) {
-	switch raw {
-	case "true", "True", "TRUE", "1", "yes", "on":
-		return true, nil
-	case "false", "False", "FALSE", "0", "no", "off":
-		return false, nil
-	}
-	return false, fmt.Errorf("invalid bool %q (use true/false)", raw)
 }

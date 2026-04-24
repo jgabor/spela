@@ -52,6 +52,10 @@ func runApplyProfile(cmd *cobra.Command, args []string) error {
 }
 
 func applySettings(cmd *cobra.Command) error {
+	if err := validateApplyInputs(cmd); err != nil {
+		return err
+	}
+
 	if cmd.Flags().Changed("gpu-clock-offset") {
 		if err := gpu.LockGraphicsClocks(applyGPUClockOffset); err != nil {
 			return fmt.Errorf("set GPU clock offset: %w", err)
@@ -92,6 +96,10 @@ func applySettings(cmd *cobra.Command) error {
 }
 
 func applyResetSettings(cmd *cobra.Command) error {
+	if err := validateApplyInputs(cmd); err != nil {
+		return err
+	}
+
 	if err := gpu.ResetClocks(); err != nil {
 		return fmt.Errorf("reset GPU clocks: %w", err)
 	}
@@ -126,5 +134,14 @@ func applyResetSettings(cmd *cobra.Command) error {
 		}
 	}
 
+	return nil
+}
+
+func validateApplyInputs(cmd *cobra.Command) error {
+	if applyCPUGovernor != "" {
+		if err := validateCPUGovernorFlag("cpu-governor", applyCPUGovernor); err != nil {
+			return err
+		}
+	}
 	return nil
 }
