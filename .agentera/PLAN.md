@@ -77,7 +77,7 @@ Put a narrow GUI-facing boundary between Svelte components and desktop bindings.
 ### Task 5: Make Profile And DLL Operation Behavior Testable
 
 **Depends on**: Tasks 2-3
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN a game or default profile loads WHEN the editor renders THEN effective values and inherited intent match characterized behavior.
 ▸ GIVEN profile or DLL actions fail WHEN the user acts THEN a persistent error appears until dismissed.

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Characterize current GUI list, profile, DLL, error, launch guidance, keyboard, and filter behavior in frontend tests.
 - Cover GUI game-list search, filters, sorting, selection-mode batch DLL updates, skipped ineligible games, and mixed batch results in frontend tests.
+- Cover GUI profile/default rendering, persistent profile and DLL action failures, and direct-launch rejection guidance in frontend tests.
 
 ### Changed
 

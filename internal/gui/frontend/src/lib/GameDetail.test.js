@@ -34,6 +34,38 @@ const fixtures = vi.hoisted(() => ({
       { field: 'proton.enable_hdr', source: 'default', impact: 'compatibility', restore: 'ephemeral_launch_environment' },
       { field: 'proton.vkd3d_heap', source: 'override', impact: 'compatibility', restore: 'ephemeral_launch_environment' }
     ]
+  },
+  defaultProfile: {
+    srMode: 'balanced',
+    srPreset: '',
+    srModelPreset: '',
+    srOverride: false,
+    rrMode: '',
+    rrPreset: '',
+    rrOverride: false,
+    fgEnabled: false,
+    fgOverride: false,
+    fgIndicator: false,
+    multiFrame: 0,
+    indicator: false,
+    shaderCache: false,
+    shaderCachePath: '',
+    threadedOptimization: false,
+    powerMizer: '',
+    clockOffset: 50,
+    memoryOffset: 0,
+    governor: '',
+    smt: '',
+    enableHdr: true,
+    enableWayland: false,
+    enableNgxUpdater: false,
+    vkd3dHeap: false,
+    inheritedFromDefault: false,
+    semantics: [
+      { field: 'dlss.sr_mode', source: 'default', impact: 'environment', restore: 'ephemeral_launch_environment' },
+      { field: 'gpu.clock_offset', source: 'default', impact: 'system_state', restore: 'restorable_mutation' },
+      { field: 'proton.enable_hdr', source: 'default', impact: 'compatibility', restore: 'ephemeral_launch_environment' }
+    ]
   }
 }))
 
@@ -97,19 +129,49 @@ describe('GameDetail current behavior', () => {
     return { promise, resolve, reject }
   }
 
-  it('renders shared source impact and restore semantics for profile fields', async () => {
-    render(GameDetail, {
+  it('renders effective values and inherited intent for game and default profiles', async () => {
+    const gameProfile = {
+      ...fixtures.profile,
+      inheritedFromDefault: true
+    }
+    const replacementDesktop = desktop({
+      GetDefaultProfile: vi.fn().mockResolvedValue(fixtures.defaultProfile),
+      GetProfile: vi.fn().mockResolvedValue(gameProfile)
+    })
+    const { unmount } = render(GameDetail, {
       props: {
-        desktop: desktop(),
+        desktop: replacementDesktop,
         game: { appId: 1091500, name: 'Cyberpunk 2077', installDir: '/games/cyberpunk', dlls: [] },
         profileMode: 'game'
       }
     })
 
     await waitFor(() => {
+      expect(screen.getByText('Using default profile values.')).toBeTruthy()
+      expect(screen.getByText('Quality')).toBeTruthy()
+      expect(screen.getByText('+100 MHz')).toBeTruthy()
+      expect(screen.getByLabelText('HDR').checked).toBe(true)
       expect(screen.getByText('source override · impact environment · restore ephemeral_launch_environment')).toBeTruthy()
       expect(screen.getByText('source default · impact system_state · restore restorable_mutation')).toBeTruthy()
       expect(screen.getByText('source default · impact compatibility · restore ephemeral_launch_environment')).toBeTruthy()
+    })
+
+    unmount()
+    render(GameDetail, {
+      props: {
+        desktop: replacementDesktop,
+        profileMode: 'default'
+      }
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Default profile')).toBeTruthy()
+      expect(screen.getByText('Balanced')).toBeTruthy()
+      expect(screen.getByText('+50 MHz')).toBeTruthy()
+      expect(screen.getByLabelText('HDR').checked).toBe(true)
+      expect(screen.getByText('impact environment · restore ephemeral_launch_environment')).toBeTruthy()
+      expect(screen.getByText('impact system_state · restore restorable_mutation')).toBeTruthy()
+      expect(screen.queryByText('source default · impact environment · restore ephemeral_launch_environment')).toBeNull()
     })
   })
 
@@ -138,6 +200,11 @@ describe('GameDetail current behavior', () => {
 
     await waitFor(() => expect(screen.getByText('Failed to update: download failed')).toBeTruthy())
     expect(screen.getByText('Failed to update: download failed')).toBeTruthy()
+
+    vi.useFakeTimers()
+    vi.advanceTimersByTime(5000)
+    expect(screen.getByText('Failed to update: download failed')).toBeTruthy()
+    vi.useRealTimers()
 
     await fireEvent.click(screen.getByText('Dismiss'))
     expect(screen.queryByText('Failed to update: download failed')).toBeNull()
@@ -250,6 +317,11 @@ describe('GameDetail current behavior', () => {
     await fireEvent.click(screen.getByText('Save profile'))
 
     await waitFor(() => expect(screen.getByText('Failed to save: permission denied')).toBeTruthy())
+
+    vi.useFakeTimers()
+    vi.advanceTimersByTime(5000)
+    expect(screen.getByText('Failed to save: permission denied')).toBeTruthy()
+    vi.useRealTimers()
 
     await fireEvent.click(screen.getByText('Dismiss'))
     expect(screen.queryByText('Failed to save: permission denied')).toBeNull()

@@ -1,5 +1,16 @@
 # Progress
 
+## Cycle 84 · 2026-04-27 21:15
+
+**Phase**: build
+**What**: Task 5 strengthened GUI profile and DLL operation behavior tests. Game and default profile rendering now verifies effective values, inherited intent, and backend-provided semantics; profile and DLL action failures now prove persistent dismissible errors; direct-launch rejection still shows wrapper guidance without success state.
+**Commit**: this commit (`test(gui): cover profile and dll detail behavior`)
+**Inspiration**: Gova-Inspired GUI Seams Task 5 acceptance criteria; no external source was used because Tasks 1-3 characterized behavior and established replaceable desktop boundaries.
+**Discovered**: Existing component behavior already used persistent error banners and wrapper-path launch rejection. The missing coverage was default-profile effective rendering and timer-resistant persistence checks.
+**Verified**: `npm test -- --run src/lib/GameDetail.test.js` passed 6 GameDetail tests covering game/default effective profile rendering, inherited intent, persistent DLL and profile action failures, direct-launch wrapper guidance, DLL progress lifecycle, and event unsubscribe behavior. `npm test` passed 3 frontend files and 13 tests. `go test -tags dev ./internal/gui -v`, `npm run build`, `mage test`, `mage lint`, and `mage build` passed.
+**Next**: Task 6 can verify app-level GUI flows using the command and event seams plus the focused list/detail behavior tests.
+**Context**: intent - complete only Task 5 profile and DLL detail behavior tests · constraints - no launcher surface, no frontend domain re-derivation, preserve inherited profile behavior, proportional tests · unknowns - none for Task 5 · scope - frontend GameDetail tests, Task 5 artifacts
+
 ## Cycle 83 · 2026-04-27 21:11
 
 **Phase**: build
