@@ -2,7 +2,6 @@
   import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte'
   import Dropdown from './Dropdown.svelte'
   import { desktopCommands } from './desktop'
-  import { EventsOn } from '../../wailsjs/runtime/runtime'
 
   export let game
   export let profileMode = 'game'
@@ -143,7 +142,7 @@
   }
 
   onMount(async () => {
-    unsubscribeDllProgress = EventsOn('dll:progress', (stage) => {
+    unsubscribeDllProgress = desktop.SubscribeDLLProgress((stage) => {
       dllProgressStage = stage || ''
     })
     await loadProfile()
@@ -281,6 +280,10 @@
     errorMessage = ''
   }
 
+  function clearDllProgress() {
+    dllProgressStage = ''
+  }
+
   async function save() {
     saving = true
     try {
@@ -372,8 +375,10 @@
       closeInstallWizard()
     } catch (e) {
       installError = formatError(e)
+    } finally {
+      clearDllProgress()
+      installingDLL = false
     }
-    installingDLL = false
   }
 
   function formatInstallType(type) {
@@ -406,8 +411,10 @@
       setMessage('DLLs updated!', 'success')
     } catch (e) {
       setError('Failed to update: ' + formatError(e))
+    } finally {
+      clearDllProgress()
+      updatingDLLs = false
     }
-    updatingDLLs = false
   }
 
   async function restoreDLLs() {
@@ -419,8 +426,10 @@
       setMessage('DLLs restored!', 'success')
     } catch (e) {
       setError('Failed to restore: ' + formatError(e))
+    } finally {
+      clearDllProgress()
+      restoringDLLs = false
     }
-    restoringDLLs = false
   }
 
   $: hasUpdates = dllUpdates.some(d => d.hasUpdate)

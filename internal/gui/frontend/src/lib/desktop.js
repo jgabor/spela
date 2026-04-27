@@ -22,7 +22,7 @@ import {
   UpdateDLLs,
   VKD3DHeapCompatibilityNotice
 } from '../../wailsjs/go/gui/App'
-import { Quit } from '../../wailsjs/runtime/runtime'
+import { EventsOn, Quit } from '../../wailsjs/runtime/runtime'
 
 export const desktopCommands = {
   CheckDLLUpdates,
@@ -47,5 +47,6 @@ export const desktopCommands = {
   ScanGames,
   UpdateDLLs,
   VKD3DHeapCompatibilityNotice,
+  SubscribeDLLProgress: (handler) => EventsOn('dll:progress', handler),
   Quit
 }

@@ -1,5 +1,16 @@
 # Progress
 
+## Cycle 82 · 2026-04-27 21:03
+
+**Phase**: build
+**What**: Task 3 established the GUI desktop event boundary. DLL progress events now enter through the replaceable desktop source, active DLL stages render during operations, progress clears on success or failure, and unmounted detail views unsubscribe.
+**Commit**: this commit (`refactor(gui): establish desktop event boundary`)
+**Inspiration**: Gova-Inspired GUI Seams Task 3 acceptance criteria; no external source was used because Task 2's desktop boundary pattern already defined the seam.
+**Discovered**: The built GUI binary `spela --help` enters the Wails application path instead of producing CLI help, so it was not useful as a behavior smoke for this frontend-only event seam.
+**Verified**: `npm test -- --run src/lib/GameDetail.test.js` passed 6 tests, including active progress visibility, success/failure clearing, and unmount unsubscribe coverage. `npm test` passed 3 frontend files and 11 tests. `go test -tags dev ./internal/gui -v`, `npm run build`, `mage test`, `mage lint`, and `mage build` passed.
+**Next**: Task 4 can make game-list behavior testable using both desktop command and event seams.
+**Context**: intent - complete only Task 3 event-boundary work · constraints - no game-list extraction, no profile/DLL operation refactor beyond progress clearing, no dependency, proportional tests · unknowns - CLI help currently enters GUI app path · scope - frontend desktop event injection, DLL progress lifecycle, Task 3 artifacts
+
 ## Cycle 81 · 2026-04-27 21:00
 
 **Phase**: build

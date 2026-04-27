@@ -57,7 +57,7 @@ Put a narrow GUI-facing boundary between Svelte components and desktop bindings.
 ### Task 3: Establish Desktop Event Boundary
 
 **Depends on**: Task 1
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN desktop progress events fire WHEN an operation is active THEN the current stage is visible to the user.
 ▸ GIVEN an operation completes or fails WHEN progress ends THEN stale progress is cleared.

@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Route GUI DLL progress events through the replaceable desktop boundary and clear stale progress after operations.
 - Route GUI frontend desktop commands through a replaceable boundary for command-source tests.
 
 ## [0.6.0] - 2026-04-24

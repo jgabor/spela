@@ -37,8 +37,24 @@ const fixtures = vi.hoisted(() => ({
   }
 }))
 
+const progressEvents = vi.hoisted(() => ({
+  listeners: new Set(),
+  subscribe(handler) {
+    this.listeners.add(handler)
+    return () => this.listeners.delete(handler)
+  },
+  emit(stage) {
+    for (const listener of this.listeners) {
+      listener(stage)
+    }
+  },
+  reset() {
+    this.listeners.clear()
+  }
+}))
+
 vi.mock('../../wailsjs/runtime/runtime', () => ({
-  EventsOn: vi.fn().mockReturnValue(() => {}),
+  EventsOn: vi.fn((event, handler) => event === 'dll:progress' ? progressEvents.subscribe(handler) : () => {}),
   Quit: vi.fn()
 }))
 
@@ -58,6 +74,7 @@ function desktop(overrides = {}) {
     RestoreDLLs: vi.fn().mockResolvedValue(undefined),
     SaveDefaultProfile: vi.fn().mockResolvedValue(undefined),
     SaveProfile: vi.fn().mockResolvedValue(undefined),
+    SubscribeDLLProgress: vi.fn((handler) => progressEvents.subscribe(handler)),
     UpdateDLLs: vi.fn().mockResolvedValue(undefined),
     VKD3DHeapCompatibilityNotice: vi.fn().mockResolvedValue(''),
     ...overrides
@@ -67,7 +84,18 @@ function desktop(overrides = {}) {
 describe('GameDetail current behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    progressEvents.reset()
   })
+
+  function deferred() {
+    let resolve
+    let reject
+    const promise = new Promise((nextResolve, nextReject) => {
+      resolve = nextResolve
+      reject = nextReject
+    })
+    return { promise, resolve, reject }
+  }
 
   it('renders shared source impact and restore semantics for profile fields', async () => {
     render(GameDetail, {
@@ -113,6 +141,74 @@ describe('GameDetail current behavior', () => {
 
     await fireEvent.click(screen.getByText('Dismiss'))
     expect(screen.queryByText('Failed to update: download failed')).toBeNull()
+  })
+
+  it('shows active DLL progress and clears stale progress after success or failure', async () => {
+    const firstUpdate = deferred()
+    const secondUpdate = deferred()
+    const replacementDesktop = desktop({
+      UpdateDLLs: vi.fn()
+        .mockReturnValueOnce(firstUpdate.promise)
+        .mockReturnValueOnce(secondUpdate.promise)
+    })
+
+    render(GameDetail, {
+      props: {
+        desktop: replacementDesktop,
+        game: {
+          appId: 1091500,
+          name: 'Cyberpunk 2077',
+          installDir: '/games/cyberpunk',
+          dlls: [{ dllType: 'dlss', version: '3.7.0' }]
+        },
+        profileMode: 'game'
+      }
+    })
+
+    await waitFor(() => expect(screen.getByText('Update all DLLs')).toBeTruthy())
+    await fireEvent.click(screen.getByText('Update all DLLs'))
+    progressEvents.emit('downloading')
+
+    await waitFor(() => expect(screen.getByText('downloading…')).toBeTruthy())
+    firstUpdate.resolve()
+    await waitFor(() => expect(screen.queryByText('downloading…')).toBeNull())
+
+    await fireEvent.click(screen.getByText('Update all DLLs'))
+    progressEvents.emit('applying')
+
+    await waitFor(() => expect(screen.getByText('applying…')).toBeTruthy())
+    secondUpdate.reject(new Error('download failed'))
+    await waitFor(() => expect(screen.queryByText('applying…')).toBeNull())
+    expect(screen.getByText('Failed to update: download failed')).toBeTruthy()
+  })
+
+  it('unsubscribes from DLL progress when the detail view unmounts', async () => {
+    const update = deferred()
+    const replacementDesktop = desktop({
+      UpdateDLLs: vi.fn().mockReturnValue(update.promise)
+    })
+
+    const { unmount } = render(GameDetail, {
+      props: {
+        desktop: replacementDesktop,
+        game: {
+          appId: 1091500,
+          name: 'Cyberpunk 2077',
+          installDir: '/games/cyberpunk',
+          dlls: [{ dllType: 'dlss', version: '3.7.0' }]
+        },
+        profileMode: 'game'
+      }
+    })
+
+    await waitFor(() => expect(screen.getByText('Update all DLLs')).toBeTruthy())
+    await fireEvent.click(screen.getByText('Update all DLLs'))
+    unmount()
+    progressEvents.emit('still running')
+    update.resolve()
+
+    expect(replacementDesktop.SubscribeDLLProgress).toHaveBeenCalledTimes(1)
+    expect(progressEvents.listeners.size).toBe(0)
   })
 
   it('shows launch guidance as an error and does not show launch success when direct launch is rejected', async () => {
