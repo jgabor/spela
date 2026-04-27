@@ -1,5 +1,187 @@
 # Health
 
+## Audit 9 · 2026-04-27
+
+The GUI seam plan improved testability without moving launch lifecycle ownership into the UI. The main risk is narrower than the plan scope: default-profile semantic metadata is tested with frontend mocks but not supplied by the backend boundary.
+
+**Dimensions assessed**: Architecture, Patterns, Coupling, Complexity, Tests, Dependencies, Versions, Freshness, Security
+**Findings**: 0 critical, 3 warnings, 3 info (0 filtered by confidence)
+**Overall trajectory**: ⮉ improving vs Audit 8
+**Grades**: Architecture [A-] | Patterns [B+] | Coupling [B+] | Complexity [B] | Tests [B] | Dependencies [B+] | Versions [B] | Freshness [A-] | Security [A]
+
+### Architecture: A-
+
+No launch lifecycle regression. GUI launch still rejects direct Steam URI ownership and points users to `spela %command%`; TUI has no launch surface. Profile inheritance remains backend-owned through `internal/profile` and the GUI boundary preserves override intent on save.
+
+### Patterns: B+
+
+#### ⇢ Frontend still owns some option/display vocabulary, info (confidence: 68)
+
+- **Location**: `internal/gui/frontend/src/lib/GameDetail.svelte:34-105`, `internal/gui/frontend/src/lib/GameDetail.svelte:384-392`
+- **Evidence**: Source, impact, and restore semantics come from the backend, but DLSS option labels and DLL type labels remain frontend constants.
+- **Impact**: Low drift risk when backend-supported options change.
+- **Suggested action**: Treat backend-provided option metadata as a future seam only when option churn makes this painful.
+
+### Coupling: B+
+
+No findings. `desktop.js` now provides replaceable command and event seams for Svelte tests, while `guiApplicationBoundary` keeps DLL, profile, compatibility, and launch policy decisions behind backend code.
+
+### Complexity: B
+
+#### ⇉ `GameDetail.svelte` remains the GUI hotspot, warning (confidence: 86)
+
+- **Location**: `internal/gui/frontend/src/lib/GameDetail.svelte:12-32`, `internal/gui/frontend/src/lib/GameDetail.svelte:211-449`, `internal/gui/frontend/src/lib/GameDetail.svelte:580`
+- **Evidence**: One 1329-line component owns profile loading/saving, DLL updates, install wizard state, progress events, direct-launch rejection display, and the full profile editor.
+- **Impact**: The new seams reduce behavior risk, but future GUI work will keep concentrating in one file.
+- **Suggested action**: Split only when the next feature needs it; current behavior is covered.
+
+### Tests: B
+
+#### ⇉ Default-profile semantic rendering is mocked ahead of the backend boundary, warning (confidence: 92)
+
+- **Location**: `internal/gui/frontend/src/lib/GameDetail.test.js:160-167`, `internal/gui/application.go:104-110`, `internal/gui/app.go:412-413`
+- **Evidence**: The frontend default-profile test expects semantic text from mocks, but `getDefaultProfile` returns `profileInfoFromProfile(defaultProfile, false)` without semantic metadata.
+- **Impact**: Task 5's default-profile semantic signal can pass in frontend tests while the real Wails boundary omits metadata.
+- **Suggested action**: Add backend default-profile semantics or narrow the frontend expectation.
+
+### Dependencies: B+
+
+#### ⇢ Routine dependency updates are available, info (confidence: 85)
+
+- **Location**: `go.mod`, `internal/gui/frontend/package.json`
+- **Evidence**: `npm audit` and `govulncheck` are clean; update checks show routine package updates only.
+- **Impact**: No security issue. Freshness can drift if ignored across another maintenance cycle.
+- **Suggested action**: Batch dependency refresh separately.
+
+No new runtime dependency was added by the GUI seam plan. Dependency manifests are unchanged across `5743044^..3d36480`, and `package.json` still has only exact-pinned dev dependencies.
+
+### Versions: B
+
+#### ⇉ Local `v0.6.0` tag is still not published remotely, warning (confidence: 95)
+
+- **Location**: local tag `v0.6.0`; origin tag refs
+- **Evidence**: `CHANGELOG.md` records `0.6.0`; remote tag lookup still returns no `v0.6.0` ref.
+- **Impact**: Release consumers and compare links cannot resolve the current trusted-profile-loop release on origin.
+- **Suggested action**: Push `main` and `v0.6.0` only when the user approves publication.
+
+No strict post-release bump debt exists. Since `v0.6.0`, the GUI seam plan produced `test`, `refactor`, and `chore` commits, not `feat` or `fix` commits.
+
+### Freshness: A-
+
+#### ⇢ HEALTH was the only stale expected artifact and is refreshed by this audit, info (confidence: 98)
+
+- **Location**: `.agentera/HEALTH.md`, `.agentera/DOCS.md:16-27`, `.agentera/PLAN.md:3`
+- **Evidence**: The plan was created 2026-04-27 and completed at `3d36480`; committed HEALTH previously stopped at `087d1c4` on 2026-04-24.
+- **Impact**: Before this audit, suite consumers using committed artifacts lacked post-plan health state.
+- **Suggested action**: None after committing this audit.
+
+Realisera artifacts are current at `3d36480`: `.agentera/PROGRESS.md`, `TODO.md`, and `CHANGELOG.md`. Dokumentera's `.agentera/DOCS.md` is also current at `3d36480`.
+
+### Security: A
+
+No findings. Lightweight scans found no hardcoded secrets, dynamic JavaScript execution, SQL construction, or shell-string execution patterns; command execution remains argv-based.
+
+> This is a lightweight surface scan. For comprehensive security analysis, use dedicated tools: semgrep, Snyk, Bandit (Python), npm audit (Node), govulncheck (Go), or similar static analysis and vulnerability scanning tools appropriate to your stack.
+
+### Trends vs Audit 8
+
+- **Improved**: GUI command/event seams are testable, app-level GUI flows are covered, and HEALTH is current for the completed plan.
+- **Stable**: Wrapper-first launch, profile inheritance ownership, dependency hygiene, and security hygiene remain intact.
+- **New findings**: Default-profile semantic rendering has a frontend/backend test mismatch; `GameDetail.svelte` remains the GUI complexity hotspot.
+- **Resolved**: No GUI-seam implementation follow-up was reopened by the plan freshness checkpoint.
+
+### Patterns Observed
+
+- **Module structure**: Backend domain semantics live in `internal/profile`, `internal/dll`, and `guiApplicationBoundary`; Svelte consumes DTOs through injectable desktop seams.
+- **Error handling**: `%w` wrapping and persistent frontend error banners are dominant for GUI operations.
+- **Testing approach**: Frontend component tests use replaceable desktop sources; tagged GUI backend tests cover boundary behavior.
+- **Dependency patterns**: Go and frontend dependencies stay pinned; the GUI seam plan changed no dependency manifests.
+- **Launch model**: Steam wrapper `%command%` remains trusted; GUI launch attempts return setup guidance.
+
+## Audit 8 · 2026-04-24
+
+The trusted profile loop is structurally sound and verification is green. One semantics gap remains: empty default fields can be described as `default` instead of `unset`, which weakens the new trust vocabulary.
+
+**Dimensions assessed**: Architecture, Patterns, Coupling, Complexity, Tests, Dependencies, Versions, Freshness, Security
+**Findings**: 0 critical, 3 warnings, 1 info (0 filtered by confidence)
+**Overall trajectory**: stable vs Audit 7
+**Grades**: Architecture [B+] | Patterns [A-] | Coupling [B+] | Complexity [B] | Tests [A-] | Dependencies [B+] | Versions [B] | Freshness [B] | Security [A]
+
+### Architecture: B+
+
+#### ⇉ Empty default fields collapse `unset` into `default`, warning (confidence: 88)
+
+- **Location**: `internal/profile/explanation.go:85-93`, `README.md:122-127`
+- **Evidence**: `ExplainField` marks a value as `default` whenever a default profile object exists, without checking whether that default field was configured.
+- **Impact**: TUI, GUI, and launch summaries can overstate inherited intent for zero-valued fields.
+- **Suggested action**: Teach profile explanations to distinguish explicit default values from absent default values, or narrow the public `unset` promise.
+
+### Patterns: A-
+
+No findings. Shared profile vocabulary now originates in `internal/profile`, and CLI, TUI, and GUI consume it instead of redefining semantics locally.
+
+### Coupling: B+
+
+No findings. GUI profile and DLL behavior stays behind `guiApplicationBoundary`, and TUI profile semantics route through shared profile APIs.
+
+### Complexity: B
+
+No findings. Recent work grew `cmd/spela/commands/launch.go` and GUI detail rendering, but the added helpers remain localized and covered by focused tests.
+
+### Tests: A-
+
+No findings. `mage test`, Go coverage, frontend unit tests, tagged GUI backend tests, lint, and build all pass; plan-critical profile, launch, restore, TUI, and GUI paths have focused tests.
+
+### Dependencies: B+
+
+#### ⇢ Minor dependency updates are available, info (confidence: 80)
+
+- **Location**: `go.mod`, `internal/gui/frontend/package.json`
+- **Evidence**: Go and frontend freshness checks show minor or patch updates; `npm audit` and `govulncheck` report no vulnerabilities.
+- **Impact**: No immediate security issue; freshness can drift if ignored across another release cycle.
+- **Suggested action**: Batch dependency refresh in a normal maintenance cycle, not inside this completed plan.
+
+### Versions: B
+
+#### ⇉ Local `v0.6.0` tag is not published remotely, warning (confidence: 95)
+
+- **Location**: local tag `v0.6.0`; origin tag refs
+- **Evidence**: Local `v0.6.0` exists, `git cliff --unreleased --strip all` is empty, and origin has no `v0.6.0` tag.
+- **Impact**: Release consumers and compare links cannot resolve the current trusted-profile-loop release on origin.
+- **Suggested action**: Push `main` and `v0.6.0` only when the user approves publication.
+
+### Freshness: B
+
+#### ⇉ Recent PROGRESS phase labels violate the artifact contract, warning (confidence: 95)
+
+- **Location**: `.agentera/PROGRESS.md:5`, `.agentera/PROGRESS.md:24`, `.agentera/PROGRESS.md:35`, `.agentera/PROGRESS.md:101`
+- **Evidence**: Recent entries use `docs`, `release`, and `fix`; the contract allows only `envision`, `deliberate`, `plan`, `build`, and `audit`.
+- **Impact**: Suite consumers can misclassify recent plan activity and phase trends.
+- **Suggested action**: Normalize recent phase values to the contract vocabulary, likely `build` for implementation, docs, and release cycles.
+
+All expected plan artifacts are otherwise current. CHANGELOG, TODO, PROGRESS, PLAN, DOCS, and README all carry plan-era updates; HEALTH is refreshed by this audit.
+
+### Security: A
+
+No findings. Lightweight scans found no hardcoded secrets, dynamic JS execution, SQL construction, or suspicious shell construction beyond intentional command launching.
+
+> This is a lightweight surface scan. For comprehensive security analysis, use dedicated tools: semgrep, Snyk, Bandit (Python), npm audit (Node), govulncheck (Go), or similar static analysis and vulnerability scanning tools appropriate to your stack.
+
+### Trends vs Audit 7
+
+- **Improved**: Audit breadth returned to full post-plan coverage after Audit 7's targeted remediation check.
+- **Stable**: Tests and dependencies remain healthy; remote publication remains user-gated.
+- **New findings**: Profile explanation semantics can over-label empty defaults, and PROGRESS phase labels drifted from the contract.
+- **Resolved**: The prior `v0.5.0` and `v0.5.1` remote-publication warning is obsolete; only `v0.6.0` remains local-only.
+
+### Patterns Observed
+
+- **Module structure**: `internal/profile` owns profile semantics; CLI, launcher, TUI, and GUI consume that vocabulary.
+- **Error handling**: `%w` wrapping and centralized logging remain dominant.
+- **Testing approach**: Focused behavior tests cover each trusted-loop surface, with Mage running default and tagged GUI backend tests.
+- **Dependency patterns**: Go and frontend dependencies are pinned; vulnerability scans are clean.
+- **Release model**: Local release state is clean; remote tag publication remains explicitly user-gated.
+
 ## Audit 7 · 2026-04-24
 
 The actionable Audit 6 warnings are closed. Test and dependency health are materially better; only the release-publication gate remains because tags must not be pushed without explicit approval.
