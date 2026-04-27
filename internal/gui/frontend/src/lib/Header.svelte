@@ -1,6 +1,8 @@
 <script>
   import { onMount, onDestroy, createEventDispatcher } from 'svelte'
-  import { GetGPUInfo, GetCPUInfo, GetLogo } from '../../wailsjs/go/gui/App'
+  import { desktopCommands } from './desktop'
+
+  export let desktop = desktopCommands
 
   const dispatch = createEventDispatcher()
 
@@ -24,12 +26,12 @@
   })
 
   async function loadLogo() {
-    logoSource = await GetLogo()
+    logoSource = await desktop.GetLogo()
   }
 
   async function refreshMetrics() {
-    graphicsInfo = await GetGPUInfo()
-    processorInfo = await GetCPUInfo()
+    graphicsInfo = await desktop.GetGPUInfo()
+    processorInfo = await desktop.GetCPUInfo()
   }
 
   function openOptions() {

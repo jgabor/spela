@@ -1,10 +1,11 @@
 <script>
   import { onMount, createEventDispatcher } from 'svelte'
-  import { GetGames, ScanGames, UpdateDLLs } from '../../wailsjs/go/gui/App'
   import Dropdown from './Dropdown.svelte'
+  import { desktopCommands } from './desktop'
 
   export let selectedGame = null
   export let defaultProfileSelected = false
+  export let desktop = desktopCommands
 
   const dispatch = createEventDispatcher()
 
@@ -81,7 +82,7 @@
   async function loadGames() {
     loading = true
     try {
-      games = await GetGames() || []
+      games = await desktop.GetGames() || []
     } catch (e) {
       console.error('Failed to load games:', e)
     }
@@ -99,8 +100,8 @@
   async function rescan() {
     loading = true
     try {
-      await ScanGames()
-      games = await GetGames() || []
+      await desktop.ScanGames()
+      games = await desktop.GetGames() || []
     } catch (e) {
       console.error('Failed to scan games:', e)
     }
@@ -166,7 +167,7 @@
 
     for (const g of gamesWithDLLs) {
       try {
-        await UpdateDLLs(g.appId)
+        await desktop.UpdateDLLs(g.appId)
         successCount++
       } catch (e) {
         console.error(`Failed to update DLLs for ${g.name}:`, e)

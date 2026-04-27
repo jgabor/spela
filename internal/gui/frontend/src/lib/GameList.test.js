@@ -27,14 +27,16 @@ const fixtures = vi.hoisted(() => ({
   ]
 }))
 
-vi.mock('../../wailsjs/go/gui/App', () => ({
-  GetGames: vi.fn().mockResolvedValue(fixtures.games),
-  ScanGames: vi.fn().mockResolvedValue(undefined),
-  UpdateDLLs: vi.fn().mockResolvedValue(undefined),
-}))
-
-import { UpdateDLLs } from '../../wailsjs/go/gui/App'
 import GameList from './GameList.svelte'
+
+function desktop(overrides = {}) {
+  return {
+    GetGames: vi.fn().mockResolvedValue(fixtures.games),
+    ScanGames: vi.fn().mockResolvedValue(undefined),
+    UpdateDLLs: vi.fn().mockResolvedValue(undefined),
+    ...overrides
+  }
+}
 
 describe('GameList current behavior', () => {
   beforeEach(() => {
@@ -43,7 +45,7 @@ describe('GameList current behavior', () => {
   })
 
   it('renders the default profile, game badges, search filtering, and the filtered empty state', async () => {
-    render(GameList)
+    render(GameList, { props: { desktop: desktop() } })
 
     expect(screen.getByText('Loading...')).toBeTruthy()
 
@@ -70,7 +72,7 @@ describe('GameList current behavior', () => {
   })
 
   it('sorts DLL games first and profile games first without changing current badge meanings', async () => {
-    const { container } = render(GameList)
+    const { container } = render(GameList, { props: { desktop: desktop() } })
 
     await waitFor(() => expect(screen.getByText('3 games')).toBeTruthy())
 
@@ -88,8 +90,10 @@ describe('GameList current behavior', () => {
   })
 
   it('skips selected games without DLLs during batch update and exits select mode after mixed failures', async () => {
-    UpdateDLLs.mockRejectedValueOnce(new Error('network offline'))
-    render(GameList)
+    const replacementDesktop = desktop({
+      UpdateDLLs: vi.fn().mockRejectedValueOnce(new Error('network offline'))
+    })
+    render(GameList, { props: { desktop: replacementDesktop } })
 
     await waitFor(() => expect(screen.getByText('3 games')).toBeTruthy())
     await fireEvent.click(screen.getByText('Select'))
@@ -97,8 +101,8 @@ describe('GameList current behavior', () => {
     await fireEvent.click(screen.getByText('Update all DLLs'))
 
     await waitFor(() => expect(screen.getByText('Select')).toBeTruthy())
-    expect(UpdateDLLs).toHaveBeenCalledTimes(1)
-    expect(UpdateDLLs).toHaveBeenCalledWith(1091500)
+    expect(replacementDesktop.UpdateDLLs).toHaveBeenCalledTimes(1)
+    expect(replacementDesktop.UpdateDLLs).toHaveBeenCalledWith(1091500)
     expect(screen.queryByText('Updated 0 games, 1 failed')).toBeNull()
   })
 })

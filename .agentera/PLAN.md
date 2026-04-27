@@ -47,7 +47,7 @@ Put a narrow GUI-facing boundary between Svelte components and desktop bindings.
 ### Task 2: Establish Desktop Command Boundary
 
 **Depends on**: Task 1
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN the GUI requests desktop data WHEN the desktop source is replaced in tests THEN visible results stay equivalent.
 ▸ GIVEN the backend reports eligibility, inheritance, or launch policy WHEN the frontend renders THEN it displays that decision without redefining it.

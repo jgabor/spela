@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Characterize current GUI list, profile, DLL, error, launch guidance, keyboard, and filter behavior in frontend tests.
 
+### Changed
+
+- Route GUI frontend desktop commands through a replaceable boundary for command-source tests.
+
 ## [0.6.0] - 2026-04-24
 
 This minor release makes the trusted profile loop visible across profile resolution, launch preparation, restore reporting, and CLI/TUI/GUI inspection surfaces.

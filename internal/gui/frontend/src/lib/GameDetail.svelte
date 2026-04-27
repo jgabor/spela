@@ -1,26 +1,12 @@
 <script>
   import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte'
-  import {
-    CheckDLLUpdates,
-    GetDefaultProfile,
-    GetGame,
-    GetProfile,
-    HasDLLBackup,
-    InstallDLL,
-    LaunchGame,
-    ListDLLInstallTypes,
-    ListDLLVersions,
-    RestoreDLLs,
-    SaveDefaultProfile,
-    SaveProfile,
-    UpdateDLLs,
-    VKD3DHeapCompatibilityNotice
-  } from '../../wailsjs/go/gui/App'
   import Dropdown from './Dropdown.svelte'
+  import { desktopCommands } from './desktop'
   import { EventsOn } from '../../wailsjs/runtime/runtime'
 
   export let game
   export let profileMode = 'game'
+  export let desktop = desktopCommands
 
   const dispatch = createEventDispatcher()
 
@@ -150,7 +136,7 @@
       return
     }
     try {
-      vkd3dHeapNotice = await VKD3DHeapCompatibilityNotice(game.appId) || ''
+      vkd3dHeapNotice = await desktop.VKD3DHeapCompatibilityNotice(game.appId) || ''
     } catch {
       vkd3dHeapNotice = ''
     }
@@ -225,7 +211,7 @@
 
   async function loadProfile() {
     if (profileMode === 'default') {
-      profile = await GetDefaultProfile()
+      profile = await desktop.GetDefaultProfile()
       if (!profile) {
         profile = emptyProfile()
       }
@@ -235,7 +221,7 @@
       profile = null
       return
     }
-    profile = await GetProfile(game.appId)
+    profile = await desktop.GetProfile(game.appId)
     if (!profile) {
       profile = emptyProfile()
     }
@@ -248,8 +234,8 @@
       hasBackup = false
       return
     }
-    dllUpdates = await CheckDLLUpdates(game.appId) || []
-    hasBackup = await HasDLLBackup(game.appId)
+    dllUpdates = await desktop.CheckDLLUpdates(game.appId) || []
+    hasBackup = await desktop.HasDLLBackup(game.appId)
   }
 
   function formatError(e) {
@@ -299,10 +285,10 @@
     saving = true
     try {
       if (profileMode === 'default') {
-        await SaveDefaultProfile(profile)
+        await desktop.SaveDefaultProfile(profile)
         setMessage('Default profile saved!', 'success')
       } else if (game) {
-        await SaveProfile(game.appId, profile)
+        await desktop.SaveProfile(game.appId, profile)
         profile.inheritedFromDefault = false
         await refreshGameDetails()
         setMessage('Profile saved!', 'success')
@@ -317,7 +303,7 @@
     if (!game) {
       return
     }
-    const updated = await GetGame(game.appId)
+    const updated = await desktop.GetGame(game.appId)
     if (updated) {
       game = updated
       dispatch('gameUpdate', updated)
@@ -345,7 +331,7 @@
     installVersions = []
     installingDLL = false
     try {
-      installTypes = await ListDLLInstallTypes(game.appId)
+      installTypes = await desktop.ListDLLInstallTypes(game.appId)
       if (!installTypes || installTypes.length === 0) {
         installError = 'No supported DLL types detected for this game.'
       }
@@ -363,7 +349,7 @@
     installVersions = []
     installError = ''
     try {
-      installVersions = await ListDLLVersions(type)
+      installVersions = await desktop.ListDLLVersions(type)
       if (!installVersions || installVersions.length === 0) {
         installError = `No versions available for ${formatInstallType(type)}.`
       }
@@ -379,7 +365,7 @@
     installingDLL = true
     installError = ''
     try {
-      await InstallDLL(game.appId, selectedInstallType, version)
+      await desktop.InstallDLL(game.appId, selectedInstallType, version)
       await refreshGameDetails()
       await checkDLLUpdates()
       setMessage('DLL installed!', 'success')
@@ -414,7 +400,7 @@
   async function updateDLLs() {
     updatingDLLs = true
     try {
-      await UpdateDLLs(game.appId)
+      await desktop.UpdateDLLs(game.appId)
       await refreshGameDetails()
       await checkDLLUpdates()
       setMessage('DLLs updated!', 'success')
@@ -427,7 +413,7 @@
   async function restoreDLLs() {
     restoringDLLs = true
     try {
-      await RestoreDLLs(game.appId)
+      await desktop.RestoreDLLs(game.appId)
       await refreshGameDetails()
       await checkDLLUpdates()
       setMessage('DLLs restored!', 'success')
@@ -445,7 +431,7 @@
     }
     launching = true
     try {
-      await LaunchGame(game.appId)
+      await desktop.LaunchGame(game.appId)
       setMessage('Game launched!', 'success')
     } catch (e) {
       setError('Failed to launch: ' + formatError(e))

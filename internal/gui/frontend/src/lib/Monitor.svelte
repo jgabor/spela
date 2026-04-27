@@ -1,6 +1,8 @@
 <script>
   import { onMount, onDestroy } from 'svelte'
-  import { GetGPUInfo, GetCPUInfo } from '../../wailsjs/go/gui/App'
+  import { desktopCommands } from './desktop'
+
+  export let desktop = desktopCommands
 
   let gpu = null
   let cpuInfo = null
@@ -16,8 +18,8 @@
   })
 
   async function refresh() {
-    gpu = await GetGPUInfo()
-    cpuInfo = await GetCPUInfo()
+    gpu = await desktop.GetGPUInfo()
+    cpuInfo = await desktop.GetCPUInfo()
   }
 </script>
 

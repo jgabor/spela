@@ -1,5 +1,16 @@
 # Progress
 
+## Cycle 81 · 2026-04-27 21:00
+
+**Phase**: build
+**What**: Task 2 established the GUI desktop command boundary. Svelte components now receive a replaceable desktop command source, while rendered game data, profile semantics, launch policy guidance, and action failures still come from backend-returned values.
+**Commit**: this commit (`refactor(gui): establish desktop command boundary`)
+**Inspiration**: Gova-Inspired GUI Seams Task 2 acceptance criteria; no external source was used because the existing Wails binding shape defined the seam.
+**Discovered**: The DLL progress event subscription remains a direct runtime import by design; Task 3 owns the event boundary.
+**Verified**: `npm test` passed 3 frontend files and 9 tests with replacement desktop command sources in `GameList` and `GameDetail`. `go test -tags dev ./internal/gui -v` passed backend boundary tests. `npm run build` produced the frontend bundle. Full gates `mage test`, `mage lint`, and `mage build` passed.
+**Next**: Task 3 can establish the desktop event boundary without changing the command seam.
+**Context**: intent - complete only Task 2 command-boundary work · constraints - no event boundary, no runtime dependency, frontend displays backend decisions, proportional tests · unknowns - event subscription cleanup belongs to Task 3 · scope - frontend command injection, command-boundary tests, Task 2 artifacts
+
 ## Cycle 80 · 2026-04-27 20:49
 
 **Phase**: build

@@ -1,12 +1,11 @@
 <script>
   import { onMount, onDestroy } from 'svelte'
-  import { GetConfig, SaveConfig, GetVersion } from '../wailsjs/go/gui/App'
-  import { Quit } from '../wailsjs/runtime/runtime'
   import Header from './lib/Header.svelte'
   import GameList from './lib/GameList.svelte'
   import GameDetail from './lib/GameDetail.svelte'
+  import { desktopCommands } from './lib/desktop'
 
-  const wailsBindings = { GetConfig, SaveConfig, GetVersion }
+  export let desktop = desktopCommands
 
   let selectedGame = null
   let selectedProfileMode = 'game'
@@ -215,7 +214,7 @@
 
     if (event.key === 'q' || event.key === 'Q') {
       event.preventDefault()
-      Quit()
+      desktop.Quit()
       return
     }
 
@@ -251,7 +250,7 @@
 
   async function loadConfig() {
     try {
-      const loaded = await wailsBindings.GetConfig()
+      const loaded = await desktop.GetConfig()
       config = loaded
       optionsState = {
         theme: loaded.theme || 'default',
@@ -279,7 +278,7 @@
 
   async function loadVersion() {
     try {
-      version = await wailsBindings.GetVersion()
+      version = await desktop.GetVersion()
     } catch (error) {
       version = ''
     }
@@ -328,7 +327,7 @@
       preferredDLLSource: optionsState.preferredDLLSource
     }
     try {
-      await wailsBindings.SaveConfig(updated)
+      await desktop.SaveConfig(updated)
       config = updated
       setConfigMessage('Options saved', 'success')
     } catch (error) {
@@ -342,7 +341,7 @@
 </script>
 
 <main>
-  <Header on:options={toggleOptions} />
+  <Header {desktop} on:options={toggleOptions} />
 
   {#if showOptions}
     <button
@@ -458,6 +457,7 @@
     <aside class="sidebar">
       <GameList
         bind:this={gameListComponent}
+        {desktop}
         selectedGame={selectedGame}
         defaultProfileSelected={selectedProfileMode === 'default'}
         on:select={e => selectGame(e.detail)}
@@ -468,12 +468,14 @@
       {#if selectedProfileMode === 'default'}
         <GameDetail
           bind:this={gameDetailComponent}
+          {desktop}
           profileMode="default"
           on:gameUpdate={handleGameUpdate}
         />
       {:else if selectedGame}
         <GameDetail
           bind:this={gameDetailComponent}
+          {desktop}
           game={selectedGame}
           profileMode="game"
           on:gameUpdate={handleGameUpdate}

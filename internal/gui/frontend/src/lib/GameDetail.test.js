@@ -37,29 +37,32 @@ const fixtures = vi.hoisted(() => ({
   }
 }))
 
-vi.mock('../../wailsjs/go/gui/App', () => ({
-  CheckDLLUpdates: vi.fn().mockResolvedValue([{ dllType: 'dlss', currentVersion: '3.7.0', latestVersion: '3.8.10', hasUpdate: true }]),
-  GetDefaultProfile: vi.fn().mockResolvedValue(null),
-  GetGame: vi.fn().mockResolvedValue({ appId: 1091500, name: 'Cyberpunk 2077', installDir: '/games/cyberpunk', dlls: [] }),
-  GetProfile: vi.fn().mockResolvedValue(fixtures.profile),
-  HasDLLBackup: vi.fn().mockResolvedValue(true),
-  InstallDLL: vi.fn().mockResolvedValue(undefined),
-  LaunchGame: vi.fn().mockResolvedValue(undefined),
-  ListDLLInstallTypes: vi.fn().mockResolvedValue([]),
-  ListDLLVersions: vi.fn().mockResolvedValue([]),
-  RestoreDLLs: vi.fn().mockResolvedValue(undefined),
-  SaveDefaultProfile: vi.fn().mockResolvedValue(undefined),
-  SaveProfile: vi.fn().mockResolvedValue(undefined),
-  UpdateDLLs: vi.fn().mockResolvedValue(undefined),
-  VKD3DHeapCompatibilityNotice: vi.fn().mockResolvedValue('')
-}))
-
 vi.mock('../../wailsjs/runtime/runtime', () => ({
-  EventsOn: vi.fn().mockReturnValue(() => {})
+  EventsOn: vi.fn().mockReturnValue(() => {}),
+  Quit: vi.fn()
 }))
 
 import GameDetail from './GameDetail.svelte'
-import { LaunchGame, SaveProfile, UpdateDLLs } from '../../wailsjs/go/gui/App'
+
+function desktop(overrides = {}) {
+  return {
+    CheckDLLUpdates: vi.fn().mockResolvedValue([{ dllType: 'dlss', currentVersion: '3.7.0', latestVersion: '3.8.10', hasUpdate: true }]),
+    GetDefaultProfile: vi.fn().mockResolvedValue(null),
+    GetGame: vi.fn().mockResolvedValue({ appId: 1091500, name: 'Cyberpunk 2077', installDir: '/games/cyberpunk', dlls: [] }),
+    GetProfile: vi.fn().mockResolvedValue(fixtures.profile),
+    HasDLLBackup: vi.fn().mockResolvedValue(true),
+    InstallDLL: vi.fn().mockResolvedValue(undefined),
+    LaunchGame: vi.fn().mockResolvedValue(undefined),
+    ListDLLInstallTypes: vi.fn().mockResolvedValue([]),
+    ListDLLVersions: vi.fn().mockResolvedValue([]),
+    RestoreDLLs: vi.fn().mockResolvedValue(undefined),
+    SaveDefaultProfile: vi.fn().mockResolvedValue(undefined),
+    SaveProfile: vi.fn().mockResolvedValue(undefined),
+    UpdateDLLs: vi.fn().mockResolvedValue(undefined),
+    VKD3DHeapCompatibilityNotice: vi.fn().mockResolvedValue(''),
+    ...overrides
+  }
+}
 
 describe('GameDetail current behavior', () => {
   beforeEach(() => {
@@ -69,6 +72,7 @@ describe('GameDetail current behavior', () => {
   it('renders shared source impact and restore semantics for profile fields', async () => {
     render(GameDetail, {
       props: {
+        desktop: desktop(),
         game: { appId: 1091500, name: 'Cyberpunk 2077', installDir: '/games/cyberpunk', dlls: [] },
         profileMode: 'game'
       }
@@ -82,10 +86,13 @@ describe('GameDetail current behavior', () => {
   })
 
   it('renders DLL state and keeps failed DLL actions in a dismissible error banner', async () => {
-    UpdateDLLs.mockRejectedValueOnce(new Error('download failed'))
+    const replacementDesktop = desktop({
+      UpdateDLLs: vi.fn().mockRejectedValueOnce(new Error('download failed'))
+    })
 
     render(GameDetail, {
       props: {
+        desktop: replacementDesktop,
         game: {
           appId: 1091500,
           name: 'Cyberpunk 2077',
@@ -109,10 +116,13 @@ describe('GameDetail current behavior', () => {
   })
 
   it('shows launch guidance as an error and does not show launch success when direct launch is rejected', async () => {
-    LaunchGame.mockRejectedValueOnce(new Error('Steam wrapper required: add spela %command% to the launch options.'))
+    const replacementDesktop = desktop({
+      LaunchGame: vi.fn().mockRejectedValueOnce(new Error('Steam wrapper required: add spela %command% to the launch options.'))
+    })
 
     render(GameDetail, {
       props: {
+        desktop: replacementDesktop,
         game: { appId: 1091500, name: 'Cyberpunk 2077', installDir: '/games/cyberpunk', dlls: [] },
         profileMode: 'game'
       }
@@ -128,10 +138,13 @@ describe('GameDetail current behavior', () => {
   })
 
   it('keeps profile save failures visible until dismissed', async () => {
-    SaveProfile.mockRejectedValueOnce(new Error('permission denied'))
+    const replacementDesktop = desktop({
+      SaveProfile: vi.fn().mockRejectedValueOnce(new Error('permission denied'))
+    })
 
     render(GameDetail, {
       props: {
+        desktop: replacementDesktop,
         game: { appId: 1091500, name: 'Cyberpunk 2077', installDir: '/games/cyberpunk', dlls: [] },
         profileMode: 'game'
       }
