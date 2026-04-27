@@ -1,5 +1,16 @@
 # Progress
 
+## Cycle 83 · 2026-04-27 21:11
+
+**Phase**: build
+**What**: Task 4 made GUI game-list behavior directly testable. Filter/sort decisions and batch DLL update planning now live in a focused frontend behavior module, while the list still renders backend-provided profile and DLL state. Mixed batch update summaries remain visible after selection mode closes and include skipped ineligible games.
+**Commit**: this commit (`test(gui): cover game list behavior`)
+**Inspiration**: Gova-Inspired GUI Seams Task 4 acceptance criteria; no external source was used because Task 1's characterization and Tasks 2-3 boundaries defined the behavior seam.
+**Discovered**: The previous mixed batch failure message was computed but hidden when select mode exited, so skipped and failed outcomes could not be visibly distinguished after the operation.
+**Verified**: `npm test -- --run src/lib/GameList.test.js` passed 5 GameList tests covering search, filtered empty state, DLL/profile sorting, two filter/sort edge cases, selected eligible batch attempts, skipped ineligible games, and mixed failure wording. `npm test` passed 3 frontend files and 13 tests. `go test -tags dev ./internal/gui -v`, `npm run build`, `mage test`, `mage lint`, and `mage build` passed.
+**Next**: Task 5 can make profile and DLL operation behavior testable without changing the game-list seam.
+**Context**: intent - complete only Task 4 game-list behavior tests · constraints - no launcher surface, no backend domain re-derivation, preserve profile inheritance, proportional tests · unknowns - none for Task 4 · scope - frontend game-list behavior extraction, batch summary visibility, focused tests, Task 4 artifacts
+
 ## Cycle 82 · 2026-04-27 21:03
 
 **Phase**: build

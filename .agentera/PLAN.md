@@ -67,7 +67,7 @@ Put a narrow GUI-facing boundary between Svelte components and desktop bindings.
 ### Task 4: Make Game List Behavior Testable
 
 **Depends on**: Tasks 2-3
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN games have names, profile state, and DLL state WHEN search, filters, and sorting are applied THEN the visible list matches characterized behavior.
 ▸ GIVEN selection mode is active WHEN batch DLL update runs THEN selected eligible games are attempted and ineligible games are skipped visibly.

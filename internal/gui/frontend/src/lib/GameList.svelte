@@ -2,6 +2,7 @@
   import { onMount, createEventDispatcher } from 'svelte'
   import Dropdown from './Dropdown.svelte'
   import { desktopCommands } from './desktop'
+  import { applyFiltersAndSort, formatBatchDLLResult, planBatchDLLUpdate } from './gameListBehavior'
 
   export let selectedGame = null
   export let defaultProfileSelected = false
@@ -31,49 +32,6 @@
 
   $: filteredGames = applyFiltersAndSort(games, search, filterDLLs, filterProfile, sortMode)
   $: showDefaultProfile = !selectMode && !hasActiveFilters
-
-  function applyFiltersAndSort(list, searchQuery, dllFilter, profileFilter, sort) {
-    let filtered = list.filter(g => {
-      if (searchQuery && !g.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-        return false
-      }
-      if (dllFilter && (!g.dlls || g.dlls.length === 0)) {
-        return false
-      }
-      if (profileFilter && !g.hasProfile) {
-        return false
-      }
-      return true
-    })
-    return sortGames(filtered, sort)
-  }
-
-  function sortGames(list, sort) {
-    const sorted = [...list]
-    switch (sort) {
-      case 'name-asc':
-        sorted.sort((a, b) => a.name.localeCompare(b.name))
-        break
-      case 'name-desc':
-        sorted.sort((a, b) => b.name.localeCompare(a.name))
-        break
-      case 'dlls-first':
-        sorted.sort((a, b) => {
-          const aHas = a.dlls && a.dlls.length > 0
-          const bHas = b.dlls && b.dlls.length > 0
-          if (aHas !== bHas) return bHas ? 1 : -1
-          return a.name.localeCompare(b.name)
-        })
-        break
-      case 'profile-first':
-        sorted.sort((a, b) => {
-          if (a.hasProfile !== b.hasProfile) return b.hasProfile ? 1 : -1
-          return a.name.localeCompare(b.name)
-        })
-        break
-    }
-    return sorted
-  }
 
   onMount(async () => {
     await loadGames()
@@ -153,19 +111,19 @@
   }
 
   async function batchUpdateDLLs() {
-    const gamesWithDLLs = filteredGames.filter(g => selected.has(g.appId) && g.dlls && g.dlls.length > 0)
-    if (gamesWithDLLs.length === 0) {
+    const batchPlan = planBatchDLLUpdate(filteredGames, selected)
+    if (batchPlan.eligible.length === 0) {
       batchMessage = 'No selected games have DLLs to update'
       clearMessageAfter(3000)
       return
     }
 
     batchUpdating = true
-    batchMessage = `Updating DLLs for ${gamesWithDLLs.length} games...`
+    batchMessage = `Updating DLLs for ${batchPlan.eligible.length} games...`
     let successCount = 0
     let failCount = 0
 
-    for (const g of gamesWithDLLs) {
+    for (const g of batchPlan.eligible) {
       try {
         await desktop.UpdateDLLs(g.appId)
         successCount++
@@ -175,11 +133,7 @@
       }
     }
 
-    if (failCount > 0) {
-      batchMessage = `Updated ${successCount} games, ${failCount} failed`
-    } else {
-      batchMessage = `Updated DLLs for ${successCount} games`
-    }
+    batchMessage = formatBatchDLLResult(successCount, failCount, batchPlan.skipped.length)
     clearMessageAfter(5000)
     batchUpdating = false
     selected = new Set()
@@ -227,6 +181,9 @@
       <div class="batch-message">{batchMessage}</div>
     {/if}
   {:else}
+    {#if batchMessage}
+      <div class="batch-message">{batchMessage}</div>
+    {/if}
     <div class="toolbar">
       <div class="filters">
         <label class="filter-toggle" class:active={filterDLLs}>

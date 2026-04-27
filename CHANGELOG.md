@@ -10,9 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Characterize current GUI list, profile, DLL, error, launch guidance, keyboard, and filter behavior in frontend tests.
+- Cover GUI game-list search, filters, sorting, selection-mode batch DLL updates, skipped ineligible games, and mixed batch results in frontend tests.
 
 ### Changed
 
+- Keep GUI batch DLL update summaries visible after selection mode exits, including skipped ineligible games and failed attempts.
 - Route GUI DLL progress events through the replaceable desktop boundary and clear stale progress after operations.
 - Route GUI frontend desktop commands through a replaceable boundary for command-source tests.
 
