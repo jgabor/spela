@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Complete the Gova-inspired GUI seam plan with replaceable desktop command/event boundaries and frontend behavior coverage for list, detail, profile, DLL, and app-level flows.
 - Keep GUI batch DLL update summaries visible after selection mode exits, including skipped ineligible games and failed attempts.
 - Route GUI DLL progress events through the replaceable desktop boundary and clear stale progress after operations.
 - Route GUI frontend desktop commands through a replaceable boundary for command-source tests.

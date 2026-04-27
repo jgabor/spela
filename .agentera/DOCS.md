@@ -1,6 +1,6 @@
 # Documentation Contract
 
-<!-- Maintained by dokumentera. Last audit: 2026-04-24 -->
+<!-- Maintained by dokumentera. Last audit: 2026-04-27 -->
 
 ## Conventions
 
@@ -33,12 +33,12 @@ versioning:
 | README                 | README.md                      | 2026-04-24  | ■ current |
 | CLAUDE.md              | CLAUDE.md                      | 2026-04-01  | ■ current |
 | Vision                 | VISION.md                      | 2026-04-01  | ■ current |
-| Todo                   | TODO.md                        | 2026-04-24  | ■ current |
-| Changelog              | CHANGELOG.md                   | 2026-04-24  | ■ current |
-| Agentera Plan          | .agentera/PLAN.md              | 2026-04-24  | ■ current |
-| Agentera Progress      | .agentera/PROGRESS.md          | 2026-04-24  | ■ current |
+| Todo                   | TODO.md                        | 2026-04-27  | ■ current |
+| Changelog              | CHANGELOG.md                   | 2026-04-27  | ■ current |
+| Agentera Plan          | .agentera/PLAN.md              | 2026-04-27  | ■ current |
+| Agentera Progress      | .agentera/PROGRESS.md          | 2026-04-27  | ■ current |
 | Agentera Health        | .agentera/HEALTH.md            | 2026-04-24  | ■ current |
-| Documentation Contract | .agentera/DOCS.md              | 2026-04-24  | ■ current |
+| Documentation Contract | .agentera/DOCS.md              | 2026-04-27  | ■ current |
 | Design System          | .agentera/DESIGN.md            | 2026-04-24  | ■ current |
 | NVAPI DRS Reference    | docs/NVAPI.md                  | 2026-03-02  | ■ current |
 | Overlay Design (v1)    | docs/design/overlay.md         | 2026-03-17  | ■ current |

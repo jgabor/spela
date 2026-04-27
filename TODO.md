@@ -18,6 +18,7 @@
 
 ## Resolved
 
+- [x] ~~Gova-inspired GUI seam coupling and behavior coverage~~ — delivered in 5743044..98ad89a; Task 7 found no open GUI-seam follow-up.
 - [x] ~~Trusted profile loop shared semantics~~ — delivered in fed4ac0; effective values report source, launch impact, and restore coverage.
 - [x] ~~Trusted profile loop launch preparation visibility~~ — delivered in 60152a4; CLI and wrapper summaries show planned environment, DLL, hardware, overlay, and compatibility impacts.
 - [x] ~~Trusted profile loop restore confidence~~ — delivered in 32ce2dc; cleanup outcomes and DLL restore readiness are visible without hiding launch results.
