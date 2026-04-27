@@ -87,7 +87,7 @@ Put a narrow GUI-facing boundary between Svelte components and desktop bindings.
 ### Task 6: Verify App-Level GUI Flows
 
 **Depends on**: Tasks 4-5
-**Status**: □ pending
+**Status**: ■ complete
 **Acceptance**:
 ▸ GIVEN the desktop boundary is mocked WHEN the app switches games, defaults, options, and help THEN visible state follows the user's action.
 ▸ GIVEN keyboard shortcuts are used WHEN focus is inside editable controls THEN text entry is not hijacked.

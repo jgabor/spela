@@ -201,14 +201,14 @@
   }
 
   function handleKeydown(event) {
+    if (isEditableTarget(event.target)) {
+      return
+    }
+
     if (event.key === 'Tab' && !showOptions && !showHelp) {
       event.preventDefault()
       const nextPane = focusPane === 'list' ? 'detail' : 'list'
       setFocusPane(nextPane)
-      return
-    }
-
-    if (isEditableTarget(event.target)) {
       return
     }
 

@@ -1,5 +1,16 @@
 # Progress
 
+## Cycle 85 · 2026-04-27 21:18
+
+**Phase**: build
+**What**: Task 6 verified app-level GUI flows through the replaceable desktop boundary. App tests now cover game switching, default profile selection, options save feedback, help visibility, editable-control shortcut isolation, and non-editable pane/help/quit shortcuts.
+**Commit**: this commit (`test(gui): verify app-level flows`)
+**Inspiration**: Gova-Inspired GUI Seams Task 6 acceptance criteria; no external source or browser e2e server was used because existing Vitest and GUI backend dev tests cover the boundary.
+**Discovered**: App-level `Tab` handling ran before editable-target detection, so editable controls could have their normal tab behavior hijacked. The shortcut guard now skips all global shortcuts for editable targets before pane switching.
+**Verified**: `npm test -- --run src/App.test.js` passed 3 App tests covering mocked game/default/options/help flows, editable `q`/`?`/`Tab` isolation, and non-editable `Tab` pane switching, help, and quit. `npm test` passed 3 frontend files and 14 tests. `go test -tags dev ./internal/gui -v`, `npm run build`, `mage test`, `mage lint`, and `mage build` passed.
+**Next**: Task 7 can perform the plan-level freshness checkpoint.
+**Context**: intent - complete only Task 6 app-level GUI verification · constraints - no browser e2e server, no launcher surface, no frontend domain re-derivation, preserve profile inheritance · unknowns - none for Task 6 · scope - App shortcut behavior, App frontend tests, Task 6 artifacts
+
 ## Cycle 84 · 2026-04-27 21:15
 
 **Phase**: build
