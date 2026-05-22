@@ -111,8 +111,14 @@ func TestFrontend() error {
 	return runInDir(frontendDir, "bun", "run", "test")
 }
 
-// TestE2E runs Playwright e2e tests
+// TestTUIE2E runs the TUI end-to-end integration tests using rmux/tmux
+func TestTUIE2E() error {
+	return sh.RunV("go", "test", "-v", "-count=1", "./tests/e2e/...")
+}
+
+// TestE2E runs Playwright e2e tests and TUI E2E tests
 func TestE2E() error {
+	mg.Deps(TestTUIE2E)
 	return runInDir(frontendDir, "bun", "run", "test:e2e")
 }
 

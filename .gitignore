@@ -23,3 +23,6 @@ spela-rmux-test/
 .opencode/
 .cursor/
 REVIEW.md
+
+# E2E test runs
+/tests/e2e/test_run_data/
