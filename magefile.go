@@ -103,7 +103,7 @@ func Test() error {
 	if err := sh.RunV("go", "test", "-v", "./..."); err != nil {
 		return err
 	}
-	return sh.RunV("go", "test", "-tags", "dev", "-v", "./internal/gui")
+	return sh.RunV("go", "test", "-tags", "dev,webkit2_41", "-v", "./internal/gui")
 }
 
 // TestFrontend runs frontend tests
@@ -164,7 +164,7 @@ func Dev() error {
 		viteCmd.Process.Kill()
 		return err
 	}
-	if err := sh.RunV("go", "build", "-tags", "dev", "-ldflags", ldf, "-o", binaryName, "./cmd/spela"); err != nil {
+	if err := sh.RunV("go", "build", "-tags", "dev,webkit2_41", "-ldflags", ldf, "-o", binaryName, "./cmd/spela"); err != nil {
 		viteCmd.Process.Kill()
 		return err
 	}
