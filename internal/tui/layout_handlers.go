@@ -99,7 +99,7 @@ func (m LayoutModel) handleRailHotkey(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd
 
 func (m LayoutModel) handleFocusAndResourceKey(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, bool) {
 	switch msg.String() {
-	case "ctrl+f":
+	case "ctrl+f", "/":
 		if m.navState.Destination == nav.DestinationLibrary {
 			m.navState.Zone = nav.ZoneContext
 			sidebar, cmd := m.contextNav.sidebar.FocusSearch()
