@@ -16,18 +16,17 @@ const (
 	FieldProtonEnableNGXUpdater = "proton.enable_ngx_updater"
 	FieldProtonVKD3DHeap        = "proton.vkd3d_heap"
 
-	FieldDLSSSRMode        = "dlss.sr_mode"
-	FieldDLSSSRPreset      = "dlss.sr_preset"
-	FieldDLSSSRModelPreset = "dlss.sr_model_preset"
-	FieldDLSSSROverride    = "dlss.sr_override"
-	FieldDLSSRRMode        = "dlss.rr_mode"
-	FieldDLSSRRPreset      = "dlss.rr_preset"
-	FieldDLSSRROverride    = "dlss.rr_override"
-	FieldDLSSFGEnabled     = "dlss.fg_enabled"
-	FieldDLSSFGOverride    = "dlss.fg_override"
-	FieldDLSSMultiFrame    = "dlss.multi_frame"
-	FieldDLSSIndicator     = "dlss.indicator"
-	FieldDLSSFGIndicator   = "dlss.fg_indicator"
+	FieldDLSSSRMode      = "dlss.sr_mode"
+	FieldDLSSSRPreset    = "dlss.sr_preset"
+	FieldDLSSSROverride  = "dlss.sr_override"
+	FieldDLSSRRMode      = "dlss.rr_mode"
+	FieldDLSSRRPreset    = "dlss.rr_preset"
+	FieldDLSSRROverride  = "dlss.rr_override"
+	FieldDLSSFGEnabled   = "dlss.fg_enabled"
+	FieldDLSSFGOverride  = "dlss.fg_override"
+	FieldDLSSMultiFrame  = "dlss.multi_frame"
+	FieldDLSSIndicator   = "dlss.indicator"
+	FieldDLSSFGIndicator = "dlss.fg_indicator"
 
 	FieldGPUShaderCache          = "gpu.shader_cache"
 	FieldGPUShaderCachePath      = "gpu.shader_cache_path"
@@ -65,7 +64,6 @@ var fieldsBySection = map[string][]string{
 	"dlss": {
 		FieldDLSSSRMode,
 		FieldDLSSSRPreset,
-		FieldDLSSSRModelPreset,
 		FieldDLSSSROverride,
 		FieldDLSSRRMode,
 		FieldDLSSRRPreset,
@@ -346,7 +344,7 @@ func (p *Profile) ResolveForApply(defaults *Profile) *Profile {
 // profile would otherwise mutate the original.
 func deepCopyValue(v reflect.Value) reflect.Value {
 	switch v.Kind() {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		if v.IsNil() {
 			return reflect.Zero(v.Type())
 		}

@@ -41,8 +41,8 @@ func Load(appID uint64) (*Profile, error) {
 		return nil, err
 	}
 
-	var p Profile
-	if err := yaml.Unmarshal(data, &p); err != nil {
+	p, err := unmarshalProfileYAML(data)
+	if err != nil {
 		return nil, err
 	}
 
@@ -55,10 +55,10 @@ func Load(appID uint64) (*Profile, error) {
 		if err != nil {
 			return nil, fmt.Errorf("load default profile for migration: %w", err)
 		}
-		migrateInheritance(&p, defaults)
+		migrateInheritance(p, defaults)
 	}
 
-	return &p, nil
+	return p, nil
 }
 
 func LoadDefault() (*Profile, error) {
@@ -70,12 +70,7 @@ func LoadDefault() (*Profile, error) {
 		return nil, err
 	}
 
-	var p Profile
-	if err := yaml.Unmarshal(data, &p); err != nil {
-		return nil, err
-	}
-
-	return &p, nil
+	return unmarshalProfileYAML(data)
 }
 
 // LoadEffective returns the profile that should be applied for a game launch.

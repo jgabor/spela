@@ -15,6 +15,7 @@ type DLSSPreset string
 
 const (
 	DLSSPresetDefault DLSSPreset = "default"
+	DLSSPresetAuto    DLSSPreset = "auto"
 	DLSSPresetA       DLSSPreset = "A"
 	DLSSPresetB       DLSSPreset = "B"
 	DLSSPresetC       DLSSPreset = "C"
@@ -34,26 +35,18 @@ type DLSSPresetInfoEntry struct {
 }
 
 var DLSSPresetInfo = map[DLSSPreset]DLSSPresetInfoEntry{
-	DLSSPresetA: {"DLSS 2/3", "CNN", "Basic preset for Performance/Balanced/Quality, for games without all native DLSS inputs"},
-	DLSSPresetB: {"DLSS 2/3", "CNN", "Variant of A, improves Ultra Performance at high resolutions (4K+)"},
-	DLSSPresetC: {"DLSS 2/3", "CNN", "Variant of A for fast-paced games, less temporal stability but less ghosting"},
-	DLSSPresetD: {"DLSS 2/3", "CNN", "Variant of A for slower-paced games, more temporal stability but more ghosting"},
-	DLSSPresetE: {"DLSS 2/3", "CNN", "Improved version of D, should be used over D in most cases"},
-	DLSSPresetF: {"DLSS 2/3", "CNN", "Optimized for 4K+ in Ultra Performance/DLAA quality tiers"},
-	DLSSPresetJ: {"DLSS 4", "Transformer", "Baseline transformer preset, sharper but less temporally stable than K"},
-	DLSSPresetK: {"DLSS 4", "Transformer", "Variant of J, blurrier but more temporally stable"},
-	DLSSPresetL: {"DLSS 4.5", "Transformer 2", "Optimized for 4K+ in Ultra Performance/DLAA quality tiers"},
-	DLSSPresetM: {"DLSS 4.5", "Transformer 2", "Optimized for lower resolutions in Performance/Balanced/Quality tiers"},
+	DLSSPresetAuto: {"", "Transformer", "Pick K, L, or M based on quality mode (Ultra Performance → L, Performance → M, else → K)"},
+	DLSSPresetA:    {"DLSS 2/3", "CNN", "Basic preset for Performance/Balanced/Quality, for games without all native DLSS inputs"},
+	DLSSPresetB:    {"DLSS 2/3", "CNN", "Variant of A, improves Ultra Performance at high resolutions (4K+)"},
+	DLSSPresetC:    {"DLSS 2/3", "CNN", "Variant of A for fast-paced games, less temporal stability but less ghosting"},
+	DLSSPresetD:    {"DLSS 2/3", "CNN", "Variant of A for slower-paced games, more temporal stability but more ghosting"},
+	DLSSPresetE:    {"DLSS 2/3", "CNN", "Improved version of D, should be used over D in most cases"},
+	DLSSPresetF:    {"DLSS 2/3", "CNN", "Optimized for 4K+ in Ultra Performance/DLAA quality tiers"},
+	DLSSPresetJ:    {"DLSS 4", "Transformer", "Baseline transformer preset, sharper but less temporally stable than K"},
+	DLSSPresetK:    {"DLSS 4", "Transformer", "Variant of J, blurrier but more temporally stable"},
+	DLSSPresetL:    {"DLSS 4.5", "Transformer 2", "Optimized for 4K+ in Ultra Performance/DLAA quality tiers"},
+	DLSSPresetM:    {"DLSS 4.5", "Transformer 2", "Optimized for lower resolutions in Performance/Balanced/Quality tiers"},
 }
-
-type DLSSModelPreset string
-
-const (
-	DLSSModelPresetAuto DLSSModelPreset = "auto"
-	DLSSModelPresetK    DLSSModelPreset = "k"
-	DLSSModelPresetL    DLSSModelPreset = "l"
-	DLSSModelPresetM    DLSSModelPreset = "m"
-)
 
 type Profile struct {
 	Name string `yaml:"name,omitempty"`
@@ -85,18 +78,17 @@ type OverlaySettings struct {
 }
 
 type DLSSSettings struct {
-	SRMode        DLSSMode        `yaml:"sr_mode,omitempty"`
-	SRPreset      DLSSPreset      `yaml:"sr_preset,omitempty"`
-	SRModelPreset DLSSModelPreset `yaml:"sr_model_preset,omitempty"`
-	SROverride    bool            `yaml:"sr_override,omitempty"`
-	RRMode        DLSSMode        `yaml:"rr_mode,omitempty"`
-	RRPreset      DLSSPreset      `yaml:"rr_preset,omitempty"`
-	RROverride    bool            `yaml:"rr_override,omitempty"`
-	FGEnabled     bool            `yaml:"fg_enabled,omitempty"`
-	FGOverride    bool            `yaml:"fg_override,omitempty"`
-	MultiFrame    int             `yaml:"multi_frame,omitempty"`
-	Indicator     bool            `yaml:"indicator,omitempty"`
-	FGIndicator   bool            `yaml:"fg_indicator,omitempty"`
+	SRMode      DLSSMode   `yaml:"sr_mode,omitempty"`
+	SRPreset    DLSSPreset `yaml:"sr_preset,omitempty"`
+	SROverride  bool       `yaml:"sr_override,omitempty"`
+	RRMode      DLSSMode   `yaml:"rr_mode,omitempty"`
+	RRPreset    DLSSPreset `yaml:"rr_preset,omitempty"`
+	RROverride  bool       `yaml:"rr_override,omitempty"`
+	FGEnabled   bool       `yaml:"fg_enabled,omitempty"`
+	FGOverride  bool       `yaml:"fg_override,omitempty"`
+	MultiFrame  int        `yaml:"multi_frame,omitempty"`
+	Indicator   bool       `yaml:"indicator,omitempty"`
+	FGIndicator bool       `yaml:"fg_indicator,omitempty"`
 }
 
 type GPUSettings struct {

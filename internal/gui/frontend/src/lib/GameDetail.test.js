@@ -5,7 +5,6 @@ const fixtures = vi.hoisted(() => ({
   profile: {
     srMode: 'quality',
     srPreset: '',
-    srModelPreset: '',
     srOverride: false,
     rrMode: '',
     rrPreset: '',
@@ -38,7 +37,6 @@ const fixtures = vi.hoisted(() => ({
   defaultProfile: {
     srMode: 'balanced',
     srPreset: '',
-    srModelPreset: '',
     srOverride: false,
     rrMode: '',
     rrPreset: '',
@@ -165,7 +163,7 @@ describe('GameDetail current behavior', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('Default profile')).toBeTruthy()
+      expect(screen.getByText('All games (default)')).toBeTruthy()
       expect(screen.getByText('Balanced')).toBeTruthy()
       expect(screen.getByText('+50 MHz')).toBeTruthy()
       expect(screen.getByLabelText('HDR').checked).toBe(true)
@@ -189,7 +187,8 @@ describe('GameDetail current behavior', () => {
           installDir: '/games/cyberpunk',
           dlls: [{ dllType: 'dlss', version: '3.7.0' }]
         },
-        profileMode: 'game'
+        profileMode: 'game',
+        aspect: 'dlls'
       }
     })
 
@@ -228,7 +227,8 @@ describe('GameDetail current behavior', () => {
           installDir: '/games/cyberpunk',
           dlls: [{ dllType: 'dlss', version: '3.7.0' }]
         },
-        profileMode: 'game'
+        profileMode: 'game',
+        aspect: 'dlls'
       }
     })
 
@@ -264,7 +264,8 @@ describe('GameDetail current behavior', () => {
           installDir: '/games/cyberpunk',
           dlls: [{ dllType: 'dlss', version: '3.7.0' }]
         },
-        profileMode: 'game'
+        profileMode: 'game',
+        aspect: 'dlls'
       }
     })
 
@@ -278,26 +279,19 @@ describe('GameDetail current behavior', () => {
     expect(progressEvents.listeners.size).toBe(0)
   })
 
-  it('shows launch guidance as an error and does not show launch success when direct launch is rejected', async () => {
-    const replacementDesktop = desktop({
-      LaunchGame: vi.fn().mockRejectedValueOnce(new Error('Steam wrapper required: add spela %command% to the launch options.'))
-    })
-
+  it('shows Steam wrapper launch guidance instead of a launch button', async () => {
     render(GameDetail, {
       props: {
-        desktop: replacementDesktop,
+        desktop: desktop(),
         game: { appId: 1091500, name: 'Cyberpunk 2077', installDir: '/games/cyberpunk', dlls: [] },
         profileMode: 'game'
       }
     })
 
-    await waitFor(() => expect(screen.getByText('▶ Launch')).toBeTruthy())
-    await fireEvent.click(screen.getByText('▶ Launch'))
-
     await waitFor(() => {
-      expect(screen.getByText('Failed to launch: Steam wrapper required: add spela %command% to the launch options.')).toBeTruthy()
+      expect(screen.getByText(/Launch via Steam/)).toBeTruthy()
+      expect(screen.queryByText('▶ Launch')).toBeNull()
     })
-    expect(screen.queryByText('Game launched!')).toBeNull()
   })
 
   it('keeps profile save failures visible until dismissed', async () => {

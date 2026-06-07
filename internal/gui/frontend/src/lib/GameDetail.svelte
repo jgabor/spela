@@ -5,7 +5,13 @@
 
   export let game
   export let profileMode = 'game'
+  export let aspect = 'profile'
+  export let profileSubsystem = null
   export let desktop = desktopCommands
+
+  $: showDLLSection = profileMode === 'game' && game && aspect === 'dlls'
+  $: showProfileSections = profile && aspect !== 'dlls'
+  $: showSubsystem = (index) => profileSubsystem === null || profileSubsystem === index
 
   const dispatch = createEventDispatcher()
 
@@ -42,6 +48,7 @@
   ]
   const srPresetOptions = [
     { value: '', label: '(default)' },
+    { value: 'auto', label: 'Auto (mode-linked)' },
     { value: 'A', label: 'A' },
     { value: 'B', label: 'B' },
     { value: 'C', label: 'C' },
@@ -103,16 +110,28 @@
     { value: 'true', label: 'Enabled' },
     { value: 'false', label: 'Disabled' }
   ]
+  const overlayPositionOptions = [
+    { value: '', label: '(default)' },
+    { value: 'top-left', label: 'Top left' },
+    { value: 'top-right', label: 'Top right' },
+    { value: 'bottom-left', label: 'Bottom left' },
+    { value: 'bottom-right', label: 'Bottom right' }
+  ]
 
   const emptyProfile = () => ({
     srMode: '',
     srPreset: '',
     srOverride: false,
+    rrMode: '',
+    rrPreset: '',
+    rrOverride: false,
     fgEnabled: false,
     fgOverride: false,
+    fgIndicator: false,
     multiFrame: 0,
     indicator: false,
     shaderCache: false,
+    shaderCachePath: '',
     threadedOptimization: false,
     powerMizer: '',
     clockOffset: 0,
@@ -123,6 +142,14 @@
     enableWayland: false,
     enableNgxUpdater: false,
     vkd3dHeap: false,
+    overlayEnabled: false,
+    overlayPosition: '',
+    overlayShowFps: false,
+    overlayShowFrametime: false,
+    overlayShowCpu: false,
+    overlayShowGpu: false,
+    overlayShowVram: false,
+    overlayToggleKey: '',
     backupOnLaunch: false,
     inheritedFromDefault: false
   })
@@ -466,7 +493,7 @@
     {/if}
     {#if profileMode === 'default'}
       <div class="default-header">
-        <h1>Default profile</h1>
+        <h1>All games (default)</h1>
         <p class="default-note">Applies to games without their own profile.</p>
       </div>
     {:else if game}
@@ -490,14 +517,12 @@
             {/if}
           </div>
         </div>
-        <button class="launch" on:click={launchGame} disabled={launching}>
-          {launching ? 'Launching...' : '▶ Launch'}
-        </button>
+        <p class="launch-hint">Launch via Steam: <code>spela %command%</code></p>
       </div>
     {/if}
 
 
-    {#if profileMode === 'game' && game}
+    {#if showDLLSection}
       <div class="section">
         <h2>DLL versions</h2>
         <div class="dll-table">
@@ -577,11 +602,12 @@
     {/if}
 
 
-  {#if profile}
+  {#if profile && showProfileSections}
     {#if profileMode === 'game' && profile.inheritedFromDefault}
       <p class="default-note">Using default profile values.</p>
     {/if}
     <div class="profile-grid">
+      {#if showSubsystem(1)}
       <div class="section boxed">
         <h2>DLSS settings</h2>
 
@@ -602,7 +628,7 @@
               bind:value={profile.srPreset}
               options={srPresetOptions}
             />
-            <span class="hint">A-F: CNN (DLSS 2/3), J-M: Transformer (DLSS 4/4.5)</span>
+            <span class="hint">auto: mode-linked transformer; A-F: CNN (DLSS 2/3); J-M: Transformer (DLSS 4/4.5)</span>
             <span class="profile-meta">{semanticText('dlss.sr_preset')}</span>
           </div>
 
@@ -621,6 +647,25 @@
           </div>
 
           <div class="field">
+            <label for="rrMode">Ray reconstruction mode</label>
+            <Dropdown bind:value={profile.rrMode} options={srModeOptions} />
+            <span class="hint">DLSS ray reconstruction quality preset.</span>
+            <span class="profile-meta">{semanticText('dlss.rr_mode')}</span>
+          </div>
+
+          <div class="field">
+            <label for="rrPreset">Ray reconstruction preset</label>
+            <Dropdown bind:value={profile.rrPreset} options={srPresetOptions} />
+            <span class="profile-meta">{semanticText('dlss.rr_preset')}</span>
+          </div>
+
+          <div class="field checkbox">
+            <input type="checkbox" id="rrOverride" bind:checked={profile.rrOverride} />
+            <label for="rrOverride">RR override</label>
+            <span class="profile-meta">{semanticText('dlss.rr_override')}</span>
+          </div>
+
+          <div class="field">
             <label for="fgEnabled">Frame generation</label>
             <Dropdown
               bind:value={frameGenerationMode}
@@ -629,6 +674,12 @@
             />
             <span class="hint">Generate extra frames for higher FPS.</span>
             <span class="profile-meta">{semanticText('dlss.fg_enabled')}</span>
+          </div>
+
+          <div class="field checkbox">
+            <input type="checkbox" id="fgIndicator" bind:checked={profile.fgIndicator} />
+            <label for="fgIndicator">Show frame generation indicator</label>
+            <span class="profile-meta">{semanticText('dlss.fg_indicator')}</span>
           </div>
 
           <div class="field">
@@ -643,6 +694,8 @@
         </div>
       </div>
 
+      {/if}
+      {#if showSubsystem(2)}
       <div class="section boxed">
         <h2>GPU settings</h2>
 
@@ -652,6 +705,12 @@
             <label for="shaderCache">Shader cache</label>
             <span class="hint">Enable shader caching for faster reloads.</span>
             <span class="profile-meta">{semanticText('gpu.shader_cache')}</span>
+          </div>
+
+          <div class="field">
+            <label for="shaderCachePath">Shader cache path</label>
+            <input type="text" id="shaderCachePath" bind:value={profile.shaderCachePath} placeholder="(default)" />
+            <span class="profile-meta">{semanticText('gpu.shader_cache_path')}</span>
           </div>
 
           <div class="field checkbox">
@@ -693,6 +752,8 @@
         </div>
       </div>
 
+      {/if}
+      {#if showSubsystem(3)}
       <div class="section boxed">
         <h2>CPU settings</h2>
 
@@ -719,6 +780,8 @@
         </div>
       </div>
 
+      {/if}
+      {#if showSubsystem(0)}
       <div class="section boxed">
         <h2>Proton settings</h2>
 
@@ -757,6 +820,54 @@
           </div>
         </div>
       </div>
+      {/if}
+      {#if showSubsystem(4)}
+      <div class="section boxed">
+        <h2>Overlay settings</h2>
+        <div class="form">
+          <div class="field checkbox">
+            <input type="checkbox" id="overlayEnabled" bind:checked={profile.overlayEnabled} />
+            <label for="overlayEnabled">Enable overlay</label>
+            <span class="profile-meta">{semanticText('overlay.enabled')}</span>
+          </div>
+          <div class="field">
+            <label for="overlayPosition">Position</label>
+            <Dropdown bind:value={profile.overlayPosition} options={overlayPositionOptions} />
+            <span class="profile-meta">{semanticText('overlay.position')}</span>
+          </div>
+          <div class="field checkbox">
+            <input type="checkbox" id="overlayShowFps" bind:checked={profile.overlayShowFps} />
+            <label for="overlayShowFps">Show FPS</label>
+            <span class="profile-meta">{semanticText('overlay.show_fps')}</span>
+          </div>
+          <div class="field checkbox">
+            <input type="checkbox" id="overlayShowFrametime" bind:checked={profile.overlayShowFrametime} />
+            <label for="overlayShowFrametime">Show frametime</label>
+            <span class="profile-meta">{semanticText('overlay.show_frametime')}</span>
+          </div>
+          <div class="field checkbox">
+            <input type="checkbox" id="overlayShowCpu" bind:checked={profile.overlayShowCpu} />
+            <label for="overlayShowCpu">Show CPU</label>
+            <span class="profile-meta">{semanticText('overlay.show_cpu')}</span>
+          </div>
+          <div class="field checkbox">
+            <input type="checkbox" id="overlayShowGpu" bind:checked={profile.overlayShowGpu} />
+            <label for="overlayShowGpu">Show GPU</label>
+            <span class="profile-meta">{semanticText('overlay.show_gpu')}</span>
+          </div>
+          <div class="field checkbox">
+            <input type="checkbox" id="overlayShowVram" bind:checked={profile.overlayShowVram} />
+            <label for="overlayShowVram">Show VRAM</label>
+            <span class="profile-meta">{semanticText('overlay.show_vram')}</span>
+          </div>
+          <div class="field">
+            <label for="overlayToggleKey">Toggle key</label>
+            <input type="text" id="overlayToggleKey" bind:value={profile.overlayToggleKey} placeholder="(default)" />
+            <span class="profile-meta">{semanticText('overlay.toggle_key')}</span>
+          </div>
+        </div>
+      </div>
+      {/if}
 
     </div>
 
@@ -805,28 +916,15 @@
     margin: 0;
   }
 
-  .launch {
-    padding: 0.45rem 1.4rem;
-    border: none;
-    border-radius: 0;
-    background-color: var(--success);
-    color: black;
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+  .launch-hint {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--text-dim);
     align-self: flex-start;
-    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 
-  .launch:hover:not(:disabled) {
-    filter: brightness(1.1);
-  }
-
-  .launch:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  .launch-hint code {
+    color: var(--accent-focus);
   }
 
   .game-header {

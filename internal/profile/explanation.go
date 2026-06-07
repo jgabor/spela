@@ -118,7 +118,7 @@ func FieldLaunchImpact(field string) (LaunchImpact, error) {
 	switch field {
 	case FieldProtonEnableWayland, FieldProtonEnableHDR, FieldProtonEnableNGXUpdater, FieldProtonVKD3DHeap:
 		return LaunchImpactCompatibility, nil
-	case FieldDLSSSRMode, FieldDLSSSRPreset, FieldDLSSSRModelPreset, FieldDLSSSROverride,
+	case FieldDLSSSRMode, FieldDLSSSRPreset, FieldDLSSSROverride,
 		FieldDLSSRRMode, FieldDLSSRRPreset, FieldDLSSRROverride, FieldDLSSFGEnabled,
 		FieldDLSSFGOverride, FieldDLSSMultiFrame, FieldDLSSIndicator, FieldDLSSFGIndicator,
 		FieldGPUShaderCache, FieldGPUShaderCachePath, FieldGPUThreadedOptimization:
@@ -141,7 +141,7 @@ func FieldRestoreCoverage(field string) (RestoreCoverage, error) {
 		FieldCPUGovernor, FieldCPUSMT:
 		return RestoreCoverageRestorableMutation, nil
 	case FieldProtonEnableWayland, FieldProtonEnableHDR, FieldProtonEnableNGXUpdater, FieldProtonVKD3DHeap,
-		FieldDLSSSRMode, FieldDLSSSRPreset, FieldDLSSSRModelPreset, FieldDLSSSROverride,
+		FieldDLSSSRMode, FieldDLSSSRPreset, FieldDLSSSROverride,
 		FieldDLSSRRMode, FieldDLSSRRPreset, FieldDLSSRROverride, FieldDLSSFGEnabled,
 		FieldDLSSFGOverride, FieldDLSSMultiFrame, FieldDLSSIndicator, FieldDLSSFGIndicator,
 		FieldGPUShaderCache, FieldGPUShaderCachePath, FieldGPUThreadedOptimization:
@@ -156,7 +156,7 @@ func FieldRestoreCoverage(field string) (RestoreCoverage, error) {
 }
 
 func explanationValue(v reflect.Value) any {
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		if v.IsNil() {
 			return nil
 		}

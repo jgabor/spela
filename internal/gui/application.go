@@ -4,8 +4,8 @@ package gui
 
 import (
 	"fmt"
-	"os"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/jgabor/spela/internal/config"
@@ -128,7 +128,6 @@ func (b guiApplicationBoundary) saveDefault(info ProfileInfo) error {
 var guiProfileFields = []string{
 	profile.FieldDLSSSRMode,
 	profile.FieldDLSSSRPreset,
-	profile.FieldDLSSSRModelPreset,
 	profile.FieldDLSSSROverride,
 	profile.FieldDLSSRRMode,
 	profile.FieldDLSSRRPreset,
@@ -150,6 +149,14 @@ var guiProfileFields = []string{
 	profile.FieldProtonEnableWayland,
 	profile.FieldProtonEnableNGXUpdater,
 	profile.FieldProtonVKD3DHeap,
+	profile.FieldOverlayEnabled,
+	profile.FieldOverlayPosition,
+	profile.FieldOverlayShowFPS,
+	profile.FieldOverlayShowFrametime,
+	profile.FieldOverlayShowCPU,
+	profile.FieldOverlayShowGPU,
+	profile.FieldOverlayShowVRAM,
+	profile.FieldOverlayToggleKey,
 }
 
 func profileFromInfoPreservingIntent(info ProfileInfo, current *profile.Profile, defaults *profile.Profile) *profile.Profile {
@@ -315,11 +322,7 @@ func (b guiApplicationBoundary) listDLLVersions(dllType string) ([]string, error
 }
 
 func ensureDLLCached(target *dll.DLL, dllName string) (string, error) {
-	cachePath := dll.GetDLLCachePath(dllName, target.Version)
-	if _, err := os.Stat(cachePath); err == nil {
-		return cachePath, nil
-	}
-	return dll.DownloadDLLWithProgress(target, dllName, nil)
+	return dll.EnsureCached(target, dllName)
 }
 
 func (b guiApplicationBoundary) installDLLVersion(appID uint64, dllType, version string) error {
@@ -395,15 +398,19 @@ func (b guiApplicationBoundary) updateDLLs(appID uint64) error {
 	gameDLLs := dll.GameDLLsFromDetected(g.DLLs)
 
 	for _, d := range g.DLLs {
-		latest := manifest.GetLatestDLL(d.Name)
-		if latest == nil || latest.Version == d.Version {
+		dllType := strings.ToLower(string(d.Type))
+		latest := manifest.GetLatestDLL(dllType)
+		if latest == nil {
+			continue
+		}
+		if d.Version != "" && !dll.IsNewer(d.Version, latest.Version) {
 			continue
 		}
 
-		b.emitDLLProgress(fmt.Sprintf("Downloading %s %s", d.Name, latest.Version))
-		cachePath, err := b.ensureDLLCached(latest, d.Name)
+		b.emitDLLProgress(fmt.Sprintf("Downloading %s %s", dllType, latest.Version))
+		cachePath, err := b.ensureDLLCached(latest, dllType)
 		if err != nil {
-			return fmt.Errorf("download %s: %w", d.Name, err)
+			return fmt.Errorf("download %s: %w", dllType, err)
 		}
 
 		b.emitDLLProgress(fmt.Sprintf("Swapping %s", d.Name))

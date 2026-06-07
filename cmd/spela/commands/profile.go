@@ -160,7 +160,6 @@ func runProfileShow(cmd *cobra.Command, args []string) error {
 	fmt.Printf("\n%s\n", tui.CLIPrimary("DLSS"))
 	fmt.Printf("  %s  %s\n", tui.CLIDim("SR mode:"), profileVal(string(p.DLSS.SRMode)))
 	fmt.Printf("  %s  %s\n", tui.CLIDim("SR preset:"), profileVal(string(p.DLSS.SRPreset)))
-	fmt.Printf("  %s  %s\n", tui.CLIDim("SR model preset:"), profileVal(string(p.DLSS.SRModelPreset)))
 	fmt.Printf("  %s  %v\n", tui.CLIDim("SR override:"), p.DLSS.SROverride)
 	fmt.Printf("  %s  %s\n", tui.CLIDim("RR mode:"), profileVal(string(p.DLSS.RRMode)))
 	fmt.Printf("  %s  %s\n", tui.CLIDim("RR preset:"), profileVal(string(p.DLSS.RRPreset)))

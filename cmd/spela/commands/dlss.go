@@ -3,6 +3,7 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -48,8 +49,8 @@ var dlssSetCmd = &cobra.Command{
 
 func init() {
 	dlssSetCmd.Flags().StringVar(&dlssSetSRMode, "sr-mode", "", "DLSS-SR mode (off, ultra_performance, performance, balanced, quality, dlaa)")
-	dlssSetCmd.Flags().StringVar(&dlssSetSRPreset, "sr-preset", "", "DLSS-SR preset (default, A, B, C, D, E, F, J, K, L, M)")
-	dlssSetCmd.Flags().StringVar(&dlssSetSRModelPreset, "sr-model-preset", "", "DLSS-SR model preset (auto, k, l, m)")
+	dlssSetCmd.Flags().StringVar(&dlssSetSRPreset, "sr-preset", "", "DLSS-SR preset (default, auto, A-M)")
+	dlssSetCmd.Flags().StringVar(&dlssSetSRModelPreset, "sr-model-preset", "", "Deprecated: use --sr-preset (auto, k, l, m)")
 	dlssSetCmd.Flags().StringVar(&dlssSetRRMode, "rr-mode", "", "DLSS-RR mode")
 	dlssSetCmd.Flags().StringVar(&dlssSetRRPreset, "rr-preset", "", "DLSS-RR preset (default, A, B, C, D, E, F, J, K, L, M)")
 	dlssSetCmd.Flags().StringVar(&dlssSetRROverride, "rr-override", "", "Force ray reconstruction override (true/false)")
@@ -70,7 +71,7 @@ var dlssResetCmd = &cobra.Command{
 	Use:   "reset <game> <field>",
 	Short: "Reset a DLSS field to inherit from defaults",
 	Long: `Reset a DLSS profile field back to inherited. Valid fields:
-  sr_mode, sr_preset, sr_model_preset, sr_override,
+  sr_mode, sr_preset, sr_override,
   rr_mode, rr_preset, rr_override,
   fg_enabled, fg_override, multi_frame, indicator, fg_indicator.`,
 	Args: cobra.ExactArgs(2),
@@ -80,30 +81,28 @@ var dlssResetCmd = &cobra.Command{
 // dlssFieldAliases accepts both dash and underscore forms so
 // 'sr-mode' and 'sr_mode' both work.
 var dlssFieldAliases = map[string]string{
-	"sr_mode":         profile.FieldDLSSSRMode,
-	"sr-mode":         profile.FieldDLSSSRMode,
-	"sr_preset":       profile.FieldDLSSSRPreset,
-	"sr-preset":       profile.FieldDLSSSRPreset,
-	"sr_model_preset": profile.FieldDLSSSRModelPreset,
-	"sr-model-preset": profile.FieldDLSSSRModelPreset,
-	"sr_override":     profile.FieldDLSSSROverride,
-	"sr-override":     profile.FieldDLSSSROverride,
-	"rr_mode":         profile.FieldDLSSRRMode,
-	"rr-mode":         profile.FieldDLSSRRMode,
-	"rr_preset":       profile.FieldDLSSRRPreset,
-	"rr-preset":       profile.FieldDLSSRRPreset,
-	"rr_override":     profile.FieldDLSSRROverride,
-	"rr-override":     profile.FieldDLSSRROverride,
-	"fg_enabled":      profile.FieldDLSSFGEnabled,
-	"fg-enabled":      profile.FieldDLSSFGEnabled,
-	"fg":              profile.FieldDLSSFGEnabled,
-	"fg_override":     profile.FieldDLSSFGOverride,
-	"fg-override":     profile.FieldDLSSFGOverride,
-	"multi_frame":     profile.FieldDLSSMultiFrame,
-	"multi-frame":     profile.FieldDLSSMultiFrame,
-	"indicator":       profile.FieldDLSSIndicator,
-	"fg_indicator":    profile.FieldDLSSFGIndicator,
-	"fg-indicator":    profile.FieldDLSSFGIndicator,
+	"sr_mode":      profile.FieldDLSSSRMode,
+	"sr-mode":      profile.FieldDLSSSRMode,
+	"sr_preset":    profile.FieldDLSSSRPreset,
+	"sr-preset":    profile.FieldDLSSSRPreset,
+	"sr_override":  profile.FieldDLSSSROverride,
+	"sr-override":  profile.FieldDLSSSROverride,
+	"rr_mode":      profile.FieldDLSSRRMode,
+	"rr-mode":      profile.FieldDLSSRRMode,
+	"rr_preset":    profile.FieldDLSSRRPreset,
+	"rr-preset":    profile.FieldDLSSRRPreset,
+	"rr_override":  profile.FieldDLSSRROverride,
+	"rr-override":  profile.FieldDLSSRROverride,
+	"fg_enabled":   profile.FieldDLSSFGEnabled,
+	"fg-enabled":   profile.FieldDLSSFGEnabled,
+	"fg":           profile.FieldDLSSFGEnabled,
+	"fg_override":  profile.FieldDLSSFGOverride,
+	"fg-override":  profile.FieldDLSSFGOverride,
+	"multi_frame":  profile.FieldDLSSMultiFrame,
+	"multi-frame":  profile.FieldDLSSMultiFrame,
+	"indicator":    profile.FieldDLSSIndicator,
+	"fg_indicator": profile.FieldDLSSFGIndicator,
+	"fg-indicator": profile.FieldDLSSFGIndicator,
 }
 
 func runDLSSReset(cmd *cobra.Command, args []string) error {
@@ -180,7 +179,6 @@ func runDLSSShow(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Super Resolution (SR):\n")
 	fmt.Printf("  %s\n", renderField("Mode:", profile.FieldDLSSSRMode, p, resolved.DLSS.SRMode))
 	fmt.Printf("  %s\n", renderField("Preset:", profile.FieldDLSSSRPreset, p, resolved.DLSS.SRPreset))
-	fmt.Printf("  %s\n", renderField("Model Preset:", profile.FieldDLSSSRModelPreset, p, resolved.DLSS.SRModelPreset))
 	fmt.Printf("  %s\n", renderField("Override:", profile.FieldDLSSSROverride, p, resolved.DLSS.SROverride))
 
 	fmt.Printf("\nRay Reconstruction (RR):\n")
@@ -230,7 +228,7 @@ func runDLSSSet(cmd *cobra.Command, args []string) error {
 	}
 
 	if dlssSetSRPreset != "" {
-		p.DLSS.SRPreset = profile.DLSSPreset(dlssSetSRPreset)
+		p.DLSS.SRPreset = profile.NormalizeSRPreset(dlssSetSRPreset)
 		p.DLSS.SROverride = true
 		p.MarkOverride(profile.FieldDLSSSRPreset)
 		p.MarkOverride(profile.FieldDLSSSROverride)
@@ -238,8 +236,11 @@ func runDLSSSet(cmd *cobra.Command, args []string) error {
 	}
 
 	if dlssSetSRModelPreset != "" {
-		p.DLSS.SRModelPreset = profile.DLSSModelPreset(dlssSetSRModelPreset)
-		p.MarkOverride(profile.FieldDLSSSRModelPreset)
+		fmt.Fprintf(os.Stderr, "warning: --sr-model-preset is deprecated; use --sr-preset instead\n")
+		p.DLSS.SRPreset = profile.NormalizeSRPreset(dlssSetSRModelPreset)
+		p.DLSS.SROverride = true
+		p.MarkOverride(profile.FieldDLSSSRPreset)
+		p.MarkOverride(profile.FieldDLSSSROverride)
 		changed = true
 	}
 

@@ -195,7 +195,6 @@ export namespace gui {
 	export class ProfileInfo {
 	    srMode: string;
 	    srPreset: string;
-	    srModelPreset: string;
 	    srOverride: boolean;
 	    rrMode: string;
 	    rrPreset: string;
@@ -217,6 +216,14 @@ export namespace gui {
 	    enableWayland: boolean;
 	    enableNgxUpdater: boolean;
 	    vkd3dHeap: boolean;
+	    overlayEnabled: boolean;
+	    overlayPosition: string;
+	    overlayShowFps: boolean;
+	    overlayShowFrametime: boolean;
+	    overlayShowCpu: boolean;
+	    overlayShowGpu: boolean;
+	    overlayShowVram: boolean;
+	    overlayToggleKey: string;
 	    inheritedFromDefault: boolean;
 	    semantics: ProfileFieldSemantics[];
 	
@@ -228,7 +235,6 @@ export namespace gui {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.srMode = source["srMode"];
 	        this.srPreset = source["srPreset"];
-	        this.srModelPreset = source["srModelPreset"];
 	        this.srOverride = source["srOverride"];
 	        this.rrMode = source["rrMode"];
 	        this.rrPreset = source["rrPreset"];
@@ -250,6 +256,14 @@ export namespace gui {
 	        this.enableWayland = source["enableWayland"];
 	        this.enableNgxUpdater = source["enableNgxUpdater"];
 	        this.vkd3dHeap = source["vkd3dHeap"];
+	        this.overlayEnabled = source["overlayEnabled"];
+	        this.overlayPosition = source["overlayPosition"];
+	        this.overlayShowFps = source["overlayShowFps"];
+	        this.overlayShowFrametime = source["overlayShowFrametime"];
+	        this.overlayShowCpu = source["overlayShowCpu"];
+	        this.overlayShowGpu = source["overlayShowGpu"];
+	        this.overlayShowVram = source["overlayShowVram"];
+	        this.overlayToggleKey = source["overlayToggleKey"];
 	        this.inheritedFromDefault = source["inheritedFromDefault"];
 	        this.semantics = this.convertValues(source["semantics"], ProfileFieldSemantics);
 	    }

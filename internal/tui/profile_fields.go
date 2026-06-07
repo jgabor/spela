@@ -24,6 +24,9 @@ func srPresetValue(p profile.DLSSPreset) string {
 	if p == "" {
 		return "default"
 	}
+	if p == profile.DLSSPresetAuto {
+		return "auto"
+	}
 	return string(p)
 }
 
@@ -103,28 +106,16 @@ func newProfileWidget(saveTarget ProfileSaveTarget, name string, p *profile.Prof
 					label:       "DLSS preset",
 					key:         "sr_preset",
 					value:       displayValue(srPresetValue(p.DLSS.SRPreset)),
-					options:     []string{"(default)", "A", "B", "C", "D", "E", "F", "J", "K", "L", "M"},
-					description: "Neural network preset (A-F: CNN, J-M: Transformer)",
+					options:     []string{"(default)", "auto", "A", "B", "C", "D", "E", "F", "J", "K", "L", "M"},
+					description: "auto: mode-linked transformer; A-F: CNN; J-M: Transformer",
 					usesModal:   true,
 					apply: func(p *profile.Profile, v string, d bool) {
 						if d {
 							p.DLSS.SRPreset = ""
+						} else if v == "auto" {
+							p.DLSS.SRPreset = profile.DLSSPresetAuto
 						} else {
 							p.DLSS.SRPreset = profile.DLSSPreset(v)
-						}
-					},
-				},
-				{
-					label:       "Model preset",
-					key:         "sr_model_preset",
-					value:       displayValue(string(p.DLSS.SRModelPreset)),
-					options:     []string{"(default)", "auto", "k", "l", "m"},
-					description: "Force specific transformer model version",
-					apply: func(p *profile.Profile, v string, d bool) {
-						if d {
-							p.DLSS.SRModelPreset = ""
-						} else {
-							p.DLSS.SRModelPreset = profile.DLSSModelPreset(v)
 						}
 					},
 				},

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jgabor/spela/internal/nav"
 	"github.com/jgabor/spela/internal/profile"
 )
 
@@ -69,18 +70,17 @@ func profileWithAllDisplayValues() *profile.Profile {
 			VKD3DHeap:        true,
 		},
 		DLSS: profile.DLSSSettings{
-			SRMode:        profile.DLSSModeQuality,
-			SRPreset:      profile.DLSSPresetK,
-			SRModelPreset: profile.DLSSModelPresetK,
-			SROverride:    true,
-			RRMode:        profile.DLSSModeBalanced,
-			RRPreset:      profile.DLSSPresetJ,
-			RROverride:    true,
-			FGEnabled:     true,
-			FGOverride:    true,
-			MultiFrame:    2,
-			Indicator:     true,
-			FGIndicator:   true,
+			SRMode:      profile.DLSSModeQuality,
+			SRPreset:    profile.DLSSPresetK,
+			SROverride:  true,
+			RRMode:      profile.DLSSModeBalanced,
+			RRPreset:    profile.DLSSPresetJ,
+			RROverride:  true,
+			FGEnabled:   true,
+			FGOverride:  true,
+			MultiFrame:  2,
+			Indicator:   true,
+			FGIndicator: true,
 		},
 		GPU: profile.GPUSettings{
 			ClockOffset:          150,
@@ -404,10 +404,11 @@ func TestResourcePane_DefaultsUsesRootDetail(t *testing.T) {
 	pane.setServices(svc)
 	pane.SetSize(100, 30)
 
-	out := pane.View(ResourceDefaults, true)
+	pane.loadGlobalScope()
+	out := pane.View(true)
 
-	// Headers from the grouped renderer must be present.
-	for _, header := range []string{"Proton", "DLSS", "GPU", "CPU", "Overlay"} {
+	// Default profile shows at least the active subsystem (Proton by default).
+	for _, header := range []string{"HDR", "Wayland"} {
 		if !strings.Contains(out, header) {
 			t.Errorf("defaults view missing header %q in:\n%s", header, out)
 		}
@@ -434,13 +435,14 @@ func TestResourcePane_DefaultsJKMovesFieldFocus(t *testing.T) {
 	pane.SetSize(100, 30)
 
 	before := pane.defaultsDetail.Cursor()
-	pane, _ = pane.Update(keyMsg("j"), ResourceDefaults)
+	pane.state.Aspect = nav.AspectProfile
+	pane, _ = pane.Update(keyMsg("j"))
 	after := pane.defaultsDetail.Cursor()
 	if after != before+1 {
 		t.Errorf("j should advance defaults cursor %d → %d, got %d", before, before+1, after)
 	}
 
-	pane, _ = pane.Update(keyMsg("k"), ResourceDefaults)
+	pane, _ = pane.Update(keyMsg("k"))
 	if pane.defaultsDetail.Cursor() != before {
 		t.Errorf("k should move defaults cursor back to %d, got %d", before, pane.defaultsDetail.Cursor())
 	}
@@ -451,42 +453,31 @@ func TestResourcePane_DefaultsJKMovesFieldFocus(t *testing.T) {
 func TestResourcePane_GamesSidebarPlusDetail(t *testing.T) {
 	g := testGame("Cyberpunk 2077")
 	layout := testLayoutWithGame(g)
-	out := layout.pane.View(ResourceGames, true)
+	layout.navState.Aspect = nav.AspectOverview
+	layout.pane.SetState(layout.navState)
+	out := layout.pane.View(true)
 
 	if !strings.Contains(out, "Cyberpunk 2077") {
 		t.Errorf("games view missing game name 'Cyberpunk 2077':\n%s", out)
 	}
-	// The grouped-field renderer's headers must appear on the detail side.
-	for _, header := range []string{"Proton", "DLSS", "GPU", "CPU", "Overlay"} {
+	for _, header := range []string{"App ID", "Overrides"} {
 		if !strings.Contains(out, header) {
 			t.Errorf("games view missing detail header %q in:\n%s", header, out)
 		}
 	}
 }
 
-// TestLayoutHandlers_TabIntoDefaultsMovesInnerFocus verifies the focus-
-// transfer contract documented in the help screen: from the rail, pressing
-// Tab with Defaults active transfers focus into the pane (innerFocused=true)
-// so subsequent j/k moves field focus instead of rail cursor.
-func TestLayoutHandlers_TabIntoDefaultsMovesInnerFocus(t *testing.T) {
+func TestLayoutHandlers_TabIntoLibraryProfile(t *testing.T) {
 	m := testLayout()
-	// Select the Defaults resource.
-	result, _ := sendKey(&m, "3")
+	result, _ := sendKey(&m, "tab")
 	m = result.(LayoutModel)
-	if m.rail.Active() != ResourceDefaults {
-		t.Fatalf("precondition: expected ResourceDefaults, got %v", m.rail.Active())
+	if m.navState.Zone != nav.ZoneContext {
+		t.Fatalf("after tab: expected context zone, got %v", m.navState.Zone)
 	}
-	if !m.railFocused {
-		t.Fatalf("precondition: rail should be focused after pressing 3")
-	}
-	// Tab into the pane.
 	result, _ = sendKey(&m, "tab")
 	m = result.(LayoutModel)
-	if m.railFocused {
-		t.Errorf("after tab: railFocused should be false")
-	}
-	if !m.pane.InnerFocused() {
-		t.Errorf("after tab with Defaults active: innerFocused should be true")
+	if m.navState.Zone != nav.ZoneContent {
+		t.Errorf("after second tab: expected content zone, got %v", m.navState.Zone)
 	}
 }
 

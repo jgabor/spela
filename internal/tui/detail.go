@@ -46,18 +46,17 @@ var fieldLabels = map[string]string{
 	profile.FieldProtonEnableNGXUpdater: "NGX updater",
 	profile.FieldProtonVKD3DHeap:        "VKD3D heap",
 
-	profile.FieldDLSSSRMode:        "SR mode",
-	profile.FieldDLSSSRPreset:      "SR preset",
-	profile.FieldDLSSSRModelPreset: "SR model preset",
-	profile.FieldDLSSSROverride:    "SR override",
-	profile.FieldDLSSRRMode:        "RR mode",
-	profile.FieldDLSSRRPreset:      "RR preset",
-	profile.FieldDLSSRROverride:    "RR override",
-	profile.FieldDLSSFGEnabled:     "FG enabled",
-	profile.FieldDLSSFGOverride:    "FG override",
-	profile.FieldDLSSMultiFrame:    "Multi-frame",
-	profile.FieldDLSSIndicator:     "SR indicator",
-	profile.FieldDLSSFGIndicator:   "FG indicator",
+	profile.FieldDLSSSRMode:      "SR mode",
+	profile.FieldDLSSSRPreset:    "SR preset",
+	profile.FieldDLSSSROverride:  "SR override",
+	profile.FieldDLSSRRMode:      "RR mode",
+	profile.FieldDLSSRRPreset:    "RR preset",
+	profile.FieldDLSSRROverride:  "RR override",
+	profile.FieldDLSSFGEnabled:   "FG enabled",
+	profile.FieldDLSSFGOverride:  "FG override",
+	profile.FieldDLSSMultiFrame:  "Multi-frame",
+	profile.FieldDLSSIndicator:   "SR indicator",
+	profile.FieldDLSSFGIndicator: "FG indicator",
 
 	profile.FieldGPUClockOffset:          "Clock offset",
 	profile.FieldGPUMemoryOffset:         "Memory offset",
@@ -120,10 +119,23 @@ type DetailModel struct {
 
 	isRoot bool
 
+	// activeSubsystem limits rendering to one section key (e.g. "dlss").
+	// Empty string renders all sections (legacy full scroll).
+	activeSubsystem string
+
 	rows          []detailRow
 	focusableRows []int // indices into rows
 	cursor        int   // index into focusableRows (0..len(focusableRows)-1)
 	width, height int
+}
+
+// SetActiveSubsystem limits View() to a single subsystem group. Pass "" for all.
+func (m *DetailModel) SetActiveSubsystem(sectionKey string) {
+	m.activeSubsystem = sectionKey
+	m.rows, m.focusableRows = buildDetailRowsFiltered(sectionKey)
+	if m.cursor >= len(m.focusableRows) {
+		m.cursor = max(len(m.focusableRows)-1, 0)
+	}
 }
 
 // NewDetail constructs a game-profile detail renderer. raw is the on-disk
@@ -162,7 +174,7 @@ func buildDetail(styles *Styles, raw, defaults *profile.Profile, isRoot bool) De
 		resolved = raw.ResolveForApply(defaults)
 	}
 
-	rows, focusable := buildDetailRows()
+	rows, focusable := buildDetailRowsFiltered("")
 
 	return DetailModel{
 		styles:        styles,
@@ -176,14 +188,16 @@ func buildDetail(styles *Styles, raw, defaults *profile.Profile, isRoot bool) De
 	}
 }
 
-// buildDetailRows flattens the canonical subsystem order into alternating
-// group-header and field rows, and returns the indices of the focusable
-// (field) rows so j/k can step across header boundaries transparently.
-func buildDetailRows() ([]detailRow, []int) {
+// buildDetailRowsFiltered flattens subsystem groups into rows. When sectionKey
+// is non-empty, only that section is included.
+func buildDetailRowsFiltered(sectionKey string) ([]detailRow, []int) {
 	var rows []detailRow
 	var focusable []int
 
 	for _, section := range detailSectionOrder {
+		if sectionKey != "" && section != sectionKey {
+			continue
+		}
 		title := detailSectionTitle[section]
 		if title == "" {
 			title = section
@@ -387,8 +401,14 @@ func (m DetailModel) View() string {
 		focusedRow = m.focusableRows[m.cursor]
 	}
 
+	// When filtering to one subsystem, skip redundant group header.
+	skipHeader := m.activeSubsystem != ""
+
 	for i, row := range m.rows {
 		if row.isHeader() {
+			if skipHeader {
+				continue
+			}
 			if i > 0 {
 				b.WriteString("\n")
 			}
@@ -469,9 +489,7 @@ func formatFieldValue(p *profile.Profile, field string) string {
 	case profile.FieldDLSSSRMode:
 		return displayValue(string(p.DLSS.SRMode))
 	case profile.FieldDLSSSRPreset:
-		return displayValue(string(p.DLSS.SRPreset))
-	case profile.FieldDLSSSRModelPreset:
-		return displayValue(string(p.DLSS.SRModelPreset))
+		return displayValue(srPresetValue(p.DLSS.SRPreset))
 	case profile.FieldDLSSSROverride:
 		return displayBool(p.DLSS.SROverride)
 	case profile.FieldDLSSRRMode:

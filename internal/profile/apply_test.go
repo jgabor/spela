@@ -118,30 +118,31 @@ func containsKey(data []byte, key string) bool {
 	return false
 }
 
-func TestModelPresetSelection(t *testing.T) {
+func TestSRPresetSelection(t *testing.T) {
 	tests := []struct {
 		name     string
 		mode     profile.DLSSMode
-		model    profile.DLSSModelPreset
+		preset   profile.DLSSPreset
 		expected string
 	}{
-		{"Auto + Ultra Perf -> L", profile.DLSSModeUltraPerformance, profile.DLSSModelPresetAuto, "render_preset_l"},
-		{"Auto + Performance -> M", profile.DLSSModePerformance, profile.DLSSModelPresetAuto, "render_preset_m"},
-		{"Auto + Balanced -> K", profile.DLSSModeBalanced, profile.DLSSModelPresetAuto, "render_preset_k"},
-		{"Auto + Quality -> K", profile.DLSSModeQuality, profile.DLSSModelPresetAuto, "render_preset_k"},
-		{"Auto + DLAA -> K", profile.DLSSModeDLAA, profile.DLSSModelPresetAuto, "render_preset_k"},
-		{"Explicit K", profile.DLSSModePerformance, profile.DLSSModelPresetK, "render_preset_k"},
-		{"Explicit L", profile.DLSSModeBalanced, profile.DLSSModelPresetL, "render_preset_l"},
-		{"Explicit M", profile.DLSSModeQuality, profile.DLSSModelPresetM, "render_preset_m"},
+		{"Auto + Ultra Perf -> L", profile.DLSSModeUltraPerformance, profile.DLSSPresetAuto, "render_preset_l"},
+		{"Auto + Performance -> M", profile.DLSSModePerformance, profile.DLSSPresetAuto, "render_preset_m"},
+		{"Auto + Balanced -> K", profile.DLSSModeBalanced, profile.DLSSPresetAuto, "render_preset_k"},
+		{"Auto + Quality -> K", profile.DLSSModeQuality, profile.DLSSPresetAuto, "render_preset_k"},
+		{"Auto + DLAA -> K", profile.DLSSModeDLAA, profile.DLSSPresetAuto, "render_preset_k"},
+		{"Explicit K", profile.DLSSModePerformance, profile.DLSSPresetK, "render_preset_k"},
+		{"Explicit L", profile.DLSSModeBalanced, profile.DLSSPresetL, "render_preset_l"},
+		{"Explicit M", profile.DLSSModeQuality, profile.DLSSPresetM, "render_preset_m"},
+		{"CNN A", profile.DLSSModeBalanced, profile.DLSSPresetA, "render_preset_a"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &profile.Profile{
 				DLSS: profile.DLSSSettings{
-					SRMode:        tt.mode,
-					SRModelPreset: tt.model,
-					SROverride:    true,
+					SRMode:     tt.mode,
+					SRPreset:   tt.preset,
+					SROverride: true,
 				},
 			}
 			e := env.New()

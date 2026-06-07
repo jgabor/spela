@@ -17,6 +17,7 @@ import (
 // consult dlssPresets() rather than referencing this raw slice directly.
 var dlssPresetOrderRaw = []profile.DLSSPreset{
 	profile.DLSSPresetDefault,
+	profile.DLSSPresetAuto,
 	profile.DLSSPresetA,
 	profile.DLSSPresetB,
 	profile.DLSSPresetC,
@@ -163,8 +164,11 @@ func (m DLSSPresetModalModel) View() string {
 		}
 
 		presetName := string(preset)
-		if preset == profile.DLSSPresetDefault {
+		switch preset {
+		case profile.DLSSPresetDefault:
 			presetName = "(default)"
+		case profile.DLSSPresetAuto:
+			presetName = "auto"
 		}
 
 		info := profile.DLSSPresetInfo[preset]
@@ -179,8 +183,11 @@ func (m DLSSPresetModalModel) View() string {
 	currentPreset := dlssPresetOrder[m.cursor]
 	currentInfo := profile.DLSSPresetInfo[currentPreset]
 	description := currentInfo.Description
-	if currentPreset == profile.DLSSPresetDefault {
+	switch currentPreset {
+	case profile.DLSSPresetDefault:
 		description = "Use game's default preset"
+	case profile.DLSSPresetAuto:
+		description = profile.DLSSPresetInfo[profile.DLSSPresetAuto].Description
 	}
 	b.WriteString(s.Dim.Render(description))
 	b.WriteString("\n")

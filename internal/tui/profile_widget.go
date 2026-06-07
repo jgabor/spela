@@ -256,9 +256,12 @@ func (m *ProfileWidgetModel) SetDLSSPreset(preset profile.DLSSPreset) {
 	for gi := range m.groups {
 		for fi := range m.groups[gi].fields {
 			if m.groups[gi].fields[fi].key == "sr_preset" {
-				if preset == "" || preset == profile.DLSSPresetDefault {
+				switch preset {
+				case "", profile.DLSSPresetDefault:
 					m.groups[gi].fields[fi].value = "(default)"
-				} else {
+				case profile.DLSSPresetAuto:
+					m.groups[gi].fields[fi].value = "auto"
+				default:
 					m.groups[gi].fields[fi].value = string(preset)
 				}
 				return

@@ -145,11 +145,8 @@ func (p *Profile) applyDLSS(e *env.Environment) []Cleanup {
 		if p.DLSS.SRMode != "" {
 			e.Set("DXVK_NVAPI_DRS_NGX_DLSS_SR_MODE", string(p.DLSS.SRMode))
 		}
-		if p.DLSS.SRModelPreset != "" {
-			preset := resolveModelPreset(p.DLSS.SRModelPreset, p.DLSS.SRMode)
-			e.Set("DXVK_NVAPI_DRS_NGX_DLSS_SR_OVERRIDE_RENDER_PRESET_SELECTION", dlssModelPresetToEnv(preset))
-		} else if p.DLSS.SRPreset != "" {
-			e.Set("DXVK_NVAPI_DRS_NGX_DLSS_SR_OVERRIDE_RENDER_PRESET_SELECTION", dlssPresetToEnv(p.DLSS.SRPreset))
+		if p.DLSS.SRPreset != "" {
+			e.Set("DXVK_NVAPI_DRS_NGX_DLSS_SR_OVERRIDE_RENDER_PRESET_SELECTION", dlssSRPresetToEnv(p.DLSS.SRPreset, p.DLSS.SRMode))
 		}
 	}
 
@@ -198,38 +195,29 @@ func (p *Profile) applyGPU(e *env.Environment) []Cleanup {
 	return nil
 }
 
+func dlssSRPresetToEnv(preset DLSSPreset, mode DLSSMode) string {
+	if preset == DLSSPresetAuto {
+		preset = resolveAutoSRPreset(mode)
+	}
+	return dlssPresetToEnv(preset)
+}
+
+func resolveAutoSRPreset(mode DLSSMode) DLSSPreset {
+	switch mode {
+	case DLSSModeUltraPerformance:
+		return DLSSPresetL
+	case DLSSModePerformance:
+		return DLSSPresetM
+	default:
+		return DLSSPresetK
+	}
+}
+
 func dlssPresetToEnv(preset DLSSPreset) string {
 	switch preset {
 	case DLSSPresetA, DLSSPresetB, DLSSPresetC, DLSSPresetD, DLSSPresetE, DLSSPresetF, DLSSPresetJ, DLSSPresetK, DLSSPresetL, DLSSPresetM:
 		return "render_preset_" + strings.ToLower(string(preset))
 	default:
 		return "render_preset_default"
-	}
-}
-
-func resolveModelPreset(modelPreset DLSSModelPreset, srMode DLSSMode) DLSSModelPreset {
-	if modelPreset != DLSSModelPresetAuto {
-		return modelPreset
-	}
-	switch srMode {
-	case DLSSModeUltraPerformance:
-		return DLSSModelPresetL
-	case DLSSModePerformance:
-		return DLSSModelPresetM
-	default:
-		return DLSSModelPresetK
-	}
-}
-
-func dlssModelPresetToEnv(preset DLSSModelPreset) string {
-	switch preset {
-	case DLSSModelPresetK:
-		return "render_preset_k"
-	case DLSSModelPresetL:
-		return "render_preset_l"
-	case DLSSModelPresetM:
-		return "render_preset_m"
-	default:
-		return "render_preset_k"
 	}
 }

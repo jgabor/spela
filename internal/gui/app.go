@@ -255,10 +255,9 @@ func gameInfoFromGame(g *game.Game) GameInfo {
 }
 
 type ProfileInfo struct {
-	SRMode               string                  `json:"srMode"`
-	SRPreset             string                  `json:"srPreset"`
-	SRModelPreset        string                  `json:"srModelPreset"`
-	SROverride           bool                    `json:"srOverride"`
+	SRMode     string `json:"srMode"`
+	SRPreset   string `json:"srPreset"`
+	SROverride bool   `json:"srOverride"`
 	RRMode               string                  `json:"rrMode"`
 	RRPreset             string                  `json:"rrPreset"`
 	RROverride           bool                    `json:"rrOverride"`
@@ -279,6 +278,14 @@ type ProfileInfo struct {
 	EnableWayland        bool                    `json:"enableWayland"`
 	EnableNGXUpdater     bool                    `json:"enableNgxUpdater"`
 	VKD3DHeap            bool                    `json:"vkd3dHeap"`
+	OverlayEnabled       bool                    `json:"overlayEnabled"`
+	OverlayPosition      string                  `json:"overlayPosition"`
+	OverlayShowFPS       bool                    `json:"overlayShowFps"`
+	OverlayShowFrametime bool                    `json:"overlayShowFrametime"`
+	OverlayShowCPU       bool                    `json:"overlayShowCpu"`
+	OverlayShowGPU       bool                    `json:"overlayShowGpu"`
+	OverlayShowVRAM      bool                    `json:"overlayShowVram"`
+	OverlayToggleKey     string                  `json:"overlayToggleKey"`
 	InheritedFromDefault bool                    `json:"inheritedFromDefault"`
 	Semantics            []ProfileFieldSemantics `json:"semantics"`
 }
@@ -300,10 +307,9 @@ func profileInfoFromProfileWithSemantics(p *profile.Profile, semantics []profile
 	}
 
 	return &ProfileInfo{
-		SRMode:               string(p.DLSS.SRMode),
-		SRPreset:             string(p.DLSS.SRPreset),
-		SRModelPreset:        string(p.DLSS.SRModelPreset),
-		SROverride:           p.DLSS.SROverride,
+		SRMode:     string(p.DLSS.SRMode),
+		SRPreset:   string(p.DLSS.SRPreset),
+		SROverride: p.DLSS.SROverride,
 		RRMode:               string(p.DLSS.RRMode),
 		RRPreset:             string(p.DLSS.RRPreset),
 		RROverride:           p.DLSS.RROverride,
@@ -324,6 +330,14 @@ func profileInfoFromProfileWithSemantics(p *profile.Profile, semantics []profile
 		EnableWayland:        p.Proton.EnableWayland,
 		EnableNGXUpdater:     p.Proton.EnableNGXUpdater,
 		VKD3DHeap:            p.Proton.VKD3DHeap,
+		OverlayEnabled:       p.Overlay.Enabled,
+		OverlayPosition:      p.Overlay.Position,
+		OverlayShowFPS:       p.Overlay.ShowFPS,
+		OverlayShowFrametime: p.Overlay.ShowFrametime,
+		OverlayShowCPU:       p.Overlay.ShowCPU,
+		OverlayShowGPU:       p.Overlay.ShowGPU,
+		OverlayShowVRAM:      p.Overlay.ShowVRAM,
+		OverlayToggleKey:     p.Overlay.ToggleKey,
 		InheritedFromDefault: inheritedFromDefault,
 		Semantics:            profileFieldSemanticsFromExplanations(semantics),
 	}
@@ -348,10 +362,9 @@ func profileFieldSemanticsFromExplanations(explanations []profile.FieldExplanati
 func profileFromInfo(info ProfileInfo) *profile.Profile {
 	return &profile.Profile{
 		DLSS: profile.DLSSSettings{
-			SRMode:        profile.DLSSMode(info.SRMode),
-			SRPreset:      profile.DLSSPreset(info.SRPreset),
-			SRModelPreset: profile.DLSSModelPreset(info.SRModelPreset),
-			SROverride:    info.SROverride,
+			SRMode:     profile.DLSSMode(info.SRMode),
+			SRPreset:   profile.NormalizeSRPreset(info.SRPreset),
+			SROverride: info.SROverride,
 			RRMode:        profile.DLSSMode(info.RRMode),
 			RRPreset:      profile.DLSSPreset(info.RRPreset),
 			RROverride:    info.RROverride,
@@ -378,6 +391,16 @@ func profileFromInfo(info ProfileInfo) *profile.Profile {
 			EnableWayland:    info.EnableWayland,
 			EnableNGXUpdater: info.EnableNGXUpdater,
 			VKD3DHeap:        info.VKD3DHeap,
+		},
+		Overlay: profile.OverlaySettings{
+			Enabled:       info.OverlayEnabled,
+			Position:      info.OverlayPosition,
+			ShowFPS:       info.OverlayShowFPS,
+			ShowFrametime: info.OverlayShowFrametime,
+			ShowCPU:       info.OverlayShowCPU,
+			ShowGPU:       info.OverlayShowGPU,
+			ShowVRAM:      info.OverlayShowVRAM,
+			ToggleKey:     info.OverlayToggleKey,
 		},
 	}
 }

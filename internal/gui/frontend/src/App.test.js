@@ -10,11 +10,16 @@ const fixtures = vi.hoisted(() => ({
     srMode: '',
     srPreset: '',
     srOverride: false,
+    rrMode: '',
+    rrPreset: '',
+    rrOverride: false,
     fgEnabled: false,
     fgOverride: false,
+    fgIndicator: false,
     multiFrame: 0,
     indicator: false,
     shaderCache: false,
+    shaderCachePath: '',
     threadedOptimization: false,
     powerMizer: '',
     clockOffset: 0,
@@ -25,7 +30,14 @@ const fixtures = vi.hoisted(() => ({
     enableWayland: false,
     enableNgxUpdater: false,
     vkd3dHeap: false,
-    backupOnLaunch: false,
+    overlayEnabled: false,
+    overlayPosition: '',
+    overlayShowFps: false,
+    overlayShowFrametime: false,
+    overlayShowCpu: false,
+    overlayShowGpu: false,
+    overlayShowVram: false,
+    overlayToggleKey: '',
     inheritedFromDefault: false,
     semantics: []
   },
@@ -119,7 +131,7 @@ describe('App keyboard behavior', () => {
     cleanup()
   })
 
-  it('follows app-level game, defaults, options, and help actions through a mocked desktop boundary', async () => {
+  it('navigates library scope, settings, and help through the shell', async () => {
     const desktop = makeDesktop()
     render(App, { props: { desktop } })
 
@@ -132,16 +144,16 @@ describe('App keyboard behavior', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Hades' })).toBeTruthy())
     expect(desktop.GetProfile).toHaveBeenCalledWith(1145360)
 
-    await fireEvent.click(screen.getByRole('button', { name: /Default profile/ }))
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Default profile' })).toBeTruthy())
+    await fireEvent.click(screen.getByRole('button', { name: /All games \(default\)/ }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'All games (default)' })).toBeTruthy())
     expect(screen.getByRole('button', { name: 'Save default profile' })).toBeTruthy()
 
-    await fireEvent.click(screen.getByText('Options'))
-    const options = screen.getByRole('dialog', { name: 'Options' })
-    const showHintsRow = screen.getByText('Show hints').closest('.options-row')
-    await fireEvent.click(within(showHintsRow).getByRole('button', { name: 'On' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Settings' })).toBeTruthy())
+    const showHintsRow = screen.getByText('Show hints').closest('.option-row')
+    await fireEvent.click(within(showHintsRow).getByRole('button'))
     await waitFor(() => expect(desktop.SaveConfig).toHaveBeenCalledWith(expect.objectContaining({ showHints: false })))
-    expect(within(options).getByText('Options saved')).toBeTruthy()
+    expect(screen.getByText('Options saved')).toBeTruthy()
 
     await fireEvent.keyDown(window, { key: '?' })
     const help = screen.getByRole('dialog', { name: 'Help' })
@@ -150,14 +162,15 @@ describe('App keyboard behavior', () => {
     expect(screen.queryByRole('dialog', { name: 'Help' })).toBeNull()
   })
 
-  it('does not run global shortcuts while typing in editable options controls', async () => {
+  it('does not run global shortcuts while typing in editable settings controls', async () => {
     const desktop = makeDesktop()
     render(App, { props: { desktop } })
 
-    await waitFor(() => expect(screen.getByText('Options')).toBeTruthy())
-    await fireEvent.click(screen.getByText('Options'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy())
+    await fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Settings' })).toBeTruthy())
 
-    const steamPath = screen.getAllByPlaceholderText('(default)')[0]
+    const steamPath = screen.getByLabelText('Steam path')
     await fireEvent.input(steamPath, { target: { value: '/mnt/steam' } })
     await fireEvent.keyDown(steamPath, { key: 'q' })
     await fireEvent.keyDown(steamPath, { key: '?' })
@@ -166,7 +179,6 @@ describe('App keyboard behavior', () => {
     expect(desktop.Quit).not.toHaveBeenCalled()
     expect(Quit).not.toHaveBeenCalled()
     expect(tabDefaultAllowed).toBe(true)
-    expect(screen.getByRole('dialog', { name: 'Options' })).toBeTruthy()
     expect(screen.queryByRole('dialog', { name: 'Help' })).toBeNull()
   })
 
@@ -179,13 +191,12 @@ describe('App keyboard behavior', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Cyberpunk 2077' })).toBeTruthy())
 
     await fireEvent.keyDown(window, { key: 'Tab' })
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: '▶ Launch' })))
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByPlaceholderText('Search games...')))
 
-    await fireEvent.keyDown(window, { key: 'Tab' })
-    expect(document.activeElement).toBe(screen.getByPlaceholderText('Search games...'))
+    await fireEvent.keyDown(window, { key: '4' })
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Settings' })).toBeTruthy())
 
     await fireEvent.keyDown(window, { key: '?' })
-
     expect(screen.getByRole('dialog', { name: 'Help' })).toBeTruthy()
 
     await fireEvent.keyDown(window, { key: 'Escape' })
