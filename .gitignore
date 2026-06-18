@@ -11,7 +11,9 @@ dist/
 
 # GUI frontend
 internal/gui/frontend/node_modules/
-internal/gui/frontend/wailsjs/wailsjs/
+internal/gui/frontend/dist/
+internal/gui/frontend/src/lib/navContract.generated.js
+internal/gui/frontend/wailsjs/
 
 # Wails build
 cmd/spela/build/

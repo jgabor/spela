@@ -114,6 +114,7 @@ func Test() error {
 
 // TestFrontend runs frontend tests
 func TestFrontend() error {
+	mg.Deps(GenNavJS, FrontendBindings)
 	return runInDir(frontendDir, "bun", "run", "test")
 }
 
@@ -124,7 +125,7 @@ func TestTUIE2E() error {
 
 // TestE2E runs Playwright e2e tests and TUI E2E tests
 func TestE2E() error {
-	mg.Deps(TestTUIE2E)
+	mg.Deps(GenNavJS, FrontendBindings, TestTUIE2E)
 	return runInDir(frontendDir, "bun", "run", "test:e2e")
 }
 
