@@ -14,6 +14,7 @@ import (
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/gpu"
 	"github.com/jgabor/spela/internal/logging"
+	"github.com/jgabor/spela/internal/nav"
 	"github.com/jgabor/spela/internal/profile"
 	"github.com/jgabor/spela/internal/settings"
 
@@ -53,6 +54,47 @@ type ConfigInfo struct {
 func (a *App) GetSettingsCatalog() []settings.CatalogSection {
 	return settings.WailsCatalog()
 }
+
+func (a *App) GetNavContract() nav.GUIContract {
+	return nav.WailsContract()
+}
+
+func (a *App) DefaultNavState() nav.GUIState {
+	return nav.DefaultGUIState()
+}
+
+func (a *App) NavSelectDestination(state nav.GUIState, destination int) nav.GUIState {
+	return nav.SelectDestinationGUI(state, destination)
+}
+
+func (a *App) NavSelectScope(state nav.GUIState, scopeGlobal bool, gameName string) nav.GUIState {
+	return nav.SelectScopeGUI(state, scopeGlobal, gameName)
+}
+
+func (a *App) NavSelectAspect(state nav.GUIState, aspect int) nav.GUIState {
+	return nav.SelectAspectGUI(state, aspect)
+}
+
+func (a *App) NavSelectSubsystem(state nav.GUIState, subsystem int) nav.GUIState {
+	return nav.SelectSubsystemGUI(state, subsystem)
+}
+
+func (a *App) NavSelectDLLSection(state nav.GUIState, section int) nav.GUIState {
+	return nav.SelectDLLSectionGUI(state, section)
+}
+
+func (a *App) NavSelectMonitorSection(state nav.GUIState, section int) nav.GUIState {
+	return nav.SelectMonitorSectionGUI(state, section)
+}
+
+func (a *App) NavSelectSettingsSection(state nav.GUIState, section int) nav.GUIState {
+	return nav.SelectSettingsSectionGUI(state, section)
+}
+
+func (a *App) NavDestinationFromHotkey(key string) (int, bool) {
+	return nav.DestinationFromHotkeyGUI(key)
+}
+
 
 func (a *App) GetConfig() (ConfigInfo, error) {
 	cfg, err := config.Load()

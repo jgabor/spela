@@ -109,10 +109,33 @@ function createMockScript(mockData) {
     let config = ${JSON.stringify(mockData.config)};
     const dllUpdates = ${JSON.stringify(mockData.dllUpdates)};
 
+    const defaultNav = {
+      destination: 0,
+      scopeGlobal: true,
+      gameName: '',
+      aspect: 1,
+      subsystem: 0,
+      dllSection: 0,
+      monitorSection: 0,
+      settingsSection: 0,
+      breadcrumb: ['Library', 'All games', 'Profile', 'Proton'],
+    };
+    const cloneNav = (state) => ({ ...state, breadcrumb: [...(state.breadcrumb || [])] });
+
     window.go = {
       gui: {
         App: {
           GetConfig: async () => config,
+          GetSettingsCatalog: async () => [],
+          DefaultNavState: async () => cloneNav(defaultNav),
+          NavSelectDestination: async (state, destination) => cloneNav({ ...state, destination }),
+          NavSelectScope: async (state, scopeGlobal, gameName = '') => cloneNav({ ...state, scopeGlobal, gameName, aspect: scopeGlobal ? 1 : state.aspect }),
+          NavSelectAspect: async (state, aspect) => cloneNav({ ...state, aspect }),
+          NavSelectSubsystem: async (state, subsystem) => cloneNav({ ...state, subsystem }),
+          NavSelectDLLSection: async (state, section) => cloneNav({ ...state, dllSection: section }),
+          NavSelectMonitorSection: async (state, section) => cloneNav({ ...state, monitorSection: section }),
+          NavSelectSettingsSection: async (state, section) => cloneNav({ ...state, settingsSection: section }),
+
           SaveConfig: async (nextConfig) => {
             config = nextConfig;
           },

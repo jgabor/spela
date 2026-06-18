@@ -11,7 +11,7 @@
 - [x] ~~**`GameDetail.svelte` god-component split**~~ — extracted `GameDLLPane.svelte`, `GameProfilePane.svelte`, and `profileFieldOptions.js`; orchestrator now 401 lines
 - [x] ~~**TUI stale game DB on launch**~~ — fixed: rescan-on-startup wired in TUI, Ctrl+R and CLI commands refresh via config-aware Steam scan (custom steam_path + additional_library_paths)
 - [x] ~~**TUI status bar shows `u:update` when no updates exist**~~ — fixed: nav.ContentHints gating, message bar feedback, aspect forward from Content — `nav.contentZoneKeys()` always emits update hint; inline DLL hints correctly omit it; `u` silently no-ops with no message bar feedback (rmux e2e 2026-06-18)
-- [ ] **Go→JS nav binding drift risk** — `navState.js` hand-ports `internal/nav`; add Wails export or codegen so GUI transitions cannot silently diverge (`.agentera/plan.yaml` deferred)
+- [x] ~~**Go→JS nav binding drift risk**~~ — fixed: nav constants generated from `internal/nav`, GUI transitions routed through Wails bindings
 - [ ] **GUI DLL Catalog parity** — `DLLCatalogPane.svelte` is a thin stub; TUI has full library inventory + deployment matrix + update-all
 - [ ] **`SupportsVKD3DHeap` detection stale for Proton-CachyOS 11.0+** — greps for removed `PROTON_VKD3D_HEAP` marker; Proton-CachyOS now needs only `VKD3D_CONFIG=descriptor_heap`, so compatible builds may false-negative
 - [x] ~~TUI focus state too subtle~~ — zone indicator in status bar, column focus markers (▸), profile row cursor (`>`)

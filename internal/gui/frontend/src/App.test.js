@@ -48,6 +48,17 @@ const fixtures = vi.hoisted(() => ({
     { id: 3, title: 'DLL policy', options: [] },
     { id: 4, title: 'Logging', options: [{ key: 'logLevel', label: 'Log level', description: '', type: 'select', choices: ['info'] }] }
   ],
+  defaultNav: {
+    destination: 0,
+    scopeGlobal: true,
+    gameName: '',
+    aspect: 1,
+    subsystem: 0,
+    dllSection: 0,
+    monitorSection: 0,
+    settingsSection: 0,
+    breadcrumb: ['Library', 'All games', 'Profile', 'Proton']
+  },
   config: {
     theme: 'dark',
     showHints: true,
@@ -68,6 +79,21 @@ const fixtures = vi.hoisted(() => ({
 
 vi.mock('../wailsjs/go/gui/App', () => ({
   CheckDLLUpdates: vi.fn().mockResolvedValue([]),
+  DefaultNavState: vi.fn().mockImplementation(async () => structuredClone(fixtures.defaultNav)),
+  GetNavContract: vi.fn().mockResolvedValue({}),
+  NavDestinationFromHotkey: vi.fn().mockReturnValue([0, false]),
+  NavSelectAspect: vi.fn().mockImplementation(async (state, aspect) => ({ ...state, aspect })),
+  NavSelectDLLSection: vi.fn().mockImplementation(async (state, section) => ({ ...state, dllSection: section })),
+  NavSelectDestination: vi.fn().mockImplementation(async (state, destination) => ({ ...state, destination })),
+  NavSelectMonitorSection: vi.fn().mockImplementation(async (state, section) => ({ ...state, monitorSection: section })),
+  NavSelectScope: vi.fn().mockImplementation(async (state, scopeGlobal, gameName = '') => ({
+    ...state,
+    scopeGlobal,
+    gameName,
+    aspect: scopeGlobal ? 1 : state.aspect
+  })),
+  NavSelectSettingsSection: vi.fn().mockImplementation(async (state, section) => ({ ...state, settingsSection: section })),
+  NavSelectSubsystem: vi.fn().mockImplementation(async (state, subsystem) => ({ ...state, subsystem })),
   GetCPUInfo: vi.fn().mockResolvedValue({ utilizationPercent: 12, averageFrequency: 4200, memoryUsedMegabytes: 8192, memoryTotalMegabytes: 32768 }),
   GetConfig: vi.fn().mockResolvedValue(fixtures.config),
   GetDefaultProfile: vi.fn().mockResolvedValue(fixtures.profile),
@@ -103,6 +129,21 @@ import { Quit } from '../wailsjs/runtime/runtime'
 function makeDesktop(overrides = {}) {
   return {
     CheckDLLUpdates: vi.fn().mockResolvedValue([]),
+  DefaultNavState: vi.fn().mockImplementation(async () => structuredClone(fixtures.defaultNav)),
+  GetNavContract: vi.fn().mockResolvedValue({}),
+  NavDestinationFromHotkey: vi.fn().mockReturnValue([0, false]),
+  NavSelectAspect: vi.fn().mockImplementation(async (state, aspect) => ({ ...state, aspect })),
+  NavSelectDLLSection: vi.fn().mockImplementation(async (state, section) => ({ ...state, dllSection: section })),
+  NavSelectDestination: vi.fn().mockImplementation(async (state, destination) => ({ ...state, destination })),
+  NavSelectMonitorSection: vi.fn().mockImplementation(async (state, section) => ({ ...state, monitorSection: section })),
+  NavSelectScope: vi.fn().mockImplementation(async (state, scopeGlobal, gameName = '') => ({
+    ...state,
+    scopeGlobal,
+    gameName,
+    aspect: scopeGlobal ? 1 : state.aspect
+  })),
+  NavSelectSettingsSection: vi.fn().mockImplementation(async (state, section) => ({ ...state, settingsSection: section })),
+  NavSelectSubsystem: vi.fn().mockImplementation(async (state, subsystem) => ({ ...state, subsystem })),
     GetCPUInfo: vi.fn().mockResolvedValue({ utilizationPercent: 12, averageFrequency: 4200, memoryUsedMegabytes: 8192, memoryTotalMegabytes: 32768 }),
     GetConfig: vi.fn().mockResolvedValue(fixtures.config),
     GetDefaultProfile: vi.fn().mockResolvedValue(fixtures.profile),

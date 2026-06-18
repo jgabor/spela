@@ -18,13 +18,17 @@
     selectDestination as applyDestination,
     selectScope,
     selectAspect,
-    selectSubsystem
+    selectSubsystem,
+    selectDLLSection,
+    selectMonitorSection,
+    selectSettingsSection,
+    initialNavState
   } from './lib/navState.js'
 
   export let desktop = desktopCommands
 
   let selectedGame = null
-  let nav = defaultNavState()
+  let nav = initialNavState()
   let gameDetailComponent
   let contextNavComponent
   let theme = 'dark'
@@ -77,6 +81,7 @@
   }
 
   onMount(async () => {
+    nav = await defaultNavState()
     await loadSettingsCatalog()
     loadConfig()
     loadVersion()
@@ -97,24 +102,44 @@
     window.removeEventListener('keydown', handleKeydown)
   })
 
-  function selectGame(game) {
+  async function selectGame(game) {
     selectedGame = game
-    nav = selectScope(nav, false, game?.name ?? '')
+    nav = await selectScope(nav, false, game?.name ?? '')
     if (nav.aspect !== Aspect.Profile && nav.aspect !== Aspect.DLLs) {
-      nav = selectAspect(nav, Aspect.Overview)
+      nav = await selectAspect(nav, Aspect.Overview)
     }
   }
 
-  function selectDefaultProfile() {
+  async function selectDefaultProfile() {
     selectedGame = null
-    nav = selectScope(nav, true)
+    nav = await selectScope(nav, true)
   }
 
-  function selectDestination(event) {
-    nav = applyDestination(nav, event.detail.destination)
+  async function selectDestination(event) {
+    nav = await applyDestination(nav, event.detail.destination)
     if (event.detail.destination === Destination.Settings) {
       loadConfig()
     }
+  }
+
+  async function handleSelectAspect(event) {
+    nav = await selectAspect(nav, event.detail.aspect)
+  }
+
+  async function handleSelectSubsystem(event) {
+    nav = await selectSubsystem(nav, event.detail.subsystem)
+  }
+
+  async function handleDLLSection(event) {
+    nav = await selectDLLSection(nav, event.detail.section)
+  }
+
+  async function handleMonitorSection(event) {
+    nav = await selectMonitorSection(nav, event.detail.section)
+  }
+
+  async function handleSettingsSection(event) {
+    nav = await selectSettingsSection(nav, event.detail.section)
   }
 
   $: crumb = breadcrumb(nav).join(' › ')
@@ -194,8 +219,8 @@
     }
   }
 
-  function openSettings() {
-    nav = applyDestination(nav, Destination.Settings)
+  async function openSettings() {
+    nav = await applyDestination(nav, Destination.Settings)
     loadConfig()
   }
 
@@ -318,11 +343,11 @@
       settingsSection={nav.settingsSection}
       on:selectGame={e => selectGame(e.detail)}
       on:selectGlobal={selectDefaultProfile}
-      on:selectAspect={e => { nav = selectAspect(nav, e.detail.aspect) }}
-      on:selectSubsystem={e => { nav = selectSubsystem(nav, e.detail.subsystem) }}
-      on:dllSection={e => { nav = { ...nav, dllSection: e.detail.section } }}
-      on:monitorSection={e => { nav = { ...nav, monitorSection: e.detail.section } }}
-      on:settingsSection={e => { nav = { ...nav, settingsSection: e.detail.section } }}
+      on:selectAspect={handleSelectAspect}
+      on:selectSubsystem={handleSelectSubsystem}
+      on:dllSection={handleDLLSection}
+      on:monitorSection={handleMonitorSection}
+      on:settingsSection={handleSettingsSection}
     />
     <section class="content">
       {#if nav.destination === Destination.Settings}

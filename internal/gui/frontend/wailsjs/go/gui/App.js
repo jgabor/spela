@@ -6,6 +6,10 @@ export function CheckDLLUpdates(arg1) {
   return window['go']['gui']['App']['CheckDLLUpdates'](arg1);
 }
 
+export function DefaultNavState() {
+  return window['go']['gui']['App']['DefaultNavState']();
+}
+
 export function GetCPUInfo() {
   return window['go']['gui']['App']['GetCPUInfo']();
 }
@@ -32,6 +36,10 @@ export function GetGames() {
 
 export function GetLogo() {
   return window['go']['gui']['App']['GetLogo']();
+}
+
+export function GetNavContract() {
+  return window['go']['gui']['App']['GetNavContract']();
 }
 
 export function GetProfile(arg1) {
@@ -64,6 +72,38 @@ export function ListDLLInstallTypes(arg1) {
 
 export function ListDLLVersions(arg1) {
   return window['go']['gui']['App']['ListDLLVersions'](arg1);
+}
+
+export function NavDestinationFromHotkey(arg1) {
+  return window['go']['gui']['App']['NavDestinationFromHotkey'](arg1);
+}
+
+export function NavSelectAspect(arg1, arg2) {
+  return window['go']['gui']['App']['NavSelectAspect'](arg1, arg2);
+}
+
+export function NavSelectDLLSection(arg1, arg2) {
+  return window['go']['gui']['App']['NavSelectDLLSection'](arg1, arg2);
+}
+
+export function NavSelectDestination(arg1, arg2) {
+  return window['go']['gui']['App']['NavSelectDestination'](arg1, arg2);
+}
+
+export function NavSelectMonitorSection(arg1, arg2) {
+  return window['go']['gui']['App']['NavSelectMonitorSection'](arg1, arg2);
+}
+
+export function NavSelectScope(arg1, arg2, arg3) {
+  return window['go']['gui']['App']['NavSelectScope'](arg1, arg2, arg3);
+}
+
+export function NavSelectSettingsSection(arg1, arg2) {
+  return window['go']['gui']['App']['NavSelectSettingsSection'](arg1, arg2);
+}
+
+export function NavSelectSubsystem(arg1, arg2) {
+  return window['go']['gui']['App']['NavSelectSubsystem'](arg1, arg2);
 }
 
 export function RestoreDLLs(arg1) {

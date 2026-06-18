@@ -289,6 +289,65 @@ export namespace gui {
 
 }
 
+export namespace nav {
+	
+	export class GUIContract {
+	    destination: Record<string, number>;
+	    aspect: Record<string, number>;
+	    destinationLabels: string[];
+	    aspectLabels: string[];
+	    profileSubsystemLabels: string[];
+	    settingsSectionLabels: string[];
+	    monitorSectionLabels: string[];
+	    dllCatalogSectionLabels: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new GUIContract(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.destination = source["destination"];
+	        this.aspect = source["aspect"];
+	        this.destinationLabels = source["destinationLabels"];
+	        this.aspectLabels = source["aspectLabels"];
+	        this.profileSubsystemLabels = source["profileSubsystemLabels"];
+	        this.settingsSectionLabels = source["settingsSectionLabels"];
+	        this.monitorSectionLabels = source["monitorSectionLabels"];
+	        this.dllCatalogSectionLabels = source["dllCatalogSectionLabels"];
+	    }
+	}
+	export class GUIState {
+	    destination: number;
+	    scopeGlobal: boolean;
+	    gameName: string;
+	    aspect: number;
+	    subsystem: number;
+	    dllSection: number;
+	    monitorSection: number;
+	    settingsSection: number;
+	    breadcrumb: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new GUIState(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.destination = source["destination"];
+	        this.scopeGlobal = source["scopeGlobal"];
+	        this.gameName = source["gameName"];
+	        this.aspect = source["aspect"];
+	        this.subsystem = source["subsystem"];
+	        this.dllSection = source["dllSection"];
+	        this.monitorSection = source["monitorSection"];
+	        this.settingsSection = source["settingsSection"];
+	        this.breadcrumb = source["breadcrumb"];
+	    }
+	}
+
+}
+
 export namespace settings {
 	
 	export class CatalogOption {

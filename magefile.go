@@ -76,6 +76,12 @@ func Build() error {
 	return sh.RunV("go", "build", "-tags", "embed_assets,production,webkit2_41", "-ldflags", ldf, "-o", binaryName, "./cmd/spela")
 }
 
+// GenNavJS generates GUI nav constants from internal/nav.
+func GenNavJS() error {
+	out := filepath.Join(frontendDir, "src", "lib", "navContract.generated.js")
+	return sh.RunV("go", "run", "./tools/gen-nav-js", out)
+}
+
 // FrontendBindings regenerates Wails frontend bindings
 func FrontendBindings() error {
 	return runInDir(filepath.Join("cmd", "spela"), "wails", "build", "-s", "-nopackage", "-m", "-tags", "wails,webkit2_41")
@@ -83,7 +89,7 @@ func FrontendBindings() error {
 
 // FrontendBuild builds the Svelte frontend
 func FrontendBuild() error {
-	mg.Deps(FrontendBindings)
+	mg.Deps(GenNavJS, FrontendBindings)
 	if err := runInDir(frontendDir, "bun", "install"); err != nil {
 		return err
 	}

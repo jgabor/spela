@@ -1,4 +1,18 @@
 cycles:
+- number: 92
+  timestamp: '2026-06-18 22:45'
+  type: feat
+  phase: build
+  what: Bound GUI navigation to internal/nav via Wails transition methods and generated navContract.js constants.
+  inspiration: User-directed realisera on Go→JS nav binding drift TODO.
+  discovered: Playwright e2e fixture needed DefaultNavState and NavSelect* mocks after async nav bridge.
+  verified: mage test, mage TestFrontend, mage lint passed.
+  next: GUI DLL Catalog parity or decision satisfaction review.
+  context:
+    intent: eliminate hand-ported navState.js drift against internal/nav
+    constraints: no commit without explicit approval; RescanOnStartup defaults true
+    unknowns: none for acceptance
+    scope: internal/nav/gui.go, internal/gui/app.go, tools/gen-nav-js/, frontend nav bridge
 - number: 91
   timestamp: '2026-06-18 22:30'
   type: fix
