@@ -1,0 +1,915 @@
+audits:
+- number: 9
+  date: '2026-04-27'
+  dimensions:
+  - Architecture
+  - Patterns
+  - Coupling
+  - Complexity
+  - Tests
+  - Dependencies
+  - Versions
+  - Freshness
+  - Security
+  findings_summary:
+    critical: 0
+    warning: 3
+    info: 3
+    filtered_by_confidence: 0
+  trajectory: ⮉ improving vs Audit 8
+  grades:
+    Complexity: B
+    Tests: B
+    Versions: B
+    Security: A
+  dimension_details:
+  - name: Complexity
+    grade: B
+    summary: ''
+    findings:
+    - heading: '⇉ `GameDetail.svelte` remains the GUI hotspot, warning (confidence: 86)'
+      severity: warning
+      confidence: 86
+      location: '`internal/gui/frontend/src/lib/GameDetail.svelte:12-32`, `internal/gui/frontend/src/lib/GameDetail.svelte:211-449`,
+        `internal/gui/frontend/src/lib/GameDetail.svelte:580`
+
+        - **Evidence**: One 1329-line component owns profile loading/saving, DLL updates, install wizard state, progress events,
+        direct-launch rejection display, and the full profile editor.
+
+        - **Impact**: The new seams reduce behavior risk, but future GUI work will keep concentrating in one file.
+
+        - **Suggested action**: Split only when the next feature needs it; current behavior is covered.'
+      evidence: 'One 1329-line component owns profile loading/saving, DLL updates, install wizard state, progress events,
+        direct-launch rejection display, and the full profile editor.
+
+        - **Impact**: The new seams reduce behavior risk, but future GUI work will keep concentrating in one file.
+
+        - **Suggested action**: Split only when the next feature needs it; current behavior is covered.'
+      impact: 'The new seams reduce behavior risk, but future GUI work will keep concentrating in one file.
+
+        - **Suggested action**: Split only when the next feature needs it; current behavior is covered.'
+      suggested_action: Split only when the next feature needs it; current behavior is covered.
+  - name: Tests
+    grade: B
+    summary: ''
+    findings:
+    - heading: '⇉ Default-profile semantic rendering is mocked ahead of the backend boundary, warning (confidence: 92)'
+      severity: warning
+      confidence: 92
+      location: '`internal/gui/frontend/src/lib/GameDetail.test.js:160-167`, `internal/gui/application.go:104-110`, `internal/gui/app.go:412-413`
+
+        - **Evidence**: The frontend default-profile test expects semantic text from mocks, but `getDefaultProfile` returns
+        `profileInfoFromProfile(defaultProfile, false)` without semantic metadata.
+
+        - **Impact**: Task 5''s default-profile semantic signal can pass in frontend tests while the real Wails boundary omits
+        metadata.
+
+        - **Suggested action**: Add backend default-profile semantics or narrow the frontend expectation.'
+      evidence: 'The frontend default-profile test expects semantic text from mocks, but `getDefaultProfile` returns `profileInfoFromProfile(defaultProfile,
+        false)` without semantic metadata.
+
+        - **Impact**: Task 5''s default-profile semantic signal can pass in frontend tests while the real Wails boundary omits
+        metadata.
+
+        - **Suggested action**: Add backend default-profile semantics or narrow the frontend expectation.'
+      impact: 'Task 5''s default-profile semantic signal can pass in frontend tests while the real Wails boundary omits metadata.
+
+        - **Suggested action**: Add backend default-profile semantics or narrow the frontend expectation.'
+      suggested_action: Add backend default-profile semantics or narrow the frontend expectation.
+    - heading: '⇢ Routine dependency updates are available, info (confidence: 85)'
+      severity: info
+      confidence: 85
+      location: '`go.mod`, `internal/gui/frontend/package.json`
+
+        - **Evidence**: `npm audit` and `govulncheck` are clean; update checks show routine package updates only.
+
+        - **Impact**: No security issue. Freshness can drift if ignored across another maintenance cycle.
+
+        - **Suggested action**: Batch dependency refresh separately.'
+      evidence: '`npm audit` and `govulncheck` are clean; update checks show routine package updates only.
+
+        - **Impact**: No security issue. Freshness can drift if ignored across another maintenance cycle.
+
+        - **Suggested action**: Batch dependency refresh separately.'
+      impact: 'No security issue. Freshness can drift if ignored across another maintenance cycle.
+
+        - **Suggested action**: Batch dependency refresh separately.'
+      suggested_action: Batch dependency refresh separately.
+  - name: Versions
+    grade: B
+    summary: ''
+    findings:
+    - heading: '⇉ Local `v0.6.0` tag is still not published remotely, warning (confidence: 95)'
+      severity: warning
+      confidence: 95
+      location: 'local tag `v0.6.0`; origin tag refs
+
+        - **Evidence**: `CHANGELOG.md` records `0.6.0`; remote tag lookup still returns no `v0.6.0` ref.
+
+        - **Impact**: Release consumers and compare links cannot resolve the current trusted-profile-loop release on origin.
+
+        - **Suggested action**: Push `main` and `v0.6.0` only when the user approves publication.'
+      evidence: '`CHANGELOG.md` records `0.6.0`; remote tag lookup still returns no `v0.6.0` ref.
+
+        - **Impact**: Release consumers and compare links cannot resolve the current trusted-profile-loop release on origin.
+
+        - **Suggested action**: Push `main` and `v0.6.0` only when the user approves publication.'
+      impact: 'Release consumers and compare links cannot resolve the current trusted-profile-loop release on origin.
+
+        - **Suggested action**: Push `main` and `v0.6.0` only when the user approves publication.'
+      suggested_action: Push `main` and `v0.6.0` only when the user approves publication.
+    - heading: '⇢ HEALTH was the only stale expected artifact and is refreshed by this audit, info (confidence: 98)'
+      severity: info
+      confidence: 98
+      location: '`.agentera/HEALTH.md`, `.agentera/DOCS.md:16-27`, `.agentera/PLAN.md:3`
+
+        - **Evidence**: The plan was created 2026-04-27 and completed at `3d36480`; committed HEALTH previously stopped at
+        `087d1c4` on 2026-04-24.
+
+        - **Impact**: Before this audit, suite consumers using committed artifacts lacked post-plan health state.
+
+        - **Suggested action**: None after committing this audit.'
+      evidence: 'The plan was created 2026-04-27 and completed at `3d36480`; committed HEALTH previously stopped at `087d1c4`
+        on 2026-04-24.
+
+        - **Impact**: Before this audit, suite consumers using committed artifacts lacked post-plan health state.
+
+        - **Suggested action**: None after committing this audit.'
+      impact: 'Before this audit, suite consumers using committed artifacts lacked post-plan health state.
+
+        - **Suggested action**: None after committing this audit.'
+      suggested_action: None after committing this audit.
+  - name: Security
+    grade: A
+    summary: 'No findings. Lightweight scans found no hardcoded secrets, dynamic JavaScript execution, SQL construction, or
+      shell-string execution patterns; command execution remains argv-based. ### Trends vs Audit 8 - **Improved**: GUI command/event
+      seams are testable, app-level GUI flows are covered, and HEALTH is current for the completed plan. - **Stable**: Wrapper-first
+      launch, profile inheritance ownership, dependency hygiene, and security hygiene remain intact. - **New findings**: Default-profile
+      semantic rendering has a frontend/backend test mismatch; `GameDetail.svelte` remains the GUI complexity hotspot. - **Resolved**:
+      No GUI-seam implementation follow-up was reopened by the plan freshness checkpoint. ### Patterns Observed - **Module
+      structure**: Backend domain semantics live in `internal/profile`, `internal/dll`, and `guiApplicationBoundary`; Svelte
+      consumes DTOs through injectable desktop seams. - **Error handling**: `%w` wrapping and persistent frontend error banners
+      are dominant for GUI operations. - **Testing approach**: Frontend component tests use replaceable desktop sources; tagged
+      GUI backend tests cover boundary behavior. - **Dependency patterns**: Go and frontend dependencies stay pinned; the
+      GUI seam plan changed no dependency manifests. - **Launch model**: Steam wrapper `%command%` remains trusted; GUI launch
+      attempts return setup guidance.'
+    findings: []
+  trends:
+    improved: 'GUI command/event seams are testable, app-level GUI flows are covered, and HEALTH is current for the completed
+      plan.
+
+      - **Stable**: Wrapper-first launch, profile inheritance ownership, dependency hygiene, and security hygiene remain intact.
+
+      - **New findings**: Default-profile semantic rendering has a frontend/backend test mismatch; `GameDetail.svelte` remains
+      the GUI complexity hotspot.
+
+      - **Resolved**: No GUI-seam implementation follow-up was reopened by the plan freshness checkpoint.'
+    stable: 'Wrapper-first launch, profile inheritance ownership, dependency hygiene, and security hygiene remain intact.
+
+      - **New findings**: Default-profile semantic rendering has a frontend/backend test mismatch; `GameDetail.svelte` remains
+      the GUI complexity hotspot.
+
+      - **Resolved**: No GUI-seam implementation follow-up was reopened by the plan freshness checkpoint.'
+    new_findings: 'Default-profile semantic rendering has a frontend/backend test mismatch; `GameDetail.svelte` remains the
+      GUI complexity hotspot.
+
+      - **Resolved**: No GUI-seam implementation follow-up was reopened by the plan freshness checkpoint.'
+    resolved: No GUI-seam implementation follow-up was reopened by the plan freshness checkpoint.
+  patterns:
+  - '**Module structure**: Backend domain semantics live in `internal/profile`, `internal/dll`, and `guiApplicationBoundary`;
+    Svelte consumes DTOs through injectable desktop seams.'
+  - '**Error handling**: `%w` wrapping and persistent frontend error banners are dominant for GUI operations.'
+  - '**Testing approach**: Frontend component tests use replaceable desktop sources; tagged GUI backend tests cover boundary
+    behavior.'
+  - '**Dependency patterns**: Go and frontend dependencies stay pinned; the GUI seam plan changed no dependency manifests.'
+  - '**Launch model**: Steam wrapper `%command%` remains trusted; GUI launch attempts return setup guidance.'
+- number: 8
+  date: '2026-04-24'
+  dimensions:
+  - Architecture
+  - Patterns
+  - Coupling
+  - Complexity
+  - Tests
+  - Dependencies
+  - Versions
+  - Freshness
+  - Security
+  findings_summary:
+    critical: 0
+    warning: 3
+    info: 1
+    filtered_by_confidence: 0
+  trajectory: stable vs Audit 7
+  grades:
+    Complexity: B
+    Versions: B
+    Freshness: B
+    Security: A
+  dimension_details:
+  - name: Complexity
+    grade: B
+    summary: 'No findings. Recent work grew `cmd/spela/commands/launch.go` and GUI detail rendering, but the added helpers
+      remain localized and covered by focused tests. ### Tests: A- No findings. `mage test`, Go coverage, frontend unit tests,
+      tagged GUI backend tests, lint, and build all pass; plan-critical profile, launch, restore, TUI, and GUI paths have
+      focused tests. ### Dependencies: B+'
+    findings:
+    - heading: '⇢ Minor dependency updates are available, info (confidence: 80)'
+      severity: info
+      confidence: 80
+      location: '`go.mod`, `internal/gui/frontend/package.json`
+
+        - **Evidence**: Go and frontend freshness checks show minor or patch updates; `npm audit` and `govulncheck` report
+        no vulnerabilities.
+
+        - **Impact**: No immediate security issue; freshness can drift if ignored across another release cycle.
+
+        - **Suggested action**: Batch dependency refresh in a normal maintenance cycle, not inside this completed plan.'
+      evidence: 'Go and frontend freshness checks show minor or patch updates; `npm audit` and `govulncheck` report no vulnerabilities.
+
+        - **Impact**: No immediate security issue; freshness can drift if ignored across another release cycle.
+
+        - **Suggested action**: Batch dependency refresh in a normal maintenance cycle, not inside this completed plan.'
+      impact: 'No immediate security issue; freshness can drift if ignored across another release cycle.
+
+        - **Suggested action**: Batch dependency refresh in a normal maintenance cycle, not inside this completed plan.'
+      suggested_action: Batch dependency refresh in a normal maintenance cycle, not inside this completed plan.
+  - name: Versions
+    grade: B
+    summary: ''
+    findings:
+    - heading: '⇉ Local `v0.6.0` tag is not published remotely, warning (confidence: 95)'
+      severity: warning
+      confidence: 95
+      location: 'local tag `v0.6.0`; origin tag refs
+
+        - **Evidence**: Local `v0.6.0` exists, `git cliff --unreleased --strip all` is empty, and origin has no `v0.6.0` tag.
+
+        - **Impact**: Release consumers and compare links cannot resolve the current trusted-profile-loop release on origin.
+
+        - **Suggested action**: Push `main` and `v0.6.0` only when the user approves publication.'
+      evidence: 'Local `v0.6.0` exists, `git cliff --unreleased --strip all` is empty, and origin has no `v0.6.0` tag.
+
+        - **Impact**: Release consumers and compare links cannot resolve the current trusted-profile-loop release on origin.
+
+        - **Suggested action**: Push `main` and `v0.6.0` only when the user approves publication.'
+      impact: 'Release consumers and compare links cannot resolve the current trusted-profile-loop release on origin.
+
+        - **Suggested action**: Push `main` and `v0.6.0` only when the user approves publication.'
+      suggested_action: Push `main` and `v0.6.0` only when the user approves publication.
+  - name: Freshness
+    grade: B
+    summary: ''
+    findings:
+    - heading: '⇉ Recent PROGRESS phase labels violate the artifact contract, warning (confidence: 95)'
+      severity: warning
+      confidence: 95
+      location: '`.agentera/PROGRESS.md:5`, `.agentera/PROGRESS.md:24`, `.agentera/PROGRESS.md:35`, `.agentera/PROGRESS.md:101`
+
+        - **Evidence**: Recent entries use `docs`, `release`, and `fix`; the contract allows only `envision`, `deliberate`,
+        `plan`, `build`, and `audit`.
+
+        - **Impact**: Suite consumers can misclassify recent plan activity and phase trends.
+
+        - **Suggested action**: Normalize recent phase values to the contract vocabulary, likely `build` for implementation,
+        docs, and release cycles.'
+      evidence: 'Recent entries use `docs`, `release`, and `fix`; the contract allows only `envision`, `deliberate`, `plan`,
+        `build`, and `audit`.
+
+        - **Impact**: Suite consumers can misclassify recent plan activity and phase trends.
+
+        - **Suggested action**: Normalize recent phase values to the contract vocabulary, likely `build` for implementation,
+        docs, and release cycles.'
+      impact: 'Suite consumers can misclassify recent plan activity and phase trends.
+
+        - **Suggested action**: Normalize recent phase values to the contract vocabulary, likely `build` for implementation,
+        docs, and release cycles.'
+      suggested_action: Normalize recent phase values to the contract vocabulary, likely `build` for implementation, docs,
+        and release cycles.
+  - name: Security
+    grade: A
+    summary: 'No findings. Lightweight scans found no hardcoded secrets, dynamic JS execution, SQL construction, or suspicious
+      shell construction beyond intentional command launching. ### Trends vs Audit 7 - **Improved**: Audit breadth returned
+      to full post-plan coverage after Audit 7''s targeted remediation check. - **Stable**: Tests and dependencies remain
+      healthy; remote publication remains user-gated. - **New findings**: Profile explanation semantics can over-label empty
+      defaults, and PROGRESS phase labels drifted from the contract. - **Resolved**: The prior `v0.5.0` and `v0.5.1` remote-publication
+      warning is obsolete; only `v0.6.0` remains local-only. ### Patterns Observed - **Module structure**: `internal/profile`
+      owns profile semantics; CLI, launcher, TUI, and GUI consume that vocabulary. - **Error handling**: `%w` wrapping and
+      centralized logging remain dominant. - **Testing approach**: Focused behavior tests cover each trusted-loop surface,
+      with Mage running default and tagged GUI backend tests. - **Dependency patterns**: Go and frontend dependencies are
+      pinned; vulnerability scans are clean. - **Release model**: Local release state is clean; remote tag publication remains
+      explicitly user-gated.'
+    findings: []
+  trends:
+    improved: 'Audit breadth returned to full post-plan coverage after Audit 7''s targeted remediation check.
+
+      - **Stable**: Tests and dependencies remain healthy; remote publication remains user-gated.
+
+      - **New findings**: Profile explanation semantics can over-label empty defaults, and PROGRESS phase labels drifted from
+      the contract.
+
+      - **Resolved**: The prior `v0.5.0` and `v0.5.1` remote-publication warning is obsolete; only `v0.6.0` remains local-only.'
+    stable: 'Tests and dependencies remain healthy; remote publication remains user-gated.
+
+      - **New findings**: Profile explanation semantics can over-label empty defaults, and PROGRESS phase labels drifted from
+      the contract.
+
+      - **Resolved**: The prior `v0.5.0` and `v0.5.1` remote-publication warning is obsolete; only `v0.6.0` remains local-only.'
+    new_findings: 'Profile explanation semantics can over-label empty defaults, and PROGRESS phase labels drifted from the
+      contract.
+
+      - **Resolved**: The prior `v0.5.0` and `v0.5.1` remote-publication warning is obsolete; only `v0.6.0` remains local-only.'
+    resolved: The prior `v0.5.0` and `v0.5.1` remote-publication warning is obsolete; only `v0.6.0` remains local-only.
+  patterns:
+  - '**Module structure**: `internal/profile` owns profile semantics; CLI, launcher, TUI, and GUI consume that vocabulary.'
+  - '**Error handling**: `%w` wrapping and centralized logging remain dominant.'
+  - '**Testing approach**: Focused behavior tests cover each trusted-loop surface, with Mage running default and tagged GUI
+    backend tests.'
+  - '**Dependency patterns**: Go and frontend dependencies are pinned; vulnerability scans are clean.'
+  - '**Release model**: Local release state is clean; remote tag publication remains explicitly user-gated.'
+- number: 7
+  date: '2026-04-24'
+  dimensions:
+  - Tests
+  - Dependencies
+  - Versions
+  - Freshness
+  findings_summary:
+    critical: 0
+    warning: 1
+    info: 0
+    filtered_by_confidence: 0
+  trajectory: ⮉ improving vs Audit 6
+  grades:
+    Versions: B
+    Freshness: A
+  dimension_details:
+  - name: Versions
+    grade: B
+    summary: ''
+    findings:
+    - heading: '⇉ Local release tags are not published remotely, warning (confidence: 95)'
+      severity: warning
+      confidence: 95
+      location: 'local tags `v0.5.0`, `v0.5.1`; origin tag refs
+
+        - **Evidence**: Remote publication was explicitly excluded from this remediation request.
+
+        - **Impact**: Release consumers and compare links cannot resolve v0.5.x tags on origin.
+
+        - **Suggested action**: Push `main`, `v0.5.0`, and `v0.5.1` when the user approves publication.'
+      evidence: 'Remote publication was explicitly excluded from this remediation request.
+
+        - **Impact**: Release consumers and compare links cannot resolve v0.5.x tags on origin.
+
+        - **Suggested action**: Push `main`, `v0.5.0`, and `v0.5.1` when the user approves publication.'
+      impact: 'Release consumers and compare links cannot resolve v0.5.x tags on origin.
+
+        - **Suggested action**: Push `main`, `v0.5.0`, and `v0.5.1` when the user approves publication.'
+      suggested_action: Push `main`, `v0.5.0`, and `v0.5.1` when the user approves publication.
+  - name: Freshness
+    grade: A
+    summary: 'No findings. CHANGELOG, TODO, PROGRESS, and HEALTH now record the warning remediation and the remaining tag-publication
+      gate. ### Trends vs Audit 6 - **Improved**: Tests [B-→A-] and Dependencies [B-→A-]. - **Stable**: Versions [B] remains
+      limited by user-gated remote publication. - **Resolved**: GUI backend tests outside `mage test`, stale Playwright e2e
+      harness, and frontend audit advisories. ### Patterns Observed - **Testing approach**: Default verification now covers
+      tagged GUI backend tests and browser e2e tests are usable again. - **Dependency patterns**: Frontend and Go dependencies
+      both use exact pins. - **Release model**: Local release state remains healthy; remote publication stays explicitly user-gated.'
+    findings: []
+  trends:
+    improved: 'Tests [B-→A-] and Dependencies [B-→A-].
+
+      - **Stable**: Versions [B] remains limited by user-gated remote publication.
+
+      - **Resolved**: GUI backend tests outside `mage test`, stale Playwright e2e harness, and frontend audit advisories.'
+    stable: 'Versions [B] remains limited by user-gated remote publication.
+
+      - **Resolved**: GUI backend tests outside `mage test`, stale Playwright e2e harness, and frontend audit advisories.'
+    resolved: GUI backend tests outside `mage test`, stale Playwright e2e harness, and frontend audit advisories.
+  patterns:
+  - '**Testing approach**: Default verification now covers tagged GUI backend tests and browser e2e tests are usable again.'
+  - '**Dependency patterns**: Frontend and Go dependencies both use exact pins.'
+  - '**Release model**: Local release state remains healthy; remote publication stays explicitly user-gated.'
+- number: 6
+  date: '2026-04-24'
+  dimensions:
+  - Architecture
+  - Patterns
+  - Coupling
+  - Complexity
+  - Tests
+  - Dependencies
+  - Versions
+  - Security
+  - Freshness
+  findings_summary:
+    critical: 0
+    warning: 4
+    info: 0
+    filtered_by_confidence: 0
+  trajectory: ⮉ improving vs Audit 5
+  grades:
+    Coupling: B
+    Complexity: B
+    Versions: B
+    Security: A
+    Freshness: A
+  dimension_details:
+  - name: Coupling
+    grade: B
+    summary: No findings. GUI actions now route through `guiApplicationBoundary`, and TUI DLL updates route through `Services.UpdateCachedDLL`.
+    findings: []
+  - name: Complexity
+    grade: B
+    summary: 'No findings. TUI routing split into focused helpers, and current complexity is covered by routing and resource-scope
+      tests. ### Tests: B-'
+    findings:
+    - heading: '⇉ GUI backend tests are outside default `mage test`, warning (confidence: 92)'
+      severity: warning
+      confidence: 92
+      location: '`magefile.go:101-104`, `internal/gui/application_test.go:1`
+
+        - **Evidence**: `mage test` runs `go test -v ./...`; GUI backend tests require `dev`, `production`, or `bindings`
+        tags.
+
+        - **Impact**: GUI boundary regressions can pass the default project test target.
+
+        - **Suggested action**: Include a tagged GUI backend test in the standard verification path.'
+      evidence: '`mage test` runs `go test -v ./...`; GUI backend tests require `dev`, `production`, or `bindings` tags.
+
+        - **Impact**: GUI boundary regressions can pass the default project test target.
+
+        - **Suggested action**: Include a tagged GUI backend test in the standard verification path.'
+      impact: 'GUI boundary regressions can pass the default project test target.
+
+        - **Suggested action**: Include a tagged GUI backend test in the standard verification path.'
+      suggested_action: Include a tagged GUI backend test in the standard verification path.
+    - heading: '⇉ Playwright e2e harness is stale against the GUI, warning (confidence: 95)'
+      severity: warning
+      confidence: 95
+      location: '`internal/gui/frontend/e2e/fixtures.js:82-100`, `internal/gui/frontend/e2e/smoke.spec.js:4-13`
+
+        - **Evidence**: `npm run test:e2e` failed 27 of 28 tests; fixtures mock `window.go.main.App` and tests expect old
+        Games/Monitor navigation.
+
+        - **Impact**: Frontend end-to-end coverage is not a usable regression guard.
+
+        - **Suggested action**: Rebase the harness on `window.go.gui.App` and the current GUI navigation surface.'
+      evidence: '`npm run test:e2e` failed 27 of 28 tests; fixtures mock `window.go.main.App` and tests expect old Games/Monitor
+        navigation.
+
+        - **Impact**: Frontend end-to-end coverage is not a usable regression guard.
+
+        - **Suggested action**: Rebase the harness on `window.go.gui.App` and the current GUI navigation surface.'
+      impact: 'Frontend end-to-end coverage is not a usable regression guard.
+
+        - **Suggested action**: Rebase the harness on `window.go.gui.App` and the current GUI navigation surface.'
+      suggested_action: Rebase the harness on `window.go.gui.App` and the current GUI navigation surface.
+    - heading: '⇉ Frontend audit advisories remain approval-blocked, warning (confidence: 95)'
+      severity: warning
+      confidence: 95
+      location: '`internal/gui/frontend/package.json:15-23`, `internal/gui/frontend/package-lock.json`
+
+        - **Evidence**: `npm audit --json` reports 7 moderate advisories; fixes require semver-major Vite, Svelte, and plugin
+        upgrades.
+
+        - **Impact**: Dev-server and Svelte SSR risk remains until the major upgrade is approved and tested.
+
+        - **Suggested action**: Plan the Vite 8 and Svelte 5 upgrade when approval exists.'
+      evidence: '`npm audit --json` reports 7 moderate advisories; fixes require semver-major Vite, Svelte, and plugin upgrades.
+
+        - **Impact**: Dev-server and Svelte SSR risk remains until the major upgrade is approved and tested.
+
+        - **Suggested action**: Plan the Vite 8 and Svelte 5 upgrade when approval exists.'
+      impact: 'Dev-server and Svelte SSR risk remains until the major upgrade is approved and tested.
+
+        - **Suggested action**: Plan the Vite 8 and Svelte 5 upgrade when approval exists.'
+      suggested_action: Plan the Vite 8 and Svelte 5 upgrade when approval exists.
+  - name: Versions
+    grade: B
+    summary: ''
+    findings:
+    - heading: '⇉ Local release tags are not published remotely, warning (confidence: 95)'
+      severity: warning
+      confidence: 95
+      location: 'local tags `v0.5.0`, `v0.5.1`; origin tag refs
+
+        - **Evidence**: `git tag --list` shows both tags; `git ls-remote --tags origin ''v0.5.0*'' ''v0.5.1*''` returns no
+        refs.
+
+        - **Impact**: Release consumers and compare links cannot resolve the v0.5.x tags on origin.
+
+        - **Suggested action**: Push `main`, `v0.5.0`, and `v0.5.1` when the user approves.'
+      evidence: '`git tag --list` shows both tags; `git ls-remote --tags origin ''v0.5.0*'' ''v0.5.1*''` returns no refs.
+
+        - **Impact**: Release consumers and compare links cannot resolve the v0.5.x tags on origin.
+
+        - **Suggested action**: Push `main`, `v0.5.0`, and `v0.5.1` when the user approves.'
+      impact: 'Release consumers and compare links cannot resolve the v0.5.x tags on origin.
+
+        - **Suggested action**: Push `main`, `v0.5.0`, and `v0.5.1` when the user approves.'
+      suggested_action: Push `main`, `v0.5.0`, and `v0.5.1` when the user approves.
+  - name: Security
+    grade: A
+    summary: No findings. Lightweight scans found no hardcoded secrets, SQL construction, dynamic JS execution, or suspicious
+      shell construction in source.
+    findings: []
+  - name: Freshness
+    grade: A
+    summary: 'No findings. PROGRESS, TODO, CHANGELOG, DOCS, DESIGN, and PLAN all have plan-current commit dates; HEALTH is
+      updated by this audit. ### Trends vs Audit 5 - **Improved**: Architecture [C→A-], Patterns [B→A-], Coupling [C+→B],
+      Complexity [C+→B], Freshness [C+→A]. - **Stable**: Dependencies [B-] and Versions [B] remain limited by explicit user
+      approval gates. - **Degraded**: Tests [B→B-] because the e2e harness is confirmed stale and GUI backend tests are outside
+      `mage test`. - **Resolved**: Audit 5 critical launch lifecycle split and all implementation-owned warnings. - **New
+      findings**: Default test target misses tagged GUI backend tests. ### Patterns Observed - **Module structure**: Internal
+      package boundaries remain coherent; UI code now uses narrower application and service seams. - **Error handling**: `%w`
+      wrapping and explicit boundary validation dominate user-facing flows. - **Testing approach**: Behavior-first Go tests
+      cover plan-critical paths; frontend e2e remains stale. - **Dependency patterns**: Go dependencies are exact and clean;
+      frontend packages are exact-pinned but blocked on major upgrades. - **Launch model**: Steam wrapper is the supported
+      launch path; direct launches are rejected with setup guidance.'
+    findings: []
+  trends:
+    improved: 'Architecture [C→A-], Patterns [B→A-], Coupling [C+→B], Complexity [C+→B], Freshness [C+→A].
+
+      - **Stable**: Dependencies [B-] and Versions [B] remain limited by explicit user approval gates.
+
+      - **Degraded**: Tests [B→B-] because the e2e harness is confirmed stale and GUI backend tests are outside `mage test`.
+
+      - **Resolved**: Audit 5 critical launch lifecycle split and all implementation-owned warnings.
+
+      - **New findings**: Default test target misses tagged GUI backend tests.'
+    degraded: 'Tests [B→B-] because the e2e harness is confirmed stale and GUI backend tests are outside `mage test`.
+
+      - **Resolved**: Audit 5 critical launch lifecycle split and all implementation-owned warnings.
+
+      - **New findings**: Default test target misses tagged GUI backend tests.'
+    stable: 'Dependencies [B-] and Versions [B] remain limited by explicit user approval gates.
+
+      - **Degraded**: Tests [B→B-] because the e2e harness is confirmed stale and GUI backend tests are outside `mage test`.
+
+      - **Resolved**: Audit 5 critical launch lifecycle split and all implementation-owned warnings.
+
+      - **New findings**: Default test target misses tagged GUI backend tests.'
+    new_findings: Default test target misses tagged GUI backend tests.
+    resolved: 'Audit 5 critical launch lifecycle split and all implementation-owned warnings.
+
+      - **New findings**: Default test target misses tagged GUI backend tests.'
+  patterns:
+  - '**Module structure**: Internal package boundaries remain coherent; UI code now uses narrower application and service
+    seams.'
+  - '**Error handling**: `%w` wrapping and explicit boundary validation dominate user-facing flows.'
+  - '**Testing approach**: Behavior-first Go tests cover plan-critical paths; frontend e2e remains stale.'
+  - '**Dependency patterns**: Go dependencies are exact and clean; frontend packages are exact-pinned but blocked on major
+    upgrades.'
+  - '**Launch model**: Steam wrapper is the supported launch path; direct launches are rejected with setup guidance.'
+- number: 5
+  date: '2026-04-24'
+  dimensions:
+  - Architecture
+  - Patterns
+  - Coupling
+  - Complexity
+  - Tests
+  - Dependencies
+  - Versions
+  - Security
+  - Freshness
+  findings_summary:
+    critical: 1
+    warning: 10
+    info: 3
+    filtered_by_confidence: 0
+  trajectory: ⮋ degrading vs Audit 4 (version recovered, architecture/complexity/deps/freshness slipped)
+  grades:
+    Architecture: C
+    Patterns: B
+    Tests: B
+    Versions: B
+  dimension_details:
+  - name: Architecture
+    grade: C
+    summary: ''
+    findings:
+    - heading: '⇶ Wrapper mode bypasses launcher preparation, critical (confidence: 92)'
+      severity: critical
+      confidence: 92
+      location: '`cmd/spela/main.go:85-113`, `internal/launcher/launcher.go:59-74`, `internal/launcher/launcher.go:151-166`
+
+        - **Evidence**: Wrapper mode manually applies profiles then calls `l.Launch`; `Prepare()` owns VKD3D preflight and
+        overlay IPC setup.
+
+        - **Impact**: Steam `%command%`, the primary path, can skip overlay startup and compatibility warnings.
+
+        - **Suggested action**: Route wrapper mode through one preparation pipeline while preserving wrapper-provided environment.'
+      evidence: 'Wrapper mode manually applies profiles then calls `l.Launch`; `Prepare()` owns VKD3D preflight and overlay
+        IPC setup.
+
+        - **Impact**: Steam `%command%`, the primary path, can skip overlay startup and compatibility warnings.
+
+        - **Suggested action**: Route wrapper mode through one preparation pipeline while preserving wrapper-provided environment.'
+      impact: 'Steam `%command%`, the primary path, can skip overlay startup and compatibility warnings.
+
+        - **Suggested action**: Route wrapper mode through one preparation pipeline while preserving wrapper-provided environment.'
+      suggested_action: Route wrapper mode through one preparation pipeline while preserving wrapper-provided environment.
+    - heading: '⇉ Direct Steam URI launches have cleanup-lifetime mismatch, warning (confidence: 78)'
+      severity: warning
+      confidence: 78
+      location: '`cmd/spela/commands/launch.go:62-76`, `internal/gui/app.go:795-814`
+
+        - **Evidence**: CLI and GUI launch `steam steam://rungameid/<id>` through `Launcher.Launch`, whose cleanup runs when
+        that command exits.
+
+        - **Impact**: Profile effects may be restored before the actual game process exits.
+
+        - **Suggested action**: Prefer wrapper launch guidance, or track a real game process lifetime.'
+      evidence: 'CLI and GUI launch `steam steam://rungameid/<id>` through `Launcher.Launch`, whose cleanup runs when that
+        command exits.
+
+        - **Impact**: Profile effects may be restored before the actual game process exits.
+
+        - **Suggested action**: Prefer wrapper launch guidance, or track a real game process lifetime.'
+      impact: 'Profile effects may be restored before the actual game process exits.
+
+        - **Suggested action**: Prefer wrapper launch guidance, or track a real game process lifetime.'
+      suggested_action: Prefer wrapper launch guidance, or track a real game process lifetime.
+  - name: Patterns
+    grade: B
+    summary: ''
+    findings:
+    - heading: '⇉ Default profile load errors are discarded, warning (confidence: 88)'
+      severity: warning
+      confidence: 88
+      location: '`internal/profile/storage.go:53`, `internal/profile/storage.go:87`, `cmd/spela/commands/proton.go:238`
+
+        - **Evidence**: `defaults, _ := LoadDefault()` treats missing and corrupt defaults the same.
+
+        - **Impact**: Corrupt defaults can silently resolve inheritance against zero values.
+
+        - **Suggested action**: Ignore only `fs.ErrNotExist`; surface parse and read errors.'
+      evidence: '`defaults, _ := LoadDefault()` treats missing and corrupt defaults the same.
+
+        - **Impact**: Corrupt defaults can silently resolve inheritance against zero values.
+
+        - **Suggested action**: Ignore only `fs.ErrNotExist`; surface parse and read errors.'
+      impact: 'Corrupt defaults can silently resolve inheritance against zero values.
+
+        - **Suggested action**: Ignore only `fs.ErrNotExist`; surface parse and read errors.'
+      suggested_action: Ignore only `fs.ErrNotExist`; surface parse and read errors.
+    - heading: '⇉ Boolean parsing differs across profile commands, warning (confidence: 92)'
+      severity: warning
+      confidence: 92
+      location: '`cmd/spela/commands/proton.go:264-275`, `cmd/spela/commands/dlss.go:259-274`
+
+        - **Evidence**: Proton rejects invalid bools; DLSS stores any non-true value as false.
+
+        - **Impact**: A typo can persist an unintended false override.
+
+        - **Suggested action**: Move `parseBoolFlag` to a shared command helper and use it everywhere.'
+      evidence: 'Proton rejects invalid bools; DLSS stores any non-true value as false.
+
+        - **Impact**: A typo can persist an unintended false override.
+
+        - **Suggested action**: Move `parseBoolFlag` to a shared command helper and use it everywhere.'
+      impact: 'A typo can persist an unintended false override.
+
+        - **Suggested action**: Move `parseBoolFlag` to a shared command helper and use it everywhere.'
+      suggested_action: Move `parseBoolFlag` to a shared command helper and use it everywhere.
+    - heading: '⇉ GUI logs bypass centralized logging, warning (confidence: 85)'
+      severity: warning
+      confidence: 85
+      location: '`internal/gui/app.go:10`, `internal/gui/app.go:779`
+
+        - **Evidence**: GUI imports `log/slog` directly instead of `internal/logging`.
+
+        - **Impact**: GUI logs bypass the repository''s logging seam and test redirection.
+
+        - **Suggested action**: Add needed helpers to `internal/logging` and route GUI logs through them.'
+      evidence: 'GUI imports `log/slog` directly instead of `internal/logging`.
+
+        - **Impact**: GUI logs bypass the repository''s logging seam and test redirection.
+
+        - **Suggested action**: Add needed helpers to `internal/logging` and route GUI logs through them.'
+      impact: 'GUI logs bypass the repository''s logging seam and test redirection.
+
+        - **Suggested action**: Add needed helpers to `internal/logging` and route GUI logs through them.'
+      suggested_action: Add needed helpers to `internal/logging` and route GUI logs through them.
+    - heading: '⇉ GUI remains an over-intimate domain facade, warning (confidence: 90)'
+      severity: warning
+      confidence: 90
+      location: '`internal/gui/app.go:14-22`, `internal/gui/app.go:384-437`, `internal/gui/app.go:642-817`
+
+        - **Evidence**: Wails methods import and orchestrate config, CPU, DLL, game, GPU, launcher, profile, proton, and Steam
+        directly.
+
+        - **Impact**: GUI parity work will ripple across domain packages through bindings.
+
+        - **Suggested action**: Introduce a narrow application-service layer before the GUI redesign.'
+      evidence: 'Wails methods import and orchestrate config, CPU, DLL, game, GPU, launcher, profile, proton, and Steam directly.
+
+        - **Impact**: GUI parity work will ripple across domain packages through bindings.
+
+        - **Suggested action**: Introduce a narrow application-service layer before the GUI redesign.'
+      impact: 'GUI parity work will ripple across domain packages through bindings.
+
+        - **Suggested action**: Introduce a narrow application-service layer before the GUI redesign.'
+      suggested_action: Introduce a narrow application-service layer before the GUI redesign.
+    - heading: '⇉ DLLs TUI resource bypasses Services seam, warning (confidence: 85)'
+      severity: warning
+      confidence: 85
+      location: '`internal/tui/services.go:12-35`, `internal/tui/dlls_resource.go:262-326`
+
+        - **Evidence**: The resource pane directly calls DLL cache and swap functions, then mutates `game.Game` DLL state.
+
+        - **Impact**: Batch DLL behavior now lives inside a view model.
+
+        - **Suggested action**: Move DLL inventory/update operations behind `Services` or a shared service.'
+      evidence: 'The resource pane directly calls DLL cache and swap functions, then mutates `game.Game` DLL state.
+
+        - **Impact**: Batch DLL behavior now lives inside a view model.
+
+        - **Suggested action**: Move DLL inventory/update operations behind `Services` or a shared service.'
+      impact: 'Batch DLL behavior now lives inside a view model.
+
+        - **Suggested action**: Move DLL inventory/update operations behind `Services` or a shared service.'
+      suggested_action: Move DLL inventory/update operations behind `Services` or a shared service.
+    - heading: '⇉ TUI routing complexity is concentrating again, warning (confidence: 92)'
+      severity: warning
+      confidence: 92
+      location: '`internal/tui/content.go:210-389`, `internal/tui/layout_handlers.go:62-175`, `internal/tui/layout_handlers.go:179-284`
+
+        - **Evidence**: Key routing, modal routing, pending actions, profile actions, DLL actions, and message handling share
+        large switches.
+
+        - **Impact**: The old `Layout.Update` problem is returning in adjacent handler functions.
+
+        - **Suggested action**: Split mode handlers by modal, profile, DLL, rail/focus, and app-message concerns.'
+      evidence: 'Key routing, modal routing, pending actions, profile actions, DLL actions, and message handling share large
+        switches.
+
+        - **Impact**: The old `Layout.Update` problem is returning in adjacent handler functions.
+
+        - **Suggested action**: Split mode handlers by modal, profile, DLL, rail/focus, and app-message concerns.'
+      impact: 'The old `Layout.Update` problem is returning in adjacent handler functions.
+
+        - **Suggested action**: Split mode handlers by modal, profile, DLL, rail/focus, and app-message concerns.'
+      suggested_action: Split mode handlers by modal, profile, DLL, rail/focus, and app-message concerns.
+    - heading: '⇢ Field formatting duplicates profile knowledge, info (confidence: 80)'
+      severity: info
+      confidence: 80
+      location: '`internal/profile/inheritance.go:9-58`, `internal/tui/detail.go:430-515`
+
+        - **Evidence**: Profile owns field keys; TUI separately owns labels and a 35-case value formatter.
+
+        - **Impact**: Adding profile fields requires coordinated UI edits.
+
+        - **Suggested action**: Consolidate field metadata or add stronger coverage for label/formatter completeness.'
+      evidence: 'Profile owns field keys; TUI separately owns labels and a 35-case value formatter.
+
+        - **Impact**: Adding profile fields requires coordinated UI edits.
+
+        - **Suggested action**: Consolidate field metadata or add stronger coverage for label/formatter completeness.'
+      impact: 'Adding profile fields requires coordinated UI edits.
+
+        - **Suggested action**: Consolidate field metadata or add stronger coverage for label/formatter completeness.'
+      suggested_action: Consolidate field metadata or add stronger coverage for label/formatter completeness.
+  - name: Tests
+    grade: B
+    summary: Recent profile, proton, launcher, and TUI tests materially improved the highest-risk areas. The suite is green,
+      and recent tests mostly exercise behavior rather than private implementation.
+    findings:
+    - heading: '⇉ GUI backend and env remain test gaps, warning (confidence: 90)'
+      severity: warning
+      confidence: 90
+      location: '`internal/gui/`, `internal/env/env.go`
+
+        - **Evidence**: GUI backend has no Go tests; frontend has shallow component coverage; env has no direct tests.
+
+        - **Impact**: GUI parity and launch environment behavior can drift silently.
+
+        - **Suggested action**: Add mapper/service tests for GUI and direct tests for env map isolation and command application.'
+      evidence: 'GUI backend has no Go tests; frontend has shallow component coverage; env has no direct tests.
+
+        - **Impact**: GUI parity and launch environment behavior can drift silently.
+
+        - **Suggested action**: Add mapper/service tests for GUI and direct tests for env map isolation and command application.'
+      impact: 'GUI parity and launch environment behavior can drift silently.
+
+        - **Suggested action**: Add mapper/service tests for GUI and direct tests for env map isolation and command application.'
+      suggested_action: Add mapper/service tests for GUI and direct tests for env map isolation and command application.
+    - heading: '⇉ Frontend audit reports moderate vulnerabilities, warning (confidence: 90)'
+      severity: warning
+      confidence: 90
+      location: '`internal/gui/frontend/package-lock.json`, `internal/gui/frontend/package.json:15-23`
+
+        - **Evidence**: npm audit reports moderate advisories through Vite/esbuild/Svelte; package.json uses caret ranges.
+
+        - **Impact**: Mostly dev-server/SSR risk, but dependency health is no longer clean.
+
+        - **Suggested action**: Plan a tested frontend stack upgrade and decide whether npm pins should match Go exact pinning.'
+      evidence: 'npm audit reports moderate advisories through Vite/esbuild/Svelte; package.json uses caret ranges.
+
+        - **Impact**: Mostly dev-server/SSR risk, but dependency health is no longer clean.
+
+        - **Suggested action**: Plan a tested frontend stack upgrade and decide whether npm pins should match Go exact pinning.'
+      impact: 'Mostly dev-server/SSR risk, but dependency health is no longer clean.
+
+        - **Suggested action**: Plan a tested frontend stack upgrade and decide whether npm pins should match Go exact pinning.'
+      suggested_action: Plan a tested frontend stack upgrade and decide whether npm pins should match Go exact pinning.
+  - name: Versions
+    grade: B
+    summary: ''
+    findings:
+    - heading: '⇉ v0.5.0 tag is not published remotely, warning (confidence: 95)'
+      severity: warning
+      confidence: 95
+      location: '`CHANGELOG.md:8-28`, git remote tags
+
+        - **Evidence**: Changelog and local tag are current; `git ls-remote --tags origin "v0.5.0*"` returns no tag.
+
+        - **Impact**: Release consumers and compare links cannot resolve the remote v0.5.0 tag.
+
+        - **Suggested action**: Push `v0.5.0` when the user approves.'
+      evidence: 'Changelog and local tag are current; `git ls-remote --tags origin "v0.5.0*"` returns no tag.
+
+        - **Impact**: Release consumers and compare links cannot resolve the remote v0.5.0 tag.
+
+        - **Suggested action**: Push `v0.5.0` when the user approves.'
+      impact: 'Release consumers and compare links cannot resolve the remote v0.5.0 tag.
+
+        - **Suggested action**: Push `v0.5.0` when the user approves.'
+      suggested_action: Push `v0.5.0` when the user approves.
+    - heading: '⇢ Root CPU governor path lacks value validation, info (confidence: 68)'
+      severity: info
+      confidence: 68
+      location: '`cmd/spela/commands/apply_profile.go:79-80`, `cmd/spela/commands/cpu_set.go:117-123`, `internal/cpu/cpu.go:60-80`
+
+        - **Evidence**: Profile strings are stored and later written to sysfs as governor values.
+
+        - **Impact**: No injection path, but invalid values cross a privileged boundary before sysfs rejects them.
+
+        - **Suggested action**: Validate against available governors before save and before privileged apply.'
+      evidence: 'Profile strings are stored and later written to sysfs as governor values.
+
+        - **Impact**: No injection path, but invalid values cross a privileged boundary before sysfs rejects them.
+
+        - **Suggested action**: Validate against available governors before save and before privileged apply.'
+      impact: 'No injection path, but invalid values cross a privileged boundary before sysfs rejects them.
+
+        - **Suggested action**: Validate against available governors before save and before privileged apply.'
+      suggested_action: Validate against available governors before save and before privileged apply.
+    - heading: '⇢ DESIGN and DOCS are stale against v0.5.0, info (confidence: 60)'
+      severity: info
+      confidence: 60
+      location: '`.agentera/DESIGN.md:131-140`, `.agentera/DESIGN.md:263-314`, `.agentera/DOCS.md:30-40`
+
+        - **Evidence**: DESIGN still describes theme variants, tab bars, and Launch/Profile tabs; DOCS index dates predate
+        v0.5.0 work.
+
+        - **Impact**: Future UI work can start from stale visual and documentation contracts.
+
+        - **Suggested action**: Run `/visualisera` for DESIGN and `/dokumentera` for DOCS after this audit.'
+      evidence: 'DESIGN still describes theme variants, tab bars, and Launch/Profile tabs; DOCS index dates predate v0.5.0
+        work.
+
+        - **Impact**: Future UI work can start from stale visual and documentation contracts.
+
+        - **Suggested action**: Run `/visualisera` for DESIGN and `/dokumentera` for DOCS after this audit.'
+      impact: 'Future UI work can start from stale visual and documentation contracts.
+
+        - **Suggested action**: Run `/visualisera` for DESIGN and `/dokumentera` for DOCS after this audit.'
+      suggested_action: Run `/visualisera` for DESIGN and `/dokumentera` for DOCS after this audit.
+  trends:
+    improved: 'Tests [B-→B] from profile/proton/launcher/TUI coverage; Versions [D→B] because v0.5.0 cleared local release
+      staleness.
+
+      - **Degraded**: Architecture [B+→C], Patterns [B+→B], Complexity [B→C+], Dependencies [A→B-], Freshness [A→C+].
+
+      - **Stable**: Coupling [C+] remains elevated; Security [A→A-] has only an info-level validation gap.
+
+      - **Resolved**: Audit 4''s v0.2.1 stale-release critical is obsolete locally.
+
+      - **New findings**: Wrapper preparation bypass, frontend audit advisories, stale DESIGN/DOCS after v0.5.0.'
+    degraded: 'Architecture [B+→C], Patterns [B+→B], Complexity [B→C+], Dependencies [A→B-], Freshness [A→C+].
+
+      - **Stable**: Coupling [C+] remains elevated; Security [A→A-] has only an info-level validation gap.
+
+      - **Resolved**: Audit 4''s v0.2.1 stale-release critical is obsolete locally.
+
+      - **New findings**: Wrapper preparation bypass, frontend audit advisories, stale DESIGN/DOCS after v0.5.0.'
+    stable: 'Coupling [C+] remains elevated; Security [A→A-] has only an info-level validation gap.
+
+      - **Resolved**: Audit 4''s v0.2.1 stale-release critical is obsolete locally.
+
+      - **New findings**: Wrapper preparation bypass, frontend audit advisories, stale DESIGN/DOCS after v0.5.0.'
+    new_findings: Wrapper preparation bypass, frontend audit advisories, stale DESIGN/DOCS after v0.5.0.
+    resolved: 'Audit 4''s v0.2.1 stale-release critical is obsolete locally.
+
+      - **New findings**: Wrapper preparation bypass, frontend audit advisories, stale DESIGN/DOCS after v0.5.0.'
+  patterns:
+  - '**Module structure**: Internal package boundaries remain coherent; UI packages are composition-heavy.'
+  - '**Error handling**: `%w` wrapping dominates, but default-profile load errors are inconsistently surfaced.'
+  - '**Testing approach**: Behavior-first Go tests now cover the recent profile/proton/TUI work well.'
+  - '**Dependency patterns**: Go dependencies are exact and tidy; frontend uses lockfile reproducibility with caret package
+    ranges.'
+  - '**Launch model**: Steam wrapper is the strategic path, but orchestration is split from `Launcher.Prepare()`.'
+archive: []

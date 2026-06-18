@@ -1,0 +1,40 @@
+cycles:
+- number: 88
+  timestamp: '2026-06-18 15:45'
+  type: chore
+  phase: audit
+  what: Refreshed Agentera suite state after the v2 YAML migration by re-pointing docs.yaml artifact mappings from deleted Markdown paths to YAML artifacts and recording the documentation audit.
+  inspiration: Post-migration /agentera prime briefing showed missing docs, plan, and progress state because docs.yaml still mapped agent-facing artifacts to .md files.
+  discovered: The YAML migration moved artifact content correctly but left docs.yaml overrides targeting the old Markdown layout, so CLI state commands resolved nonexistent paths.
+  verified: agentera state plan/docs/progress/health return ok; agentera prime reports missing_state=none and reads Audit 9 health grade B.
+  next: Run inspektera for a post-nav health audit or start the next plan when scope is chosen.
+  context:
+    intent: restore CLI-readable suite state after YAML migration
+    constraints: docs/artifacts only; preserve completed nav plan.yaml
+    unknowns: none for mapping repair
+    scope: .agentera/docs.yaml
+- number: 87
+  timestamp: '2026-06-11 18:00'
+  type: feat
+  phase: build
+  what: Completed the three-zone navigation wiring plan. internal/nav is now the shared contract across TUI and GUI with canonical settings catalog, section-filtered content, GUI transition helpers, and TUI single-owner nav state.
+  inspiration: Plan - Finish three-zone navigation wiring; Decision 2 scope x aspect shell.
+  discovered: Settings labels and section buttons had drifted across three implementations before the wiring pass unified them behind internal/nav and internal/settings.
+  verified: feat(nav) commit 4ad6591; mage test and mage lint passed during plan closeout.
+  next: Record post-plan health audit and defer GameDetail.svelte decomposition until the next GUI feature touches it.
+  context:
+    intent: finish Decision 2 navigation wiring on both surfaces
+    constraints: no launch lifecycle regression; no GameDetail split this cycle
+    unknowns: none for nav wiring acceptance
+    scope: internal/nav, internal/settings, TUI shell, GUI shell
+archive:
+- 'Cycle 86 (2026-04-27): Closed Gova-inspired GUI seam plan freshness checkpoint.'
+- 'Cycle 85 (2026-04-27): Verified app-level GUI flows through desktop boundary.'
+- 'Cycle 84 (2026-04-27): Covered profile and DLL detail behavior in frontend tests.'
+- 'Cycle 83 (2026-04-27): Made game-list behavior testable with batch DLL summaries.'
+- 'Cycle 82 (2026-04-27): Established GUI desktop event boundary for DLL progress.'
+- 'Cycle 81 (2026-04-27): Established GUI desktop command boundary.'
+- 'Cycle 80 (2026-04-27): Characterized current GUI behavior before seam refactor.'
+- 'Cycle 59 (2026-04-19): Filled DLLs and Metrics resource panes with real content.'
+- 'Cycle 58 (2026-04-19): Added inheritance rendering, reset/pin bindings, and DLSS preset deduping.'
+- 'Cycle 57 (2026-04-19): Shared grouped detail renderer for Games and Defaults resources.'

@@ -1,0 +1,122 @@
+last_audit: '2026-06-18 (post-yaml migration state refresh)'
+conventions:
+  doc_root: docs/
+  style: technical, concise, section-based markdown with examples. No badges.
+  auto_gen:
+  - none
+  version_files:
+  - CHANGELOG.md
+  semver_policy:
+    feat: minor
+    fix: patch
+    docs_chore_test: no bump
+mapping:
+- artifact: VISION.md
+  path: .agentera/vision.yaml
+  producers:
+  - visionera
+- artifact: TODO.md
+  path: TODO.md
+  producers:
+  - inspektera
+  - manual
+- artifact: CHANGELOG.md
+  path: CHANGELOG.md
+  producers:
+  - magefile release
+  - realisera
+- artifact: PROGRESS.md
+  path: .agentera/progress.yaml
+  producers:
+  - realisera
+- artifact: PLAN.md
+  path: .agentera/plan.yaml
+  producers:
+  - planera
+  - orkestrera
+- artifact: HEALTH.md
+  path: .agentera/health.yaml
+  producers:
+  - inspektera
+- artifact: DOCS.md
+  path: .agentera/docs.yaml
+  producers:
+  - dokumentera
+- artifact: DESIGN.md
+  path: .agentera/DESIGN.md
+  producers:
+  - visualisera
+index:
+- document: README
+  path: README.md
+  last_updated: '2026-04-24'
+  status: current
+- document: CLAUDE.md
+  path: CLAUDE.md
+  last_updated: '2026-04-01'
+  status: current
+- document: Vision
+  path: .agentera/vision.yaml
+  last_updated: '2026-06-18'
+  status: current
+- document: Todo
+  path: TODO.md
+  last_updated: '2026-06-11'
+  status: current
+- document: Changelog
+  path: CHANGELOG.md
+  last_updated: '2026-06-11'
+  status: current
+- document: Agentera Plan
+  path: .agentera/plan.yaml
+  last_updated: '2026-06-11'
+  status: current
+- document: Agentera Progress
+  path: .agentera/progress.yaml
+  last_updated: '2026-06-18'
+  status: current
+- document: Agentera Health
+  path: .agentera/health.yaml
+  last_updated: '2026-06-11'
+  status: current
+- document: Documentation Contract
+  path: .agentera/docs.yaml
+  last_updated: '2026-06-18'
+  status: current
+- document: Design System
+  path: .agentera/DESIGN.md
+  last_updated: '2026-04-24'
+  status: current
+- document: NVAPI DRS Reference
+  path: docs/NVAPI.md
+  last_updated: '2026-03-02'
+  status: current
+- document: Overlay Design (v1)
+  path: docs/design/overlay.md
+  last_updated: '2026-03-17'
+  status: current
+- document: Overlay Design (v0)
+  path: docs/design/overlay-v0.md
+  last_updated: '2026-03-02'
+  status: current
+- document: Overlay Design Review
+  path: docs/design/overlay-review.md
+  last_updated: '2026-03-17'
+  status: current
+coverage:
+  documented: agent-facing artifacts migrated to YAML with v1 Markdown backups
+  undocumented: none known
+  stale: none after 2026-06-18 state refresh
+  tests: mage test; GUI frontend Vitest; tagged GUI backend tests
+audit_log:
+- date: '2026-06-18'
+  label: post-yaml migration state refresh
+  findings:
+  - type: misaligned
+    severity: warning
+    description: docs.yaml mapping still pointed agent-facing artifacts at deleted Markdown paths after v2 YAML migration.
+    resolution: fixed
+  - type: freshness
+    severity: info
+    description: Re-pointed plan, progress, health, docs, and vision mappings to YAML artifacts so CLI state commands resolve again.
+    resolution: fixed
