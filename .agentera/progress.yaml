@@ -1,4 +1,18 @@
 cycles:
+- number: 89
+  timestamp: '2026-06-18 15:48'
+  type: refactor
+  phase: build
+  what: Split GameDetail.svelte into GameDLLPane, GameProfilePane, and profileFieldOptions; orchestrator reduced from ~1.4k to 401 lines.
+  inspiration: Agentera prime next_action and user-confirmed realisera handoff on deferred TODO.
+  discovered: none
+  verified: npm test -- --run src/lib/GameDetail.test.js passed 6 tests; mage test passed.
+  next: Run inspektera for post-refactor health audit or tackle nav binding drift risk.
+  context:
+    intent: extract aspect-specific GUI panes from GameDetail god-component
+    constraints: preserve DLL progress lifecycle, profile semantics rendering, and error banner behavior
+    unknowns: none for split acceptance
+    scope: internal/gui/frontend/src/lib/GameDetail.svelte, GameDLLPane.svelte, GameProfilePane.svelte, profileFieldOptions.js
 - number: 88
   timestamp: '2026-06-18 15:45'
   type: chore

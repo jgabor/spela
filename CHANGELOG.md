@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Split `GameDetail.svelte` into aspect-specific panes (`GameDLLPane`, `GameProfilePane`) with shared profile field options.
+
 ### Added
 
 - Characterize current GUI list, profile, DLL, error, launch guidance, keyboard, and filter behavior in frontend tests.

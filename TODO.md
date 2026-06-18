@@ -8,7 +8,7 @@
 
 ## ⇉ Degraded
 
-- [ ] **`GameDetail.svelte` god-component split** — ~1.4k lines owns profile, DLL ops, progress events, and launch guidance; extract aspect-specific panes when the next GUI feature touches it (`.agentera/plan.yaml` deferred)
+- [x] ~~**`GameDetail.svelte` god-component split**~~ — extracted `GameDLLPane.svelte`, `GameProfilePane.svelte`, and `profileFieldOptions.js`; orchestrator now 401 lines
 - [ ] **Go→JS nav binding drift risk** — `navState.js` hand-ports `internal/nav`; add Wails export or codegen so GUI transitions cannot silently diverge (`.agentera/plan.yaml` deferred)
 - [ ] **GUI DLL Catalog parity** — `DLLCatalogPane.svelte` is a thin stub; TUI has full library inventory + deployment matrix + update-all
 - [ ] **`SupportsVKD3DHeap` detection stale for Proton-CachyOS 11.0+** — greps for removed `PROTON_VKD3D_HEAP` marker; Proton-CachyOS now needs only `VKD3D_CONFIG=descriptor_heap`, so compatible builds may false-negative
