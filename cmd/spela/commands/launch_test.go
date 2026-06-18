@@ -61,7 +61,7 @@ func TestRunLaunchDryRunSummarizesPreparationImpacts(t *testing.T) {
 		"system_state:",
 		"overlay:",
 		"Environment",
-		"PROTON_VKD3D_HEAP",
+		"VKD3D_CONFIG",
 		"DLL",
 		"no launch-time DLL file mutation planned",
 		"denylist:",

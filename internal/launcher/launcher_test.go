@@ -3,6 +3,7 @@ package launcher
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -11,12 +12,124 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/logging"
 	"github.com/jgabor/spela/internal/overlay"
 	"github.com/jgabor/spela/internal/profile"
 	"github.com/jgabor/spela/internal/xdg"
 )
+
+func withTempXDGConfig(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, "config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(dir, "data"))
+	if err := os.MkdirAll(filepath.Join(dir, "config", "spela"), 0o755); err != nil {
+		t.Fatalf("mkdir config: %v", err)
+	}
+}
+
+func writeSteamCompatMapping(t *testing.T, steamRoot, appID, toolName string) {
+	t.Helper()
+	configDir := filepath.Join(steamRoot, "config")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("mkdir config: %v", err)
+	}
+	vdf := fmt.Sprintf(`"InstallConfigStore"
+{
+	"Software"
+	{
+		"Valve"
+		{
+			"Steam"
+			{
+				"CompatToolMapping"
+				{
+					"%s"
+					{
+						"name"		"%s"
+						"config"		""
+						"priority"		"250"
+					}
+				}
+			}
+		}
+	}
+}
+`, appID, toolName)
+	if err := os.WriteFile(filepath.Join(configDir, "config.vdf"), []byte(vdf), 0o644); err != nil {
+		t.Fatalf("write config.vdf: %v", err)
+	}
+}
+
+func writeProtonBuildDir(t *testing.T, steamRoot, toolName, script string) {
+	t.Helper()
+	buildDir := filepath.Join(steamRoot, "compatibilitytools.d", toolName)
+	if err := os.MkdirAll(buildDir, 0o755); err != nil {
+		t.Fatalf("mkdir build: %v", err)
+	}
+	if script != "" {
+		if err := os.WriteFile(filepath.Join(buildDir, "proton"), []byte(script), 0o755); err != nil {
+			t.Fatalf("write proton script: %v", err)
+		}
+	}
+}
+
+func saveSteamPathConfig(t *testing.T, steamRoot string) {
+	t.Helper()
+	cfg := config.Default()
+	cfg.SteamPath = steamRoot
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+}
+
+func TestPrepare_VKD3DHeap_IntegratedBuild_OmitsLegacyEnv(t *testing.T) {
+	withTempXDGConfig(t)
+	steamRoot := t.TempDir()
+	saveSteamPathConfig(t, steamRoot)
+	writeSteamCompatMapping(t, steamRoot, "1091500", "cachyos-11.0-20260521-slr")
+	writeProtonBuildDir(t, steamRoot, "cachyos-11.0-20260521-slr", "#!/bin/sh\n# integrated 11.x\n")
+
+	g := &game.Game{AppID: 1091500, Name: "Cyberpunk 2077", InstallDir: "/tmp"}
+	p := &profile.Profile{}
+	p.Proton.VKD3DHeap = true
+
+	l := New(g)
+	l.Profile = p
+	requirePrepare(t, l)
+
+	if got := l.Environment.Get("VKD3D_CONFIG"); got != "descriptor_heap" {
+		t.Errorf("VKD3D_CONFIG = %q, want descriptor_heap", got)
+	}
+	if got := l.Environment.Get("PROTON_VKD3D_HEAP"); got != "" {
+		t.Errorf("PROTON_VKD3D_HEAP = %q, want unset for integrated 11.x build", got)
+	}
+}
+
+func TestPrepare_VKD3DHeap_LegacyBuild_SetsLegacyEnv(t *testing.T) {
+	withTempXDGConfig(t)
+	steamRoot := t.TempDir()
+	saveSteamPathConfig(t, steamRoot)
+	writeSteamCompatMapping(t, steamRoot, "1091500", "cachyos-10.0-20260410-slr")
+	writeProtonBuildDir(t, steamRoot, "cachyos-10.0-20260410-slr", "#!/bin/sh\nif [ \"$PROTON_VKD3D_HEAP\" = 1 ]; then true; fi\n")
+
+	g := &game.Game{AppID: 1091500, Name: "Cyberpunk 2077", InstallDir: "/tmp"}
+	p := &profile.Profile{}
+	p.Proton.VKD3DHeap = true
+
+	l := New(g)
+	l.Profile = p
+	requirePrepare(t, l)
+
+	if got := l.Environment.Get("VKD3D_CONFIG"); got != "descriptor_heap" {
+		t.Errorf("VKD3D_CONFIG = %q, want descriptor_heap", got)
+	}
+	if got := l.Environment.Get("PROTON_VKD3D_HEAP"); got != "1" {
+		t.Errorf("PROTON_VKD3D_HEAP = %q, want 1 for legacy 10.x build", got)
+	}
+}
 
 func TestCleanupReverseOrder(t *testing.T) {
 	l := New(nil)

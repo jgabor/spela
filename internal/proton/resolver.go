@@ -63,15 +63,29 @@ func ResolveForAppID(steamRoot string, appID uint64) (Build, error) {
 	return Build{Name: name, Path: path}, nil
 }
 
-// SupportsVKD3DHeap reports whether the given Proton build ships the
-// PROTON_VKD3D_HEAP code path. Detection is a literal grep of the
-// top-level `proton` launch script for the string "PROTON_VKD3D_HEAP".
+// SupportsVKD3DHeap reports whether the given Proton build can honor
+// VKD3D_CONFIG=descriptor_heap. Proton-CachyOS 10.x exposes a
+// PROTON_VKD3D_HEAP gate in the launch script; 11.0+ integrates the path
+// into vkd3d-proton and is detected by build tag instead.
 //
 // Returns false (no error) when the script is absent: the directory
 // exists but isn't recognizably a Proton build, which for our purposes
 // is equivalent to "unsupported". Returns false with an error only on
 // genuine filesystem failure (permission denied, I/O error).
 func SupportsVKD3DHeap(build Build) (bool, error) {
+	legacy, err := UsesLegacyProtonVKD3DHeapGate(build)
+	if err != nil {
+		return false, err
+	}
+	if legacy {
+		return true, nil
+	}
+	return buildTagMeetsMinimum(build.Name, MinProtonCachyOSIntegratedBuild), nil
+}
+
+// UsesLegacyProtonVKD3DHeapGate reports whether descriptor_heap still
+// requires PROTON_VKD3D_HEAP=1 in addition to VKD3D_CONFIG.
+func UsesLegacyProtonVKD3DHeapGate(build Build) (bool, error) {
 	if build.Path == "" {
 		return false, nil
 	}
@@ -83,8 +97,6 @@ func SupportsVKD3DHeap(build Build) (bool, error) {
 		}
 		return false, fmt.Errorf("read proton script %s: %w", scriptPath, err)
 	}
-	// Literal-string match. Brittle by design — the PLAN risks section
-	// notes we'll swap to toolmanifest parsing if this becomes noisy.
 	return containsBytes(data, []byte("PROTON_VKD3D_HEAP")), nil
 }
 

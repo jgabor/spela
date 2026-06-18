@@ -88,6 +88,7 @@ func (l *Launcher) Prepare() error {
 		for _, c := range cleanups {
 			l.OnCleanupResult(c.Area, c.Run)
 		}
+		l.applyVKD3DHeapEnv()
 		l.vkd3dPreflight()
 		if err := l.setupOverlay(); err != nil {
 			l.runCleanup()
@@ -103,6 +104,36 @@ func (l *Launcher) Prepare() error {
 // an error, never panics, and never prevents Launch from proceeding. When
 // vkd3d_heap is disabled on the profile, the check is skipped entirely —
 // no resolver/NVML probe fires.
+
+// applyVKD3DHeapEnv adds PROTON_VKD3D_HEAP when the resolved Proton build
+// still gates descriptor_heap behind it. Proton-CachyOS 11.0+ needs only
+// VKD3D_CONFIG, which Profile.Apply already set.
+func (l *Launcher) applyVKD3DHeapEnv() {
+	if l.Profile == nil || !l.Profile.Proton.VKD3DHeap || l.Game == nil {
+		return
+	}
+
+	cfg, _ := config.Load()
+	steamRoot := ""
+	if cfg != nil {
+		steamRoot = cfg.SteamPath
+	}
+	if steamRoot == "" {
+		steamRoot = steam.FindSteamPath()
+	}
+
+	build, err := proton.ResolveForAppID(steamRoot, l.Game.AppID)
+	if err != nil {
+		l.Environment.Set("PROTON_VKD3D_HEAP", "1")
+		return
+	}
+
+	legacy, err := proton.UsesLegacyProtonVKD3DHeapGate(build)
+	if err != nil || legacy {
+		l.Environment.Set("PROTON_VKD3D_HEAP", "1")
+	}
+}
+
 func (l *Launcher) vkd3dPreflight() {
 	if l.Profile == nil || !l.Profile.Proton.VKD3DHeap || l.Game == nil {
 		return

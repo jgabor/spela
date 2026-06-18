@@ -1,4 +1,18 @@
 cycles:
+- number: 93
+  timestamp: '2026-06-18 23:15'
+  type: fix
+  phase: build
+  what: Fixed SupportsVKD3DHeap for Proton-CachyOS 11.0+ via build-tag detection; legacy PROTON_VKD3D_HEAP set at launch only for 10.x scripts.
+  inspiration: User-directed realisera on SupportsVKD3DHeap TODO.
+  discovered: applyVKD3DHeapEnv was added but not wired into Prepare(); preflight_test helper patch had corrupted the file once.
+  verified: mage test, mage lint passed.
+  next: GUI DLL Catalog parity or decision satisfaction review.
+  context:
+    intent: stop false-negative descriptor_heap compatibility on integrated cachyos 11.x builds
+    constraints: no commit without explicit approval
+    unknowns: none for acceptance
+    scope: internal/proton/, internal/launcher/, internal/env/, internal/profile/
 - number: 92
   timestamp: '2026-06-18 22:45'
   type: feat

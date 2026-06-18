@@ -13,7 +13,7 @@
 - [x] ~~**TUI status bar shows `u:update` when no updates exist**~~ — fixed: nav.ContentHints gating, message bar feedback, aspect forward from Content — `nav.contentZoneKeys()` always emits update hint; inline DLL hints correctly omit it; `u` silently no-ops with no message bar feedback (rmux e2e 2026-06-18)
 - [x] ~~**Go→JS nav binding drift risk**~~ — fixed: nav constants generated from `internal/nav`, GUI transitions routed through Wails bindings
 - [ ] **GUI DLL Catalog parity** — `DLLCatalogPane.svelte` is a thin stub; TUI has full library inventory + deployment matrix + update-all
-- [ ] **`SupportsVKD3DHeap` detection stale for Proton-CachyOS 11.0+** — greps for removed `PROTON_VKD3D_HEAP` marker; Proton-CachyOS now needs only `VKD3D_CONFIG=descriptor_heap`, so compatible builds may false-negative
+- [x] ~~**`SupportsVKD3DHeap` detection stale for Proton-CachyOS 11.0+**~~ — fixed: 11.0+ detected by build tag; legacy 10.x still sets PROTON_VKD3D_HEAP at launch
 - [x] ~~TUI focus state too subtle~~ — zone indicator in status bar, column focus markers (▸), profile row cursor (`>`)
 - [x] ~~TUI Tab model inconsistent~~ — help documents Tab/Esc zone flow; status bar shows active zone
 - [x] ~~DLSS-D column missing from GUI DLL display~~ — already present in GameDetail.svelte (stale entry)

@@ -134,7 +134,7 @@ func (p *Profile) applyProton(e *env.Environment) []Cleanup {
 		e.EnableNGXUpdater()
 	}
 	if p.Proton.VKD3DHeap {
-		e.EnableVKD3DHeap()
+		e.EnableVKD3DHeap(false)
 	}
 	return nil
 }

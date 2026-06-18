@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Proton-CachyOS 11.0+ descriptor_heap support detected by build tag instead of removed `PROTON_VKD3D_HEAP` script marker; legacy 10.x builds still receive `PROTON_VKD3D_HEAP=1` at launch.
 - TUI `/` opens library search from any zone without mutating profile fields.
 - TUI status bar omits `u:update` when DLLs are up to date; `u` on up-to-date DLLs shows message bar feedback.
 - TUI aspect hotkeys `1`/`2`/`3` forward from Content when a game scope is active.

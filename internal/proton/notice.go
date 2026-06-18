@@ -16,8 +16,8 @@ type NoticeDeps struct {
 	// ResolveForAppID walks Steam config to identify the active Proton
 	// build for a given AppID.
 	ResolveForAppID func(steamRoot string, appID uint64) (Build, error)
-	// SupportsVKD3DHeap reports whether a resolved Proton build ships the
-	// PROTON_VKD3D_HEAP marker.
+	// SupportsVKD3DHeap reports whether a resolved Proton build supports
+	// VKD3D_CONFIG=descriptor_heap.
 	SupportsVKD3DHeap func(build Build) (bool, error)
 	// DriverVersion returns the raw NVIDIA driver version string
 	// (e.g. "580.94.16"). Returning "" signals a non-NVIDIA or unprobed
@@ -38,7 +38,7 @@ type NoticeDeps struct {
 // The same shape applies to the Driver* fields.
 type CompatibilityResult struct {
 	// ProtonOK is true when the resolved Proton build supports the
-	// PROTON_VKD3D_HEAP marker, OR when the check could not be run
+	// descriptor_heap path, OR when the check could not be run
 	// (ProtonSkip explains why). Callers that want to distinguish
 	// "passed" from "skipped" should inspect ProtonSkip.
 	ProtonOK bool
@@ -146,7 +146,7 @@ func CompatibilityNotice(appID uint64, deps NoticeDeps) string {
 }
 
 // evaluateProton resolves the active Proton build for appID and checks
-// the PROTON_VKD3D_HEAP marker. Returns (ok, detectedName, skipReason).
+// descriptor_heap support. Returns (ok, detectedName, skipReason).
 // skipReason is non-empty when the check could not be performed at all
 // (resolver error); in that case ok is true so the caller only surfaces
 // the skip when no other incompatibility is present.

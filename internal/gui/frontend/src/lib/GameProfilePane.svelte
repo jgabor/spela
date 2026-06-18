@@ -289,7 +289,7 @@
       <div class="field checkbox">
         <input type="checkbox" id="vkd3dHeap" bind:checked={profile.vkd3dHeap} />
         <label for="vkd3dHeap">VKD3D Heap</label>
-        <span class="hint">Enable the VKD3D descriptor heap code path (PROTON_VKD3D_HEAP=1). Requires a recent Proton-CachyOS build and a current NVIDIA driver.</span>
+        <span class="hint">Enable the VKD3D descriptor heap code path (VKD3D_CONFIG=descriptor_heap). Requires Proton-CachyOS 10.0-20260321+ or 11.0+ and NVIDIA driver 580.94.16+.</span>
         <span class="profile-meta">{semanticText('proton.vkd3d_heap')}</span>
         {#if profile.vkd3dHeap && vkd3dHeapNotice}
           <div class="vkd3d-notice" data-level={vkd3dHeapNotice.startsWith('⚠') ? 'warn' : 'info'}>

@@ -189,6 +189,32 @@ func TestSupportsVKD3DHeap_ScriptMissing_ReturnsFalseNoError(t *testing.T) {
 	}
 }
 
+func TestSupportsVKD3DHeap_IntegratedCachyOSBuild(t *testing.T) {
+	root := t.TempDir()
+	script := `#!/usr/bin/env python3
+# proton-cachyos 11.x — descriptor_heap integrated, legacy gate removed
+import os
+print(os.environ.get("VKD3D_CONFIG"))
+`
+	buildPath := writeProtonBuild(t, root, "cachyos-11.0-20260521-slr", true, script)
+
+	got, err := SupportsVKD3DHeap(Build{Name: "cachyos-11.0-20260521-slr", Path: buildPath})
+	if err != nil {
+		t.Fatalf("SupportsVKD3DHeap: %v", err)
+	}
+	if !got {
+		t.Error("SupportsVKD3DHeap = false, want true for integrated cachyos 11.x build")
+	}
+
+	legacy, err := UsesLegacyProtonVKD3DHeapGate(Build{Name: "cachyos-11.0-20260521-slr", Path: buildPath})
+	if err != nil {
+		t.Fatalf("UsesLegacyProtonVKD3DHeapGate: %v", err)
+	}
+	if legacy {
+		t.Error("UsesLegacyProtonVKD3DHeapGate = true, want false for integrated build")
+	}
+}
+
 func TestSupportsVKD3DHeap_EmptyBuildPath(t *testing.T) {
 	// Zero-value Build (e.g., from a caller that ignored a resolve error)
 	// returns false cleanly.

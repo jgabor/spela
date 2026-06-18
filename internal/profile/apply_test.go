@@ -16,8 +16,8 @@ func TestApplyProton_VKD3DHeapEnabled(t *testing.T) {
 	e := env.New()
 	p.Apply(e)
 
-	if got := e.Get("PROTON_VKD3D_HEAP"); got != "1" {
-		t.Errorf("PROTON_VKD3D_HEAP: expected %q, got %q", "1", got)
+	if got := e.Get("PROTON_VKD3D_HEAP"); got != "" {
+		t.Errorf("PROTON_VKD3D_HEAP: expected unset at apply time, got %q", got)
 	}
 	if got := e.Get("VKD3D_CONFIG"); got != "descriptor_heap" {
 		t.Errorf("VKD3D_CONFIG: expected %q, got %q", "descriptor_heap", got)

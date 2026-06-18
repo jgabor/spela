@@ -3,7 +3,7 @@
 //
 // It walks Steam's compat-tool resolution chain to identify which Proton
 // build a given AppID will launch with, checks that build for the
-// PROTON_VKD3D_HEAP marker, and parses NVIDIA driver version strings
+// descriptor_heap support markers, and parses NVIDIA driver version strings
 // in the several shapes reported by NVML and nvidia-smi.
 //
 // The package is pure-stdlib plus internal/steam for VDF parsing. It
@@ -27,9 +27,14 @@ const (
 	MinDriverVersion = "580.94.16"
 
 	// MinProtonCachyOSBuild is the first proton-cachyos release shipping
-	// the PROTON_VKD3D_HEAP prototype. Format matches the upstream build
-	// tag ("MAJOR.MINOR-YYYYMMDD"). Source: proton-cachyos release
-	// 10.0-20260321 on GitHub (cachyos/proton-cachyos-slim) — the
-	// changelog entry introduces the PROTON_VKD3D_HEAP env var.
+	// descriptor_heap behind PROTON_VKD3D_HEAP + VKD3D_CONFIG. Format matches
+	// the upstream build tag ("MAJOR.MINOR-YYYYMMDD"). Source: release
+	// 10.0-20260321 on GitHub (cachyos/proton-cachyos-slim).
 	MinProtonCachyOSBuild = "10.0-20260321"
+
+	// MinProtonCachyOSIntegratedBuild is the first proton-cachyos release
+	// where descriptor_heap is integrated into vkd3d-proton and only
+	// VKD3D_CONFIG=descriptor_heap is required. Source: release
+	// cachyos-11.0-20260520-slr — PROTON_VKD3D_HEAP removed upstream.
+	MinProtonCachyOSIntegratedBuild = "11.0-20260520"
 )
