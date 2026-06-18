@@ -47,6 +47,9 @@ func (m LayoutModel) handleGlobalKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd
 	if next, cmd, handled := m.handleRailHotkey(msg); handled {
 		return next, cmd, true
 	}
+	if next, cmd, handled := m.handleAspectHotkey(msg); handled {
+		return next, cmd, true
+	}
 	return m.handleFocusAndResourceKey(msg)
 }
 
@@ -93,6 +96,36 @@ func (m LayoutModel) handleRailHotkey(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd
 			m.navState.Zone = nav.ZonePrimary
 			return m, nil, true
 		}
+	}
+	return m, nil, false
+}
+
+func (m LayoutModel) handleAspectHotkey(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, bool) {
+	if m.navState.Zone != nav.ZoneContent {
+		return m, nil, false
+	}
+	if m.navState.Destination != nav.DestinationLibrary || m.navState.Scope.Kind != nav.ScopeGame {
+		return m, nil, false
+	}
+	if m.pane.HasModalOpen() {
+		return m, nil, false
+	}
+	switch msg.String() {
+	case "1":
+		if m.navState.Scope.Kind == nav.ScopeGlobal {
+			return m, nil, false
+		}
+		*m.navState = m.navState.SelectAspect(nav.AspectOverview)
+		m.syncNavToComponents()
+		return m, nil, true
+	case "2":
+		*m.navState = m.navState.SelectAspect(nav.AspectProfile)
+		m.syncNavToComponents()
+		return m, nil, true
+	case "3":
+		*m.navState = m.navState.SelectAspect(nav.AspectDLLs)
+		m.syncNavToComponents()
+		return m, nil, true
 	}
 	return m, nil, false
 }
@@ -205,8 +238,12 @@ func (m LayoutModel) handleAppMessages(msg tea.Msg, cmds []tea.Cmd) (LayoutModel
 		cmds = append(cmds, m.messageBar.SetMessage(msg.summary, msgType))
 		if err := m.db.Save(); err != nil {
 			cmds = append(cmds, m.messageBar.SetMessage(
-				fmt.Sprintf("Update-all: saved partial state: %v", err), MessageError))
+				fmt.Sprintf("Update-all: saved partial state: %v", err), MessageError,
+			))
 		}
+
+	case contentNoticeMsg:
+		cmds = append(cmds, m.messageBar.SetMessage(msg.text, msg.messageType))
 
 	case messageClearMsg:
 		m.messageBar, _ = m.messageBar.Update(msg)

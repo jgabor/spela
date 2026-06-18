@@ -172,15 +172,21 @@ func (m ContentModel) updateDLLKey(msg tea.KeyPressMsg) (ContentModel, tea.Cmd, 
 			return m, m.loadDLLTypes(), true
 		}
 	case "u":
-		if m.game != nil && len(m.game.DLLs) > 0 && m.hasUpdates && !m.dllOperating {
-			if m.confirmDestructive {
-				m.pendingAction = PendingDLLUpdate
-				return m, nil, true
-			}
-			m.dllOperating = true
-			m.dllOperatingLabel = "Updating DLLs..."
-			return m, m.updateDLLs(), true
+		if m.game == nil || len(m.game.DLLs) == 0 || m.dllOperating {
+			return m, nil, false
 		}
+		if !m.hasUpdates {
+			return m, func() tea.Msg {
+				return contentNoticeMsg{text: "DLLs already up to date", messageType: MessageInfo}
+			}, true
+		}
+		if m.confirmDestructive {
+			m.pendingAction = PendingDLLUpdate
+			return m, nil, true
+		}
+		m.dllOperating = true
+		m.dllOperatingLabel = "Updating DLLs..."
+		return m, m.updateDLLs(), true
 	case "ctrl+shift+r":
 		if m.game != nil && m.hasBackup && !m.dllOperating {
 			if m.confirmDestructive {

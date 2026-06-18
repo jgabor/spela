@@ -199,14 +199,18 @@ ux_smoke() {
 		echo "$screen" >&2
 		fail "Elden Ring not in game list"
 	fi
+	if ! grep -q "Library" <<<"$screen"; then
+		echo "$screen" >&2
+		fail "three-zone Library destination not visible"
+	fi
 	ok "smoke — game list visible"
 }
 ux_smoke
 
 # --- UX-2: Game detail — enter into Cyberpunk ---
 ux_detail() {
-	# Session already running from smoke check, tab+enter into first game
-	rmux send-keys -t "$SESSION" Tab Enter
+	# Context zone: search and confirm Cyberpunk (default row is All games)
+	rmux send-keys -t "$SESSION" Tab "/" "Cyber" Enter Enter
 	sleep 1
 
 	local screen
@@ -228,7 +232,7 @@ ux_detail
 ux_search() {
 	rmux send-keys -t "$SESSION" Escape
 	sleep 0.3
-	rmux send-keys -t "$SESSION" Tab "/" "Cyber" Enter
+	rmux send-keys -t "$SESSION" Tab "/" "Cyber" Enter Enter
 	sleep 1
 
 	local screen
@@ -281,11 +285,11 @@ ux_help() {
 }
 ux_help
 
-# --- UX-6: Options overlay ---
+# --- UX-6: Settings destination ---
 ux_options() {
 	rmux send-keys -t "$SESSION" Escape
 	sleep 0.3
-	rmux send-keys -t "$SESSION" "o"
+	rmux send-keys -t "$SESSION" "4"
 	sleep 1
 
 	local screen
@@ -293,25 +297,25 @@ ux_options() {
 
 	if ! grep -q "Options" <<<"$screen"; then
 		echo "$screen" >&2
-		fail "options overlay did not open"
+		fail "settings destination did not open"
 	fi
-	ok "options overlay — opened via o"
+	ok "settings destination — opened via 4"
 }
 ux_options
 
-# --- UX-7: Defaults section ---
+# --- UX-7: Default profile scope ---
 ux_defaults() {
 	rmux send-keys -t "$SESSION" Escape
 	sleep 0.3
-	rmux send-keys -t "$SESSION" "3"
+	rmux send-keys -t "$SESSION" Tab Enter
 	sleep 1
 
 	local screen
 	screen="$(capture "$SESSION")"
 
-	if ! grep -q "Defaults" <<<"$screen"; then
+	if ! grep -q "All games" <<<"$screen"; then
 		echo "$screen" >&2
-		fail "defaults section did not load"
+		fail "default profile scope did not load"
 	fi
 	if ! grep -q "SR mode" <<<"$screen"; then
 		echo "$screen" >&2
@@ -320,6 +324,26 @@ ux_defaults() {
 	ok "defaults section — profile fields visible"
 }
 ux_defaults
+
+# --- UX-8: DLL aspect navigation ---
+ux_dll_aspect() {
+	rmux send-keys -t "$SESSION" Escape
+	sleep 0.3
+	rmux send-keys -t "$SESSION" Tab "/" "Cyber" Enter Enter
+	sleep 1
+	rmux send-keys -t "$SESSION" "3"
+	sleep 1
+
+	local screen
+	screen="$(capture "$SESSION")"
+
+	if ! grep -q "DLSS" <<<"$screen"; then
+		echo "$screen" >&2
+		fail "DLL aspect table not visible"
+	fi
+	ok "DLL aspect — version table visible"
+}
+ux_dll_aspect
 
 # Kill the shared UX session
 rmux kill-session -t "$SESSION" 2>/dev/null || true
@@ -417,8 +441,8 @@ qa_mutation() {
 	screen="$(capture "$m_session")"
 	grep -q "Cyberpunk 2077" <<<"$screen" || fail "TUI did not start for mutation test"
 
-	# Enter Cyberpunk detail
-	rmux send-keys -t "$m_session" Tab Enter
+	# Enter Cyberpunk detail via context search
+	rmux send-keys -t "$m_session" Tab "/" "Cyber" Enter Enter
 	sleep "$WAIT"
 
 	screen="$(capture "$m_session")"
@@ -483,7 +507,7 @@ qa_reset_all() {
 		fail "TUI did not start for reset-all test"
 	fi
 
-	rmux send-keys -t "$r_session" Tab Enter
+	rmux send-keys -t "$r_session" Tab "/" "Cyber" Enter Enter
 	sleep "$WAIT"
 
 	# Shift+R = capital R (resets all overrides)
@@ -519,4 +543,7 @@ rmux kill-session -t "${SESSION}-resetall" 2>/dev/null || true
 # Pass
 # =====================================================================
 echo ""
+echo "Running Go e2e tests..."
+go test -tags e2e ./tests/e2e/... -count=1
+
 echo "PASS: all UX and QA checks passed (session: $SESSION)"

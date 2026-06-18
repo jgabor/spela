@@ -121,14 +121,14 @@ func TestContent_Update_WithoutConfirmation(t *testing.T) {
 	}
 }
 
-func TestContent_Update_NoUpdatesIgnored(t *testing.T) {
+func TestContent_Update_NoUpdatesFeedback(t *testing.T) {
 	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	m := testContent(g)
 	m.hasUpdates = false
 
 	_, cmd := m.Update(keyMsg("u"))
-	if cmd != nil {
-		t.Error("expected u to be ignored when no updates available")
+	if cmd == nil {
+		t.Error("expected feedback command when no updates available")
 	}
 }
 

@@ -324,7 +324,15 @@ func (m LayoutModel) renderStandard() string {
 
 	messageBar := m.messageBar.View()
 
-	contextHelp := RenderNavContextBar(m.navState.ContextKeys(m.styles.ShowHints), m.width/2, &m.styles.Theme)
+	hints := nav.ContentHints{}
+	if cm := m.contentModel(); cm != nil {
+		hints = nav.ContentHints{
+			HasUpdates:   cm.hasUpdates,
+			HasBackup:    cm.hasBackup,
+			DLLOperating: cm.dllOperating,
+		}
+	}
+	contextHelp := RenderNavContextBar(m.navState.ContextKeys(m.styles.ShowHints, hints), m.width/2, &m.styles.Theme)
 	crumbs := m.renderBreadcrumbs()
 	statusBar := m.statusBar.ViewWithHelp(crumbs + "  " + m.renderZoneIndicator() + "  " + contextHelp)
 

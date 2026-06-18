@@ -296,6 +296,13 @@ func (s State) BreadcrumbString() string {
 	return "Spela › " + strings.Join(parts, " › ")
 }
 
+// ContentHints carries TUI content state for DLL-related status-bar hints.
+type ContentHints struct {
+	HasUpdates   bool
+	HasBackup    bool
+	DLLOperating bool
+}
+
 // ContextKey is one keybinding hint for the status bar.
 type ContextKey struct {
 	Key    string
@@ -304,7 +311,7 @@ type ContextKey struct {
 }
 
 // ContextKeys returns key hints for the current state and focus zone.
-func (s State) ContextKeys(showHints bool) []ContextKey {
+func (s State) ContextKeys(showHints bool, hints ContentHints) []ContextKey {
 	if !showHints {
 		return nil
 	}
@@ -319,7 +326,7 @@ func (s State) ContextKeys(showHints bool) []ContextKey {
 	case ZoneContext:
 		return s.contextZoneKeys()
 	case ZoneContent:
-		return s.contentZoneKeys()
+		return s.contentZoneKeys(hints)
 	}
 	return nil
 }
@@ -352,7 +359,7 @@ func (s State) contextZoneKeys() []ContextKey {
 	return nil
 }
 
-func (s State) contentZoneKeys() []ContextKey {
+func (s State) contentZoneKeys(hints ContentHints) []ContextKey {
 	switch s.Destination {
 	case DestinationLibrary:
 		switch s.Aspect {
@@ -365,12 +372,15 @@ func (s State) contentZoneKeys() []ContextKey {
 				{Key: "Esc", Action: "context"},
 			}
 		case AspectDLLs:
-			return []ContextKey{
-				{Key: "u", Action: "update"},
+			keys := []ContextKey{
 				{Key: "i", Action: "install"},
 				{Key: "Ctrl+Shift+R", Action: "restore"},
 				{Key: "Esc", Action: "context"},
 			}
+			if hints.HasUpdates && !hints.DLLOperating {
+				keys = append([]ContextKey{{Key: "u", Action: "update"}}, keys...)
+			}
+			return keys
 		case AspectOverview:
 			return []ContextKey{{Key: "Esc", Action: "context"}}
 		}

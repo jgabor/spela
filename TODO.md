@@ -10,7 +10,7 @@
 
 - [x] ~~**`GameDetail.svelte` god-component split**~~ — extracted `GameDLLPane.svelte`, `GameProfilePane.svelte`, and `profileFieldOptions.js`; orchestrator now 401 lines
 - [ ] **TUI stale game DB on launch** — `list`/`show` fail until manual `spela scan`; Satisfactory (custom Steam root) missing from cold DB; auto-scan or rescan prompt when DB empty/stale (rmux e2e 2026-06-18)
-- [ ] **TUI status bar shows `u:update` when no updates exist** — `nav.contentZoneKeys()` always emits update hint; inline DLL hints correctly omit it; `u` silently no-ops with no message bar feedback (rmux e2e 2026-06-18)
+- [x] ~~**TUI status bar shows `u:update` when no updates exist**~~ — fixed: nav.ContentHints gating, message bar feedback, aspect forward from Content — `nav.contentZoneKeys()` always emits update hint; inline DLL hints correctly omit it; `u` silently no-ops with no message bar feedback (rmux e2e 2026-06-18)
 - [ ] **Go→JS nav binding drift risk** — `navState.js` hand-ports `internal/nav`; add Wails export or codegen so GUI transitions cannot silently diverge (`.agentera/plan.yaml` deferred)
 - [ ] **GUI DLL Catalog parity** — `DLLCatalogPane.svelte` is a thin stub; TUI has full library inventory + deployment matrix + update-all
 - [ ] **`SupportsVKD3DHeap` detection stale for Proton-CachyOS 11.0+** — greps for removed `PROTON_VKD3D_HEAP` marker; Proton-CachyOS now needs only `VKD3D_CONFIG=descriptor_heap`, so compatible builds may false-negative
@@ -23,8 +23,8 @@
 ## ⇢ Annoying
 
 - [ ] **TUI command palette** — help lists `:` as deferred; no palette implementation yet
-- [ ] **TUI no feedback when `u` pressed with DLLs up to date** — show message bar hint (e.g. "DLLs already up to date") when `hasUpdates=false` (rmux e2e 2026-06-18)
-- [ ] **TUI aspect hotkeys silently ignored outside Context zone** — `1`/`2`/`3` only work in Context; pressing from Content is a no-op; document in help or forward keys (rmux e2e 2026-06-18)
+- [x] ~~**TUI no feedback when `u` pressed with DLLs up to date**~~ — fixed: nav.ContentHints gating, message bar feedback, aspect forward from Content — show message bar hint (e.g. "DLLs already up to date") when `hasUpdates=false`
+- [x] ~~**TUI aspect hotkeys silently ignored outside Context zone**~~ — fixed: nav.ContentHints gating, message bar feedback, aspect forward from Content — `1`/`2`/`3` only work in Context; forwarded from Content zone
 - [ ] **TUI search filter does not commit game scope until Enter** — `/` filters sidebar but breadcrumb stays on prior scope until confirmation (rmux e2e 2026-06-18)
 - [ ] **rmux ANSI focus verification** — rmux e2e validated Library→game→DLLs flow and letter keys; arrow escape sequences and help overlay layout in 120×40 panes still unchecked
 - [ ] **Frontend-owned option/DLL labels** — DLSS presets and DLL type labels live in `GameDetail.svelte` while semantics come from backend; promote to catalog metadata if option churn increases (HEALTH.md Audit 9)

@@ -618,3 +618,29 @@ func TestExecuteBatchDLLUpdatePersists(t *testing.T) {
 		t.Fatalf("expected updated DLL version in database, still %q", got.DLLs[0].Version)
 	}
 }
+
+func TestLayout_SlashOpensSearchFromPrimary(t *testing.T) {
+	m := testLayout()
+	result, _ := sendKey(&m, "/")
+	layout := result.(LayoutModel)
+	if layout.navState.Zone != nav.ZoneContext {
+		t.Fatalf("expected context zone after /, got %v", layout.navState.Zone)
+	}
+	if !layout.contextNav.sidebar.search.Focused() {
+		t.Error("expected sidebar search to be focused after /")
+	}
+}
+
+func TestLayout_AspectHotkeyFromContent(t *testing.T) {
+	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.7.0"))
+	m := testLayoutWithGame(g)
+	m.navState.Zone = nav.ZoneContent
+	m.navState.Aspect = nav.AspectProfile
+	m.syncNavToComponents()
+
+	result, _ := sendKey(&m, "3")
+	layout := result.(LayoutModel)
+	if layout.navState.Aspect != nav.AspectDLLs {
+		t.Fatalf("expected DLL aspect after 3 from content, got %v", layout.navState.Aspect)
+	}
+}

@@ -89,6 +89,11 @@ type ContentModel struct {
 	selectedDLLType   string
 }
 
+type contentNoticeMsg struct {
+	text        string
+	messageType MessageType
+}
+
 type dllUpdateMsg struct {
 	success bool
 	err     error

@@ -1,4 +1,18 @@
 cycles:
+- number: 90
+  timestamp: '2026-06-18 20:00'
+  type: feat
+  phase: build
+  what: Finished rmux TUI e2e branch — rebased onto main, rewrote tests for three-zone nav, fixed rmux-discovered UX (search, status bar, no-op feedback, aspect forward), wired CI via mage TestTUIE2E.
+  inspiration: Manual rmux e2e findings filed in TODO.md; plan Finish feat/rmux-e2e-testing.
+  discovered: Stale manifest updated_at caused GetManifest network refresh in isolated e2e env; tests now stamp fresh timestamps.
+  verified: mage test, mage TestTUIE2E, mage lint, mage build passed on feat/rmux-e2e-testing.
+  next: Merge to main; optional auto-scan on TUI launch for stale DB TODO.
+  context:
+    intent: land automated TUI e2e and close rmux UX gaps blocking assertions
+    constraints: tmux fallback in CI; no new active Agentera plan
+    unknowns: none for merge acceptance
+    scope: tests/e2e/, internal/tui/, internal/nav/, scripts/e2e-rmux.sh, magefile.go, CI
 - number: 89
   timestamp: '2026-06-18 15:48'
   type: refactor

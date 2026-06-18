@@ -114,7 +114,7 @@ func TestSelectScope_GameDefaultsOverview(t *testing.T) {
 func TestContextKeys_ZonePrimary(t *testing.T) {
 	s := DefaultState()
 	s.Zone = ZonePrimary
-	keys := s.ContextKeys(true)
+	keys := s.ContextKeys(true, ContentHints{})
 	if len(keys) == 0 {
 		t.Fatal("expected keys")
 	}
@@ -125,7 +125,7 @@ func TestContextKeys_ZonePrimary(t *testing.T) {
 
 func TestContextKeys_HintsDisabled(t *testing.T) {
 	s := DefaultState()
-	if got := s.ContextKeys(false); len(got) != 0 {
+	if got := s.ContextKeys(false, ContentHints{}); len(got) != 0 {
 		t.Errorf("expected no keys when hints disabled")
 	}
 }
@@ -152,5 +152,36 @@ func TestNextPrevZone(t *testing.T) {
 func TestProfileSubsystemKey(t *testing.T) {
 	if SubsystemDLSS.Key() != "dlss" {
 		t.Errorf("got %q", SubsystemDLSS.Key())
+	}
+}
+
+func TestContextKeys_ContentDLLs_OmitsUpdateWhenUpToDate(t *testing.T) {
+	s := DefaultState()
+	s.Zone = ZoneContent
+	s.Scope = Scope{Kind: ScopeGame, GameName: "Test"}
+	s.Aspect = AspectDLLs
+	keys := s.ContextKeys(true, ContentHints{HasUpdates: false})
+	for _, k := range keys {
+		if k.Key == "u" {
+			t.Fatal("expected no update key when DLLs are up to date")
+		}
+	}
+}
+
+func TestContextKeys_ContentDLLs_ShowsUpdateWhenStale(t *testing.T) {
+	s := DefaultState()
+	s.Zone = ZoneContent
+	s.Scope = Scope{Kind: ScopeGame, GameName: "Test"}
+	s.Aspect = AspectDLLs
+	keys := s.ContextKeys(true, ContentHints{HasUpdates: true})
+	found := false
+	for _, k := range keys {
+		if k.Key == "u" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected update key when updates are available")
 	}
 }

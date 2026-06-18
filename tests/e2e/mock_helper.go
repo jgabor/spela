@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -44,7 +45,8 @@ func SetupTestEnvironment(t *testing.T) (*TestEnvironment, func()) {
 	cacheHome := filepath.Join(tempDir, "cache")
 
 	// Ensure subdirectories exist
-	for _, dir := range []string{configHome, dataHome, cacheHome} {
+	runtimeDir := filepath.Join(tempDir, "runtime")
+	for _, dir := range []string{configHome, dataHome, cacheHome, runtimeDir} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatalf("failed to create XDG subdirectory %q: %v", dir, err)
 		}
@@ -52,6 +54,7 @@ func SetupTestEnvironment(t *testing.T) (*TestEnvironment, func()) {
 
 	// Build isolated environment variables list
 	env := []string{
+		"XDG_RUNTIME_DIR=" + filepath.Join(tempDir, "runtime"),
 		"XDG_CONFIG_HOME=" + configHome,
 		"XDG_DATA_HOME=" + dataHome,
 		"XDG_CACHE_HOME=" + cacheHome,
@@ -228,9 +231,10 @@ func SetupTestEnvironment(t *testing.T) (*TestEnvironment, func()) {
 		t.Fatalf("failed to create spela cache dir: %v", err)
 	}
 
-	manifestJSON := `{
+	manifestUpdatedAt := time.Now().Format(time.RFC3339)
+	manifestJSON := fmt.Sprintf(`{
   "version": "1.0",
-  "updated_at": "2026-05-22T21:00:00Z",
+  "updated_at": "%s",
   "repository": "helvesec/rmux",
   "dlls": {
     "dlss": [
@@ -254,7 +258,7 @@ func SetupTestEnvironment(t *testing.T) (*TestEnvironment, func()) {
       }
     ]
   }
-}`
+}`, manifestUpdatedAt)
 
 	if err := os.WriteFile(manifestPath, []byte(manifestJSON), 0o644); err != nil {
 		t.Fatalf("failed to write manifest JSON: %v", err)

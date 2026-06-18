@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- TUI rmux/tmux e2e suite (`tests/e2e/`, `mage TestTUIE2E`) covering three-zone navigation, profile mutations, and DLL aspect/update flows.
+- Manual QA script `scripts/e2e-rmux.sh` aligned with the three-zone shell.
+
+### Fixed
+
+- TUI `/` opens library search from any zone without mutating profile fields.
+- TUI status bar omits `u:update` when DLLs are up to date; `u` on up-to-date DLLs shows message bar feedback.
+- TUI aspect hotkeys `1`/`2`/`3` forward from Content when a game scope is active.
+
 ### Changed
 
 - Split `GameDetail.svelte` into aspect-specific panes (`GameDLLPane`, `GameProfilePane`) with shared profile field options.
