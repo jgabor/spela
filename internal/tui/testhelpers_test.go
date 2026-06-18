@@ -23,7 +23,12 @@ import (
 func testServices() *Services {
 	return &Services{
 		LoadConfig: func() (*config.Config, error) {
-			return config.Default(), nil
+			cfg := config.Default()
+			cfg.RescanOnStartup = false
+			return cfg, nil
+		},
+		ScanGames: func(cfg *config.Config) (*game.Database, error) {
+			return testDatabase(), nil
 		},
 		LoadProfile: func(appID uint64) (*profile.Profile, error) {
 			return nil, nil

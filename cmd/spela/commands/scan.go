@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/steam"
 	"github.com/jgabor/spela/internal/tui"
 )
@@ -25,18 +26,14 @@ func init() {
 }
 
 func runScan(cmd *cobra.Command, args []string) error {
-	steamPath := steam.FindSteamPath()
-	if steamPath == "" {
-		return fmt.Errorf("could not find Steam installation")
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	db, err := steam.ScanAllLibraries()
+	db, err := steam.Rescan(cfg)
 	if err != nil {
 		return fmt.Errorf("scan failed: %w", err)
-	}
-
-	if err := db.Save(); err != nil {
-		return fmt.Errorf("failed to save game database: %w", err)
 	}
 
 	if scanJSON {

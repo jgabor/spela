@@ -1,4 +1,18 @@
 cycles:
+- number: 91
+  timestamp: '2026-06-18 22:30'
+  type: fix
+  phase: build
+  what: Wired config-aware game rescan on TUI startup and CLI launch; fixed Ctrl+R to scan Steam libraries instead of reloading disk.
+  inspiration: Agentera prime next_action on TUI stale game DB TODO; user-confirmed realisera handoff.
+  discovered: game→steam import cycle required keeping refresh helpers in internal/steam.
+  verified: mage test passed.
+  next: Go→JS nav binding drift risk or GUI DLL Catalog parity.
+  context:
+    intent: close rmux e2e stale DB TODO without manual spela scan
+    constraints: no commit without explicit approval; RescanOnStartup defaults true
+    unknowns: none for acceptance
+    scope: internal/steam/, internal/tui/, cmd/spela/commands/
 - number: 90
   timestamp: '2026-06-18 20:00'
   type: feat

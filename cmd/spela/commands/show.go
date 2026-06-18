@@ -6,8 +6,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/profile"
+	"github.com/jgabor/spela/internal/steam"
 	"github.com/jgabor/spela/internal/tui"
 )
 
@@ -29,6 +31,15 @@ func runShow(cmd *cobra.Command, args []string) error {
 	db, err := game.LoadDatabase()
 	if err != nil {
 		return fmt.Errorf("failed to load game database: %w", err)
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+	db, err = steam.RefreshIfNeeded(db, cfg)
+	if err != nil {
+		return fmt.Errorf("failed to refresh game database: %w", err)
 	}
 
 	g := db.FindGame(args[0])

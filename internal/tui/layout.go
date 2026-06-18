@@ -105,7 +105,14 @@ func NewLayout(db *game.Database, svc *Services) LayoutModel {
 }
 
 func (m LayoutModel) Init() tea.Cmd {
-	return tea.Batch(m.header.Init(), m.initCmd)
+	cmds := []tea.Cmd{m.header.Init(), m.initCmd}
+	if m.config.RescanOnStartup || len(m.db.Games) == 0 {
+		cmds = append(cmds,
+			m.messageBar.SetMessage("Scanning games...", MessageInfo),
+			m.rescanGames(),
+		)
+	}
+	return tea.Batch(cmds...)
 }
 
 func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -518,8 +525,10 @@ type rescanGamesMsg struct {
 }
 
 func (m LayoutModel) rescanGames() tea.Cmd {
+	cfg := m.config
+	scanGames := m.services.ScanGames
 	return func() tea.Msg {
-		db, err := game.LoadDatabase()
+		db, err := scanGames(cfg)
 		if err != nil {
 			return rescanGamesMsg{err: err}
 		}

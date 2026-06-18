@@ -123,15 +123,29 @@ func ScanLibrary(lib Library) ([]*game.Game, error) {
 	return games, nil
 }
 
-func ScanAllLibraries() (*game.Database, error) {
-	steamPath := FindSteamPath()
-	if steamPath == "" {
-		return nil, nil
+// ResolveSteamPath returns the configured Steam root or the auto-detected install.
+func ResolveSteamPath(configured string) string {
+	if configured != "" {
+		return configured
 	}
+	return FindSteamPath()
+}
 
-	libraries, err := GetLibraries(steamPath)
+func ScanAllLibraries() (*game.Database, error) {
+	return ScanLibraries("", nil)
+}
+
+// ScanLibraries discovers games from the Steam install at steamPath and any
+// additional library folders. When steamPath is empty, Steam is auto-detected.
+func ScanLibraries(steamPath string, additionalPaths []string) (*game.Database, error) {
+	steamPath = ResolveSteamPath(steamPath)
+
+	libraries, err := librariesToScan(steamPath, additionalPaths)
 	if err != nil {
 		return nil, err
+	}
+	if len(libraries) == 0 {
+		return nil, nil
 	}
 
 	db := &game.Database{Games: make(map[uint64]*game.Game)}
@@ -148,4 +162,43 @@ func ScanAllLibraries() (*game.Database, error) {
 	}
 
 	return db, nil
+}
+
+func librariesToScan(steamPath string, additionalPaths []string) ([]Library, error) {
+	seen := make(map[string]struct{})
+	var libraries []Library
+
+	if steamPath != "" {
+		steamLibraries, err := GetLibraries(steamPath)
+		if err != nil {
+			return nil, err
+		}
+		for _, lib := range steamLibraries {
+			if lib.Path == "" {
+				continue
+			}
+			if _, ok := seen[lib.Path]; ok {
+				continue
+			}
+			seen[lib.Path] = struct{}{}
+			libraries = append(libraries, lib)
+		}
+	}
+
+	for _, path := range additionalPaths {
+		if path == "" {
+			continue
+		}
+		if _, ok := seen[path]; ok {
+			continue
+		}
+		seen[path] = struct{}{}
+		libraries = append(libraries, Library{
+			Path:  path,
+			Label: "additional",
+			Apps:  make(map[string]string),
+		})
+	}
+
+	return libraries, nil
 }

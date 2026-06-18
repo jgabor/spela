@@ -9,7 +9,7 @@
 ## ⇉ Degraded
 
 - [x] ~~**`GameDetail.svelte` god-component split**~~ — extracted `GameDLLPane.svelte`, `GameProfilePane.svelte`, and `profileFieldOptions.js`; orchestrator now 401 lines
-- [ ] **TUI stale game DB on launch** — `list`/`show` fail until manual `spela scan`; Satisfactory (custom Steam root) missing from cold DB; auto-scan or rescan prompt when DB empty/stale (rmux e2e 2026-06-18)
+- [x] ~~**TUI stale game DB on launch**~~ — fixed: rescan-on-startup wired in TUI, Ctrl+R and CLI commands refresh via config-aware Steam scan (custom steam_path + additional_library_paths)
 - [x] ~~**TUI status bar shows `u:update` when no updates exist**~~ — fixed: nav.ContentHints gating, message bar feedback, aspect forward from Content — `nav.contentZoneKeys()` always emits update hint; inline DLL hints correctly omit it; `u` silently no-ops with no message bar feedback (rmux e2e 2026-06-18)
 - [ ] **Go→JS nav binding drift risk** — `navState.js` hand-ports `internal/nav`; add Wails export or codegen so GUI transitions cannot silently diverge (`.agentera/plan.yaml` deferred)
 - [ ] **GUI DLL Catalog parity** — `DLLCatalogPane.svelte` is a thin stub; TUI has full library inventory + deployment matrix + update-all

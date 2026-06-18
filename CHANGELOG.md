@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TUI `/` opens library search from any zone without mutating profile fields.
 - TUI status bar omits `u:update` when DLLs are up to date; `u` on up-to-date DLLs shows message bar feedback.
 - TUI aspect hotkeys `1`/`2`/`3` forward from Content when a game scope is active.
+- TUI and CLI auto-scan when the game database is empty or `rescan_on_startup` is enabled; Ctrl+R rescans Steam libraries instead of reloading disk.
 
 ### Changed
 
