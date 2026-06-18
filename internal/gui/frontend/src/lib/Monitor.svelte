@@ -3,6 +3,7 @@
   import { desktopCommands } from './desktop'
 
   export let desktop = desktopCommands
+  export let section = 0
 
   let gpu = null
   let cpuInfo = null
@@ -24,6 +25,7 @@
 </script>
 
 <div class="monitor">
+  {#if section === 0}
   <div class="card">
     <h2>GPU</h2>
     {#if gpu}
@@ -58,7 +60,9 @@
       <div class="unavailable">GPU metrics unavailable</div>
     {/if}
   </div>
+  {/if}
 
+  {#if section === 1}
   <div class="card">
     <h2>CPU</h2>
     {#if cpuInfo}
@@ -85,6 +89,14 @@
       <div class="unavailable">CPU metrics unavailable</div>
     {/if}
   </div>
+  {/if}
+
+  {#if section === 2}
+  <div class="card">
+    <h2>Alerts</h2>
+    <div class="unavailable">No active alerts in the GUI monitor yet.</div>
+  </div>
+  {/if}
 </div>
 
 <style>

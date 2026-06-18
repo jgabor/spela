@@ -62,7 +62,7 @@ describe('GameList current behavior', () => {
     expect(screen.getByText('Loading...')).toBeTruthy()
 
     await waitFor(() => {
-      expect(screen.getByText('Default profile')).toBeTruthy()
+      expect(screen.getByText('All games (default)')).toBeTruthy()
       expect(screen.getByText('Cyberpunk 2077')).toBeTruthy()
       expect(screen.getByText('Elden Ring')).toBeTruthy()
       expect(screen.getByText('Portal 2')).toBeTruthy()
@@ -81,7 +81,7 @@ describe('GameList current behavior', () => {
     await fireEvent.input(screen.getByPlaceholderText('Search games...'), { target: { value: 'missing' } })
 
     expect(screen.getByText('No games matching filters')).toBeTruthy()
-    expect(screen.queryByText('Default profile')).toBeNull()
+    expect(screen.queryByText('All games (default)')).toBeNull()
   })
 
   it('sorts DLL games first and profile games first without changing current badge meanings', async () => {

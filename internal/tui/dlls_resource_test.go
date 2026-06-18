@@ -7,6 +7,7 @@ import (
 
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/nav"
 )
 
 // ---------------------------------------------------------------------------
@@ -33,6 +34,27 @@ func makeDLLsResourceWithServices(games []*game.Game, cached map[string][]string
 	m.cached = cached
 	m.SetSize(120, 40)
 	return m
+}
+
+func TestDLLsResource_ViewFiltersBySection(t *testing.T) {
+	g := testGame("Alpha", testDLL(game.DLLTypeDLSS, "3.7.0"))
+	m := makeDLLsResource([]*game.Game{g}, map[string][]string{"dlss": {"3.8.10"}}, nil)
+
+	library := m.View(false, nav.SectionDLLLibrary)
+	if !strings.Contains(library, "Inventory of DLL types") {
+		t.Fatalf("library view missing inventory header:\n%s", library)
+	}
+	if strings.Contains(stripANSI(library), "Deployment") && strings.Contains(stripANSI(library), "Alpha") {
+		t.Fatal("library view must not include deployment rows")
+	}
+
+	deployment := m.View(false, nav.SectionDLLDeployment)
+	if !strings.Contains(deployment, "Deployment") {
+		t.Fatalf("deployment view missing header:\n%s", deployment)
+	}
+	if strings.Contains(deployment, "Inventory of DLL types") {
+		t.Fatal("deployment view must not include library inventory")
+	}
 }
 
 func TestDLLsResource_LibrarySectionLists_AllKnownTypes(t *testing.T) {

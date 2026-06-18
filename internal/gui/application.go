@@ -106,7 +106,11 @@ func (b guiApplicationBoundary) getDefaultProfile() *ProfileInfo {
 	if err != nil {
 		return nil
 	}
-	return profileInfoFromProfile(defaultProfile, false)
+	explanations, err := (*profile.Profile)(nil).Explain(defaultProfile)
+	if err != nil {
+		return nil
+	}
+	return profileInfoFromProfileWithSemantics(defaultProfile, explanations, true)
 }
 
 func (b guiApplicationBoundary) saveGameProfile(appID uint64, info ProfileInfo) error {

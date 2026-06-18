@@ -26,6 +26,9 @@ func (m ContentModel) updateBlockingFlow(msg tea.Msg) (ContentModel, tea.Cmd, bo
 
 func (m ContentModel) updatePendingAction(msg tea.KeyPressMsg) (ContentModel, tea.Cmd, bool) {
 	switch msg.String() {
+	case "esc", "escape":
+		m.pendingAction = PendingNone
+		return m, nil, true
 	case "y", "Y":
 		action := m.pendingAction
 		m.pendingAction = PendingNone
@@ -52,8 +55,10 @@ func (m ContentModel) updateContentMessage(msg tea.Msg) (ContentModel, tea.Cmd, 
 		m.dlssPresetModal.Open(msg.currentPreset)
 		return m, nil, true
 	case dlssPresetSelectedMsg:
-		m.profileWidget.SetDLSSPreset(msg.preset)
-		return m, nil, true
+		if raw := m.detail.RawProfile(); raw != nil {
+			raw.DLSS.SRPreset = msg.preset
+		}
+		return m, m.saveResolvedProfile(), true
 	case dlssPresetCancelledMsg:
 		return m, nil, true
 	case profileSaveMsg:
@@ -121,12 +126,10 @@ func (m ContentModel) updateContentKey(msg tea.KeyPressMsg) (ContentModel, tea.C
 func (m *ContentModel) updateDetailNavigation(msg tea.KeyPressMsg) bool {
 	switch msg.String() {
 	case "j", "down", "k", "up":
-		if !m.profileWidget.Editing() {
-			detail, _, handled := m.detail.Update(msg)
-			if handled {
-				m.detail = detail
-				return true
-			}
+		detail, _, handled := m.detail.Update(msg)
+		if handled {
+			m.detail = detail
+			return true
 		}
 	}
 	return false

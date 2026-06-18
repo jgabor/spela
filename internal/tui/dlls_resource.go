@@ -10,6 +10,7 @@ import (
 
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/nav"
 )
 
 // DLLsResourceModel renders the DLLs resource pane introduced by Task 6.
@@ -342,10 +343,8 @@ func (m DLLsResourceModel) updateAllCmd() tea.Cmd {
 	}
 }
 
-// View renders the DLLs resource pane. Two sections are always visible:
-// library at the top, deployment table below. A short help line beneath
-// lists j/k and U.
-func (m DLLsResourceModel) View(paneFocused bool) string {
+// View renders the DLL Catalog content pane for the selected section.
+func (m DLLsResourceModel) View(paneFocused bool, section nav.DLLCatalogSection) string {
 	s := m.styles
 	borderColor := s.BorderColor(paneFocused)
 
@@ -355,9 +354,12 @@ func (m DLLsResourceModel) View(paneFocused bool) string {
 		Padding(0, 1)
 
 	var b strings.Builder
-	b.WriteString(m.renderLibrary())
-	b.WriteString("\n\n")
-	b.WriteString(m.renderDeployment())
+	switch section {
+	case nav.SectionDLLDeployment:
+		b.WriteString(m.renderDeployment())
+	default:
+		b.WriteString(m.renderLibrary())
+	}
 	b.WriteString("\n")
 	b.WriteString(m.renderFooter())
 

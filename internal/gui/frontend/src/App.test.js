@@ -41,6 +41,13 @@ const fixtures = vi.hoisted(() => ({
     inheritedFromDefault: false,
     semantics: []
   },
+  settingsCatalog: [
+    { id: 0, title: 'Display', options: [{ key: 'showHints', label: 'Show hints', description: '', type: 'toggle' }] },
+    { id: 1, title: 'Startup', options: [] },
+    { id: 2, title: 'Paths', options: [{ key: 'steamPath', label: 'Steam path', description: '', type: 'text' }] },
+    { id: 3, title: 'DLL policy', options: [] },
+    { id: 4, title: 'Logging', options: [{ key: 'logLevel', label: 'Log level', description: '', type: 'select', choices: ['info'] }] }
+  ],
   config: {
     theme: 'dark',
     showHints: true,
@@ -69,6 +76,7 @@ vi.mock('../wailsjs/go/gui/App', () => ({
   GetGames: vi.fn().mockResolvedValue(fixtures.games),
   GetLogo: vi.fn().mockResolvedValue(''),
   GetProfile: vi.fn().mockResolvedValue(fixtures.profile),
+  GetSettingsCatalog: vi.fn().mockResolvedValue(fixtures.settingsCatalog),
   GetVersion: vi.fn().mockResolvedValue('0.6.0'),
   HasDLLBackup: vi.fn().mockResolvedValue(false),
   InstallDLL: vi.fn().mockResolvedValue(undefined),
@@ -103,6 +111,7 @@ function makeDesktop(overrides = {}) {
     GetGames: vi.fn().mockResolvedValue(fixtures.games),
     GetLogo: vi.fn().mockResolvedValue(''),
     GetProfile: vi.fn().mockResolvedValue(fixtures.profile),
+    GetSettingsCatalog: vi.fn().mockResolvedValue(fixtures.settingsCatalog),
     GetVersion: vi.fn().mockResolvedValue('0.6.0'),
     HasDLLBackup: vi.fn().mockResolvedValue(false),
     InstallDLL: vi.fn().mockResolvedValue(undefined),
@@ -149,7 +158,7 @@ describe('App keyboard behavior', () => {
     expect(screen.getByRole('button', { name: 'Save default profile' })).toBeTruthy()
 
     await fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Settings' })).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Display' })).toBeTruthy())
     const showHintsRow = screen.getByText('Show hints').closest('.option-row')
     await fireEvent.click(within(showHintsRow).getByRole('button'))
     await waitFor(() => expect(desktop.SaveConfig).toHaveBeenCalledWith(expect.objectContaining({ showHints: false })))
@@ -168,7 +177,9 @@ describe('App keyboard behavior', () => {
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy())
     await fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Settings' })).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Display' })).toBeTruthy())
+    await fireEvent.click(screen.getByRole('button', { name: 'Paths' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Paths' })).toBeTruthy())
 
     const steamPath = screen.getByLabelText('Steam path')
     await fireEvent.input(steamPath, { target: { value: '/mnt/steam' } })
@@ -194,7 +205,7 @@ describe('App keyboard behavior', () => {
     await waitFor(() => expect(document.activeElement).toBe(screen.getByPlaceholderText('Search games...')))
 
     await fireEvent.keyDown(window, { key: '4' })
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Settings' })).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Display' })).toBeTruthy())
 
     await fireEvent.keyDown(window, { key: '?' })
     expect(screen.getByRole('dialog', { name: 'Help' })).toBeTruthy()

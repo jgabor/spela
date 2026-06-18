@@ -353,35 +353,46 @@ gauge-mini:
   usage: compact mode inline gauges, table cells
 ```
 
-### Resource Navigation
+### Navigation Shell (Scope × Aspect)
 
-Permanent left rail with four peer resources. `tab` moves focus into the active pane;
-`1`-`4` switch resources globally. Steam `%command%` remains the launch path.
+Three-column shell shared by TUI and GUI. Primary nav selects the destination;
+context nav selects scope, aspect, and section; content shows the active detail.
+`tab` / `shift+tab` cycle focus zones (primary → context → content). `1`–`4` switch
+destinations globally. Steam `%command%` remains the launch path.
 
 <!-- design:components-navigation -->
 ```yaml
-resource-rail:
-  breadcrumb-separator: " > "
-  breadcrumb-root: "spela"
-  breadcrumb-style-active: bold, brand-primary
+navigation-shell:
+  columns: [primary-nav, context-nav, content]
+  breadcrumb-separator: " › "
+  breadcrumb-root: "Spela"
+  breadcrumb-style-active: accent-secondary
   breadcrumb-style-trail: text-dim
-  pop-key: "esc"
+  back-key: "esc"           # pop one zone toward primary
+
+primary-nav:
+  destinations:
+    - { key: "1", label: "Library" }
+    - { key: "2", label: "DLL Catalog" }
+    - { key: "3", label: "Monitor" }
+    - { key: "4", label: "Settings" }
+  format: "[{key}]{label}"
+  style-key: accent-primary, bold
+  style-label: text-primary
+
+library-context:
+  scope:
+    - "All games (default)"   # pinned global profile scope
+    - "{game name}"           # per-game scope
+  aspects: [Overview, Profile, DLLs]   # global scope: Profile only
+  profile-subsystems: [Proton, DLSS, GPU, CPU, Overlay]
 
   # Example breadcrumb trails:
-  # spela > Games > Cyberpunk 2077
-  # spela > DLLs > Deployment
-  # spela > Defaults
-  # spela > Metrics
-  # spela > Settings
-
-jump-keys:
-  games: "1"
-  dlls: "2"
-  defaults: "3"
-  metrics: "4"
-  format: "[{key}]{label}"
-  style-key: accent-focus, bold
-  style-label: text-primary
+  # Spela › Library › All games › Profile › Proton
+  # Spela › Library › Cyberpunk 2077 › DLLs
+  # Spela › DLL Catalog › Deployment
+  # Spela › Monitor › GPU
+  # Spela › Settings › Paths
 ```
 
 ### Context Key Bar

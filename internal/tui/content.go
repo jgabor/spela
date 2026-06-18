@@ -66,7 +66,6 @@ type ContentModel struct {
 	game                *game.Game
 	defaultProfile      bool
 	profile             *profile.Profile
-	profileWidget       ProfileWidgetModel
 	detail              DetailModel
 	dlssPresetModal     DLSSPresetModalModel
 	confirmDestructive  bool
@@ -155,12 +154,6 @@ func (m ContentModel) SetGame(g *game.Game) ContentModel {
 			widgetProfile = defaults
 		}
 		m.profile = widgetProfile
-		m.profileWidget = NewProfileWidget(g, widgetProfile, m.styles)
-		if m.services != nil && m.services.VKD3DNotice != nil {
-			appID := g.AppID
-			noticeFn := m.services.VKD3DNotice
-			m.profileWidget.SetVKD3DNoticeSource(func() string { return noticeFn(appID) })
-		}
 		m.detail = NewDetail(m.styles, rawProfile, defaults)
 		m.hasBackup = m.services.BackupExists(g.AppID)
 	}
@@ -181,10 +174,6 @@ func (m ContentModel) SetDefaultProfile() ContentModel {
 
 	p, _ := m.services.LoadDefaultProfile()
 	m.profile = p
-	m.profileWidget = NewDefaultProfileWidget(p, m.styles)
-	if m.profile == nil {
-		m.profile = m.profileWidget.profile
-	}
 	m.detail = NewRootDetail(m.styles, m.profile)
 
 	return m
@@ -220,9 +209,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 		return next, cmd
 	}
 
-	var cmd tea.Cmd
-	m.profileWidget, cmd = m.profileWidget.Update(msg)
-	return m, cmd
+	return m, nil
 }
 
 // saveResolvedProfile emits a save command for the current game's raw
@@ -259,15 +246,9 @@ func (m ContentModel) updateDLLs() tea.Cmd {
 			return dllUpdateMsg{err: fmt.Errorf("no game or DLLs selected")}
 		}
 
-		manifest, err := dll.LoadManifest()
+		manifest, err := dll.GetManifest(false, "")
 		if err != nil {
-			return dllUpdateMsg{err: fmt.Errorf("failed to load manifest: %w", err)}
-		}
-		if manifest == nil {
-			manifest, err = dll.UpdateManifest("")
-			if err != nil {
-				return dllUpdateMsg{err: fmt.Errorf("failed to fetch manifest: %w", err)}
-			}
+			return dllUpdateMsg{err: fmt.Errorf("failed to fetch manifest: %w", err)}
 		}
 
 		gameDLLs := dll.GameDLLsFromDetected(g.DLLs)
@@ -324,39 +305,37 @@ func (m ContentModel) restoreDLLs() tea.Cmd {
 }
 
 func (m ContentModel) HasModalOpen() bool {
-	return m.dlssPresetModal.Visible() || m.dllInstallState != DLLInstallNone || m.profileWidget.Editing() || m.pendingAction != PendingNone
+	return m.dlssPresetModal.Visible() || m.dllInstallState != DLLInstallNone || m.pendingAction != PendingNone
 }
 
 func (m ContentModel) HasGameSelection() bool {
 	return m.game != nil
 }
 
-func (m ContentModel) View() string {
+// ViewProfileAspect renders Library › Profile for the selected game.
+func (m ContentModel) ViewProfileAspect() string {
 	if m.dlssPresetModal.Visible() {
 		return m.dlssPresetModal.View()
 	}
+	if m.game == nil {
+		return m.styles.Dim.Render("Select a game from the scope list")
+	}
+	return m.renderProfile()
+}
 
+// ViewDLLAspect renders Library › DLLs for the selected game.
+func (m ContentModel) ViewDLLAspect() string {
 	if m.dllInstallState != DLLInstallNone {
 		return m.renderDLLInstallDialog()
 	}
-
-	if m.defaultProfile {
-		return m.renderDefaultProfile()
-	}
-
 	if m.game == nil {
-		return m.styles.Dim.Render("Select a game from the list")
+		return m.styles.Dim.Render("Select a game from the scope list")
 	}
+	return m.renderDLLs()
+}
 
-	var b strings.Builder
-
-	b.WriteString(m.renderGameInfo())
-	b.WriteString("\n")
-	b.WriteString(m.renderDLLs())
-	b.WriteString("\n")
-	b.WriteString(m.renderProfile())
-
-	return b.String()
+func (m ContentModel) View() string {
+	return m.ViewProfileAspect()
 }
 
 func (m ContentModel) loadEffectiveProfile(appID uint64) (*profile.Profile, bool) {
@@ -482,15 +461,9 @@ func (m ContentModel) LoadDLLUpdates() tea.Cmd {
 			return dllUpdatesCheckedMsg{hasUpdates: false}
 		}
 
-		manifest, err := dll.LoadManifest()
+		manifest, err := dll.GetManifest(false, "")
 		if err != nil {
-			return dllUpdatesCheckedMsg{err: fmt.Errorf("failed to load manifest: %w", err)}
-		}
-		if manifest == nil {
-			manifest, err = dll.UpdateManifest("")
-			if err != nil {
-				return dllUpdatesCheckedMsg{err: fmt.Errorf("failed to fetch manifest: %w", err)}
-			}
+			return dllUpdatesCheckedMsg{err: fmt.Errorf("failed to fetch manifest: %w", err)}
 		}
 
 		for _, d := range g.DLLs {

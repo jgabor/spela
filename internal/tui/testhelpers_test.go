@@ -10,6 +10,7 @@ import (
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/nav"
 	"github.com/jgabor/spela/internal/profile"
 )
 
@@ -275,8 +276,8 @@ func TestFactories_Smoke(t *testing.T) {
 		if m.height != 40 {
 			t.Errorf("expected height 40, got %d", m.height)
 		}
-		if !m.railFocused {
-			t.Error("expected rail to be focused by default")
+		if m.navState.Zone != nav.ZonePrimary {
+			t.Error("expected primary zone focused by default")
 		}
 	})
 
@@ -290,11 +291,11 @@ func TestFactories_Smoke(t *testing.T) {
 		if cm.game.Name != "Cyberpunk 2077" {
 			t.Errorf("expected Cyberpunk 2077, got %s", cm.game.Name)
 		}
-		if withGame.railFocused {
-			t.Error("expected rail focus off after game confirmation")
+		if withGame.navState.Zone != nav.ZoneContent {
+			t.Errorf("expected content zone after game confirmation, got %v", withGame.navState.Zone)
 		}
-		if withGame.rail.Active() != ResourceGames {
-			t.Errorf("expected ResourceGames active, got %v", withGame.rail.Active())
+		if withGame.rail.Active() != nav.DestinationLibrary {
+			t.Errorf("expected Library active, got %v", withGame.rail.Active())
 		}
 	})
 

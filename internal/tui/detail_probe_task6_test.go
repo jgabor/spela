@@ -11,6 +11,7 @@ import (
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/gpu"
+	"github.com/jgabor/spela/internal/nav"
 	"github.com/jgabor/spela/internal/overlay"
 )
 
@@ -78,7 +79,9 @@ func TestRenderProbe_Task6(t *testing.T) {
 	layout = result.(LayoutModel)
 	result, _ = sendKey(&layout, "tab")
 	layout = result.(LayoutModel)
-	dllsView := layout.pane.View(ResourceDLLs, true)
+	layout.rail.SetActive(nav.DestinationDLLCatalog)
+	layout.syncNavFromRail()
+	dllsView := layout.pane.View(true)
 	fmt.Fprintln(os.Stderr, "═════════════════════ DLLS RESOURCE ═════════════════════")
 	fmt.Fprintln(os.Stderr, dllsView)
 	fmt.Fprintln(os.Stderr, "══════════════════════════════════════════════════════════")
@@ -117,7 +120,9 @@ func TestRenderProbe_Task6(t *testing.T) {
 	layout = result.(LayoutModel)
 	result, _ = sendKey(&layout, "tab")
 	layout = result.(LayoutModel)
-	metricsView := layout.pane.View(ResourceMetrics, true)
+	layout.rail.SetActive(nav.DestinationMonitor)
+	layout.syncNavFromRail()
+	metricsView := layout.pane.View(true)
 	fmt.Fprintln(os.Stderr, "═════════════════════ METRICS RESOURCE ═════════════════════")
 	fmt.Fprintln(os.Stderr, metricsView)
 	fmt.Fprintln(os.Stderr, "═════════════════════════════════════════════════════════════")

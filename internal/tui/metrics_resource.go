@@ -8,6 +8,7 @@ import (
 
 	"github.com/jgabor/spela/internal/cpu"
 	"github.com/jgabor/spela/internal/gpu"
+	"github.com/jgabor/spela/internal/nav"
 	"github.com/jgabor/spela/internal/overlay"
 )
 
@@ -70,7 +71,7 @@ func (m MetricsResourceModel) SetData(
 // temperature and utilisation lines sit above the VRAM / RAM gauges, with
 // any active alerts listed beneath. Sparkline widths scale with the
 // available pane width.
-func (m MetricsResourceModel) View(paneFocused bool) string {
+func (m MetricsResourceModel) View(paneFocused bool, section nav.MonitorSection) string {
 	s := m.styles
 	t := s.Theme
 
@@ -80,7 +81,7 @@ func (m MetricsResourceModel) View(paneFocused bool) string {
 		Padding(0, 1)
 
 	var b strings.Builder
-	b.WriteString(s.Title.Render("Metrics"))
+	b.WriteString(s.Title.Render(nav.MonitorSectionLabels[section]))
 	b.WriteString("\n")
 	b.WriteString(s.Dim.Render("Live GPU and CPU telemetry. Sparklines and gauges share the header sample loop."))
 	b.WriteString("\n\n")
@@ -98,7 +99,22 @@ func (m MetricsResourceModel) View(paneFocused bool) string {
 	valueStyle := lipgloss.NewStyle().Foreground(t.Text)
 	freqStyle := lipgloss.NewStyle().Foreground(t.MetricCPUFreq)
 
-	// --- GPU block ---
+	if section == nav.MonitorGPU {
+		m.renderGPUBlock(&b, s, t, sparklineWidth, gaugeWidth, labelStyle, valueStyle, freqStyle)
+	}
+
+	if section == nav.MonitorCPU {
+		m.renderCPUBlock(&b, s, t, sparklineWidth, gaugeWidth, labelStyle, valueStyle, freqStyle)
+	}
+
+	if section == nav.MonitorAlerts {
+		m.renderAlertsBlock(&b, s)
+	}
+
+	return box.Render(b.String())
+}
+
+func (m MetricsResourceModel) renderGPUBlock(b *strings.Builder, s *Styles, t Theme, sparklineWidth, gaugeWidth int, labelStyle, valueStyle, freqStyle lipgloss.Style) {
 	b.WriteString(m.sectionHeader("GPU"))
 	b.WriteString("\n")
 	if m.gpuMetrics != nil {
@@ -168,10 +184,9 @@ func (m MetricsResourceModel) View(paneFocused bool) string {
 		b.WriteString(labelStyle.Render("Temp   ") + valueStyle.Render("N/A"))
 		b.WriteString("\n")
 	}
+}
 
-	b.WriteString("\n")
-
-	// --- CPU block ---
+func (m MetricsResourceModel) renderCPUBlock(b *strings.Builder, s *Styles, t Theme, sparklineWidth, gaugeWidth int, labelStyle, valueStyle, freqStyle lipgloss.Style) {
 	b.WriteString(m.sectionHeader("CPU"))
 	b.WriteString("\n")
 	if m.cpuMetrics != nil {
@@ -207,25 +222,26 @@ func (m MetricsResourceModel) View(paneFocused bool) string {
 		b.WriteString(labelStyle.Render("Util   ") + valueStyle.Render("N/A"))
 		b.WriteString("\n")
 	}
+}
 
-	// --- Alerts ---
-	if len(m.alerts) > 0 {
+func (m MetricsResourceModel) renderAlertsBlock(b *strings.Builder, s *Styles) {
+	b.WriteString(m.sectionHeader("Alerts"))
+	b.WriteString("\n")
+	if len(m.alerts) == 0 {
+		b.WriteString(s.Dim.Render("No active alerts"))
 		b.WriteString("\n")
-		b.WriteString(m.sectionHeader("Alerts"))
-		b.WriteString("\n")
-		for _, a := range m.alerts {
-			icon := "⚠"
-			style := s.Warning
-			if a.Severity == overlay.AlertCritical {
-				icon = "✗"
-				style = s.Error
-			}
-			b.WriteString(style.Render(fmt.Sprintf("%s %s", icon, alertLabel(&a))))
-			b.WriteString("\n")
-		}
+		return
 	}
-
-	return box.Render(b.String())
+	for _, a := range m.alerts {
+		icon := "⚠"
+		style := s.Warning
+		if a.Severity == overlay.AlertCritical {
+			icon = "✗"
+			style = s.Error
+		}
+		b.WriteString(style.Render(fmt.Sprintf("%s %s", icon, alertLabel(&a))))
+		b.WriteString("\n")
+	}
 }
 
 func (m MetricsResourceModel) sectionHeader(name string) string {

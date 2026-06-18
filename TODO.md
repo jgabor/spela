@@ -8,16 +8,31 @@
 
 ## ⇉ Degraded
 
+- [ ] **`GameDetail.svelte` god-component split** — ~1.4k lines owns profile, DLL ops, progress events, and launch guidance; extract aspect-specific panes when the next GUI feature touches it (`.agentera/plan.yaml` deferred)
+- [ ] **Go→JS nav binding drift risk** — `navState.js` hand-ports `internal/nav`; add Wails export or codegen so GUI transitions cannot silently diverge (`.agentera/plan.yaml` deferred)
+- [ ] **GUI DLL Catalog parity** — `DLLCatalogPane.svelte` is a thin stub; TUI has full library inventory + deployment matrix + update-all
+- [ ] **`SupportsVKD3DHeap` detection stale for Proton-CachyOS 11.0+** — greps for removed `PROTON_VKD3D_HEAP` marker; Proton-CachyOS now needs only `VKD3D_CONFIG=descriptor_heap`, so compatible builds may false-negative
+- [x] ~~TUI focus state too subtle~~ — zone indicator in status bar, column focus markers (▸), profile row cursor (`>`)
+- [x] ~~TUI Tab model inconsistent~~ — help documents Tab/Esc zone flow; status bar shows active zone
 - [x] ~~DLSS-D column missing from GUI DLL display~~ — already present in GameDetail.svelte (stale entry)
 - [x] ~~No DLL operation progress indicator in GUI~~ — fixed in c013f1d: backend emits `dll:progress` events at each stage; frontend shows current stage next to busy button
 - [x] ~~DLL operation error messages incomplete in GUI~~ — fixed in c013f1d: all DLL ops wrap errors with stage context; failures shown in persistent dismissible banner instead of 3s toast
 
 ## ⇢ Annoying
 
+- [ ] **TUI command palette** — help lists `:` as deferred; no palette implementation yet
+- [ ] **rmux ANSI focus verification** — unit tests cover KeyDown path; rmux capture still needed to validate zone/focus affordances end-to-end
+- [ ] **Frontend-owned option/DLL labels** — DLSS presets and DLL type labels live in `GameDetail.svelte` while semantics come from backend; promote to catalog metadata if option churn increases (HEALTH.md Audit 9)
+- [ ] **Table-driven Go↔JS nav parity tests** — expand beyond spot checks so every `SelectDestination` / `SelectScope` / `SelectAspect` rule in `internal/nav` has a matching JS assertion
+- [x] ~~TUI profile rows lack action affordances~~ — focused-row hints for reset/pin on game profiles
+- [x] ~~Add rmux arrow-key regression coverage~~ — detail test uses KeyDown code path documented for rmux escape sequences
+- [x] ~~Align default-profile path docs with implementation~~ — README uses `profiles/default.yaml`
 - [x] ~~No CLI commands for overlay profile settings~~ — added `spela overlay set/show` with 8 flags in 6a54b25
 
 ## Resolved
 
+- [x] ~~Three-zone navigation wiring~~ — `internal/nav` + settings catalog + TUI/GUI shell parity; P0 hotkey gate and DLL section filtering; rail syncs from `navState` (`.agentera/plan.yaml`, thermo review fixes)
+- [x] ~~Default-profile semantics in GUI boundary~~ — `getDefaultProfile()` now supplies `Explain` metadata; `TestGUIBoundaryDefaultProfileSemanticsPass`
 - [x] ~~Gova-inspired GUI seam coupling and behavior coverage~~ — delivered in 5743044..98ad89a; Task 7 found no open GUI-seam follow-up.
 - [x] ~~Trusted profile loop shared semantics~~ — delivered in fed4ac0; effective values report source, launch impact, and restore coverage.
 - [x] ~~Trusted profile loop launch preparation visibility~~ — delivered in 60152a4; CLI and wrapper summaries show planned environment, DLL, hardware, overlay, and compatibility impacts.

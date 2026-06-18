@@ -119,7 +119,7 @@ overlay:
   position: top-left
 ```
 
-Profiles compose with a default profile (`~/.config/spela/default.yaml`). The
+Profiles compose with a default profile (`~/.config/spela/profiles/default.yaml`). The
 effective value shown for a game has one source:
 
 - `default`: inherited live from the default profile.
@@ -144,8 +144,8 @@ Files follow XDG Base Directory specification:
 ```
 ~/.config/spela/
 ├── config.yaml           # Global settings
-├── default.yaml          # Default profile
 └── profiles/
+    ├── default.yaml      # Default profile
     └── <app-id>.yaml     # Per-game profiles
 
 ~/.local/share/spela/

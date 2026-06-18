@@ -121,7 +121,10 @@ func Lint() error {
 	return sh.RunV("golangci-lint", "run")
 }
 
-// Install installs the binary to GOPATH/bin
+// Install installs the binary to GOPATH/bin and /usr/bin. Steam game
+// launches run /bin/sh with PATH=/usr/bin:/bin inside the runtime
+// supervisor, so a user-shell PATH entry (~/.bin, GOPATH/bin) is not
+// enough for `spela %command%` in Steam launch options.
 func Install() error {
 	mg.Deps(FrontendBuild)
 
@@ -129,7 +132,16 @@ func Install() error {
 	if err != nil {
 		return err
 	}
-	return sh.RunV("go", "install", "-tags", "embed_assets,production,webkit2_41", "-ldflags", ldf, "./cmd/spela")
+	if err := sh.RunV("go", "install", "-tags", "embed_assets,production,webkit2_41", "-ldflags", ldf, "./cmd/spela"); err != nil {
+		return err
+	}
+
+	goBin, err := sh.Output("go", "env", "GOPATH")
+	if err != nil {
+		return fmt.Errorf("resolve GOPATH after install: %w", err)
+	}
+	binaryPath := filepath.Join(strings.TrimSpace(goBin), "bin", binaryName)
+	return sh.RunV("sudo", "install", "-m755", binaryPath, "/usr/bin/"+binaryName)
 }
 
 // Clean removes build artifacts

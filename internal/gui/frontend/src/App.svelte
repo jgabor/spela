@@ -1,195 +1,142 @@
 <script>
   import { onMount, onDestroy } from 'svelte'
   import Header from './lib/Header.svelte'
-  import GameList from './lib/GameList.svelte'
   import GameDetail from './lib/GameDetail.svelte'
+  import PrimaryNav from './lib/PrimaryNav.svelte'
+  import ContextNav from './lib/ContextNav.svelte'
+  import SettingsPane from './lib/SettingsPane.svelte'
+  import MonitorPane from './lib/Monitor.svelte'
+  import DLLCatalogPane from './lib/DLLCatalogPane.svelte'
+  import GameOverview from './lib/GameOverview.svelte'
   import { desktopCommands } from './lib/desktop'
+  import {
+    defaultNavState,
+    Destination,
+    destinationFromHotkey,
+    Aspect,
+    breadcrumb,
+    selectDestination as applyDestination,
+    selectScope,
+    selectAspect,
+    selectSubsystem
+  } from './lib/navState.js'
 
   export let desktop = desktopCommands
 
   let selectedGame = null
-  let selectedProfileMode = 'game'
-  let gameListComponent
+  let nav = defaultNavState()
   let gameDetailComponent
+  let contextNavComponent
   let theme = 'dark'
-  let showOptions = false
   let showHelp = false
-  let focusPane = 'list'
   let config = null
   let version = ''
   let configMessage = ''
   let configMessageType = 'info'
   let configMessageTimer
 
-  const optionSections = [
-    {
-      title: 'Display',
-      options: [
-        {
-          key: 'theme',
-          label: 'Theme',
-          description: 'Match the system theme or force dark mode.',
-          type: 'select',
-          choices: ['default', 'dark']
-        },
-        {
-          key: 'showHints',
-          label: 'Show hints',
-          description: 'Show keyboard hints in the footer and dialogs.',
-          type: 'toggle'
-        },
-        {
-          key: 'compactMode',
-          label: 'Compact mode',
-          description: 'Use tighter spacing in lists and panels.',
-          type: 'toggle'
-        }
-      ]
-    },
-    {
-      title: 'Startup',
-      options: [
-        {
-          key: 'rescanOnStartup',
-          label: 'Re-scan on startup',
-          description: 'Scan for games whenever Spela launches.',
-          type: 'toggle'
-        },
-        {
-          key: 'autoUpdateDLLs',
-          label: 'Auto-update DLLs',
-          description: 'Update DLLs automatically when the app starts.',
-          type: 'toggle'
-        },
-        {
-          key: 'checkUpdates',
-          label: 'Check for updates',
-          description: 'Look for new Spela releases at startup.',
-          type: 'toggle'
-        }
-      ]
-    },
-    {
-      title: 'Paths',
-      options: [
-        {
-          key: 'steamPath',
-          label: 'Steam path',
-          description: 'Custom Steam installation path.',
-          type: 'path'
-        },
-        {
-          key: 'dllCachePath',
-          label: 'DLL cache path',
-          description: 'Override where downloaded DLLs are stored.',
-          type: 'path'
-        },
-        {
-          key: 'backupPath',
-          label: 'Backup path',
-          description: 'Location for DLL and save backups.',
-          type: 'path'
-        }
-      ]
-    },
-    {
-      title: 'System',
-      options: [
-        {
-          key: 'logLevel',
-          label: 'Log level',
-          description: 'Control logging verbosity for troubleshooting.',
-          type: 'select',
-          choices: ['debug', 'info', 'warn', 'error']
-        },
-        {
-          key: 'confirmDestructive',
-          label: 'Confirm destructive',
-          description: 'Ask before destructive actions like restores.',
-          type: 'toggle'
-        }
-      ]
-    },
-    {
-      title: 'DLL management',
-      options: [
-        {
-          key: 'autoRefreshManifest',
-          label: 'Auto-refresh manifest',
-          description: 'Refresh the DLL manifest automatically.',
-          type: 'toggle'
-        },
-        {
-          key: 'manifestRefreshHours',
-          label: 'Refresh interval',
-          description: 'How often to refresh the manifest (hours).',
-          type: 'select',
-          choices: ['1', '6', '12', '24', '48', '168']
-        },
-        {
-          key: 'preferredDLLSource',
-          label: 'DLL source',
-          description: 'Preferred source for DLL downloads.',
-          type: 'select',
-          choices: ['techpowerup', 'github']
-        }
-      ]
-    }
-  ]
+  let optionSections = []
 
-  let optionsState = {
-    theme: 'dark',
-    showHints: true,
-    compactMode: false,
-    logLevel: 'info',
-    steamPath: '',
-    dllCachePath: '',
-    backupPath: '',
-    confirmDestructive: true,
-    rescanOnStartup: false,
-    autoUpdateDLLs: false,
-    checkUpdates: false,
-    autoRefreshManifest: true,
-    manifestRefreshHours: '24',
-    preferredDLLSource: 'techpowerup'
+  let optionsState = {}
+
+  function defaultOptionValue(option) {
+    if (option.type === 'toggle') {
+      return false
+    }
+    if (option.choices?.length) {
+      return option.choices[0]
+    }
+    return ''
   }
 
-  onMount(() => {
+  function buildOptionsState(sections, loaded = {}) {
+    const state = {}
+    for (const section of sections) {
+      for (const option of section.options || []) {
+        const loadedVal = loaded[option.key]
+        if (loadedVal !== undefined && loadedVal !== null && loadedVal !== '') {
+          state[option.key] = option.type === 'toggle' ? !!loadedVal : String(loadedVal)
+        } else {
+          state[option.key] = defaultOptionValue(option)
+        }
+      }
+    }
+    return state
+  }
+
+  function configFromOptionsState(state, baseConfig) {
+    const updated = { ...(baseConfig || {}) }
+    for (const [key, value] of Object.entries(state)) {
+      if (key === 'manifestRefreshHours') {
+        updated[key] = Number(value)
+      } else {
+        updated[key] = value
+      }
+    }
+    return updated
+  }
+
+  onMount(async () => {
+    await loadSettingsCatalog()
     loadConfig()
     loadVersion()
     window.addEventListener('keydown', handleKeydown)
   })
+
+  async function loadSettingsCatalog() {
+    try {
+      if (desktop.GetSettingsCatalog) {
+        optionSections = await desktop.GetSettingsCatalog()
+      }
+    } catch (error) {
+      optionSections = []
+    }
+  }
 
   onDestroy(() => {
     window.removeEventListener('keydown', handleKeydown)
   })
 
   function selectGame(game) {
-    selectedProfileMode = 'game'
     selectedGame = game
+    nav = selectScope(nav, false, game?.name ?? '')
+    if (nav.aspect !== Aspect.Profile && nav.aspect !== Aspect.DLLs) {
+      nav = selectAspect(nav, Aspect.Overview)
+    }
   }
 
   function selectDefaultProfile() {
-    selectedProfileMode = 'default'
     selectedGame = null
+    nav = selectScope(nav, true)
   }
+
+  function selectDestination(event) {
+    nav = applyDestination(nav, event.detail.destination)
+    if (event.detail.destination === Destination.Settings) {
+      loadConfig()
+    }
+  }
+
+  $: crumb = breadcrumb(nav).join(' › ')
+  $: activeSettingsSection = optionSections.find(section => section.id === nav.settingsSection) ?? optionSections[nav.settingsSection]
+  $: gameDetailProps = (() => {
+    if (nav.destination !== Destination.Library) {
+      return null
+    }
+    if (nav.scopeGlobal && nav.aspect === Aspect.Profile) {
+      return { profileMode: 'default', profileSubsystem: nav.subsystem, game: null, aspect: 'profile' }
+    }
+    if (!selectedGame || nav.aspect === Aspect.Overview) {
+      return null
+    }
+    if (nav.aspect === Aspect.DLLs) {
+      return { profileMode: 'game', game: selectedGame, aspect: 'dlls', profileSubsystem: 0 }
+    }
+    return { profileMode: 'game', game: selectedGame, aspect: 'profile', profileSubsystem: nav.subsystem }
+  })()
 
   function toggleHelp() {
     showHelp = !showHelp
-  }
-
-  function setFocusPane(nextPane) {
-    if (nextPane === 'detail' && !gameDetailComponent) {
-      focusPane = 'list'
-      gameListComponent?.focusSearch?.()
-      return
-    }
-    focusPane = nextPane
-    if (focusPane === 'list') {
-      gameListComponent?.focusSearch?.()
-    } else {
-      gameDetailComponent?.focusPrimary?.()
-    }
   }
 
   function isEditableTarget(target) {
@@ -205,10 +152,18 @@
       return
     }
 
-    if (event.key === 'Tab' && !showOptions && !showHelp) {
+    if (!showHelp) {
+      const dest = destinationFromHotkey(event.key)
+      if (dest !== null) {
+        event.preventDefault()
+        selectDestination({ detail: { destination: dest } })
+        return
+      }
+    }
+
+    if (event.key === 'Tab' && !showHelp && nav.destination === Destination.Library) {
       event.preventDefault()
-      const nextPane = focusPane === 'list' ? 'detail' : 'list'
-      setFocusPane(nextPane)
+      contextNavComponent?.focusSearch?.()
       return
     }
 
@@ -233,42 +188,23 @@
 
   async function handleGameUpdate(event) {
     const updated = event.detail
-    if (updated && selectedProfileMode === 'game') {
+    if (updated && !nav.scopeGlobal) {
       selectedGame = updated
-      if (gameListComponent?.refreshGames) {
-        await gameListComponent.refreshGames()
-      }
+      await contextNavComponent?.gameListComponent?.refreshGames?.()
     }
   }
 
-  function toggleOptions() {
-    showOptions = !showOptions
-    if (showOptions) {
-      resetOptionsMessage()
-    }
+  function openSettings() {
+    nav = applyDestination(nav, Destination.Settings)
+    loadConfig()
   }
 
   async function loadConfig() {
     try {
       const loaded = await desktop.GetConfig()
       config = loaded
-      optionsState = {
-        theme: loaded.theme || 'default',
-        showHints: loaded.showHints,
-        compactMode: loaded.compactMode,
-        logLevel: loaded.logLevel || 'info',
-        steamPath: loaded.steamPath || '',
-        dllCachePath: loaded.dllCachePath || '',
-        backupPath: loaded.backupPath || '',
-        confirmDestructive: loaded.confirmDestructive ?? true,
-        rescanOnStartup: loaded.rescanOnStartup,
-        autoUpdateDLLs: loaded.autoUpdateDLLs,
-        checkUpdates: loaded.checkUpdates,
-        autoRefreshManifest: loaded.autoRefreshManifest,
-        manifestRefreshHours: String(loaded.manifestRefreshHours || 24),
-        preferredDLLSource: loaded.preferredDLLSource || 'techpowerup'
-      }
-      theme = optionsState.theme
+      optionsState = buildOptionsState(optionSections, loaded)
+      theme = optionsState.theme || loaded.theme || 'dark'
       document.documentElement.setAttribute('data-theme', theme)
       resetOptionsMessage()
     } catch (error) {
@@ -309,23 +245,7 @@
     if (!config) {
       return
     }
-    const updated = {
-      ...config,
-      theme: optionsState.theme,
-      showHints: optionsState.showHints,
-      compactMode: optionsState.compactMode,
-      logLevel: optionsState.logLevel,
-      steamPath: optionsState.steamPath,
-      dllCachePath: optionsState.dllCachePath,
-      backupPath: optionsState.backupPath,
-      confirmDestructive: optionsState.confirmDestructive,
-      rescanOnStartup: optionsState.rescanOnStartup,
-      autoUpdateDLLs: optionsState.autoUpdateDLLs,
-      checkUpdates: optionsState.checkUpdates,
-      autoRefreshManifest: optionsState.autoRefreshManifest,
-      manifestRefreshHours: Number(optionsState.manifestRefreshHours),
-      preferredDLLSource: optionsState.preferredDLLSource
-    }
+    const updated = configFromOptionsState(optionsState, config)
     try {
       await desktop.SaveConfig(updated)
       config = updated
@@ -341,75 +261,7 @@
 </script>
 
 <main>
-  <Header {desktop} on:options={toggleOptions} />
-
-  {#if showOptions}
-    <button
-      type="button"
-      class="options-overlay"
-      aria-label="Close options"
-      on:click={toggleOptions}
-    ></button>
-    <div class="options-panel" role="dialog" aria-modal="true" aria-label="Options">
-      <div class="options-header">
-        <div class="options-title">Options</div>
-        <button class="options-close" on:click={toggleOptions}>Close</button>
-      </div>
-      {#if configMessage}
-        <div class="options-message" data-type={configMessageType}>{configMessage}</div>
-      {/if}
-      {#each optionSections as section}
-        <div class="options-section">
-          <div class="options-section-title">{section.title}</div>
-          {#each section.options as option}
-            <div class="options-row">
-              <div class="options-label">
-                <div class="options-label-title">{option.label}</div>
-                {#if option.description}
-                  <div class="options-description">{option.description}</div>
-                {/if}
-              </div>
-              <div class="options-control">
-                {#if option.type === 'toggle'}
-                  <button
-                    class="toggle"
-                    class:active={optionsState[option.key]}
-                    on:click={() => updateOption(option.key, !optionsState[option.key])}
-                  >
-                    {optionsState[option.key] ? 'On' : 'Off'}
-                  </button>
-                {:else if option.type === 'select'}
-                  <div class="select-list">
-                    {#each option.choices as choice}
-                      <button
-                        class="select-option"
-                        class:active={optionsState[option.key] === choice}
-                        on:click={() => updateOption(option.key, choice)}
-                      >
-                        {choice}
-                      </button>
-                    {/each}
-                  </div>
-                {:else if option.type === 'path'}
-                  <input
-                    type="text"
-                    class="path-input"
-                    placeholder="(default)"
-                    value={optionsState[option.key]}
-                    on:input={event => updateOption(option.key, event.currentTarget.value)}
-                  />
-                {/if}
-              </div>
-
-            </div>
-          {/each}
-        </div>
-      {/each}
-      <div class="options-footer">
-        Changes are saved to config.yaml.
-      </div>
-    </div>
-  {/if}
+  <Header {desktop} on:options={openSettings} />
 
   {#if showHelp}
     <button
@@ -426,13 +278,14 @@
       <div class="help-section">
         <div class="help-title">Navigation</div>
         <div class="help-rows">
-          <div class="help-row"><span class="help-key">Tab</span><span>Switch between list and detail</span></div>
+          <div class="help-row"><span class="help-key">1-4</span><span>Primary destinations (Library, DLL Catalog, Monitor, Settings)</span></div>
+          <div class="help-row"><span class="help-key">Tab</span><span>Focus game search (Library)</span></div>
           <div class="help-row"><span class="help-key">?</span><span>Toggle this help</span></div>
           <div class="help-row"><span class="help-key">Q</span><span>Quit</span></div>
         </div>
       </div>
       <div class="help-section">
-        <div class="help-title">List</div>
+        <div class="help-title">Library scope</div>
         <div class="help-rows">
           <div class="help-row"><span class="help-key">/</span><span>Search games</span></div>
           <div class="help-row"><span class="help-key">D</span><span>Toggle DLL filter</span></div>
@@ -442,53 +295,66 @@
         </div>
       </div>
       <div class="help-section">
-        <div class="help-title">Detail</div>
+        <div class="help-title">Launch</div>
         <div class="help-rows">
-          <div class="help-row"><span class="help-key">L</span><span>Launch game</span></div>
-          <div class="help-row"><span class="help-key">I</span><span>Install DLL</span></div>
-          <div class="help-row"><span class="help-key">U</span><span>Update DLLs</span></div>
-          <div class="help-row"><span class="help-key">R</span><span>Restore DLLs</span></div>
+          <div class="help-row"><span class="help-key">Steam</span><span>Set launch options to <code>spela %command%</code></span></div>
         </div>
       </div>
     </div>
   {/if}
 
   <div class="app-shell">
-    <aside class="sidebar">
-      <GameList
-        bind:this={gameListComponent}
-        {desktop}
-        selectedGame={selectedGame}
-        defaultProfileSelected={selectedProfileMode === 'default'}
-        on:select={e => selectGame(e.detail)}
-        on:selectDefaultProfile={selectDefaultProfile}
-      />
-    </aside>
+    <PrimaryNav active={nav.destination} on:select={selectDestination} />
+    <ContextNav
+      bind:this={contextNavComponent}
+      {desktop}
+      destination={nav.destination}
+      {selectedGame}
+      scopeGlobal={nav.scopeGlobal}
+      aspect={nav.aspect}
+      subsystem={nav.subsystem}
+      dllSection={nav.dllSection}
+      monitorSection={nav.monitorSection}
+      settingsSection={nav.settingsSection}
+      on:selectGame={e => selectGame(e.detail)}
+      on:selectGlobal={selectDefaultProfile}
+      on:selectAspect={e => { nav = selectAspect(nav, e.detail.aspect) }}
+      on:selectSubsystem={e => { nav = selectSubsystem(nav, e.detail.subsystem) }}
+      on:dllSection={e => { nav = { ...nav, dllSection: e.detail.section } }}
+      on:monitorSection={e => { nav = { ...nav, monitorSection: e.detail.section } }}
+      on:settingsSection={e => { nav = { ...nav, settingsSection: e.detail.section } }}
+    />
     <section class="content">
-      {#if selectedProfileMode === 'default'}
+      {#if nav.destination === Destination.Settings}
+        <SettingsPane
+          section={activeSettingsSection}
+          {optionsState}
+          {configMessage}
+          configMessageType={configMessageType}
+          onOptionChange={updateOption}
+        />
+      {:else if nav.destination === Destination.Monitor}
+        <MonitorPane {desktop} section={nav.monitorSection} />
+      {:else if nav.destination === Destination.DLLCatalog}
+        <DLLCatalogPane {desktop} section={nav.dllSection} />
+      {:else if gameDetailProps}
         <GameDetail
           bind:this={gameDetailComponent}
           {desktop}
-          profileMode="default"
+          {...gameDetailProps}
           on:gameUpdate={handleGameUpdate}
         />
-      {:else if selectedGame}
-        <GameDetail
-          bind:this={gameDetailComponent}
-          {desktop}
-          game={selectedGame}
-          profileMode="game"
-          on:gameUpdate={handleGameUpdate}
-        />
+      {:else if selectedGame && nav.aspect === Aspect.Overview}
+        <GameOverview game={selectedGame} />
       {:else}
-        <div class="empty-state">Select a game from the list</div>
+        <div class="empty-state">Select a scope from the list</div>
       {/if}
     </section>
   </div>
 
   <footer class="footer">
-    <div class="footer-message">NVIDIA DLSS super resolution and frame generation settings</div>
-    <div class="footer-hints">tab: switch • ?: help • q: quit{#if version} • v{version}{/if}</div>
+    <div class="footer-message">Spela › {crumb}</div>
+    <div class="footer-hints">1-4: navigate • tab: search • ?: help • q: quit{#if version} • v{version}{/if}</div>
   </footer>
 </main>
 
@@ -503,50 +369,6 @@
   }
 
 
-  .options-panel button {
-    font-family: inherit;
-    text-transform: none;
-  }
-
-  .options-panel,
-  .options-panel * {
-    text-transform: none;
-  }
-
-  .options-panel .options-title,
-  .options-panel .options-section-title {
-    text-transform: uppercase;
-  }
-
-  .options-message {
-    padding: 0.4rem 0.6rem;
-    border: 1px solid var(--border-default);
-    border-radius: 0;
-    margin-bottom: 0.6rem;
-    font-size: 0.75rem;
-    color: var(--text-primary);
-    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
-  }
-
-  .options-message[data-type='success'] {
-    border-color: rgba(118, 185, 0, 0.4);
-    color: var(--success);
-  }
-
-  .options-message[data-type='error'] {
-    border-color: rgba(255, 107, 107, 0.4);
-    color: var(--error);
-  }
-
-  .options-footer {
-    margin-top: 1rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--border-default);
-    font-size: 0.7rem;
-    color: var(--text-dim);
-  }
-
-
   .options-overlay {
     position: fixed;
     inset: 0;
@@ -556,20 +378,6 @@
     z-index: 3000;
   }
 
-
-  .options-panel {
-    position: fixed;
-    top: 6rem;
-    right: 2rem;
-    width: min(460px, 92vw);
-    background-color: var(--bg-secondary);
-    border: 1px solid var(--border-default);
-    border-radius: 0;
-    padding: 1rem;
-    z-index: 3001;
-    text-transform: none;
-    font-size: 0.85rem;
-  }
 
   .help-panel {
     position: fixed;
@@ -648,160 +456,30 @@
     color: var(--text-primary);
   }
 
-  .options-section {
-    border-top: 1px solid var(--border-default);
-    padding-top: 0.75rem;
-    margin-top: 0.75rem;
-  }
-
-  .options-section:first-of-type {
-    border-top: none;
-    padding-top: 0;
-    margin-top: 0;
-  }
-
-  .options-section-title {
-    font-size: 0.7rem;
-    color: var(--accent-secondary);
-    letter-spacing: 0.08em;
-    margin-bottom: 0.5rem;
-    text-transform: uppercase;
-    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
-  }
-
-  .options-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 1.2rem;
-    padding: 0.45rem 0;
-  }
-
-  .options-label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    font-size: 0.7rem;
-    color: var(--text-dim);
-    text-transform: none;
-    letter-spacing: 0.01em;
-    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
-  }
-
-  .options-label-title {
-    color: var(--text-primary);
-    font-weight: 600;
-  }
-
-  .options-description {
-    font-size: 0.65rem;
-    line-height: 1.3;
-    max-width: 220px;
-    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
-  }
-
-  .options-control {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-
-  .path-input {
-    min-width: 220px;
-    padding: 0.3rem 0.6rem;
-    border: 1px solid var(--border-default);
-    border-radius: 0;
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
-    font-size: 0.75rem;
-    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
-  }
-
-  .path-input:focus {
-    outline: none;
-    border-color: var(--border-focus);
-  }
-
-  .toggle {
-    border: 1px solid var(--border-default);
-    border-radius: 0;
-    background-color: transparent;
-    color: var(--text-dim);
-    padding: 0.25rem 0.6rem;
-    font-size: 0.7rem;
-    cursor: pointer;
-    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
-  }
-
-  .toggle.active {
-    background-color: var(--accent-primary);
-    color: var(--color-ghost-white, #F5F5FD);
-    border-color: var(--accent-primary);
-  }
-
-  .select-list {
-    display: flex;
-    gap: 0.4rem;
-  }
-
-  .select-option {
-    border: 1px solid var(--border-default);
-    border-radius: 0;
-    background-color: transparent;
-    color: var(--text-dim);
-    padding: 0.2rem 0.5rem;
-    font-size: 0.7rem;
-    cursor: pointer;
-    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
-  }
-
-  .select-option.active {
-    background-color: var(--accent-primary);
-    color: var(--color-ghost-white, #F5F5FD);
-    border-color: var(--accent-primary);
-  }
-
-  @media (max-width: 720px) {
-    .options-panel {
-      right: 1rem;
-      left: 1rem;
-      top: 5rem;
-    }
-  }
-
   .app-shell {
     flex: 1;
     display: grid;
-    grid-template-columns: clamp(25ch, 30%, 50ch) minmax(0, 1fr);
-    gap: 0.75rem;
+    grid-template-columns: minmax(9rem, 11rem) minmax(14rem, 18rem) minmax(0, 1fr);
+    gap: 0;
     padding: 0 1.5rem 1rem;
     min-height: 0;
     background-color: var(--bg-primary);
-  }
-
-  .sidebar,
-  .content {
-    position: relative;
-  }
-
-  .sidebar,
-  .content {
     border: 1px solid var(--border-default);
-    border-radius: 0;
-    background-color: var(--bg-secondary);
-    overflow: visible;
-    display: flex;
-    flex-direction: column;
+    margin: 0 1.5rem;
+  }
+
+  .app-shell :global(.primary-nav),
+  .app-shell :global(.context-nav) {
     min-height: 0;
   }
 
-  .sidebar {
-    padding: 0.75rem;
-  }
-
-
   .content {
-    padding: 1rem 1.25rem;
+    position: relative;
+    border-left: 1px solid var(--border-default);
+    background-color: var(--bg-secondary);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     overflow-y: auto;
   }
 
@@ -839,15 +517,11 @@
     }
   }
 
-  @media (max-width: 720px) {
+  @media (max-width: 900px) {
     .app-shell {
+      grid-template-columns: minmax(8rem, 10rem) minmax(12rem, 16rem) minmax(0, 1fr);
+      margin: 0 1rem;
       padding: 0 1rem 0.75rem;
-      gap: 0.75rem;
-    }
-
-    .sidebar,
-    .content {
-      border-radius: 0;
     }
 
     .footer {

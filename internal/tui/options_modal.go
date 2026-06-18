@@ -9,6 +9,8 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/jgabor/spela/internal/config"
+	"github.com/jgabor/spela/internal/nav"
+	"github.com/jgabor/spela/internal/settings"
 )
 
 type OptionType int
@@ -42,6 +44,7 @@ type OptionsModalModel struct {
 	optionCursor   int
 	modified       bool
 	visible        bool
+	embedded       bool // true when rendered as Settings destination (not a modal)
 	editingPath    bool
 	pathInput      textinput.Model
 	width          int
@@ -69,114 +72,51 @@ func NewOptionsModal(styles *Styles) OptionsModalModel {
 
 	return OptionsModalModel{
 		styles:    styles,
-		sections:  buildOptionsSections(),
+		sections:  catalogOptionsSections(),
 		pathInput: ti,
 	}
 }
 
-func buildOptionsSections() []OptionsSection {
-	return []OptionsSection{
-		{
-			Title: "Startup",
-			Options: []Option{
-				{
-					Key:         "rescan_on_startup",
-					Label:       "Re-scan on startup",
-					Description: "Scan for new games when spela starts",
-					Type:        OptionTypeBool,
-					Options:     []string{"true", "false"},
-				},
-				{
-					Key:         "auto_update_dlls",
-					Label:       "Auto-update DLLs",
-					Description: "Automatically update DLLs on game start",
-					Type:        OptionTypeBool,
-					Options:     []string{"true", "false"},
-				},
-				{
-					Key:         "check_updates",
-					Label:       "Check for updates",
-					Description: "Check for spela updates on startup",
-					Type:        OptionTypeBool,
-					Options:     []string{"true", "false"},
-				},
-			},
-		},
-		{
-			Title: "Paths",
-			Options: []Option{
-				{
-					Key:         "steam_path",
-					Label:       "Steam path",
-					Description: "Custom Steam installation path",
-					Type:        OptionTypePath,
-				},
-				{
-					Key:         "dll_cache_path",
-					Label:       "DLL cache",
-					Description: "Path to store downloaded DLLs",
-					Type:        OptionTypePath,
-				},
-				{
-					Key:         "backup_path",
-					Label:       "Backup path",
-					Description: "Path for game save backups",
-					Type:        OptionTypePath,
-				},
-			},
-		},
-		{
-			Title: "DLL management",
-			Options: []Option{
-				{
-					Key:         "auto_refresh_manifest",
-					Label:       "Auto-refresh manifest",
-					Description: "Automatically refresh DLL manifest",
-					Type:        OptionTypeBool,
-					Options:     []string{"true", "false"},
-				},
-				{
-					Key:         "manifest_refresh_hours",
-					Label:       "Refresh interval",
-					Description: "Hours between manifest refreshes",
-					Type:        OptionTypeInt,
-					Options:     []string{"1", "6", "12", "24", "48", "168"},
-				},
-				{
-					Key:         "preferred_dll_source",
-					Label:       "DLL source",
-					Description: "Preferred source for DLL downloads",
-					Type:        OptionTypeEnum,
-					Options:     []string{"techpowerup", "github"},
-				},
-			},
-		},
-		{
-			Title: "Display",
-			Options: []Option{
-				{
-					Key:         "show_hints",
-					Label:       "Show hints",
-					Description: "Display keyboard shortcut hints",
-					Type:        OptionTypeBool,
-					Options:     []string{"true", "false"},
-				},
-				{
-					Key:         "compact_mode",
-					Label:       "Compact mode",
-					Description: "Use compact layout with less spacing",
-					Type:        OptionTypeBool,
-					Options:     []string{"true", "false"},
-				},
-				{
-					Key:         "confirm_destructive",
-					Label:       "Confirm destructive",
-					Description: "Confirm before destructive actions",
-					Type:        OptionTypeBool,
-					Options:     []string{"true", "false"},
-				},
-			},
-		},
+func catalogOptionsSections() []OptionsSection {
+	catalog := settings.Catalog()
+	sections := make([]OptionsSection, len(catalog))
+	for i, section := range catalog {
+		opts := make([]Option, len(section.Options))
+		for j, opt := range section.Options {
+			opts[j] = Option{
+				Key:         opt.Key,
+				Label:       opt.Label,
+				Description: opt.Description,
+				Type:        catalogOptionType(opt.Kind),
+				Options:     opt.Choices,
+			}
+		}
+		sections[i] = OptionsSection{Title: section.Title, Options: opts}
+	}
+	return sections
+}
+
+func catalogOptionType(kind settings.Kind) OptionType {
+	switch kind {
+	case settings.KindBool:
+		return OptionTypeBool
+	case settings.KindPath:
+		return OptionTypePath
+	case settings.KindInt:
+		return OptionTypeInt
+	default:
+		return OptionTypeEnum
+	}
+}
+
+// SyncNavSection aligns the embedded settings view with navigation state.
+func (m *OptionsModalModel) SyncNavSection(section nav.SettingsSection) {
+	if int(section) < 0 || int(section) >= len(m.sections) {
+		return
+	}
+	m.sectionCursor = int(section)
+	if m.optionCursor >= len(m.sections[m.sectionCursor].Options) {
+		m.optionCursor = 0
 	}
 }
 
@@ -186,6 +126,19 @@ func (m *OptionsModalModel) SetSize(width, height int) {
 }
 
 func (m *OptionsModalModel) Open(cfg *config.Config) {
+	m.embedded = false
+	m.visible = true
+	m.config = cfg
+	m.originalConfig = cfg.Clone()
+	m.sectionCursor = 0
+	m.optionCursor = 0
+	m.modified = false
+	m.editingPath = false
+}
+
+// OpenEmbedded activates settings as a full destination (not a modal overlay).
+func (m *OptionsModalModel) OpenEmbedded(cfg *config.Config) {
+	m.embedded = true
 	m.visible = true
 	m.config = cfg
 	m.originalConfig = cfg.Clone()
@@ -209,6 +162,10 @@ func (m *OptionsModalModel) Update(msg tea.Msg) (Dialog, tea.Cmd) {
 		return m, nil
 	}
 
+	return m.updateOptions(msg)
+}
+
+func (m *OptionsModalModel) updateOptions(msg tea.Msg) (Dialog, tea.Cmd) {
 	if m.editingPath {
 		return m.updatePathEditing(msg)
 	}
@@ -232,7 +189,19 @@ func (m *OptionsModalModel) Update(msg tea.Msg) (Dialog, tea.Cmd) {
 			}
 		case "s":
 			return m.save()
-		case "esc", "q":
+		case "esc":
+			if m.embedded {
+				return m, nil
+			}
+			m.visible = false
+			m.config = m.originalConfig
+			return m, func() tea.Msg {
+				return optionsCancelledMsg{}
+			}
+		case "q":
+			if m.embedded {
+				return m, nil
+			}
 			m.visible = false
 			m.config = m.originalConfig
 			return m, func() tea.Msg {
@@ -290,6 +259,15 @@ func (m *OptionsModalModel) updatePathEditing(msg tea.Msg) (Dialog, tea.Cmd) {
 }
 
 func (m *OptionsModalModel) moveCursor(direction int) {
+	if m.embedded {
+		section := m.sections[m.sectionCursor]
+		if len(section.Options) == 0 {
+			return
+		}
+		m.optionCursor = (m.optionCursor + direction + len(section.Options)) % len(section.Options)
+		return
+	}
+
 	totalOptions := m.totalOptions()
 	if totalOptions == 0 {
 		return
@@ -403,6 +381,13 @@ func (m OptionsModalModel) getConfigValue(key string) string {
 		return boolStr(m.config.CompactMode)
 	case "confirm_destructive":
 		return boolStr(m.config.ConfirmDestructive)
+	case "theme":
+		if m.config.Theme == "" {
+			return "default"
+		}
+		return m.config.Theme
+	case "log_level":
+		return string(m.config.LogLevel)
 	}
 	return ""
 }
@@ -452,6 +437,10 @@ func (m *OptionsModalModel) setConfigValue(key, value string) {
 		m.config.CompactMode = value == "true"
 	case "confirm_destructive":
 		m.config.ConfirmDestructive = value == "true"
+	case "theme":
+		m.config.Theme = value
+	case "log_level":
+		m.config.LogLevel = config.LogLevel(value)
 	}
 }
 
@@ -465,6 +454,14 @@ func (m *OptionsModalModel) save() (Dialog, tea.Cmd) {
 		}
 		return optionsSavedMsg{config: cfg}
 	}
+}
+
+// ViewInline renders options content without modal positioning (Settings destination).
+func (m *OptionsModalModel) ViewInline() string {
+	if !m.visible {
+		return ""
+	}
+	return m.renderOptionsBody()
 }
 
 // View implements Dialog.
@@ -485,24 +482,51 @@ func (m *OptionsModalModel) View() string {
 		Width(modalWidth).
 		Padding(1, 2)
 
-	var b strings.Builder
+	modal := boxStyle.Render(m.renderOptionsBody())
 
-	b.WriteString(s.Title.Render("Options"))
-	b.WriteString("\n\n")
+	centerX := (m.width - modalWidth - 8) / 2
+	centerY := (m.height - modalHeight - 8) / 2
+	if centerX < 0 {
+		centerX = 0
+	}
+	if centerY < 0 {
+		centerY = 0
+	}
+
+	positionedStyle := lipgloss.NewStyle().
+		MarginLeft(centerX).
+		MarginTop(centerY)
+
+	return positionedStyle.Render(modal)
+}
+
+func (m *OptionsModalModel) renderOptionsBody() string {
+	s := m.styles
+	var b strings.Builder
 
 	flatIndex := 0
 	currentFlat := m.flatIndex()
 
-	for _, section := range m.sections {
-		b.WriteString(s.Dim.Render(section.Title))
-		b.WriteString("\n")
+	sections := m.sections
+	if m.embedded && m.sectionCursor < len(m.sections) {
+		sections = []OptionsSection{m.sections[m.sectionCursor]}
+	}
 
-		for _, opt := range section.Options {
+	for _, section := range sections {
+		if !m.embedded {
+			b.WriteString(s.Dim.Render(section.Title))
+			b.WriteString("\n")
+		}
+
+		for optIndex, opt := range section.Options {
 			cursor := "  "
 			style := s.Normal
 			valueStyle := s.DLSS
 
 			isCurrentOption := flatIndex == currentFlat
+			if m.embedded {
+				isCurrentOption = optIndex == m.optionCursor
+			}
 
 			if isCurrentOption {
 				cursor = "> "
@@ -547,22 +571,7 @@ func (m *OptionsModalModel) View() string {
 		b.WriteString(h)
 	}
 
-	modal := boxStyle.Render(b.String())
-
-	centerX := (m.width - modalWidth - 8) / 2
-	centerY := (m.height - modalHeight - 8) / 2
-	if centerX < 0 {
-		centerX = 0
-	}
-	if centerY < 0 {
-		centerY = 0
-	}
-
-	positionedStyle := lipgloss.NewStyle().
-		MarginLeft(centerX).
-		MarginTop(centerY)
-
-	return positionedStyle.Render(modal)
+	return b.String()
 }
 
 func (m OptionsModalModel) calculateModalHeight() int {

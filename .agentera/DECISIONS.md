@@ -28,3 +28,24 @@
 
 **Confidence**: firm
 **Feeds into**: standalone (decomposition via /planera; GUI parity follows TUI)
+
+## Decision 2 · 2026-05-23
+
+**Question**: How should TUI and GUI navigation be unified after the v0.5.0 resource rail accreted separate surfaces (Games, DLLs, Defaults, Metrics, Options modal)?
+
+**Context**: Approved HTML prototypes (`tmp/spela-nav-*.html`) and shared `internal/nav` model. Default profile is a scope within Library, not a peer destination. Settings replaces the options modal.
+
+**Choice**: Scope × Aspect shell with three focus zones.
+
+- **Primary nav (1–4)**: Library, DLL Catalog, Monitor, Settings.
+- **Context nav**: scope list (pinned “All games (default)” + games), aspect tabs (Overview / Profile / DLLs), profile subsystem list (Proton → Overlay), plus destination-specific sections (DLL Catalog library/deployment, Monitor GPU/CPU/Alerts, Settings groups).
+- **Content**: aspect-specific detail only (no duplicate scope chrome).
+- **Launch**: unchanged from Decision 1 — `spela %command%` in Steam only; no in-app launch control.
+- **Implementation**: `internal/nav` for breadcrumbs and zone keys; TUI three-column layout; GUI `PrimaryNav` + `ContextNav` + content panes.
+
+**Reasoning**: Separating destination (what app area) from scope (which game or global default) and aspect (what you are doing there) removes the Defaults/Games duplication, makes DLL Catalog and Monitor first-class without crowding the game list, and keeps keyboard focus predictable.
+
+**Supersedes**: Decision 1 shell nav (peer Games/DLLs/Defaults/Metrics + Options modal). Profile inheritance, grouped fields, theme, and launch model from Decision 1 remain.
+
+**Confidence**: firm
+**Feeds into**: TUI shell (done), GUI shell parity, DESIGN.md navigation section

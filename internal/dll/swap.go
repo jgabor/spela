@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jgabor/spela/internal/denylist"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/xdg"
 )
@@ -152,7 +153,18 @@ func RestoreBackup(appID uint64) error {
 	return nil
 }
 
+func guardSwap(appID uint64) error {
+	if denied, reason := denylist.IsDenied(appID); denied {
+		return fmt.Errorf("DLL swap denied for app %d: %s", appID, reason)
+	}
+	return nil
+}
+
 func SwapDLL(appID uint64, gameName string, dlls []GameDLL, dllName, cachePath string) error {
+	if err := guardSwap(appID); err != nil {
+		return err
+	}
+
 	var targetPath string
 	for _, dll := range dlls {
 		if dll.Name == dllName {
@@ -179,14 +191,20 @@ func SwapDLL(appID uint64, gameName string, dlls []GameDLL, dllName, cachePath s
 }
 
 func InstallDLL(appID uint64, gameName, installDir string, dlls []GameDLL, dllName, cachePath string) error {
+	if err := guardSwap(appID); err != nil {
+		return err
+	}
+
 	if installDir == "" {
 		return fmt.Errorf("install directory is required")
 	}
 
 	targetPath := ""
+	targetVersion := ""
 	for _, dll := range dlls {
 		if dll.Name == dllName {
 			targetPath = dll.Path
+			targetVersion = dll.Version
 			break
 		}
 	}
@@ -195,9 +213,21 @@ func InstallDLL(appID uint64, gameName, installDir string, dlls []GameDLL, dllNa
 		targetPath = filepath.Join(installDir, dllName)
 	}
 
-	if !BackupExists(appID) && len(dlls) > 0 {
-		if _, err := CreateBackup(appID, gameName, dlls); err != nil {
-			return fmt.Errorf("failed to create backup before install: %w", err)
+	if !BackupExists(appID) {
+		backupDLLs := dlls
+		if len(backupDLLs) == 0 {
+			if _, err := os.Stat(targetPath); err == nil {
+				backupDLLs = []GameDLL{{
+					Name:    dllName,
+					Path:    targetPath,
+					Version: targetVersion,
+				}}
+			}
+		}
+		if len(backupDLLs) > 0 {
+			if _, err := CreateBackup(appID, gameName, backupDLLs); err != nil {
+				return fmt.Errorf("failed to create backup before install: %w", err)
+			}
 		}
 	}
 
@@ -215,7 +245,8 @@ func copyFile(src, dst string) error {
 	}
 	defer func() { _ = sourceFile.Close() }()
 
-	destFile, err := os.Create(dst)
+	tmpPath := dst + ".tmp"
+	destFile, err := os.Create(tmpPath)
 	if err != nil {
 		return err
 	}
@@ -225,7 +256,13 @@ func copyFile(src, dst string) error {
 		err = closeErr
 	}
 	if err != nil {
-		_ = os.Remove(dst)
+		_ = os.Remove(tmpPath)
+		return err
 	}
-	return err
+
+	if err := os.Rename(tmpPath, dst); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	return nil
 }

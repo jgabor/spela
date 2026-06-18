@@ -90,7 +90,7 @@
         </span>
       </div>
     </div>
-    <button type="button" class="options-button" on:click={openOptions}>Options</button>
+    <button type="button" class="options-button" on:click={openOptions}>Settings</button>
   </div>
 </header>
 

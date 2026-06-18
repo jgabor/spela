@@ -38,6 +38,10 @@ export function GetProfile(arg1) {
   return window['go']['gui']['App']['GetProfile'](arg1);
 }
 
+export function GetSettingsCatalog() {
+  return window['go']['gui']['App']['GetSettingsCatalog']();
+}
+
 export function GetVersion() {
   return window['go']['gui']['App']['GetVersion']();
 }

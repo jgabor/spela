@@ -216,7 +216,7 @@
         class:active={defaultProfileSelected}
         on:click={() => dispatch('selectDefaultProfile')}
       >
-        <span class="name">Default profile</span>
+        <span class="name">All games (default)</span>
         <div class="badges">
           <span class="badge default">Default</span>
         </div>

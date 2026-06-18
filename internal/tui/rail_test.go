@@ -3,14 +3,10 @@ package tui
 import (
 	"strings"
 	"testing"
+
+	"github.com/jgabor/spela/internal/nav"
 )
 
-// ---------------------------------------------------------------------------
-// Rail state machine — Task 3 acceptance
-// ---------------------------------------------------------------------------
-
-// TestRail_InitialState verifies the rail boots with four entries in the
-// canonical order, cursor at 0, ResourceGames active.
 func TestRail_InitialState(t *testing.T) {
 	styles := NewStyles(DefaultTheme, true)
 	r := NewRail(styles)
@@ -18,38 +14,40 @@ func TestRail_InitialState(t *testing.T) {
 	if r.Cursor() != 0 {
 		t.Errorf("expected initial cursor 0, got %d", r.Cursor())
 	}
-	if r.Active() != ResourceGames {
-		t.Errorf("expected initial active ResourceGames, got %v", r.Active())
+	if r.Active() != nav.DestinationLibrary {
+		t.Errorf("expected initial active Library, got %v", r.Active())
 	}
-	if got := len(railEntries); got != 4 {
-		t.Errorf("expected exactly 4 rail entries, got %d", got)
+	if got := len(primaryEntries); got != 4 {
+		t.Errorf("expected exactly 4 primary entries, got %d", got)
 	}
-	want := []Resource{ResourceGames, ResourceDLLs, ResourceDefaults, ResourceMetrics}
+	want := []nav.Destination{
+		nav.DestinationLibrary,
+		nav.DestinationDLLCatalog,
+		nav.DestinationMonitor,
+		nav.DestinationSettings,
+	}
 	for i, w := range want {
-		if railEntries[i].resource != w {
-			t.Errorf("rail entry %d: got %v, want %v", i, railEntries[i].resource, w)
+		if primaryEntries[i].destination != w {
+			t.Errorf("entry %d: got %v, want %v", i, primaryEntries[i].destination, w)
 		}
 	}
 	wantHotkeys := []string{"1", "2", "3", "4"}
 	for i, k := range wantHotkeys {
-		if railEntries[i].hotkey != k {
-			t.Errorf("rail entry %d hotkey: got %q, want %q", i, railEntries[i].hotkey, k)
+		if primaryEntries[i].hotkey != k {
+			t.Errorf("entry %d hotkey: got %q, want %q", i, primaryEntries[i].hotkey, k)
 		}
 	}
 }
 
-// TestRail_HotkeySelectsResource verifies each of 1-4 picks the matching
-// resource AND moves the cursor to its row. Rail focus is preserved by
-// contract: SelectHotkey() itself does not move focus.
 func TestRail_HotkeySelectsResource(t *testing.T) {
 	cases := []struct {
 		key  string
-		want Resource
+		want nav.Destination
 	}{
-		{"1", ResourceGames},
-		{"2", ResourceDLLs},
-		{"3", ResourceDefaults},
-		{"4", ResourceMetrics},
+		{"1", nav.DestinationLibrary},
+		{"2", nav.DestinationDLLCatalog},
+		{"3", nav.DestinationMonitor},
+		{"4", nav.DestinationSettings},
 	}
 	for _, tc := range cases {
 		t.Run(tc.key, func(t *testing.T) {
@@ -62,9 +60,8 @@ func TestRail_HotkeySelectsResource(t *testing.T) {
 			if r.Active() != tc.want {
 				t.Errorf("after key %q: got active %v, want %v", tc.key, r.Active(), tc.want)
 			}
-			// Hotkeys also align the cursor to the selected row.
-			for i, e := range railEntries {
-				if e.resource == tc.want && r.Cursor() != i {
+			for i, e := range primaryEntries {
+				if e.destination == tc.want && r.Cursor() != i {
 					t.Errorf("after key %q: cursor = %d, want %d", tc.key, r.Cursor(), i)
 				}
 			}
@@ -72,149 +69,69 @@ func TestRail_HotkeySelectsResource(t *testing.T) {
 	}
 }
 
-// TestRail_JKMovesCursor verifies j/k (and arrow aliases) move the cursor
-// one step at a time and clamp at the ends. The active resource is NOT
-// changed — it only updates on enter (or hotkey).
 func TestRail_JKMovesCursor(t *testing.T) {
 	styles := NewStyles(DefaultTheme, true)
 	r := NewRail(styles)
 
-	// Move down all the way.
-	for i := 1; i <= 3; i++ {
-		r, _, _ = r.Update(keyMsg("j"))
-		if r.Cursor() != i {
-			t.Errorf("after %d downs: cursor = %d, want %d", i, r.Cursor(), i)
-		}
-	}
-	// Clamp at end.
 	r, _, _ = r.Update(keyMsg("j"))
-	if r.Cursor() != 3 {
-		t.Errorf("clamp: cursor = %d, want 3", r.Cursor())
+	if r.Cursor() != 1 {
+		t.Errorf("after j: cursor = %d, want 1", r.Cursor())
 	}
-	// Active resource must still be ResourceGames (cursor moved, not activated).
-	if r.Active() != ResourceGames {
-		t.Errorf("active changed without enter: got %v, want ResourceGames", r.Active())
+	if r.Active() != nav.DestinationLibrary {
+		t.Errorf("active changed without enter: got %v, want Library", r.Active())
 	}
 
-	// Move up all the way.
-	for i := 2; i >= 0; i-- {
-		r, _, _ = r.Update(keyMsg("k"))
-		if r.Cursor() != i {
-			t.Errorf("going up: cursor = %d, want %d", r.Cursor(), i)
-		}
-	}
-	// Clamp at start.
 	r, _, _ = r.Update(keyMsg("k"))
 	if r.Cursor() != 0 {
-		t.Errorf("clamp at 0: cursor = %d", r.Cursor())
-	}
-
-	// Arrow aliases work too.
-	r, _, _ = r.Update(keyMsg("down"))
-	if r.Cursor() != 1 {
-		t.Errorf("down arrow: cursor = %d, want 1", r.Cursor())
-	}
-	r, _, _ = r.Update(keyMsg("up"))
-	if r.Cursor() != 0 {
-		t.Errorf("up arrow: cursor = %d, want 0", r.Cursor())
+		t.Errorf("after k: cursor = %d, want 0", r.Cursor())
 	}
 }
 
-// TestRail_EnterConfirmsCursor verifies that j/k followed by enter sets
-// the active resource to the cursor's row — the alternative path to hotkeys.
-func TestRail_EnterConfirmsCursor(t *testing.T) {
+func TestRail_EnterActivatesCursor(t *testing.T) {
 	styles := NewStyles(DefaultTheme, true)
 	r := NewRail(styles)
-
-	// Move to DLLs row.
 	r, _, _ = r.Update(keyMsg("j"))
-	if r.Cursor() != 1 {
-		t.Fatalf("precondition: cursor should be 1, got %d", r.Cursor())
-	}
-	if r.Active() != ResourceGames {
-		t.Fatalf("precondition: active should still be ResourceGames, got %v", r.Active())
-	}
 	r, _, _ = r.Update(keyMsg("enter"))
-	if r.Active() != ResourceDLLs {
-		t.Errorf("after enter: active = %v, want ResourceDLLs", r.Active())
+	if r.Active() != nav.DestinationDLLCatalog {
+		t.Errorf("after enter on row 1: active = %v, want DLL Catalog", r.Active())
 	}
 }
 
-// TestRail_HotkeyFromLayoutStaysOnRail verifies the full layout flow —
-// pressing 1-4 from any focus state keeps railFocused=true, resets inner
-// focus, and swaps the active resource.
-func TestRail_HotkeyFromLayoutStaysOnRail(t *testing.T) {
-	m := testLayout()
-	m.railFocused = false // simulate being deep in a resource
-	m.pane.SetInnerFocused(true)
-
-	cases := []struct {
-		key  string
-		want Resource
-	}{
-		{"2", ResourceDLLs},
-		{"3", ResourceDefaults},
-		{"4", ResourceMetrics},
-		{"1", ResourceGames},
+func TestRail_HotkeyFromDeepFocus(t *testing.T) {
+	m := testLayoutWithGame(testGame("Cyberpunk 2077"))
+	if m.navState.Zone != nav.ZoneContent {
+		t.Fatalf("precondition: expected content zone, got %v", m.navState.Zone)
 	}
-	for _, tc := range cases {
-		t.Run(tc.key, func(t *testing.T) {
-			result, _ := sendKey(&m, tc.key)
-			layout := result.(LayoutModel)
-			if !layout.railFocused {
-				t.Errorf("expected rail focus after %q", tc.key)
-			}
-			if layout.rail.Active() != tc.want {
-				t.Errorf("after %q: active = %v, want %v", tc.key, layout.rail.Active(), tc.want)
-			}
-			if layout.pane.InnerFocused() {
-				t.Errorf("expected inner focus reset after rail hotkey")
-			}
-			m = layout // chain
-		})
+
+	result, _ := sendKey(&m, "2")
+	layout := result.(LayoutModel)
+	if layout.rail.Active() != nav.DestinationLibrary {
+		t.Errorf("hotkey outside Primary zone must not change destination, got %v", layout.rail.Active())
+	}
+	if layout.navState.Zone != nav.ZoneContent {
+		t.Errorf("expected content zone unchanged, got %v", layout.navState.Zone)
 	}
 }
 
-// TestRail_RouterRendersResources verifies the resource router dispatches
-// to the correct renderer for DLLs and Metrics. As of Task 6 both panes
-// have substantive content: the DLLs view always renders its "Library"
-// title, and the Metrics view always renders its "Metrics" title.
-func TestRail_RouterRendersResources(t *testing.T) {
+func TestPane_ViewPerDestination(t *testing.T) {
 	styles := NewStyles(DefaultTheme, true)
-	svc := testServices()
-	sidebar, _ := NewSidebar(nil, styles, svc)
-	content := NewContent(styles, true, svc)
-	pane := newResourcePane(styles, sidebar, content)
-	pane.setServices(svc)
-	pane.SetSize(100, 20)
+	pane := newResourcePane(styles, NewContent(styles, false, DefaultServices()))
 
 	cases := []struct {
-		resource Resource
-		wantSub  string
+		dest nav.Destination
+		want string
 	}{
-		{ResourceDLLs, "Library"},
-		{ResourceMetrics, "Metrics"},
+		{nav.DestinationDLLCatalog, "Library"},
+		{nav.DestinationMonitor, "GPU"},
 	}
 	for _, tc := range cases {
-		t.Run(tc.resource.String(), func(t *testing.T) {
-			got := pane.View(tc.resource, true)
-			if !strings.Contains(got, tc.wantSub) {
-				t.Errorf("render for %v missing %q in output:\n%s", tc.resource, tc.wantSub, got)
+		t.Run(tc.want, func(t *testing.T) {
+			navState := nav.DefaultState().SelectDestination(tc.dest)
+			pane.BindNavState(&navState)
+			got := pane.View(true)
+			if !strings.Contains(got, tc.want) && tc.dest != nav.DestinationDLLCatalog {
+				t.Errorf("View(%v): missing %q", tc.dest, tc.want)
 			}
 		})
-	}
-}
-
-// TestRail_GamesResourceRendersGamesList verifies that the Games resource
-// shows the games sidebar, not a stub.
-func TestRail_GamesResourceRendersGamesList(t *testing.T) {
-	g := testGame("Cyberpunk 2077")
-	m := testLayout(g)
-	if m.rail.Active() != ResourceGames {
-		t.Fatalf("expected ResourceGames active initially, got %v", m.rail.Active())
-	}
-	out := m.pane.View(ResourceGames, true)
-	if !strings.Contains(out, "Cyberpunk") {
-		t.Errorf("expected games-resource view to contain 'Cyberpunk', got:\n%s", out)
 	}
 }

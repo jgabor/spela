@@ -88,6 +88,27 @@ func TestGUIBoundaryProfileSemanticsPassResolvesInheritedValues(t *testing.T) {
 	assertProfileSemantic(t, semanticsByField(reloaded.Semantics)[profile.FieldProtonEnableHDR], "default", "compatibility", "ephemeral_launch_environment")
 }
 
+func TestGUIBoundaryDefaultProfileSemanticsPass(t *testing.T) {
+	boundary := defaultGUIApplicationBoundary(nil)
+	boundary.loadDefaultProfile = func() (*profile.Profile, error) {
+		return &profile.Profile{
+			Proton: profile.ProtonSettings{EnableHDR: true, VKD3DHeap: true},
+			GPU:    profile.GPUSettings{ClockOffset: 100},
+		}, nil
+	}
+
+	info := boundary.getDefaultProfile()
+	if info == nil {
+		t.Fatal("expected default profile info")
+	}
+	if len(info.Semantics) == 0 {
+		t.Fatal("expected default profile semantics")
+	}
+	semantics := semanticsByField(info.Semantics)
+	assertProfileSemantic(t, semantics[profile.FieldProtonEnableHDR], "default", "compatibility", "ephemeral_launch_environment")
+	assertProfileSemantic(t, semantics[profile.FieldGPUClockOffset], "default", "system_state", "restorable_mutation")
+}
+
 func TestGUIBoundaryProfileSemanticsFailPreservesInheritedIntentOnSave(t *testing.T) {
 	boundary := defaultGUIApplicationBoundary(nil)
 	defaults := &profile.Profile{Proton: profile.ProtonSettings{EnableHDR: true, VKD3DHeap: true}}
@@ -251,6 +272,74 @@ func TestGUIBoundaryDLLPassInstallsThroughBoundary(t *testing.T) {
 		"Resolving manifest",
 		"Downloading dlss 3.8.10",
 		"Installing nvngx_dlss.dll",
+		"Scanning install directory",
+		"Saving database",
+		"",
+	}
+	if strings.Join(progress, "|") != strings.Join(expectedProgress, "|") {
+		t.Fatalf("expected progress %q, got %q", expectedProgress, progress)
+	}
+}
+
+func TestGUIBoundaryDLLPassUpdatesThroughBoundary(t *testing.T) {
+	gameEntry := &game.Game{
+		AppID:      1091500,
+		Name:       "Cyberpunk 2077",
+		InstallDir: "/games/cyberpunk",
+		DLLs: []game.DetectedDLL{{
+			Path:    "/games/cyberpunk/nvngx_dlss.dll",
+			Name:    "nvngx_dlss.dll",
+			Type:    game.DLLTypeDLSS,
+			Version: "3.7.0",
+		}},
+	}
+	boundary := defaultGUIApplicationBoundary(&game.Database{Games: map[uint64]*game.Game{1091500: gameEntry}})
+	var progress []string
+	boundary.emitDLLProgress = func(stage string) { progress = append(progress, stage) }
+	boundary.getManifest = func(forceUpdate bool, manifestURL string) (*dll.Manifest, error) {
+		return &dll.Manifest{DLLs: map[string][]dll.DLL{
+			"dlss": {{Version: "3.8.10", Filename: "nvngx_dlss.dll"}},
+		}}, nil
+	}
+	boundary.ensureDLLCached = func(target *dll.DLL, dllName string) (string, error) {
+		if target.Version != "3.8.10" || dllName != "dlss" {
+			t.Fatalf("unexpected cache target: %+v %q", *target, dllName)
+		}
+		return "/cache/dlss/3.8.10.dll", nil
+	}
+	swapped := false
+	boundary.swapDLL = func(appID uint64, gameName string, gameDLLs []dll.GameDLL, dllName, cachePath string) error {
+		swapped = true
+		if appID != 1091500 || dllName != "nvngx_dlss.dll" || cachePath != "/cache/dlss/3.8.10.dll" {
+			t.Fatalf("unexpected swap target: %d %q %q", appID, dllName, cachePath)
+		}
+		return nil
+	}
+	boundary.scanDLLDirectory = func(dir string) ([]game.DetectedDLL, error) {
+		return []game.DetectedDLL{{Name: "nvngx_dlss.dll", Type: game.DLLTypeDLSS, Version: "3.8.10"}}, nil
+	}
+	saved := false
+	boundary.saveDatabase = func(db *game.Database) error {
+		saved = true
+		return nil
+	}
+
+	if err := boundary.updateDLLs(1091500); err != nil {
+		t.Fatal(err)
+	}
+	if !swapped {
+		t.Fatal("expected swapDLL to be called")
+	}
+	if !saved {
+		t.Fatal("expected database save")
+	}
+	if got := gameEntry.DLLs[0].Version; got != "3.8.10" {
+		t.Fatalf("expected scanned DLL version to replace game state, got %q", got)
+	}
+	expectedProgress := []string{
+		"Resolving manifest",
+		"Downloading dlss 3.8.10",
+		"Swapping nvngx_dlss.dll",
 		"Scanning install directory",
 		"Saving database",
 		"",

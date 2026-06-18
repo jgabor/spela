@@ -57,6 +57,37 @@ func ListCachedVersions(name string) ([]string, error) {
 	return versions, nil
 }
 
+func fileSHA256(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = file.Close() }()
+
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, file); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(hasher.Sum(nil)), nil
+}
+
+// EnsureCached returns the cache path for a manifest DLL entry, verifying
+// SHA256 when the file already exists. Corrupt or missing cache entries
+// are re-downloaded.
+func EnsureCached(entry *DLL, manifestKey string) (string, error) {
+	cachePath := GetDLLCachePath(manifestKey, entry.Version)
+	if _, err := os.Stat(cachePath); err == nil {
+		if entry.SHA256 == "" {
+			return cachePath, nil
+		}
+		hash, err := fileSHA256(cachePath)
+		if err == nil && hash == entry.SHA256 {
+			return cachePath, nil
+		}
+	}
+	return DownloadDLLWithProgress(entry, manifestKey, nil)
+}
+
 func DownloadDLL(dll *DLL, dllName string) (string, error) {
 	return DownloadDLLWithProgress(dll, dllName, nil)
 }

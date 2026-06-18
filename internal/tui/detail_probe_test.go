@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/nav"
 	"github.com/jgabor/spela/internal/profile"
 )
 
@@ -81,7 +82,9 @@ func TestRenderProbe_Task4(t *testing.T) {
 	// Now tab into detail pane so j/k moves field focus.
 	// (Cycle test — not strictly needed for rendered output.)
 
-	gamesView := layout.pane.View(ResourceGames, true)
+	layout.navState.Aspect = nav.AspectProfile
+	layout.pane.SetState(*layout.navState)
+	gamesView := layout.pane.View(true)
 	fmt.Fprintln(os.Stderr, "═════════════════════ GAMES RESOURCE ═════════════════════")
 	fmt.Fprintln(os.Stderr, gamesView)
 	fmt.Fprintln(os.Stderr, "═══════════════════════════════════════════════════════════")
@@ -91,7 +94,9 @@ func TestRenderProbe_Task4(t *testing.T) {
 	layout = result.(LayoutModel)
 	result, _ = sendKey(&layout, "tab")
 	layout = result.(LayoutModel)
-	defaultsView := layout.pane.View(ResourceDefaults, true)
+	layout.pane.loadGlobalScope()
+	*layout.navState = layout.pane.State()
+	defaultsView := layout.pane.View(true)
 	fmt.Fprintln(os.Stderr, "═════════════════════ DEFAULTS RESOURCE ═════════════════════")
 	fmt.Fprintln(os.Stderr, defaultsView)
 	fmt.Fprintln(os.Stderr, "══════════════════════════════════════════════════════════════")
@@ -101,7 +106,7 @@ func TestRenderProbe_Task4(t *testing.T) {
 	layout = result.(LayoutModel)
 	result, _ = sendKey(&layout, "j")
 	layout = result.(LayoutModel)
-	defaultsAfterJJ := layout.pane.View(ResourceDefaults, true)
+	defaultsAfterJJ := layout.pane.View(true)
 	fmt.Fprintln(os.Stderr, "═══════════════ DEFAULTS RESOURCE AFTER 2× j ══════════════════")
 	fmt.Fprintln(os.Stderr, defaultsAfterJJ)
 	fmt.Fprintln(os.Stderr, "══════════════════════════════════════════════════════════════")

@@ -5,6 +5,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/jgabor/spela/internal/nav"
 )
 
 type HelpSection struct {
@@ -29,16 +31,24 @@ func NewHelp(styles *Styles) HelpModel {
 		styles: styles,
 		sections: []HelpSection{
 			{
-				Title: "Rail",
+				Title: "Navigation zones",
 				Bindings: []HelpBinding{
-					{"1", "Games resource"},
-					{"2", "DLLs resource"},
-					{"3", "Defaults resource"},
-					{"4", "Metrics resource"},
+					{"Tab", "Advance focus: Primary → Context → Content"},
+					{"Esc", "Move focus back one zone (Content → Context → Primary)"},
+					{"1-4", "Jump primary destination (Primary zone only)"},
+					{"q", "Quit from Primary zone; back from other zones"},
+				},
+			},
+			{
+				Title: "Primary (Navigate)",
+				Bindings: []HelpBinding{
+					{"1", "Library"},
+					{"2", "DLL Catalog"},
+					{"3", "Monitor"},
+					{"4", "Settings"},
 					{"↑/k", "Move rail cursor up"},
 					{"↓/j", "Move rail cursor down"},
 					{"Enter", "Activate rail selection"},
-					{"Tab", "Toggle rail ↔ resource pane focus"},
 				},
 			},
 			{
@@ -377,4 +387,21 @@ func RenderContextBar(keys []ContextKey, width int, theme *Theme) string {
 
 	rendered = append(rendered, suffix)
 	return strings.Join(rendered, contextKeySeparator)
+}
+
+// RenderNavContextBar renders key hints from the shared nav model.
+func RenderNavContextBar(keys []nav.ContextKey, width int, theme *Theme) string {
+	if len(keys) == 0 {
+		return ""
+	}
+	converted := make([]ContextKey, len(keys))
+	for i, key := range keys {
+		converted[i] = ContextKey{
+			Key:     key.Key,
+			Action:  key.Action,
+			Enabled: key.Reason == "",
+			Reason:  key.Reason,
+		}
+	}
+	return RenderContextBar(converted, width, theme)
 }

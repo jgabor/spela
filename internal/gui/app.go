@@ -15,6 +15,7 @@ import (
 	"github.com/jgabor/spela/internal/gpu"
 	"github.com/jgabor/spela/internal/logging"
 	"github.com/jgabor/spela/internal/profile"
+	"github.com/jgabor/spela/internal/settings"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -47,6 +48,10 @@ type ConfigInfo struct {
 	Theme                  string   `json:"theme"`
 	CompactMode            bool     `json:"compactMode"`
 	ConfirmDestructive     bool     `json:"confirmDestructive"`
+}
+
+func (a *App) GetSettingsCatalog() []settings.CatalogSection {
+	return settings.WailsCatalog()
 }
 
 func (a *App) GetConfig() (ConfigInfo, error) {

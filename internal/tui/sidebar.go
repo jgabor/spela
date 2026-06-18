@@ -276,10 +276,10 @@ func (m *SidebarModel) applyFiltersAndSort() {
 		})
 	}
 
-	// The default profile used to surface as the first sidebar item; with
-	// Task 3's rail redesign it moved to the Defaults rail resource, so
-	// the games sidebar is now games-only.
-	items := make([]sidebarItem, 0, len(filtered))
+	items := make([]sidebarItem, 0, len(filtered)+1)
+	if query == "" && !m.filters.IsActive() && !m.selectMode {
+		items = append(items, sidebarItem{kind: sidebarItemDefaultProfile})
+	}
 	for _, g := range filtered {
 		items = append(items, sidebarItem{kind: sidebarItemGame, game: g})
 	}
@@ -306,7 +306,7 @@ func (m SidebarModel) View() string {
 	s := m.styles
 	var b strings.Builder
 
-	titleLine := "Games"
+	titleLine := "Scope"
 	if m.selectMode {
 		titleLine = fmt.Sprintf("Select (%d)", len(m.selected))
 	} else if m.sortMode != SortNameAsc {
@@ -465,7 +465,7 @@ func (m SidebarModel) SelectedGames() []*game.Game {
 
 func (m SidebarModel) itemName(item sidebarItem) string {
 	if item.kind == sidebarItemDefaultProfile {
-		return "Default profile"
+		return "All games (default)"
 	}
 	if item.game == nil {
 		return ""

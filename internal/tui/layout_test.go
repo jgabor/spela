@@ -1,11 +1,22 @@
 package tui
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/nav"
 )
 
 // ---------------------------------------------------------------------------
@@ -58,10 +69,10 @@ func TestLayout_HelpBlocksOtherKeys(t *testing.T) {
 	layout := result.(LayoutModel)
 
 	// Tab should NOT toggle focus while help is shown.
-	focused := layout.railFocused
+	focused := layout.navState.Zone
 	result, _ = sendKey(&layout, "tab")
 	layout = result.(LayoutModel)
-	if layout.railFocused != focused {
+	if layout.navState.Zone != focused {
 		t.Error("expected help to block tab from toggling focus")
 	}
 
@@ -80,45 +91,38 @@ func TestLayout_HelpBlocksOtherKeys(t *testing.T) {
 
 func TestLayout_TabTogglesFocus(t *testing.T) {
 	m := testLayout()
-	if !m.railFocused {
-		t.Fatal("precondition: rail should be focused initially")
+	if m.navState.Zone != nav.ZonePrimary {
+		t.Fatal("precondition: primary zone should be focused initially")
 	}
 
 	result, _ := sendKey(&m, "tab")
 	layout := result.(LayoutModel)
-	if layout.railFocused {
-		t.Error("expected tab to switch focus off the rail")
+	if layout.navState.Zone != nav.ZoneContext {
+		t.Error("expected tab to move focus to context zone")
 	}
 
-	// Inside ResourceGames, a second tab goes into the inner detail pane,
-	// not back to the rail. A third tab returns to the rail.
 	result, _ = sendKey(&layout, "tab")
 	layout = result.(LayoutModel)
-	if layout.railFocused {
-		t.Error("second tab under ResourceGames should stay off rail (dive inner)")
-	}
-	if !layout.pane.InnerFocused() {
-		t.Error("second tab should toggle inner focus on")
+	if layout.navState.Zone != nav.ZoneContent {
+		t.Error("second tab should move focus to content zone")
 	}
 }
 
 func TestLayout_TabTogglesFocus_NonGamesResource(t *testing.T) {
 	m := testLayout()
-	m, _, _ = m.handleGlobalKeys(tea.KeyPressMsg{Code: '2', Text: "2"}) // select DLLs
-	if m.rail.Active() != ResourceDLLs {
-		t.Fatalf("precondition: expected DLLs active, got %v", m.rail.Active())
+	m, _, _ = m.handleGlobalKeys(tea.KeyPressMsg{Code: '2', Text: "2"})
+	if m.rail.Active() != nav.DestinationDLLCatalog {
+		t.Fatalf("precondition: expected DLL Catalog active, got %v", m.rail.Active())
 	}
-	// tab → leave rail
 	result, _ := sendKey(&m, "tab")
 	layout := result.(LayoutModel)
-	if layout.railFocused {
-		t.Error("tab should flip railFocused off")
+	if layout.navState.Zone != nav.ZoneContext {
+		t.Error("tab should move to context zone")
 	}
-	// tab → non-games resource has no inner layers, so it returns to rail
 	result, _ = sendKey(&layout, "tab")
 	layout = result.(LayoutModel)
-	if !layout.railFocused {
-		t.Error("tab on non-games should return to rail")
+	if layout.navState.Zone != nav.ZoneContent {
+		t.Error("second tab should move to content zone")
 	}
 }
 
@@ -184,37 +188,23 @@ func TestLayout_CtrlFActivatesSearch(t *testing.T) {
 
 	result, _ := sendKey(&m, "ctrl+f")
 	layout := result.(LayoutModel)
-	if layout.railFocused {
+	if layout.navState.Zone == nav.ZonePrimary {
 		t.Error("expected ctrl+f to drop rail focus")
 	}
-	if !layout.pane.sidebar.search.Focused() {
+	if !layout.contextNav.sidebar.search.Focused() {
 		t.Error("expected ctrl+f to activate search input")
 	}
 }
 
-func TestLayout_OptionsModal(t *testing.T) {
+func TestLayout_SettingsDestination(t *testing.T) {
 	m := testLayout()
-	result, _ := sendKey(&m, "o")
+	result, _ := sendKey(&m, "4")
 	layout := result.(LayoutModel)
-	if layout.activeDialog == nil {
-		t.Fatal("expected options modal to open")
+	if layout.rail.Active() != nav.DestinationSettings {
+		t.Fatalf("expected Settings destination, got %v", layout.rail.Active())
 	}
-
-	result, _ = sendKey(&layout, "esc")
-	layout = result.(LayoutModel)
-	if layout.activeDialog != nil {
-		t.Error("expected esc to close options modal")
-	}
-}
-
-func TestLayout_OptionsFromPaneIgnored(t *testing.T) {
-	m := testLayout()
-	m.railFocused = false
-
-	result, _ := sendKey(&m, "o")
-	layout := result.(LayoutModel)
-	if layout.activeDialog != nil {
-		t.Error("expected o from resource pane to be ignored")
+	if !layout.pane.settings.visible {
+		t.Error("expected embedded settings pane to be visible")
 	}
 }
 
@@ -253,12 +243,12 @@ func TestLayout_RailHotkeysWithoutGame(t *testing.T) {
 
 	for i, tc := range []struct {
 		key  string
-		want Resource
+		want nav.Destination
 	}{
-		{"1", ResourceGames},
-		{"2", ResourceDLLs},
-		{"3", ResourceDefaults},
-		{"4", ResourceMetrics},
+		{"1", nav.DestinationLibrary},
+		{"2", nav.DestinationDLLCatalog},
+		{"3", nav.DestinationMonitor},
+		{"4", nav.DestinationSettings},
 	} {
 		t.Run(tc.key, func(t *testing.T) {
 			result, _ := sendKey(&m, tc.key)
@@ -266,7 +256,7 @@ func TestLayout_RailHotkeysWithoutGame(t *testing.T) {
 			if layout.rail.Active() != tc.want {
 				t.Errorf("[iter %d] after %q: active = %v, want %v", i, tc.key, layout.rail.Active(), tc.want)
 			}
-			if !layout.railFocused {
+			if layout.navState.Zone != nav.ZonePrimary {
 				t.Errorf("[iter %d] expected rail focus preserved after %q", i, tc.key)
 			}
 			m = layout
@@ -275,26 +265,59 @@ func TestLayout_RailHotkeysWithoutGame(t *testing.T) {
 }
 
 func TestLayout_RailHotkeyFromDeepFocus(t *testing.T) {
-	// Even when deep in a game detail, 1-4 snap back to the rail.
 	g := testGame("Cyberpunk 2077")
 	m := testLayoutWithGame(g)
-	if m.rail.Active() != ResourceGames {
-		t.Fatalf("precondition: expected ResourceGames, got %v", m.rail.Active())
+	if m.rail.Active() != nav.DestinationLibrary {
+		t.Fatalf("precondition: expected Library, got %v", m.rail.Active())
 	}
-	if !m.pane.InnerFocused() {
-		t.Fatalf("precondition: expected inner focus after gameConfirmedMsg")
+	if m.navState.Zone != nav.ZoneContent {
+		t.Fatalf("precondition: expected content zone after game confirm, got %v", m.navState.Zone)
 	}
 
 	result, _ := sendKey(&m, "3")
 	layout := result.(LayoutModel)
-	if layout.rail.Active() != ResourceDefaults {
-		t.Errorf("expected Defaults active after '3' from deep focus, got %v", layout.rail.Active())
+	if layout.rail.Active() != nav.DestinationLibrary {
+		t.Errorf("destination hotkeys must not fire outside Primary zone, got %v", layout.rail.Active())
 	}
-	if !layout.railFocused {
-		t.Error("expected rail focus restored after hotkey")
+	if layout.navState.Zone != nav.ZoneContent {
+		t.Error("expected content zone unchanged when hotkey blocked")
 	}
-	if layout.pane.InnerFocused() {
-		t.Error("expected inner focus reset after hotkey")
+}
+
+func TestLayout_ContextAspectHotkeyInContextZone(t *testing.T) {
+	g := testGame("Cyberpunk 2077")
+	m := testLayoutWithGame(g)
+	m.navState.Zone = nav.ZoneContext
+	m.contextNav.SetState(*m.navState)
+
+	result, _ := sendKey(&m, "2")
+	layout := result.(LayoutModel)
+	if layout.rail.Active() != nav.DestinationLibrary {
+		t.Errorf("expected Library destination, got %v", layout.rail.Active())
+	}
+	if layout.navState.Aspect != nav.AspectProfile {
+		t.Errorf("expected Profile aspect, got %v", layout.navState.Aspect)
+	}
+}
+
+func TestLayout_DLLCatalogSectionFiltersContent(t *testing.T) {
+	m := testLayout(testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.7.0")))
+	result, _ := sendKey(&m, "2")
+	layout := result.(LayoutModel)
+	layout.navState.DLLCatalogSection = nav.SectionDLLDeployment
+	layout.pane.SetState(*layout.navState)
+
+	view := layout.pane.dllsResource.View(false, nav.SectionDLLDeployment)
+	if !strings.Contains(view, "Deployment") {
+		t.Fatalf("expected deployment section, got:\n%s", view)
+	}
+	if strings.Contains(stripANSI(view), "Inventory of DLL types") {
+		t.Fatal("deployment view must not include library inventory")
+	}
+
+	libraryView := layout.pane.dllsResource.View(false, nav.SectionDLLLibrary)
+	if !strings.Contains(libraryView, "Inventory of DLL types") {
+		t.Fatalf("expected library section, got:\n%s", libraryView)
 	}
 }
 
@@ -308,6 +331,8 @@ func TestLayout_ResourceKeysStayScopedToActiveResource(t *testing.T) {
 	m = result.(LayoutModel)
 	result, _ = sendKey(&m, "tab")
 	m = result.(LayoutModel)
+	result, _ = sendKey(&m, "tab")
+	m = result.(LayoutModel)
 	railCursor := m.rail.Cursor()
 	result, _ = sendKey(&m, "j")
 	m = result.(LayoutModel)
@@ -318,42 +343,37 @@ func TestLayout_ResourceKeysStayScopedToActiveResource(t *testing.T) {
 		t.Errorf("DLLs j should move deployment cursor to 1, got %d", got)
 	}
 
-	result, _ = sendKey(&m, "3")
+	result, _ = sendKey(&m, "1")
 	m = result.(LayoutModel)
-	result, _ = sendKey(&m, "tab")
-	m = result.(LayoutModel)
+	if m.navState.Zone != nav.ZonePrimary {
+		for i := 0; i < 3 && m.navState.Zone != nav.ZonePrimary; i++ {
+			result, _ = sendKey(&m, "esc")
+			m = result.(LayoutModel)
+		}
+		result, _ = sendKey(&m, "1")
+		m = result.(LayoutModel)
+	}
+	m.pane.loadGlobalScope()
+	*m.navState = m.pane.State()
+	m.navState.Zone = nav.ZoneContent
+	m.syncNavToComponents()
 	defaultCursor := m.pane.defaultsDetail.Cursor()
 	result, _ = sendKey(&m, "j")
 	m = result.(LayoutModel)
 	if got := m.pane.defaultsDetail.Cursor(); got != defaultCursor+1 {
-		t.Errorf("Defaults j should move detail cursor to %d, got %d", defaultCursor+1, got)
+		t.Errorf("global profile j should move detail cursor to %d, got %d", defaultCursor+1, got)
 	}
 	if m.pane.dllsResource.gameRowCursor != 1 {
-		t.Error("Defaults j should not mutate DLL row cursor")
-	}
-
-	result, _ = sendKey(&m, "4")
-	m = result.(LayoutModel)
-	result, _ = sendKey(&m, "tab")
-	m = result.(LayoutModel)
-	defaultCursor = m.pane.defaultsDetail.Cursor()
-	dllCursor := m.pane.dllsResource.gameRowCursor
-	result, _ = sendKey(&m, "j")
-	m = result.(LayoutModel)
-	if m.pane.defaultsDetail.Cursor() != defaultCursor {
-		t.Error("Metrics j should not mutate Defaults cursor")
-	}
-	if m.pane.dllsResource.gameRowCursor != dllCursor {
-		t.Error("Metrics j should not mutate DLL cursor")
+		t.Error("profile j should not mutate DLL row cursor")
 	}
 }
 
 func TestLayout_DLLUpdateAllMessageReachesDLLsWhenMetricsActive(t *testing.T) {
 	m := testLayout(testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.7.0")))
-	result, _ := sendKey(&m, "4")
+	result, _ := sendKey(&m, "2")
 	m = result.(LayoutModel)
-	if m.rail.Active() != ResourceMetrics {
-		t.Fatalf("precondition: expected Metrics active, got %v", m.rail.Active())
+	if m.rail.Active() != nav.DestinationDLLCatalog {
+		t.Fatalf("precondition: expected DLL Catalog active, got %v", m.rail.Active())
 	}
 
 	updated, _ := m.Update(dllsUpdateAllCompleteMsg{
@@ -371,44 +391,30 @@ func TestLayout_DLLUpdateAllMessageReachesDLLsWhenMetricsActive(t *testing.T) {
 // Navigation — q / esc
 // ---------------------------------------------------------------------------
 
-func TestLayout_QFromResourcePane_StepsBackToRail(t *testing.T) {
+func TestLayout_QFromContent_StepsBackToContext(t *testing.T) {
 	g := testGame("Cyberpunk 2077")
 	m := testLayoutWithGame(g)
-	m.pane.SetInnerFocused(false) // inside games list, not detail
-
-	result, _ := sendKey(&m, "q")
-	layout := result.(LayoutModel)
-	if !layout.railFocused {
-		t.Error("expected q from games-list to return to rail")
-	}
-}
-
-func TestLayout_QFromGameDetail_StepsBackToGamesList(t *testing.T) {
-	g := testGame("Cyberpunk 2077")
-	m := testLayoutWithGame(g) // starts with inner focus = detail
-	if !m.pane.InnerFocused() {
-		t.Fatal("precondition: expected inner focus on detail")
+	if m.navState.Zone != nav.ZoneContent {
+		t.Fatalf("precondition: expected content zone, got %v", m.navState.Zone)
 	}
 
 	result, _ := sendKey(&m, "q")
 	layout := result.(LayoutModel)
-	if layout.railFocused {
-		t.Error("expected q from detail to step back to games list (not rail)")
-	}
-	if layout.pane.InnerFocused() {
-		t.Error("expected inner focus off after q from detail")
+	if layout.navState.Zone != nav.ZoneContext {
+		t.Error("expected q from content to return to context zone")
 	}
 }
 
-func TestLayout_EscFromResourcePane_StepsBackToRail(t *testing.T) {
+func TestLayout_EscFromContext_StepsBackToPrimary(t *testing.T) {
 	g := testGame("Cyberpunk 2077")
 	m := testLayoutWithGame(g)
-	m.pane.SetInnerFocused(false)
+	m.navState.Zone = nav.ZoneContext
+	m.syncNavToComponents()
 
 	result, _ := sendKey(&m, "esc")
 	layout := result.(LayoutModel)
-	if !layout.railFocused {
-		t.Error("expected esc from games-list to return to rail")
+	if layout.navState.Zone != nav.ZonePrimary {
+		t.Error("expected esc from context to return to primary zone")
 	}
 }
 
@@ -418,31 +424,29 @@ func TestLayout_EscFromResourcePane_StepsBackToRail(t *testing.T) {
 
 func TestLayout_ModalInterceptsInput(t *testing.T) {
 	m := testLayout()
+	m.pane.content.pendingAction = PendingDLLUpdate
+	m.navState.Zone = nav.ZoneContent
 
-	result, _ := sendKey(&m, "o")
+	focused := m.navState.Zone
+	result, _ := sendKey(&m, "tab")
 	layout := result.(LayoutModel)
-	if layout.activeDialog == nil {
-		t.Fatal("precondition: options modal should be open")
-	}
-
-	focused := layout.railFocused
-	result, _ = sendKey(&layout, "tab")
-	layout = result.(LayoutModel)
-	if layout.railFocused != focused {
-		t.Error("expected modal to intercept tab, not toggle focus")
+	if layout.navState.Zone != focused {
+		t.Error("expected pending DLL confirm to block tab zone change")
 	}
 }
 
 func TestLayout_ModalClosesOnCancel(t *testing.T) {
-	m := testLayout()
+	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.7.0"))
+	m := testLayoutWithGame(g)
+	m.navState.Aspect = nav.AspectDLLs
+	m.pane.SetState(*m.navState)
+	m.pane.content.pendingAction = PendingDLLUpdate
+	m.navState.Zone = nav.ZoneContent
 
-	result, _ := sendKey(&m, "o")
+	result, _ := sendKey(&m, "esc")
 	layout := result.(LayoutModel)
-
-	result, _ = sendKey(&layout, "q")
-	layout = result.(LayoutModel)
-	if layout.activeDialog != nil {
-		t.Error("expected q to close options modal")
+	if layout.pane.content.pendingAction != PendingNone {
+		t.Error("expected esc to clear pending action")
 	}
 }
 
@@ -537,4 +541,80 @@ func TestLayout_NoLaunchSurface(t *testing.T) {
 	// reference `_ = TabLaunch` to fail the build if reintroduced, but
 	// we keep it body-less so the rg grep from the acceptance criterion
 	// is the authoritative check.
+}
+
+func TestExecuteBatchDLLUpdatePersists(t *testing.T) {
+	base := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", base)
+	t.Setenv("XDG_CACHE_HOME", base)
+	t.Setenv("XDG_CONFIG_HOME", base)
+
+	payload := []byte("new-dll-payload")
+	hash := sha256.Sum256(payload)
+	sha := hex.EncodeToString(hash[:])
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(payload)
+	}))
+	t.Cleanup(server.Close)
+
+	manifest := dll.Manifest{
+		Version:   "1",
+		UpdatedAt: time.Now().UTC(),
+		DLLs: map[string][]dll.DLL{
+			"dlss": {{
+				Version:  "3.8.10",
+				Filename: "nvngx_dlss.dll",
+				URL:      server.URL,
+				SHA256:   sha,
+			}},
+		},
+	}
+	manifestData, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifestPath := filepath.Join(base, "spela", "manifest.json")
+	if err := os.MkdirAll(filepath.Dir(manifestPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(manifestPath, manifestData, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	installDir := t.TempDir()
+	dllPath := filepath.Join(installDir, "nvngx_dlss.dll")
+	if err := os.WriteFile(dllPath, []byte("old-dll"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	gameEntry := &game.Game{
+		AppID:      1091500,
+		Name:       "Cyberpunk 2077",
+		InstallDir: installDir,
+		DLLs: []game.DetectedDLL{{
+			Path:    dllPath,
+			Name:    "nvngx_dlss.dll",
+			Type:    game.DLLTypeDLSS,
+			Version: "3.7.0",
+		}},
+	}
+	db := &game.Database{Games: map[uint64]*game.Game{1091500: gameEntry}}
+
+	msg := executeBatchDLLUpdate(db, []*game.Game{gameEntry})
+	if msg.message == "" {
+		t.Fatal("expected batch completion message")
+	}
+
+	reloaded, err := game.LoadDatabase()
+	if err != nil {
+		t.Fatalf("LoadDatabase() error = %v", err)
+	}
+	got := reloaded.GetGame(1091500)
+	if got == nil || len(got.DLLs) == 0 {
+		t.Fatal("expected persisted DLL scan results")
+	}
+	if got.DLLs[0].Version == "3.7.0" {
+		t.Fatalf("expected updated DLL version in database, still %q", got.DLLs[0].Version)
+	}
 }

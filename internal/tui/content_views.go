@@ -7,17 +7,6 @@ import (
 	"github.com/jgabor/spela/internal/game"
 )
 
-// renderDefaultProfile renders the default-profile view.
-func (m ContentModel) renderDefaultProfile() string {
-	var b strings.Builder
-
-	b.WriteString(m.styles.Title.Render("Default profile"))
-	b.WriteString("\n\n")
-	b.WriteString(m.renderProfile())
-
-	return b.String()
-}
-
 // renderDLLInstallDialog renders the multi-step DLL install wizard.
 func (m ContentModel) renderDLLInstallDialog() string {
 	s := m.styles
@@ -79,33 +68,6 @@ func (m ContentModel) renderDLLInstallDialog() string {
 
 	if hint := s.RenderHint("\n\n↑/↓ select • enter confirm • esc cancel"); hint != "" {
 		b.WriteString(hint)
-	}
-
-	return b.String()
-}
-
-// renderGameInfo renders the game name, App ID, install directory and prefix lines.
-func (m ContentModel) renderGameInfo() string {
-	var b strings.Builder
-
-	b.WriteString(m.styles.Title.Render(m.game.Name))
-	b.WriteString("\n\n")
-
-	lines := 2 // title + blank line
-	fmt.Fprintf(&b, "App ID:      %d\n", m.game.AppID)
-	lines++
-	fmt.Fprintf(&b, "Install Dir: %s\n", m.game.InstallDir)
-	lines++
-
-	if m.game.PrefixPath != "" {
-		fmt.Fprintf(&b, "Prefix:      %s\n", m.game.PrefixPath)
-		lines++
-	}
-
-	// Pad to fixed height
-	for lines < headerSectionHeight {
-		b.WriteString("\n")
-		lines++
 	}
 
 	return b.String()

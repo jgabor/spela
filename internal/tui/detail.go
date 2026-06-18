@@ -422,10 +422,19 @@ func (m DetailModel) View() string {
 		semantics := m.formatFieldSemantics(row.field)
 
 		marker := "  "
-		if overridden {
+		if i == focusedRow {
+			if overridden {
+				marker = "> " + s.OverrideMarkerStyle().Render(overrideMarkerGlyph) + " "
+			} else {
+				marker = "> "
+			}
+		} else if overridden {
 			marker = s.OverrideMarkerStyle().Render(overrideMarkerGlyph) + " "
 		}
 		body := fmt.Sprintf("%-20s  %-12s  %s", row.label, value, semantics)
+		if i == focusedRow && !m.isRoot {
+			body += s.Dim.Render("  [r reset · Shift+R all · p pin]")
+		}
 
 		if i == focusedRow {
 			// Focus styling applies to the whole row body (the marker keeps

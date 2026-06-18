@@ -189,18 +189,14 @@ func TestSidebar_ClearFilters(t *testing.T) {
 // Default profile removed from games sidebar
 // ---------------------------------------------------------------------------
 
-// TestSidebar_NoDefaultProfileItem guards that the default profile is no
-// longer the first entry in the games sidebar. It moved to its own rail
-// resource (ResourceDefaults).
-func TestSidebar_NoDefaultProfileItem(t *testing.T) {
+// TestSidebar_HasDefaultProfilePinned verifies the global default scope row.
+func TestSidebar_HasDefaultProfilePinned(t *testing.T) {
 	m := testSidebar(testGame("Alpha"))
-	for _, it := range m.filtered {
-		if it.kind == sidebarItemDefaultProfile {
-			t.Error("default profile should not be in games sidebar anymore")
-		}
+	if len(m.filtered) != 2 {
+		t.Fatalf("expected default + game, got %d entries", len(m.filtered))
 	}
-	if len(m.filtered) != 1 {
-		t.Errorf("expected 1 entry (the game), got %d", len(m.filtered))
+	if m.filtered[0].kind != sidebarItemDefaultProfile {
+		t.Error("expected first row to be default profile scope")
 	}
 }
 
@@ -211,7 +207,7 @@ func TestSidebar_NoDefaultProfileItem(t *testing.T) {
 func TestSidebar_SpaceEntersSelectMode(t *testing.T) {
 	g := testGame("Alpha")
 	m := testSidebar(g)
-	m.cursor = 0 // first and only item is now the game itself
+	m.cursor = 1 // game row after pinned default
 
 	m, _ = m.Update(keyMsg("space"))
 	if !m.selectMode {
@@ -225,7 +221,7 @@ func TestSidebar_SpaceEntersSelectMode(t *testing.T) {
 func TestSidebar_SpaceTogglesSelection(t *testing.T) {
 	g := testGame("Alpha")
 	m := testSidebar(g)
-	m.cursor = 0
+	m.cursor = 1
 	m.selectMode = true
 	m.selected[g.AppID] = true
 
@@ -289,7 +285,7 @@ func TestSidebar_EnterInSelectMode_TriggersBatch(t *testing.T) {
 func TestSidebar_EnterConfirmsGame(t *testing.T) {
 	g := testGame("Alpha")
 	m := testSidebar(g)
-	m.cursor = 0
+	m.cursor = 1
 
 	_, cmd := m.Update(keyMsg("enter"))
 	if cmd == nil {

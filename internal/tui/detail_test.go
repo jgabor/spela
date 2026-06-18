@@ -398,9 +398,8 @@ func TestResourcePane_DefaultsUsesRootDetail(t *testing.T) {
 			Proton: profile.ProtonSettings{EnableHDR: true},
 		}, nil
 	}
-	sidebar, _ := NewSidebar(nil, styles, svc)
 	content := NewContent(styles, true, svc)
-	pane := newResourcePane(styles, sidebar, content)
+	pane := newResourcePane(styles, content)
 	pane.setServices(svc)
 	pane.SetSize(100, 30)
 
@@ -428,14 +427,15 @@ func TestResourcePane_DefaultsUsesRootDetail(t *testing.T) {
 func TestResourcePane_DefaultsJKMovesFieldFocus(t *testing.T) {
 	styles := NewStyles(DefaultTheme, true)
 	svc := testServices()
-	sidebar, _ := NewSidebar(nil, styles, svc)
 	content := NewContent(styles, true, svc)
-	pane := newResourcePane(styles, sidebar, content)
+	pane := newResourcePane(styles, content)
 	pane.setServices(svc)
+	navState := nav.DefaultState()
+	navState.Aspect = nav.AspectProfile
+	pane.BindNavState(&navState)
 	pane.SetSize(100, 30)
 
 	before := pane.defaultsDetail.Cursor()
-	pane.state.Aspect = nav.AspectProfile
 	pane, _ = pane.Update(keyMsg("j"))
 	after := pane.defaultsDetail.Cursor()
 	if after != before+1 {
@@ -454,7 +454,7 @@ func TestResourcePane_GamesSidebarPlusDetail(t *testing.T) {
 	g := testGame("Cyberpunk 2077")
 	layout := testLayoutWithGame(g)
 	layout.navState.Aspect = nav.AspectOverview
-	layout.pane.SetState(layout.navState)
+	layout.pane.SetState(*layout.navState)
 	out := layout.pane.View(true)
 
 	if !strings.Contains(out, "Cyberpunk 2077") {
@@ -517,6 +517,21 @@ func focusField(t *testing.T, d *DetailModel, field string) {
 	}
 	if d.FocusedField() != field {
 		t.Fatalf("focusField: could not focus %q, stopped at %q", field, d.FocusedField())
+	}
+}
+
+// TestDetail_ArrowDownUsesKeyDownCode documents that profile field navigation
+// responds to tea.KeyDown (the code rmux sends for raw escape sequences like
+// $'\033[B'; named `rmux send-keys Down` does not produce this code).
+func TestDetail_ArrowDownUsesKeyDownCode(t *testing.T) {
+	d, _, _ := newGameDetailForTask5(t)
+	initial := d.Cursor()
+	updated, _, handled := d.Update(keyMsg("down"))
+	if !handled {
+		t.Fatal("expected down arrow to move cursor")
+	}
+	if updated.Cursor() != initial+1 {
+		t.Fatalf("cursor = %d, want %d", updated.Cursor(), initial+1)
 	}
 }
 

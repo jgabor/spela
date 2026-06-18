@@ -18,3 +18,8 @@ cmd/spela/build/
 
 # Agent tool scratch state
 .leda
+tmp/
+spela-rmux-test/
+.opencode/
+.cursor/
+REVIEW.md

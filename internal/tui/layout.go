@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -11,6 +12,7 @@ import (
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/nav"
 )
 
 // DensityMode controls the information density of the TUI layout.
@@ -23,27 +25,26 @@ const (
 )
 
 const (
-	railWidth           = 22
+	primaryNavWidth     = 20
+	contextNavWidth     = 28
 	statusBarHeight     = 1
 	messageBarHeight    = 1
 	headerHeight        = 7 // 6 lines for logo + 1 for bottom border
 	compactHeaderHeight = 3 // 2 metric lines + 1 bottom border
 )
 
-// LayoutModel is the shell. It owns the permanent left rail (four peer
-// resources) and a resource pane that renders the currently active
-// resource. The prior ContentTab / Launch / sidebar-of-games shell was
-// removed in Task 3 per .agentera/DECISIONS.md Decision 1.
+// LayoutModel is the three-zone shell: primary nav, context nav, content.
 type LayoutModel struct {
 	styles        *Styles
 	services      *Services
 	header        HeaderModel
 	rail          RailModel
+	contextNav    ContextNavModel
 	pane          resourcePaneModel
+	navState      *nav.State
 	statusBar     StatusBarModel
 	messageBar    MessageBarModel
 	help          HelpModel
-	optionsModal  OptionsModalModel
 	activeDialog  Dialog
 	config        *config.Config
 	db            *game.Database
@@ -52,15 +53,10 @@ type LayoutModel struct {
 	batchGames    []*game.Game
 	batchCursor   int
 	batchMessage  string
-	// railFocused: true when keystrokes route to the rail. When false
-	// keystrokes route to the active resource's internal pane (e.g. the
-	// games list or the per-game detail inside ResourceGames).
-	railFocused  bool
-	densityMode  DensityMode
-	width        int
-	height       int
-	sidebarWidth int // present for compatibility with helpers; equals railWidth
-	initCmd      tea.Cmd
+	densityMode   DensityMode
+	width         int
+	height        int
+	initCmd       tea.Cmd
 }
 
 func NewLayout(db *game.Database, svc *Services) LayoutModel {
@@ -78,29 +74,34 @@ func NewLayout(db *game.Database, svc *Services) LayoutModel {
 	games := db.List()
 	sidebar, sidebarCmd := NewSidebar(games, styles, svc)
 	content := NewContent(styles, cfg.ConfirmDestructive, svc)
-	pane := newResourcePane(styles, sidebar, content)
+	pane := newResourcePane(styles, content)
 	pane.setServices(svc)
-	// Seed the DLLs resource with the current games + cached manifest so
-	// the library and deployment sections render immediately on first
-	// activation of ResourceDLLs (no lazy-load race with the rail hotkey).
 	manifest, _ := dll.LoadManifest()
 	pane.SetDLLsData(games, manifest)
 
-	return LayoutModel{
-		styles:       styles,
-		services:     svc,
-		header:       NewHeader(styles),
-		rail:         NewRail(styles),
-		pane:         pane,
-		statusBar:    NewStatusBar(styles),
-		messageBar:   NewMessageBar(styles),
-		help:         NewHelp(styles),
-		optionsModal: NewOptionsModal(styles),
-		config:       cfg,
-		db:           db,
-		railFocused:  true,
-		initCmd:      sidebarCmd,
+	settings := NewOptionsModal(styles)
+	settings.OpenEmbedded(cfg)
+	pane.settings = settings
+
+	state := nav.DefaultState()
+	layout := LayoutModel{
+		styles:     styles,
+		services:   svc,
+		header:     NewHeader(styles),
+		rail:       NewRail(styles),
+		pane:       pane,
+		navState:   &state,
+		statusBar:  NewStatusBar(styles),
+		messageBar: NewMessageBar(styles),
+		help:       NewHelp(styles),
+		config:     cfg,
+		db:         db,
+		initCmd:    sidebarCmd,
 	}
+	layout.pane.BindNavState(layout.navState)
+	layout.contextNav = NewContextNav(styles, sidebar, layout.navState)
+	layout.pane.loadGlobalScope()
+	return layout
 }
 
 func (m LayoutModel) Init() tea.Cmd {
@@ -157,44 +158,55 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Route application messages that affect multiple components.
 	m, cmds = m.handleAppMessages(msg, cmds)
 
-	// Route input to focused component.
-	if m.railFocused {
-		if key, ok := msg.(tea.KeyPressMsg); ok {
-			rail, railCmd, handled := m.rail.Update(key)
-			m.rail = rail
-			if railCmd != nil {
-				cmds = append(cmds, railCmd)
-			}
+	// Route keys to the focused zone; always route non-key msgs to content.
+	if key, ok := msg.(tea.KeyPressMsg); ok {
+		var cmd tea.Cmd
+		var handled bool
+		switch m.navState.Zone {
+		case nav.ZonePrimary:
+			m.rail, cmd, handled = m.rail.Update(key)
 			if handled {
+				m.syncNavFromRail()
+				cmds = append(cmds, cmd)
 				return m, tea.Batch(cmds...)
 			}
+		case nav.ZoneContext:
+			m.contextNav, cmd, handled = m.contextNav.Update(key)
+			m.pane.SetState(*m.navState)
+			if handled {
+				cmds = append(cmds, cmd)
+				return m, tea.Batch(cmds...)
+			}
+		case nav.ZoneContent:
+			m.pane, cmd = m.pane.Update(key)
+			cmds = append(cmds, cmd)
+			return m, tea.Batch(cmds...)
 		}
-	}
-
-	// Always let the active resource see non-key messages (and keys, when
-	// rail is NOT focused).
-	routedToPane := false
-	switch msg.(type) {
-	case tea.KeyPressMsg:
-		if !m.railFocused {
-			routedToPane = true
-		}
-	default:
-		routedToPane = true
-	}
-	if routedToPane {
-		pane, cmd := m.pane.Update(msg, m.rail.Active())
-		m.pane = pane
+	} else {
+		var cmd tea.Cmd
+		m.pane, cmd = m.pane.Update(msg)
 		cmds = append(cmds, cmd)
 	}
 
 	return m, tea.Batch(cmds...)
 }
 
-func (m *LayoutModel) calculateDimensions() {
-	m.sidebarWidth = railWidth
+func (m *LayoutModel) syncNavFromRail() {
+	*m.navState = m.navState.SelectDestination(m.rail.Active())
+	m.syncNavToComponents()
+	if m.navState.Destination == nav.DestinationSettings {
+		m.pane.settings.OpenEmbedded(m.config)
+	}
+}
 
-	// Panel height depends on header size.
+func (m *LayoutModel) syncNavToComponents() {
+	m.rail.SyncFromState(*m.navState)
+	m.contextNav.SetState(*m.navState)
+	m.contextNav.syncCursorFromState()
+	m.pane.SetState(*m.navState)
+}
+
+func (m *LayoutModel) calculateDimensions() {
 	headerH := headerHeight
 	switch m.densityMode {
 	case DensityCompact:
@@ -206,44 +218,24 @@ func (m *LayoutModel) calculateDimensions() {
 	panelHeight := max(m.height-statusBarHeight-messageBarHeight-headerH-2, 5)
 
 	m.header.SetWidth(m.width)
-	m.rail.SetSize(railWidth-4, panelHeight)
-	m.pane.SetSize(m.paneWidth(), panelHeight)
+	m.rail.SetSize(primaryNavWidth-4, panelHeight)
+	m.contextNav.SetSize(contextNavWidth, panelHeight)
+	m.pane.SetSize(m.contentWidth(), panelHeight)
 	m.statusBar.SetWidth(m.width)
 	m.messageBar.SetWidth(m.width)
 }
 
-// paneWidth is the inner width available to the resource pane (right side).
-func (m LayoutModel) paneWidth() int {
+func (m LayoutModel) contentWidth() int {
 	if m.densityMode == DensityFocused {
 		return m.width - 4
 	}
-	return m.width - railWidth - 4
+	return m.width - primaryNavWidth - contextNavWidth - 4
 }
 
 // contentModel returns the ContentModel inside ResourceGames for layout-
 // level logic (e.g. HasModalOpen checks). Returns nil when not applicable.
 func (m LayoutModel) contentModel() *ContentModel {
 	return m.pane.contentModel()
-}
-
-// contentForGame builds a fresh ContentModel configured for the given game.
-func (m *LayoutModel) contentForGame(g *game.Game) ContentModel {
-	content := NewContent(m.styles, m.config.ConfirmDestructive, m.services)
-	content = content.SetGame(g)
-	content.SetSize(m.paneWidth(), m.paneHeight())
-	return content
-}
-
-// paneHeight is the inner height of the resource pane.
-func (m LayoutModel) paneHeight() int {
-	headerH := headerHeight
-	switch m.densityMode {
-	case DensityCompact:
-		headerH = compactHeaderHeight
-	case DensityFocused:
-		headerH = 0
-	}
-	return max(m.height-statusBarHeight-messageBarHeight-headerH-2, 5)
 }
 
 func (m LayoutModel) View() tea.View {
@@ -301,97 +293,51 @@ func (m LayoutModel) renderStandard() string {
 
 	panelHeight := max(m.height-statusBarHeight-messageBarHeight-headerHeight-2, 5)
 
-	railView := truncateHeight(m.rail.View(m.railFocused), panelHeight)
-	paneView := truncateHeight(m.pane.View(m.rail.Active(), !m.railFocused), panelHeight)
+	primaryFocused := m.navState.Zone == nav.ZonePrimary
+	contextFocused := m.navState.Zone == nav.ZoneContext
+	contentFocused := m.navState.Zone == nav.ZoneContent
 
-	railBorderColor := m.styles.BorderColor(m.railFocused)
-	paneBorderColor := m.styles.BorderColor(!m.railFocused)
+	primaryView := truncateHeight(m.rail.View(primaryFocused), panelHeight)
+	contextView := truncateHeight(m.contextNav.View(contextFocused), panelHeight)
+	contentView := truncateHeight(m.pane.View(contentFocused), panelHeight)
 
-	railStyle := lipgloss.NewStyle().
-		Width(railWidth - 2).
-		Height(panelHeight).
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderTop(false).
-		BorderForeground(railBorderColor)
+	primaryBorder := m.styles.BorderColor(primaryFocused)
+	contextBorder := m.styles.BorderColor(contextFocused)
+	contentBorder := m.styles.BorderColor(contentFocused)
 
-	paneStyle := lipgloss.NewStyle().
-		Width(m.width - railWidth - 2).
-		Height(panelHeight).
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderTop(false).
-		BorderForeground(paneBorderColor)
+	primaryStyle := lipgloss.NewStyle().Width(primaryNavWidth - 2).Height(panelHeight).
+		BorderStyle(lipgloss.RoundedBorder()).BorderTop(false).BorderForeground(primaryBorder)
+	contextStyle := lipgloss.NewStyle().Width(contextNavWidth - 2).Height(panelHeight).
+		BorderStyle(lipgloss.RoundedBorder()).BorderTop(false).BorderForeground(contextBorder)
+	contentStyle := lipgloss.NewStyle().Width(m.contentWidth() - 2).Height(panelHeight).
+		BorderStyle(lipgloss.RoundedBorder()).BorderTop(false).BorderForeground(contentBorder)
 
-	railBox := railStyle.Render(railView)
-	paneBox := paneStyle.Render(paneView)
+	primaryBox := primaryStyle.Render(primaryView)
+	contextBox := contextStyle.Render(contextView)
+	contentBox := contentStyle.Render(contentView)
 
-	// Top borders with titles.
-	railTopBorder := buildTopBorder(m.railTitle(), railWidth-2, railBorderColor)
-	paneTopBorder := buildTopBorder(m.paneTitle(), m.width-railWidth-2, paneBorderColor)
+	primaryBox = buildTopBorder(zoneColumnTitle("Navigate", primaryFocused), primaryNavWidth-2, primaryBorder) + "\n" + primaryBox
+	contextBox = buildTopBorder(zoneColumnTitle("Context", contextFocused), contextNavWidth-2, contextBorder) + "\n" + contextBox
+	contentBox = buildTopBorder(zoneColumnTitle("Content", contentFocused), m.contentWidth()-2, contentBorder) + "\n" + contentBox
 
-	railBox = railTopBorder + "\n" + railBox
-	paneBox = paneTopBorder + "\n" + paneBox
-
-	mainArea := lipgloss.JoinHorizontal(lipgloss.Top, railBox, paneBox)
+	mainArea := lipgloss.JoinHorizontal(lipgloss.Top, primaryBox, contextBox, contentBox)
 
 	messageBar := m.messageBar.View()
 
-	keys := ContextKeys(m.railFocused, m.innerSearchFocused(), m.innerSelectMode(), m.contentModel(), m.styles.ShowHints)
-	contextHelp := RenderContextBar(keys, m.width/2, &m.styles.Theme)
+	contextHelp := RenderNavContextBar(m.navState.ContextKeys(m.styles.ShowHints), m.width/2, &m.styles.Theme)
 	crumbs := m.renderBreadcrumbs()
-	statusBar := m.statusBar.ViewWithHelp(crumbs + "  " + contextHelp)
+	statusBar := m.statusBar.ViewWithHelp(crumbs + "  " + m.renderZoneIndicator() + "  " + contextHelp)
 
 	return lipgloss.JoinVertical(lipgloss.Left, header, mainArea, messageBar, statusBar)
 }
 
 func (m LayoutModel) renderCompact() string {
-	header := m.header.ViewCompact()
-
-	panelHeight := max(m.height-statusBarHeight-messageBarHeight-compactHeaderHeight-2, 5)
-
-	railView := truncateHeight(m.rail.View(m.railFocused), panelHeight)
-	paneView := truncateHeight(m.pane.View(m.rail.Active(), !m.railFocused), panelHeight)
-
-	railBorderColor := m.styles.BorderColor(m.railFocused)
-	paneBorderColor := m.styles.BorderColor(!m.railFocused)
-
-	railStyle := lipgloss.NewStyle().
-		Width(railWidth - 2).
-		Height(panelHeight).
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderTop(false).
-		BorderForeground(railBorderColor)
-
-	paneStyle := lipgloss.NewStyle().
-		Width(m.width - railWidth - 2).
-		Height(panelHeight).
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderTop(false).
-		BorderForeground(paneBorderColor)
-
-	railBox := railStyle.Render(railView)
-	paneBox := paneStyle.Render(paneView)
-
-	railTopBorder := buildTopBorder(m.railTitle(), railWidth-2, railBorderColor)
-	paneTopBorder := buildTopBorder(m.paneTitle(), m.width-railWidth-2, paneBorderColor)
-
-	railBox = railTopBorder + "\n" + railBox
-	paneBox = paneTopBorder + "\n" + paneBox
-
-	mainArea := lipgloss.JoinHorizontal(lipgloss.Top, railBox, paneBox)
-
-	messageBar := m.messageBar.View()
-
-	keys := ContextKeys(m.railFocused, m.innerSearchFocused(), m.innerSelectMode(), m.contentModel(), m.styles.ShowHints)
-	contextHelp := RenderContextBar(keys, m.width/2, &m.styles.Theme)
-	crumbs := m.renderBreadcrumbs()
-	statusBar := m.statusBar.ViewWithHelp(crumbs + "  " + contextHelp)
-
-	return lipgloss.JoinVertical(lipgloss.Left, header, mainArea, messageBar, statusBar)
+	return m.renderStandard()
 }
 
 func (m LayoutModel) renderFocused() string {
 	contentHeight := max(m.height-statusBarHeight-messageBarHeight-2, 5)
-	paneView := truncateHeight(m.pane.View(m.rail.Active(), true), contentHeight)
+	paneView := truncateHeight(m.pane.View(true), contentHeight)
 
 	paneBorderColor := m.styles.BorderColor(true)
 
@@ -411,32 +357,6 @@ func (m LayoutModel) renderFocused() string {
 	return lipgloss.JoinVertical(lipgloss.Left, paneBox, messageBar, statusBar)
 }
 
-func (m LayoutModel) railTitle() string {
-	t := m.styles.Theme
-	return lipgloss.NewStyle().Foreground(t.TextDim).Render("Rail")
-}
-
-func (m LayoutModel) paneTitle() string {
-	t := m.styles.Theme
-	labelStyle := lipgloss.NewStyle().Foreground(t.TextDim)
-	activeStyle := lipgloss.NewStyle().Foreground(t.Accent).Bold(true)
-	return activeStyle.Render(m.rail.Active().String()) + labelStyle.Render(" · resource")
-}
-
-func (m LayoutModel) innerSearchFocused() bool {
-	if m.rail.Active() != ResourceGames {
-		return false
-	}
-	return m.pane.sidebar.search.Focused()
-}
-
-func (m LayoutModel) innerSelectMode() bool {
-	if m.rail.Active() != ResourceGames {
-		return false
-	}
-	return m.pane.sidebar.InSelectMode()
-}
-
 // renderBreadcrumbs renders the navigation breadcrumb trail for the status bar.
 func (m LayoutModel) renderBreadcrumbs() string {
 	t := m.styles.Theme
@@ -444,19 +364,43 @@ func (m LayoutModel) renderBreadcrumbs() string {
 	trailStyle := lipgloss.NewStyle().Foreground(t.TextDim)
 	sepStyle := lipgloss.NewStyle().Foreground(t.Border)
 
+	segments := m.navState.Breadcrumb()
 	parts := []string{trailStyle.Render("spela")}
-	parts = append(parts, sepStyle.Render(" > "))
-	parts = append(parts, activeStyle.Render(m.rail.Active().String()))
-
-	// Within ResourceGames, also show the selected game name.
-	if m.rail.Active() == ResourceGames {
-		if cm := m.contentModel(); cm != nil && cm.game != nil {
-			parts = append(parts, sepStyle.Render(" > "))
-			parts = append(parts, trailStyle.Render(cm.game.Name))
+	for i, segment := range segments {
+		parts = append(parts, sepStyle.Render(" › "))
+		if i == len(segments)-1 {
+			parts = append(parts, activeStyle.Render(segment))
+		} else {
+			parts = append(parts, trailStyle.Render(segment))
 		}
 	}
-
 	return strings.Join(parts, "")
+}
+
+func (m LayoutModel) renderZoneIndicator() string {
+	label := zoneLabel(m.navState.Zone)
+	style := lipgloss.NewStyle().Foreground(m.styles.Theme.AccentOverride).Bold(true)
+	return style.Render("[" + label + "]")
+}
+
+func zoneLabel(z nav.Zone) string {
+	switch z {
+	case nav.ZonePrimary:
+		return "Primary"
+	case nav.ZoneContext:
+		return "Context"
+	case nav.ZoneContent:
+		return "Content"
+	default:
+		return "Primary"
+	}
+}
+
+func zoneColumnTitle(name string, focused bool) string {
+	if focused {
+		return "▸ " + name
+	}
+	return name
 }
 
 // buildTopBorder builds a rounded top border line with a styled title embedded.
@@ -593,11 +537,11 @@ func (m LayoutModel) executeBatchAction() tea.Cmd {
 	games := m.batchGames
 
 	return func() tea.Msg {
-		return executeBatchDLLUpdate(games)
+		return executeBatchDLLUpdate(m.db, games)
 	}
 }
 
-func executeBatchDLLUpdate(games []*game.Game) batchCompleteMsg {
+func executeBatchDLLUpdate(db *game.Database, games []*game.Game) batchCompleteMsg {
 	manifest, err := dll.GetManifest(false, "")
 	if err != nil {
 		return batchCompleteMsg{message: fmt.Sprintf("Failed to load manifest: %v", err)}
@@ -639,18 +583,26 @@ func executeBatchDLLUpdate(games []*game.Game) batchCompleteMsg {
 		}
 
 		if gameUpdated {
+			detected, err := dll.ScanDirectory(g.InstallDir)
+			if err == nil {
+				g.DLLs = detected
+				g.ScannedAt = time.Now()
+			}
 			succeeded++
 		}
 	}
 
+	message := fmt.Sprintf("Updated DLLs for %d/%d games", succeeded, len(games))
 	if failed > 0 {
-		return batchCompleteMsg{
-			message: fmt.Sprintf("Updated %d games, %d failed", succeeded, failed),
+		message = fmt.Sprintf("Updated %d games, %d failed", succeeded, failed)
+	}
+	if db != nil {
+		if err := db.Save(); err != nil {
+			message = fmt.Sprintf("%s (failed to save database: %v)", message, err)
 		}
 	}
-	return batchCompleteMsg{
-		message: fmt.Sprintf("Updated DLLs for %d/%d games", succeeded, len(games)),
-	}
+
+	return batchCompleteMsg{message: message}
 }
 
 func (m LayoutModel) renderBatchContent() string {
