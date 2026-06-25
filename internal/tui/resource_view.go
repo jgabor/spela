@@ -9,6 +9,7 @@ import (
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/nav"
+	"github.com/jgabor/spela/internal/profile"
 )
 
 // resourcePaneModel renders the content column for the active destination.
@@ -44,12 +45,16 @@ func (p *resourcePaneModel) setServices(svc *Services) {
 }
 
 func (p *resourcePaneModel) refreshDefaultsDetail() {
+	preserveField := p.defaultsDetail.FocusedField()
+	preserveCursor := p.defaultsDetail.Cursor()
 	if p.services == nil || p.services.LoadDefaultProfile == nil {
 		p.defaultsDetail = NewRootDetail(p.styles, nil)
+		p.defaultsDetail.RestoreFocus(preserveField, preserveCursor)
 		return
 	}
 	defaults, _ := p.services.LoadDefaultProfile()
 	p.defaultsDetail = NewRootDetail(p.styles, defaults)
+	p.defaultsDetail.RestoreFocus(preserveField, preserveCursor)
 }
 
 func (p *resourcePaneModel) BindNavState(navState *nav.State) {
@@ -215,6 +220,30 @@ func (p resourcePaneModel) updateLibrary(msg tea.Msg) (resourcePaneModel, tea.Cm
 	switch p.State().Aspect {
 	case nav.AspectProfile:
 		if p.State().Scope.Kind == nav.ScopeGlobal {
+			if key, ok := msg.(tea.KeyPressMsg); ok {
+				switch key.String() {
+				case "left", "h":
+					if p.defaultsDetail.CycleFocusedField(-1) {
+						return p, p.saveDefaultProfile()
+					}
+					return p, nil
+				case "right", "l":
+					if p.defaultsDetail.CycleFocusedField(1) {
+						return p, p.saveDefaultProfile()
+					}
+					return p, nil
+				case "r":
+					if changed, err := p.defaultsDetail.ResetFocused(); err == nil && changed {
+						return p, p.saveDefaultProfile()
+					}
+					return p, nil
+				case "R":
+					if p.defaultsDetail.ResetAll() {
+						return p, p.saveDefaultProfile()
+					}
+					return p, nil
+				}
+			}
 			detail, cmd, _ := p.defaultsDetail.Update(msg)
 			p.defaultsDetail = detail
 			return p, cmd
@@ -249,6 +278,22 @@ func (p resourcePaneModel) contentModel() *ContentModel {
 		return &p.content
 	}
 	return nil
+}
+
+// saveDefaultProfile persists the root defaults profile asynchronously,
+// emitting profileSaveMsg on completion (handled by the layout).
+func (p resourcePaneModel) saveDefaultProfile() tea.Cmd {
+	raw := p.defaultsDetail.RawProfile()
+	if raw == nil {
+		return nil
+	}
+	toSave := *raw
+	return func() tea.Msg {
+		if err := profile.SaveDefault(&toSave); err != nil {
+			return profileSaveMsg{err: err}
+		}
+		return profileSaveMsg{success: true}
+	}
 }
 
 // loadGlobalScope prepares default profile content.

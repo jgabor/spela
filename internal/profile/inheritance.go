@@ -183,6 +183,47 @@ func yamlTagName(tag string) string {
 	return tag
 }
 
+// IsBoolField reports whether the given field key refers to a bool-typed leaf
+// on Profile (excluding *bool leaves like cpu.smt). Callers use this to pick
+// a three-state ((default)/true/false) editor for a field instead of treating
+// it as a free-form value.
+func IsBoolField(field string) bool {
+	fv, err := fieldAccessor(&Profile{}, field)
+	if err != nil {
+		return false
+	}
+	return fv.Kind() == reflect.Bool
+}
+
+// BoolFieldValue returns the bool value of `field` on `p` and whether the
+// field is a bool-typed leaf. Returns (false, false) for unknown fields,
+// non-bool fields, or nil profiles.
+func BoolFieldValue(p *Profile, field string) (val bool, isBool bool) {
+	if p == nil {
+		return false, false
+	}
+	fv, err := fieldAccessor(p, field)
+	if err != nil || fv.Kind() != reflect.Bool {
+		return false, false
+	}
+	return fv.Bool(), true
+}
+
+// SetBoolField sets a bool-typed `field` on `p` to `val` and marks it as an
+// override. Returns false (no-op) for unknown or non-bool fields.
+func SetBoolField(p *Profile, field string, val bool) bool {
+	if p == nil {
+		return false
+	}
+	fv, err := fieldAccessor(p, field)
+	if err != nil || fv.Kind() != reflect.Bool {
+		return false
+	}
+	fv.SetBool(val)
+	p.MarkOverride(field)
+	return true
+}
+
 // IsOverridden reports whether the field is explicitly pinned on this profile
 // (an override) as opposed to inheriting from the defaults.
 func (p *Profile) IsOverridden(field string) bool {

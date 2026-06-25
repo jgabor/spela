@@ -273,6 +273,62 @@ func (m DetailModel) Update(msg tea.Msg) (DetailModel, tea.Cmd, bool) {
 	return m, nil, false
 }
 
+// CycleFocusedField cycles the focused field on a root defaults profile.
+// Bool fields rotate through "(default)", "true", and "false" (matching the
+// profile widget). Returns true when the value changed.
+func (m *DetailModel) CycleFocusedField(direction int) bool {
+	if !m.isRoot || m.raw == nil {
+		return false
+	}
+	field := m.FocusedField()
+	if field == "" {
+		return false
+	}
+
+	options := rootFieldOptions(field)
+	if len(options) == 0 {
+		return false
+	}
+
+	current := formatRootFieldValue(m.resolved, field)
+	idx := 0
+	for i, opt := range options {
+		if opt == current {
+			idx = i
+			break
+		}
+	}
+	step := 1
+	if direction < 0 {
+		step = -1
+	}
+	next := options[(idx+step+len(options))%len(options)]
+	if next == current {
+		return false
+	}
+	if !applyRootFieldValue(m.raw, field, next) {
+		return false
+	}
+	m.rebuildResolved()
+	return true
+}
+
+// RestoreFocus moves the cursor back to a field (by key) or index after the
+// detail model is rebuilt — e.g. after a save reload.
+func (m *DetailModel) RestoreFocus(field string, cursor int) {
+	if field != "" {
+		for i, rowIdx := range m.focusableRows {
+			if m.rows[rowIdx].field == field {
+				m.cursor = i
+				return
+			}
+		}
+	}
+	if len(m.focusableRows) > 0 {
+		m.cursor = max(min(cursor, len(m.focusableRows)-1), 0)
+	}
+}
+
 // IsOverridden reports whether the currently focused field is an override on
 // the raw profile. Returns false for root profiles (inheritance markers are
 // suppressed there) or when there is no focused row.
@@ -283,20 +339,22 @@ func (m DetailModel) IsOverridden(field string) bool {
 	return m.raw.IsOverridden(field)
 }
 
-// ResetFocused resets the currently focused field to inherited on the raw
-// profile and rebuilds the resolved view. Returns (changed, error). A no-op
-// (changed=false) when the field is already inherited, when no field is
-// focused, or when the renderer is in root mode. Task 5 consumes this for
-// the `r` binding.
+// ResetFocused resets the currently focused field. On a game profile it clears
+// an override back to inherited; on the root defaults profile it clears the
+// field back to "(default)".
 func (m *DetailModel) ResetFocused() (bool, error) {
-	if m.isRoot || m.raw == nil {
+	if m.raw == nil {
 		return false, nil
 	}
 	field := m.FocusedField()
 	if field == "" {
 		return false, nil
 	}
-	if !m.raw.IsOverridden(field) {
+	if m.isRoot {
+		if m.rootFieldAtDefault(field) {
+			return false, nil
+		}
+	} else if !m.raw.IsOverridden(field) {
 		return false, nil
 	}
 	if err := m.raw.Reset(field); err != nil {
@@ -306,17 +364,21 @@ func (m *DetailModel) ResetFocused() (bool, error) {
 	return true, nil
 }
 
-// ResetAll resets every field on the raw profile to inherited and rebuilds
-// the resolved view. Returns true when at least one override was cleared.
-// No-op and returns false when in root mode. Task 5 consumes this for the
-// `shift+r` / `R` binding.
+// ResetAll resets every field on the profile. On a game profile only overrides
+// are cleared; on the root defaults profile every field returns to "(default)".
 func (m *DetailModel) ResetAll() bool {
-	if m.isRoot || m.raw == nil {
+	if m.raw == nil {
 		return false
 	}
+	if m.isRoot {
+		if m.rootProfileAtDefault() {
+			return false
+		}
+		m.raw.ResetAll()
+		m.rebuildResolved()
+		return true
+	}
 	if len(m.raw.Overrides) == 0 {
-		// Still zero the struct in case the raw has stray values without
-		// override flags — but report no change so callers can skip saving.
 		return false
 	}
 	m.raw.ResetAll()
@@ -418,6 +480,9 @@ func (m DetailModel) View() string {
 		}
 
 		value := formatFieldValue(m.resolved, row.field)
+		if m.isRoot {
+			value = formatRootFieldValue(m.resolved, row.field)
+		}
 		overridden := !m.isRoot && m.raw != nil && m.raw.IsOverridden(row.field)
 		semantics := m.formatFieldSemantics(row.field)
 
@@ -434,6 +499,12 @@ func (m DetailModel) View() string {
 		body := fmt.Sprintf("%-20s  %-12s  %s", row.label, value, semantics)
 		if i == focusedRow && !m.isRoot {
 			body += s.Dim.Render("  [r reset · Shift+R all · p pin]")
+		} else if i == focusedRow && m.isRoot {
+			if rootFieldOptions(row.field) != nil {
+				body += s.Dim.Render("  [←/→ cycle · r reset]")
+			} else {
+				body += s.Dim.Render("  [r reset]")
+			}
 		}
 
 		if i == focusedRow {
@@ -475,6 +546,71 @@ func (m DetailModel) formatFieldSemantics(field string) string {
 		return fmt.Sprintf("impact %s · restore %s", impact, restore)
 	}
 	return fmt.Sprintf("source %s · impact %s · restore %s", explanation.Source, explanation.Impact, explanation.Restore)
+}
+
+func rootFieldOptions(field string) []string {
+	if profile.IsBoolField(field) {
+		return []string{"(default)", "true", "false"}
+	}
+	return nil
+}
+
+func applyRootFieldValue(p *profile.Profile, field, value string) bool {
+	if !profile.IsBoolField(field) {
+		return false
+	}
+	if value == "(default)" {
+		return p.Reset(field) == nil
+	}
+	return profile.SetBoolField(p, field, value == "true")
+}
+
+func formatRootBoolField(p *profile.Profile, field string) string {
+	if p == nil {
+		return "(default)"
+	}
+	val, isBool := profile.BoolFieldValue(p, field)
+	if !isBool {
+		return "(default)"
+	}
+	if !p.IsOverridden(field) {
+		if !val {
+			return "(default)"
+		}
+		return "true"
+	}
+	if val {
+		return "true"
+	}
+	return "false"
+}
+
+func (m DetailModel) rootFieldAtDefault(field string) bool {
+	if m.raw == nil {
+		return true
+	}
+	return formatRootFieldValue(m.raw, field) == "(default)"
+}
+
+func (m DetailModel) rootProfileAtDefault() bool {
+	if m.raw == nil {
+		return true
+	}
+	for _, field := range profile.AllFields() {
+		if !m.rootFieldAtDefault(field) {
+			return false
+		}
+	}
+	return true
+}
+
+// formatRootFieldValue renders defaults-profile field values. Bool fields
+// distinguish "(default)" (unset/zero) from explicit "true"/"false".
+func formatRootFieldValue(p *profile.Profile, field string) string {
+	if profile.IsBoolField(field) {
+		return formatRootBoolField(p, field)
+	}
+	return formatFieldValue(p, field)
 }
 
 // formatFieldValue returns a display string for the given field on the

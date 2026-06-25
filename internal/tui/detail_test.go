@@ -722,26 +722,139 @@ func TestDetail_PinFocused_AlreadyOverridden_Fail(t *testing.T) {
 	}
 }
 
-// TestDetail_RootSuppressesResetPinBindings — ResetFocused/ResetAll/
-// PinFocused must all be no-ops on the root defaults view. This prevents
-// the Task 5 bindings from leaking into the Defaults resource.
-func TestDetail_RootSuppressesResetPinBindings(t *testing.T) {
+// TestDetail_RootResetFocused_ClearsValue — reset on the root defaults view
+// clears a non-default field back to "(default)".
+func TestDetail_RootResetFocused_ClearsValue(t *testing.T) {
+	styles := NewStyles(DefaultTheme, true)
+	root := &profile.Profile{Proton: profile.ProtonSettings{VKD3DHeap: true}}
+	root.MarkOverride(profile.FieldProtonVKD3DHeap)
+	d := NewRootDetail(styles, root)
+	focusField(t, &d, profile.FieldProtonVKD3DHeap)
+
+	changed, err := d.ResetFocused()
+	if err != nil {
+		t.Fatalf("ResetFocused: %v", err)
+	}
+	if !changed {
+		t.Fatal("ResetFocused on root: expected changed=true")
+	}
+	if root.Proton.VKD3DHeap {
+		t.Error("ResetFocused on root: expected VKD3DHeap cleared")
+	}
+	if root.IsOverridden(profile.FieldProtonVKD3DHeap) {
+		t.Error("ResetFocused on root: expected override cleared")
+	}
+	view := d.View()
+	if !strings.Contains(view, "(default)") {
+		t.Errorf("ResetFocused on root: expected (default) in view, got:\n%s", view)
+	}
+}
+
+// TestDetail_RootCycleBoolField_ThreeStates — root bool fields cycle through
+// (default), true, and false.
+func TestDetail_RootCycleBoolField_ThreeStates(t *testing.T) {
+	styles := NewStyles(DefaultTheme, true)
+	root := &profile.Profile{}
+	d := NewRootDetail(styles, root)
+	focusField(t, &d, profile.FieldProtonVKD3DHeap)
+
+	if !d.CycleFocusedField(1) {
+		t.Fatal("expected first cycle to change value")
+	}
+	if !root.Proton.VKD3DHeap {
+		t.Error("expected true after cycle from (default)")
+	}
+	if !d.CycleFocusedField(1) {
+		t.Fatal("expected second cycle to change value")
+	}
+	if root.Proton.VKD3DHeap {
+		t.Error("expected false after second cycle")
+	}
+	if !root.IsOverridden(profile.FieldProtonVKD3DHeap) {
+		t.Error("expected explicit false to mark override")
+	}
+	if got := formatRootBoolField(root, profile.FieldProtonVKD3DHeap); got != "false" {
+		t.Errorf("expected display false, got %q", got)
+	}
+	if !d.CycleFocusedField(1) {
+		t.Fatal("expected third cycle to change value")
+	}
+	if root.IsOverridden(profile.FieldProtonVKD3DHeap) {
+		t.Error("expected (default) to clear override")
+	}
+	if got := formatRootBoolField(root, profile.FieldProtonVKD3DHeap); got != "(default)" {
+		t.Errorf("expected display (default), got %q", got)
+	}
+}
+
+// TestDetail_RootPinFocused_NoOp — pin is a game-profile binding; root fields
+// are edited directly and PinFocused remains a no-op there.
+func TestDetail_RootPinFocused_NoOp(t *testing.T) {
 	styles := NewStyles(DefaultTheme, true)
 	root := &profile.Profile{GPU: profile.GPUSettings{PowerLimit: 350}}
 	d := NewRootDetail(styles, root)
 	focusField(t, &d, profile.FieldGPUPowerLimit)
 
-	if changed, _ := d.ResetFocused(); changed {
-		t.Error("root ResetFocused must be no-op")
-	}
-	if d.ResetAll() {
-		t.Error("root ResetAll must be no-op")
-	}
 	if changed, _ := d.PinFocused(); changed {
 		t.Error("root PinFocused must be no-op")
 	}
-	if root.GPU.PowerLimit != 350 {
-		t.Errorf("root profile mutated by suppressed bindings: got PowerLimit=%d", root.GPU.PowerLimit)
+}
+
+// TestDetail_RootResetFocused_ClearsIntField — reset on the root defaults
+// view clears non-default numeric fields back to "(default)".
+func TestDetail_RootResetFocused_ClearsIntField(t *testing.T) {
+	styles := NewStyles(DefaultTheme, true)
+	root := &profile.Profile{GPU: profile.GPUSettings{PowerLimit: 350}}
+	d := NewRootDetail(styles, root)
+	focusField(t, &d, profile.FieldGPUPowerLimit)
+
+	changed, err := d.ResetFocused()
+	if err != nil {
+		t.Fatalf("ResetFocused: %v", err)
+	}
+	if !changed {
+		t.Fatal("ResetFocused on root int field: expected changed=true")
+	}
+	if root.GPU.PowerLimit != 0 {
+		t.Errorf("ResetFocused on root: expected PowerLimit zeroed, got %d", root.GPU.PowerLimit)
+	}
+}
+
+// TestDetail_RootResetAll_ClearsAllFields — reset-all on the root defaults
+// view clears every non-default field (bool and non-bool) back to "(default)".
+func TestDetail_RootResetAll_ClearsAllFields(t *testing.T) {
+	styles := NewStyles(DefaultTheme, true)
+	root := &profile.Profile{
+		Proton: profile.ProtonSettings{VKD3DHeap: true, EnableHDR: true},
+		GPU:    profile.GPUSettings{PowerLimit: 350},
+	}
+	root.MarkOverride(profile.FieldProtonVKD3DHeap)
+	root.MarkOverride(profile.FieldProtonEnableHDR)
+	root.MarkOverride(profile.FieldGPUPowerLimit)
+	d := NewRootDetail(styles, root)
+
+	if !d.ResetAll() {
+		t.Fatal("ResetAll on root: expected changed=true")
+	}
+	if root.Proton.VKD3DHeap || root.Proton.EnableHDR {
+		t.Error("ResetAll on root: expected bool fields cleared")
+	}
+	if root.GPU.PowerLimit != 0 {
+		t.Errorf("ResetAll on root: expected PowerLimit zeroed, got %d", root.GPU.PowerLimit)
+	}
+	if len(root.Overrides) != 0 {
+		t.Errorf("ResetAll on root: expected overrides cleared, got %v", root.Overrides)
+	}
+}
+
+// TestDetail_RootResetAll_NoOp_AtDefault — ResetAll reports no change when
+// the root profile is already at default.
+func TestDetail_RootResetAll_NoOp_AtDefault(t *testing.T) {
+	styles := NewStyles(DefaultTheme, true)
+	root := &profile.Profile{}
+	d := NewRootDetail(styles, root)
+	if d.ResetAll() {
+		t.Fatal("ResetAll on root at default: expected changed=false")
 	}
 }
 
