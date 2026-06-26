@@ -33,6 +33,21 @@
 - [x] ~~Add rmux arrow-key regression coverage~~ — detail test uses KeyDown code path documented for rmux escape sequences
 - [x] ~~Align default-profile path docs with implementation~~ — README uses `profiles/default.yaml`
 - [x] ~~No CLI commands for overlay profile settings~~ — added `spela overlay set/show` with 8 flags in 6a54b25
+- [ ] **e2e: rail destinations 2 (DLL Catalog) and 3 (Monitor) never visited** — only `4` (Settings) is smoke-tested; add a render check for each
+- [ ] **e2e: rail `j`/`k` + `Enter` navigation** — only hotkeys `1`-`4` tested; cursor movement + select untested
+- [ ] **e2e: context nav `j`/`k` profile subsystem cycling** — Proton→DLSS→GPU→CPU→Overlay cycling (`context_nav.go:96-106`) untested
+- [ ] **e2e: DLSS preset modal** — opens via `Enter` on `sr_preset` field (`dlss_preset_modal.go`); never opened in e2e
+- [ ] **e2e: `q` as back navigation** — `q` navigates back through zones or quits from ZonePrimary; only used implicitly
+- [ ] **e2e: DLL install (`i`) / update (`u`)** — requires mock HTTP server (manifest points to `localhost:12345`); document why skipped or add mock
+- [ ] **e2e: F5 (density toggle) and F11 (focus mode)** — global system keys (`layout_handlers.go:60-75`); low risk but trivial to smoke-test
+- [ ] **e2e: Ctrl+R rescan via TUI** — rescan is tested in Go e2e but the `ctrl+r` keybinding is never exercised through rmux
+- [ ] **e2e: search edge cases** — only "Cyber" tested; no case sensitivity ("cyber"), partial match ("punk"), or multi-result filter ("the")
+- [ ] **e2e: profile persistence assertions too weak** — `qa_mutation` checks override *count* decreased but not *which* field was reset; verify a specific field key was removed from `overrides:`
+- [ ] **e2e: state leakage between UX tests** — UX-1 through UX-8 share a single session and rely on `Escape` to reset; consider fresh sessions per check or assert known starting state
+- [ ] **e2e: `local waited=0` declared twice in `qa_mutation`** — second declaration at line 474 shadows the first; confusing but not a bug
+- [ ] **e2e: extract `send_and_capture()` helper** — most UX functions repeat the same 3-line send/sleep/capture pattern; helper would halve line count
+- [ ] **TUI: `j`/`k` intercepted by profile-subsystem cycling in ZoneContext** — when Profile aspect is active and ZoneContext is focused, `j`/`k` cycle the subsystem cursor (Proton→DLSS→GPU→CPU→Overlay) instead of moving the sidebar cursor (`context_nav.go:94-106`); sidebar navigation requires search or switching to Overview/DLLs aspect first
+- [ ] **TUI: game profile opens with Profile aspect instead of Overview** — when selecting a game from root defaults (Profile aspect), the aspect persists into game scope; `nav.SelectScope` keeps Profile if already active, so the user lands on Profile instead of the expected Overview (`nav.go:240-246`)
 
 ## Resolved
 
