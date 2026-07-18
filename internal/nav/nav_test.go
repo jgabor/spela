@@ -38,6 +38,50 @@ func TestDestinationFromHotkey(t *testing.T) {
 	}
 }
 
+func TestNavigationLabelsBreadcrumbsAndContextKeysCoverSupportedStates(t *testing.T) {
+	for destination := DestinationLibrary; destination <= DestinationSettings; destination++ {
+		if destination.String() == "unknown" || DestinationHotkey(destination) == "" {
+			t.Errorf("destination %d label/hotkey missing", destination)
+		}
+	}
+	if Destination(99).String() != "unknown" || Aspect(99).String() != "unknown" || DLLCatalogSection(99).String() != "unknown" || MonitorSection(99).String() != "unknown" || SettingsSection(99).String() != "unknown" || ProfileSubsystem(99).String() != "unknown" || ProfileSubsystem(99).Key() != "" {
+		t.Fatal("invalid navigation values did not use unknown/empty fallbacks")
+	}
+	states := []State{
+		DefaultState(),
+		DefaultState().SelectScope(Scope{Kind: ScopeGame, GameName: "Cyberpunk", AppID: 1091500}).SelectAspect(AspectOverview),
+		DefaultState().SelectScope(Scope{Kind: ScopeGame, GameName: "Cyberpunk", AppID: 1091500}).SelectAspect(AspectProfile),
+		DefaultState().SelectScope(Scope{Kind: ScopeGame, GameName: "Cyberpunk", AppID: 1091500}).SelectAspect(AspectDLLs),
+		DefaultState().SelectDestination(DestinationDLLCatalog),
+		DefaultState().SelectDestination(DestinationMonitor),
+		DefaultState().SelectDestination(DestinationSettings),
+		{Destination: Destination(99)},
+	}
+	for _, state := range states {
+		if state.Destination != Destination(99) && !strings.Contains(state.BreadcrumbString(), state.Destination.String()) {
+			t.Errorf("breadcrumb %q missing destination %q", state.BreadcrumbString(), state.Destination)
+		}
+		for _, zone := range []Zone{ZonePrimary, ZoneContext, ZoneContent, Zone(99)} {
+			state.Zone = zone
+			keys := state.ContextKeys(true, ContentHints{HasUpdates: true, HasBackup: true})
+			if zone != Zone(99) && state.Destination != Destination(99) && len(keys) == 0 {
+				t.Errorf("state %+v has no context keys", state)
+			}
+			if state.ContextKeys(false, ContentHints{}) != nil {
+				t.Error("hidden hints unexpectedly returned keys")
+			}
+		}
+	}
+	dllState := states[3]
+	dllState.Zone = ZoneContent
+	if keys := dllState.ContextKeys(true, ContentHints{HasUpdates: true}); keys[0].Key != "u" {
+		t.Fatalf("DLL update hint keys = %+v", keys)
+	}
+	if keys := dllState.ContextKeys(true, ContentHints{HasUpdates: true, DLLOperating: true}); keys[0].Key == "u" {
+		t.Fatalf("operating DLL keys still offer update: %+v", keys)
+	}
+}
+
 func TestBreadcrumb_LibraryGameProfile(t *testing.T) {
 	s := DefaultState()
 	s.Scope = Scope{Kind: ScopeGame, GameName: "Cyberpunk 2077", AppID: 1091500}

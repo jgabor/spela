@@ -81,7 +81,12 @@ func TestApplyProfile_GovernorUnavailableRejectsBeforePrivilegedChanges(t *testi
 		t.Fatalf("set gpu-clock-offset: %v", err)
 	}
 
-	err := applySettings(cmd)
+	err := applySettings(cmd, applyProfileOperations{
+		lockGraphicsClocks: func(int) error {
+			t.Fatal("privileged change ran before validation")
+			return nil
+		},
+	})
 	if err == nil {
 		t.Fatal("applySettings: expected governor validation error, got nil")
 	}

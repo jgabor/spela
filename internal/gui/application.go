@@ -472,18 +472,10 @@ func (b guiApplicationBoundary) restoreDLLs(appID uint64) error {
 
 func (b guiApplicationBoundary) scanAndSaveDLLs(g *game.Game, operation string) error {
 	b.emitDLLProgress("Scanning install directory")
-	detected, err := b.scanDLLDirectory(g.InstallDir)
-	if err != nil {
-		return fmt.Errorf("scan install directory: %w", err)
-	}
-
-	g.DLLs = detected
-	g.ScannedAt = time.Now()
-	b.emitDLLProgress("Saving database")
-	if err := b.saveDatabase(b.db); err != nil {
-		return fmt.Errorf("save game database after %s: %w", operation, err)
-	}
-	return nil
+	return dll.RefreshGameAfterMutation(g, operation, b.scanDLLDirectory, func() error {
+		b.emitDLLProgress("Saving database")
+		return b.saveDatabase(b.db)
+	})
 }
 
 func (b guiApplicationBoundary) hasDLLBackup(appID uint64) bool {

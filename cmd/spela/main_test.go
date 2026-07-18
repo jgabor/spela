@@ -87,6 +87,53 @@ func TestRunWrapperModePreparesLaunchAndPreservesWrapperEnv(t *testing.T) {
 	}
 }
 
+func TestRootCommandExecutesConfigWiringAndStreams(t *testing.T) {
+	state := t.TempDir()
+	t.Setenv("HOME", filepath.Join(state, "home"))
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(state, "config"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(state, "cache"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(state, "data"))
+
+	execute := func(args ...string) (string, string, error) {
+		return captureOutputResult(t, func() error {
+			rootCmd.SetArgs(args)
+			rootCmd.SetOut(os.Stdout)
+			rootCmd.SetErr(os.Stderr)
+			return rootCmd.Execute()
+		})
+	}
+
+	stdout, stderr, err := execute("config", "set", "check_updates", "false")
+	if err != nil || stdout != "Set check_updates = false\n" || stderr != "" {
+		t.Fatalf("config set command = stdout %q, stderr %q, error %v", stdout, stderr, err)
+	}
+	stdout, stderr, err = execute("config", "show")
+	if err != nil || !strings.Contains(stdout, "check_updates: false") || stderr != "" {
+		t.Fatalf("config show command = stdout %q, stderr %q, error %v", stdout, stderr, err)
+	}
+	stdout, stderr, err = execute("config", "set", "not_a_key", "value")
+	if err == nil || err.Error() != "unknown config key: not_a_key" || !strings.Contains(stdout, "Usage:") || !strings.Contains(stderr, "unknown config key: not_a_key") {
+		t.Fatalf("invalid config command = stdout %q, stderr %q, error %v", stdout, stderr, err)
+	}
+}
+
+func TestRootCommandHelpUsesSuccessfulCobraExecution(t *testing.T) {
+	stdout, stderr, err := captureOutputResult(t, func() error {
+		rootCmd.SetArgs([]string{})
+		rootCmd.SetOut(os.Stdout)
+		rootCmd.SetErr(os.Stderr)
+		return rootCmd.Execute()
+	})
+	if err != nil || stderr != "" {
+		t.Fatalf("root help = stderr %q, error %v", stderr, err)
+	}
+	for _, fragment := range []string{"Linux gaming optimization tool", "Available Commands:", "profile", "config"} {
+		if !strings.Contains(stdout, fragment) {
+			t.Errorf("root help missing %q:\n%s", fragment, stdout)
+		}
+	}
+}
+
 func writeTestDatabase(t *testing.T, tempDir string) {
 	t.Helper()
 
@@ -102,6 +149,14 @@ func writeTestDatabase(t *testing.T, tempDir string) {
 }
 
 func captureOutput(t *testing.T, fn func() error) (string, string) {
+	stdout, stderr, runErr := captureOutputResult(t, fn)
+	if runErr != nil {
+		t.Fatalf("runWrapperMode returned error: %v", runErr)
+	}
+	return stdout, stderr
+}
+
+func captureOutputResult(t *testing.T, fn func() error) (string, string, error) {
 	t.Helper()
 
 	originalStdout := os.Stdout
@@ -140,11 +195,7 @@ func captureOutput(t *testing.T, fn func() error) (string, string) {
 	}
 	_ = stderrReader.Close()
 
-	if runErr != nil {
-		t.Fatalf("runWrapperMode returned error: %v", runErr)
-	}
-
-	return string(stdoutBytes), string(stderrBytes)
+	return string(stdoutBytes), string(stderrBytes), runErr
 }
 
 func envValue(output, key string) string {

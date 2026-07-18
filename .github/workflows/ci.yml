@@ -85,7 +85,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
 
       - name: Install webview dependencies
         uses: awalsh128/cache-apt-pkgs-action@acb598e5ddbc6f68a970c5da0688d2f3a9f04d05 # v1.6.0
@@ -96,11 +96,14 @@ jobs:
       - name: Build
         run: mage build
 
-      - name: Test Go
-        run: mage test
+      - name: Enforce canonical coverage
+        run: mage coverageCheck
 
-      - name: Test frontend
-        run: mage testFrontend
+      - name: Upload aggregate coverage
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: aggregate-line-coverage
+          path: coverage/lcov.info
 
   e2e:
     runs-on: ubuntu-24.04
@@ -139,7 +142,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: internal/gui/frontend
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: Install Playwright browsers
         working-directory: internal/gui/frontend

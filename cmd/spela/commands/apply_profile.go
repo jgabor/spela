@@ -20,6 +20,17 @@ var (
 	applyReset           bool
 )
 
+type applyProfileOperations struct {
+	lockGraphicsClocks func(int) error
+	lockMemoryClocks   func(int) error
+	setPowerLimit      func(int) error
+	setFanSpeed        func(int) error
+	resetClocks        func() error
+	resetFanSpeed      func() error
+	setGovernor        func(cpu.Governor) error
+	setSMT             func(bool) error
+}
+
 // ApplyProfileCmd is a hidden subcommand invoked via pkexec to apply
 // privileged GPU/CPU settings in a single elevated process.
 var ApplyProfileCmd = &cobra.Command{
@@ -45,49 +56,62 @@ func runApplyProfile(cmd *cobra.Command, args []string) error {
 	}
 
 	if applyReset {
-		return applyResetSettings(cmd)
+		return applyResetSettings(cmd, systemApplyProfileOperations())
 	}
 
-	return applySettings(cmd)
+	return applySettings(cmd, systemApplyProfileOperations())
 }
 
-func applySettings(cmd *cobra.Command) error {
+func systemApplyProfileOperations() applyProfileOperations {
+	return applyProfileOperations{
+		lockGraphicsClocks: gpu.LockGraphicsClocks,
+		lockMemoryClocks:   gpu.LockMemoryClocks,
+		setPowerLimit:      gpu.SetPowerLimit,
+		setFanSpeed:        gpu.SetFanSpeed,
+		resetClocks:        gpu.ResetClocks,
+		resetFanSpeed:      gpu.ResetFanSpeed,
+		setGovernor:        cpu.SetGovernor,
+		setSMT:             cpu.SetSMT,
+	}
+}
+
+func applySettings(cmd *cobra.Command, operations applyProfileOperations) error {
 	if err := validateApplyInputs(cmd); err != nil {
 		return err
 	}
 
 	if cmd.Flags().Changed("gpu-clock-offset") {
-		if err := gpu.LockGraphicsClocks(applyGPUClockOffset); err != nil {
+		if err := operations.lockGraphicsClocks(applyGPUClockOffset); err != nil {
 			return fmt.Errorf("set GPU clock offset: %w", err)
 		}
 	}
 
 	if cmd.Flags().Changed("gpu-memory-offset") {
-		if err := gpu.LockMemoryClocks(applyGPUMemoryOffset); err != nil {
+		if err := operations.lockMemoryClocks(applyGPUMemoryOffset); err != nil {
 			return fmt.Errorf("set GPU memory offset: %w", err)
 		}
 	}
 
 	if cmd.Flags().Changed("gpu-power-limit") {
-		if err := gpu.SetPowerLimit(applyGPUPowerLimit); err != nil {
+		if err := operations.setPowerLimit(applyGPUPowerLimit); err != nil {
 			return fmt.Errorf("set GPU power limit: %w", err)
 		}
 	}
 
 	if cmd.Flags().Changed("gpu-fan-speed") && applyGPUFanSpeed > 0 {
-		if err := gpu.SetFanSpeed(applyGPUFanSpeed); err != nil {
+		if err := operations.setFanSpeed(applyGPUFanSpeed); err != nil {
 			return fmt.Errorf("set GPU fan speed: %w", err)
 		}
 	}
 
 	if applyCPUGovernor != "" {
-		if err := cpu.SetGovernor(cpu.Governor(applyCPUGovernor)); err != nil {
+		if err := operations.setGovernor(cpu.Governor(applyCPUGovernor)); err != nil {
 			return fmt.Errorf("set CPU governor: %w", err)
 		}
 	}
 
 	if applyCPUSMT == "on" || applyCPUSMT == "off" {
-		if err := cpu.SetSMT(applyCPUSMT == "on"); err != nil {
+		if err := operations.setSMT(applyCPUSMT == "on"); err != nil {
 			return fmt.Errorf("set CPU SMT: %w", err)
 		}
 	}
@@ -95,41 +119,41 @@ func applySettings(cmd *cobra.Command) error {
 	return nil
 }
 
-func applyResetSettings(cmd *cobra.Command) error {
+func applyResetSettings(cmd *cobra.Command, operations applyProfileOperations) error {
 	if err := validateApplyInputs(cmd); err != nil {
 		return err
 	}
 
-	if err := gpu.ResetClocks(); err != nil {
+	if err := operations.resetClocks(); err != nil {
 		return fmt.Errorf("reset GPU clocks: %w", err)
 	}
 
 	if cmd.Flags().Changed("gpu-power-limit") && applyGPUPowerLimit > 0 {
-		if err := gpu.SetPowerLimit(applyGPUPowerLimit); err != nil {
+		if err := operations.setPowerLimit(applyGPUPowerLimit); err != nil {
 			return fmt.Errorf("restore GPU power limit: %w", err)
 		}
 	}
 
 	if cmd.Flags().Changed("gpu-fan-speed") {
 		if applyGPUFanSpeed == 0 {
-			if err := gpu.ResetFanSpeed(); err != nil {
+			if err := operations.resetFanSpeed(); err != nil {
 				return fmt.Errorf("reset GPU fan speed: %w", err)
 			}
 		} else {
-			if err := gpu.SetFanSpeed(applyGPUFanSpeed); err != nil {
+			if err := operations.setFanSpeed(applyGPUFanSpeed); err != nil {
 				return fmt.Errorf("restore GPU fan speed: %w", err)
 			}
 		}
 	}
 
 	if applyCPUGovernor != "" {
-		if err := cpu.SetGovernor(cpu.Governor(applyCPUGovernor)); err != nil {
+		if err := operations.setGovernor(cpu.Governor(applyCPUGovernor)); err != nil {
 			return fmt.Errorf("restore CPU governor: %w", err)
 		}
 	}
 
 	if applyCPUSMT == "on" || applyCPUSMT == "off" {
-		if err := cpu.SetSMT(applyCPUSMT == "on"); err != nil {
+		if err := operations.setSMT(applyCPUSMT == "on"); err != nil {
 			return fmt.Errorf("restore CPU SMT: %w", err)
 		}
 	}

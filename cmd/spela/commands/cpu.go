@@ -16,6 +16,16 @@ var CPUCmd = &cobra.Command{
 	Long:  "View CPU information and configure CPU governor, SMT, and scheduler settings.",
 }
 
+type cpuReadOperations struct {
+	getInfo               func() (map[string]string, error)
+	getAvailableGovernors func() ([]cpu.Governor, error)
+	getMetrics            func() (*cpu.CPUMetrics, error)
+	scxIsAvailable        func() bool
+	scxStatus             func() (bool, error)
+	getCurrentGovernor    func() (cpu.Governor, error)
+	getSMTStatus          func() (bool, error)
+}
+
 var cpuInfoCmd = &cobra.Command{
 	Use:   "info",
 	Short: "Show CPU information",
@@ -43,7 +53,23 @@ func init() {
 }
 
 func runCPUInfo(cmd *cobra.Command, args []string) error {
-	info, err := cpu.GetCPUInfo()
+	return runCPUInfoWithOperations(systemCPUReadOperations())
+}
+
+func systemCPUReadOperations() cpuReadOperations {
+	return cpuReadOperations{
+		getInfo:               cpu.GetCPUInfo,
+		getAvailableGovernors: cpu.GetAvailableGovernors,
+		getMetrics:            cpu.GetCPUMetrics,
+		scxIsAvailable:        cpu.SCXIsAvailable,
+		scxStatus:             cpu.SCXStatus,
+		getCurrentGovernor:    cpu.GetCurrentGovernor,
+		getSMTStatus:          cpu.GetSMTStatus,
+	}
+}
+
+func runCPUInfoWithOperations(operations cpuReadOperations) error {
+	info, err := operations.getInfo()
 	if err != nil {
 		return err
 	}
@@ -53,7 +79,7 @@ func runCPUInfo(cmd *cobra.Command, args []string) error {
 
 	// Governor with available options
 	fmt.Printf("%s  %s", tui.CLIDim("Governor:"), tui.CLIAccent(info["governor"]))
-	if available, err := cpu.GetAvailableGovernors(); err == nil && len(available) > 0 {
+	if available, err := operations.getAvailableGovernors(); err == nil && len(available) > 0 {
 		names := make([]string, len(available))
 		for i, g := range available {
 			names[i] = string(g)
@@ -73,7 +99,7 @@ func runCPUInfo(cmd *cobra.Command, args []string) error {
 	fmt.Printf("%s  %s\n", tui.CLIDim("SMT:"), tui.CLIAccent(smt))
 
 	// Live metrics from GetCPUMetrics
-	metrics, metricsErr := cpu.GetCPUMetrics()
+	metrics, metricsErr := operations.getMetrics()
 	if metricsErr == nil && metrics != nil {
 		if metrics.AverageFrequency > 0 {
 			fmt.Printf("%s  %s\n", tui.CLIDim("Freq:"), tui.CLIAccent(fmt.Sprintf("%d MHz avg", metrics.AverageFrequency)))
@@ -86,8 +112,8 @@ func runCPUInfo(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if cpu.SCXIsAvailable() {
-		active, _ := cpu.SCXStatus()
+	if operations.scxIsAvailable() {
+		active, _ := operations.scxStatus()
 		status := "inactive"
 		if active {
 			status = "active"
@@ -99,14 +125,18 @@ func runCPUInfo(cmd *cobra.Command, args []string) error {
 }
 
 func runCPUGovernor(cmd *cobra.Command, args []string) error {
+	return runCPUGovernorWithOperations(args, systemCPUReadOperations())
+}
+
+func runCPUGovernorWithOperations(args []string, operations cpuReadOperations) error {
 	if len(args) == 0 {
-		gov, err := cpu.GetCurrentGovernor()
+		gov, err := operations.getCurrentGovernor()
 		if err != nil {
 			return err
 		}
 		fmt.Printf("Current governor: %s\n", gov)
 
-		available, err := cpu.GetAvailableGovernors()
+		available, err := operations.getAvailableGovernors()
 		if err == nil {
 			fmt.Printf("Available: %v\n", available)
 		}
@@ -121,8 +151,12 @@ func runCPUGovernor(cmd *cobra.Command, args []string) error {
 }
 
 func runCPUSMT(cmd *cobra.Command, args []string) error {
+	return runCPUSMTWithOperations(args, systemCPUReadOperations())
+}
+
+func runCPUSMTWithOperations(args []string, operations cpuReadOperations) error {
 	if len(args) == 0 {
-		active, err := cpu.GetSMTStatus()
+		active, err := operations.getSMTStatus()
 		if err != nil {
 			return err
 		}

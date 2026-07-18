@@ -33,7 +33,11 @@ func init() {
 }
 
 func runGPUInfo(cmd *cobra.Command, args []string) error {
-	info, err := gpu.GetGPUInfo()
+	return runGPUInfoWith(gpu.GetGPUInfo)
+}
+
+func runGPUInfoWith(getInfo func() (map[string]string, error)) error {
+	info, err := getInfo()
 	if err != nil {
 		return fmt.Errorf("failed to get GPU info: %w", err)
 	}

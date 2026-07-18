@@ -12,6 +12,10 @@ import (
 )
 
 func Run() error {
+	return run(wails.Run)
+}
+
+func run(runApplication func(*options.App) error) error {
 	app := NewApp()
 
 	appMenu := menu.NewMenu()
@@ -34,7 +38,7 @@ func Run() error {
 		Handler: getDevHandler(),
 	}
 
-	return wails.Run(&options.App{
+	return runApplication(&options.App{
 		Title:            "Spela",
 		Width:            1024,
 		Height:           768,

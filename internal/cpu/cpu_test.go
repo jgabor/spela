@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -250,5 +251,30 @@ func TestLaunchWithAffinity(t *testing.T) {
 	}
 	if args[3] != "echo" {
 		t.Errorf("args[3] = %q, want echo", args[3])
+	}
+}
+
+func TestCPUFixtureErrorAndUtilizationBoundaries(t *testing.T) {
+	root := setupMockSysfs(t)
+	if _, err := GetAvailableGovernors(); err == nil {
+		t.Fatal("missing governors file unexpectedly succeeded")
+	}
+	if err := ValidateGovernorAvailable(GovernorPerformance); err == nil || !strings.Contains(err.Error(), "read available") {
+		t.Fatalf("governor read error = %v", err)
+	}
+	if got := formatGovernors(nil); got != "none" {
+		t.Fatalf("empty governors = %q", got)
+	}
+	if got := getCPUUtilization(); got != 0 {
+		t.Fatalf("missing loadavg utilization = %f", got)
+	}
+	writeFile(t, root, "/proc/loadavg", "999999 0 0 0/0 0\n")
+	if got := getCPUUtilization(); got != 100 {
+		t.Fatalf("bounded utilization = %f", got)
+	}
+	writeFile(t, root, "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq", "not-a-number\n")
+	metrics, err := GetCPUMetrics()
+	if err != nil || len(metrics.Frequencies) != 1 || metrics.Frequencies[0] != 0 {
+		t.Fatalf("partial metrics = %#v, %v", metrics, err)
 	}
 }

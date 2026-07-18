@@ -6,7 +6,10 @@
 *.dylib
 *.test
 *.out
+__pycache__/
+*.pyc
 coverage.txt
+/coverage/
 dist/
 
 # GUI frontend

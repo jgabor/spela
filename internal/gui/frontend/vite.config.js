@@ -18,5 +18,11 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     include: ['src/**/*.test.js'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      include: ['src/**/*.{js,svelte}'],
+      exclude: ['src/**/*.test.js', 'src/lib/navContract.generated.js'],
+    },
   },
 })

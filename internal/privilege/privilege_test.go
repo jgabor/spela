@@ -2,6 +2,8 @@ package privilege
 
 import (
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -12,6 +14,51 @@ func TestIsPolkitAvailable(t *testing.T) {
 	_ = os.Setenv("PATH", "/nonexistent")
 	if IsPolkitAvailable() {
 		t.Error("Expected IsPolkitAvailable to return false when pkexec not in PATH")
+	}
+}
+
+func TestExecWithInputAndPolkitResultContracts(t *testing.T) {
+	if IsRoot() {
+		result, err := ExecWithInput("fixture input", "sh", "-c", "read value; printf '%s' \"$value\"")
+		if err != nil || result.Stdout != "fixture input" {
+			t.Fatalf("root ExecWithInput = %#v, %v", result, err)
+		}
+		return
+	}
+
+	bin := t.TempDir()
+	pkexec := filepath.Join(bin, "pkexec")
+	writePKExec := func(body string) {
+		t.Helper()
+		if err := os.WriteFile(pkexec, []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", bin)
+	writePKExec("read value; printf 'out:%s' \"$value\"")
+	result, err := ExecWithInput("fixture", "ignored")
+	if err != nil || result.Stdout != "out:fixture" {
+		t.Fatalf("ExecWithInput success = %#v, %v", result, err)
+	}
+	result, err = Exec("ignored")
+	if err != nil || result.ExitCode != 0 {
+		t.Fatalf("Exec success = %#v, %v", result, err)
+	}
+
+	writePKExec("printf 'authentication cancelled' >&2; exit 126")
+	if _, err := Exec("ignored"); !IsAuthError(err) {
+		t.Fatalf("dismissed Exec error = %v", err)
+	}
+	if _, err := ExecWithInput("fixture", "ignored"); !IsAuthError(err) {
+		t.Fatalf("dismissed ExecWithInput error = %v", err)
+	}
+
+	writePKExec("printf 'permission denied' >&2; exit 2")
+	if _, err := Exec("ignored"); err == nil || !strings.Contains(err.Error(), "permission denied") {
+		t.Fatalf("failed Exec error = %v", err)
+	}
+	if _, err := ExecWithInput("fixture", "ignored"); err == nil || !strings.Contains(err.Error(), "permission denied") {
+		t.Fatalf("failed ExecWithInput error = %v", err)
 	}
 }
 

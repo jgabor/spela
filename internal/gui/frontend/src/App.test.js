@@ -42,8 +42,11 @@ const fixtures = vi.hoisted(() => ({
     semantics: []
   },
   settingsCatalog: [
-    { id: 0, title: 'Display', options: [{ key: 'showHints', label: 'Show hints', description: '', type: 'toggle' }] },
-    { id: 1, title: 'Startup', options: [] },
+    { id: 0, title: 'Display', options: [
+      { key: 'showHints', label: 'Show hints', description: '', type: 'toggle' },
+      { key: 'theme', label: 'Theme', description: '', type: 'select', choices: ['dark', 'light'] }
+    ] },
+    { id: 1, title: 'Startup', options: [{ key: 'manifestRefreshHours', label: 'Refresh hours', description: '', type: 'select', choices: ['12', '24'] }] },
     { id: 2, title: 'Paths', options: [{ key: 'steamPath', label: 'Steam path', description: '', type: 'text' }] },
     { id: 3, title: 'DLL policy', options: [] },
     { id: 4, title: 'Logging', options: [{ key: 'logLevel', label: 'Log level', description: '', type: 'select', choices: ['info'] }] }
@@ -144,10 +147,10 @@ function makeDesktop(overrides = {}) {
   })),
   NavSelectSettingsSection: vi.fn().mockImplementation(async (state, section) => ({ ...state, settingsSection: section })),
   NavSelectSubsystem: vi.fn().mockImplementation(async (state, subsystem) => ({ ...state, subsystem })),
-    GetCPUInfo: vi.fn().mockResolvedValue({ utilizationPercent: 12, averageFrequency: 4200, memoryUsedMegabytes: 8192, memoryTotalMegabytes: 32768 }),
+    GetCPUInfo: vi.fn().mockResolvedValue({ model: 'Ryzen', cores: 16, governor: 'performance', smtEnabled: true, utilizationPercent: 12, averageFrequency: 4200, memoryUsedMegabytes: 8192, memoryTotalMegabytes: 32768 }),
     GetConfig: vi.fn().mockResolvedValue(fixtures.config),
     GetDefaultProfile: vi.fn().mockResolvedValue(fixtures.profile),
-    GetGPUInfo: vi.fn().mockResolvedValue({ temperature: 62, utilization: 44, powerDraw: 180, memoryUsed: 4096, memoryTotal: 12288 }),
+    GetGPUInfo: vi.fn().mockResolvedValue({ name: 'RTX', temperature: 62, utilization: 44, powerDraw: 180, powerLimit: 300, memoryUsed: 4096, memoryTotal: 12288, graphicsClock: 2500, memoryClock: 10000 }),
     GetGame: vi.fn(appId => Promise.resolve(fixtures.games.find(game => game.appId === appId))),
     GetGames: vi.fn().mockResolvedValue(fixtures.games),
     GetLogo: vi.fn().mockResolvedValue(''),
@@ -256,5 +259,56 @@ describe('App keyboard behavior', () => {
 
     await fireEvent.keyDown(window, { key: 'q' })
     expect(desktop.Quit).toHaveBeenCalledTimes(1)
+  })
+
+  it('routes every resource and context section through the shell contract', async () => {
+    const desktop = makeDesktop()
+    render(App, { props: { desktop } })
+
+    await waitFor(() => expect(screen.getByText('DLL Catalog')).toBeTruthy())
+    await fireEvent.click(screen.getByText('DLL Catalog'))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'DLL Library' })).toBeTruthy())
+    await fireEvent.click(screen.getByRole('button', { name: 'Deployment' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Deployment matrix' })).toBeTruthy())
+    expect(screen.getByText('Cyberpunk 2077')).toBeTruthy()
+
+    await fireEvent.click(screen.getByText('Monitor'))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'GPU' })).toBeTruthy())
+    await fireEvent.click(screen.getByRole('button', { name: 'CPU' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'CPU' })).toBeTruthy())
+    await fireEvent.click(screen.getByRole('button', { name: 'Alerts' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Alerts' })).toBeTruthy())
+
+    await fireEvent.click(screen.getByText('Library'))
+    await fireEvent.click(await screen.findByRole('button', { name: /Cyberpunk 2077/ }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Cyberpunk 2077' })).toBeTruthy())
+  })
+
+  it('normalizes numeric settings and reports catalog, version, and save failures', async () => {
+    const failingDesktop = makeDesktop({
+      GetSettingsCatalog: vi.fn().mockRejectedValue(new Error('catalog unavailable')),
+      GetVersion: vi.fn().mockRejectedValue(new Error('version unavailable')),
+      GetConfig: vi.fn().mockResolvedValue(null)
+    })
+    const failedView = render(App, { props: { desktop: failingDesktop } })
+    await waitFor(() => expect(screen.getByText('Library')).toBeTruthy())
+    expect(screen.queryByText(/v0.6.0/)).toBeNull()
+    failedView.unmount()
+
+    const desktop = makeDesktop({ SaveConfig: vi.fn().mockRejectedValue(new Error('read-only')) })
+    render(App, { props: { desktop } })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy())
+    await fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Display' })).toBeTruthy())
+    const themeRow = screen.getByText('Theme').closest('.option-row')
+    await fireEvent.change(within(themeRow).getByRole('combobox'), { target: { value: 'light' } })
+    await waitFor(() => expect(screen.getByText('Failed to save options')).toBeTruthy())
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light')
+
+    desktop.SaveConfig.mockResolvedValue(undefined)
+    await fireEvent.click(screen.getByRole('button', { name: 'Startup' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Startup' })).toBeTruthy())
+    await fireEvent.change(screen.getByRole('combobox'), { target: { value: '12' } })
+    await waitFor(() => expect(desktop.SaveConfig).toHaveBeenCalledWith(expect.objectContaining({ manifestRefreshHours: 12 })))
   })
 })

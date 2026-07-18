@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -75,55 +76,65 @@ type LatestVersion struct {
 }
 
 func main() {
-	manifestPath := flag.String("manifest", "data/manifest.json", "Path to manifest.json")
-	dllType := flag.String("type", "dlss", "DLL type to check (dlss, dlssg, dlssd)")
-	outputJSON := flag.Bool("json", false, "Output as JSON")
-	flag.Parse()
+	os.Exit(run(os.Args[0], os.Args[1:], os.Stdout, os.Stderr, fetchLatestVersion))
+}
+
+func run(programName string, args []string, stdout, stderr io.Writer, fetch func(*DLLSource) (*LatestVersion, error)) int {
+	flags := flag.NewFlagSet(programName, flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	manifestPath := flags.String("manifest", "data/manifest.json", "Path to manifest.json")
+	dllType := flags.String("type", "dlss", "DLL type to check (dlss, dlssg, dlssd)")
+	outputJSON := flags.Bool("json", false, "Output as JSON")
+	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return 2
+	}
 
 	source := findSource(*dllType)
 	if source == nil {
-		fmt.Fprintf(os.Stderr, "Unknown DLL type: %s\n", *dllType)
-		os.Exit(1)
+		_, _ = fmt.Fprintf(stderr, "Unknown DLL type: %s\n", *dllType)
+		return 1
 	}
 
-	latest, err := fetchLatestVersion(source)
+	latest, err := fetch(source)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to fetch latest version: %v\n", err)
-		os.Exit(1)
+		_, _ = fmt.Fprintf(stderr, "Failed to fetch latest version: %v\n", err)
+		return 1
 	}
 
 	current, err := getCurrentVersion(*manifestPath, *dllType)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not read manifest: %v\n", err)
+		_, _ = fmt.Fprintf(stderr, "Warning: could not read manifest: %v\n", err)
 	}
 
 	latest.IsNew = current == "" || latest.Version != current
 
 	if *outputJSON {
-		enc := json.NewEncoder(os.Stdout)
+		enc := json.NewEncoder(stdout)
 		if err := enc.Encode(latest); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to encode JSON: %v\n", err)
-			os.Exit(1)
+			_, _ = fmt.Fprintf(stderr, "Failed to encode JSON: %v\n", err)
+			return 1
 		}
 	} else {
 		if latest.IsNew {
-			fmt.Printf("New %s version available: %s\n", strings.ToUpper(source.Type), latest.Version)
-			fmt.Printf("Download URL: %s\n", latest.DownloadURL)
-			fmt.Printf("Filename: %s\n", latest.Filename)
-			fmt.Printf("Source: %s\n", latest.Source)
+			_, _ = fmt.Fprintf(stdout, "New %s version available: %s\n", strings.ToUpper(source.Type), latest.Version)
+			_, _ = fmt.Fprintf(stdout, "Download URL: %s\n", latest.DownloadURL)
+			_, _ = fmt.Fprintf(stdout, "Filename: %s\n", latest.Filename)
+			_, _ = fmt.Fprintf(stdout, "Source: %s\n", latest.Source)
 			if current != "" {
-				fmt.Printf("Current version: %s\n", current)
+				_, _ = fmt.Fprintf(stdout, "Current version: %s\n", current)
 			}
 		} else {
-			fmt.Printf("%s is up to date: %s\n", strings.ToUpper(source.Type), latest.Version)
+			_, _ = fmt.Fprintf(stdout, "%s is up to date: %s\n", strings.ToUpper(source.Type), latest.Version)
 		}
 	}
 
 	if latest.IsNew {
-		os.Exit(0)
-	} else {
-		os.Exit(2)
+		return 0
 	}
+	return 2
 }
 
 func findSource(dllType string) *DLLSource {

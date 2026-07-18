@@ -192,7 +192,7 @@ func TestRunProtonSet_LegacyBoolFlags_InvalidValue(t *testing.T) {
 
 // TestRunProtonShow_RendersNoticeWhenIncompatible verifies that the CLI
 // show path threads the compatibility notice through to stdout when
-// vkd3d_heap is enabled and the injected notice source reports a problem.
+// vkd3d_heap is enabled and the notice source reports a problem.
 func TestRunProtonShow_RendersNoticeWhenIncompatible(t *testing.T) {
 	withTempXDG(t)
 	seedGame(t, "Cyberpunk 2077", 1091500)
@@ -204,17 +204,14 @@ func TestRunProtonShow_RendersNoticeWhenIncompatible(t *testing.T) {
 		t.Fatalf("seed profile: %v", err)
 	}
 
-	// Swap the notice source. Restore on cleanup.
-	originalNotice := protonCompatibilityNotice
-	protonCompatibilityNotice = func(appID uint64) string {
+	notice := func(appID uint64) string {
 		return "⚠ descriptor_heap requires NVIDIA driver 580.94.16+ (detected: 570.86.0)"
 	}
-	t.Cleanup(func() { protonCompatibilityNotice = originalNotice })
 
 	protonShowJSON = false
 
 	out := captureStdout(t, func() {
-		if err := runProtonShow(protonShowCmd, []string{"1091500"}); err != nil {
+		if err := runProtonShowWithNotice([]string{"1091500"}, notice); err != nil {
 			t.Fatalf("runProtonShow: %v", err)
 		}
 	})
@@ -240,17 +237,15 @@ func TestRunProtonShow_NoNoticeWhenToggleDisabled(t *testing.T) {
 	}
 
 	called := false
-	originalNotice := protonCompatibilityNotice
-	protonCompatibilityNotice = func(appID uint64) string {
+	notice := func(appID uint64) string {
 		called = true
 		return "⚠ should never render"
 	}
-	t.Cleanup(func() { protonCompatibilityNotice = originalNotice })
 
 	protonShowJSON = false
 
 	out := captureStdout(t, func() {
-		if err := runProtonShow(protonShowCmd, []string{"1091500"}); err != nil {
+		if err := runProtonShowWithNotice([]string{"1091500"}, notice); err != nil {
 			t.Fatalf("runProtonShow: %v", err)
 		}
 	})

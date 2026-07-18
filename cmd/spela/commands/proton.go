@@ -17,9 +17,7 @@ import (
 
 var protonShowJSON bool
 
-// protonCompatibilityNotice is indirected so tests can swap in a deterministic
-// stub. The default wires the production resolver + NVML driver probe.
-var protonCompatibilityNotice = func(appID uint64) string {
+func protonCompatibilityNotice(appID uint64) string {
 	cfg, _ := config.Load()
 	steamRoot := ""
 	if cfg != nil {
@@ -216,6 +214,10 @@ func runProtonSet(cmd *cobra.Command, args []string) error {
 }
 
 func runProtonShow(cmd *cobra.Command, args []string) error {
+	return runProtonShowWithNotice(args, protonCompatibilityNotice)
+}
+
+func runProtonShowWithNotice(args []string, compatibilityNotice func(uint64) string) error {
 	db, err := game.LoadDatabase()
 	if err != nil {
 		return err
@@ -256,7 +258,7 @@ func runProtonShow(cmd *cobra.Command, args []string) error {
 	fmt.Println(renderField("NGX updater:", profile.FieldProtonEnableNGXUpdater, p, resolved.Proton.EnableNGXUpdater))
 	fmt.Println(renderField("VKD3D heap:", profile.FieldProtonVKD3DHeap, p, resolved.Proton.VKD3DHeap))
 	if resolved.Proton.VKD3DHeap {
-		if notice := protonCompatibilityNotice(g.AppID); notice != "" {
+		if notice := compatibilityNotice(g.AppID); notice != "" {
 			fmt.Printf("    %s\n", tui.CLIDim(notice))
 		}
 	}

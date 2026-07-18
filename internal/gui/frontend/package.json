@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
@@ -16,6 +17,7 @@
     "@playwright/test": "1.59.1",
     "@sveltejs/vite-plugin-svelte": "7.0.0",
     "@testing-library/svelte": "5.3.1",
+    "@vitest/coverage-v8": "4.1.4",
     "jsdom": "27.4.0",
     "svelte": "5.56.3",
     "vite": "8.0.16",

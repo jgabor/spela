@@ -371,6 +371,44 @@ func TestGUIBoundaryDLLFailPreservesManifestError(t *testing.T) {
 	}
 }
 
+func TestGUIBoundaryDLLPartialOutcomesAfterMutation(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		scanError error
+		saveError error
+		want      string
+	}{
+		{"scan fails", errors.New("scanner unavailable"), nil, "scan install directory: scanner unavailable"},
+		{"save fails", nil, errors.New("disk full"), "save game database after install: disk full"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			entry := &game.Game{AppID: 1091500, Name: "Cyberpunk 2077", InstallDir: "/game"}
+			boundary := defaultGUIApplicationBoundary(&game.Database{Games: map[uint64]*game.Game{1091500: entry}})
+			boundary.getManifest = func(bool, string) (*dll.Manifest, error) {
+				return &dll.Manifest{DLLs: map[string][]dll.DLL{"dlss": {{Version: "3.8.10", Filename: "nvngx_dlss.dll"}}}}, nil
+			}
+			boundary.ensureDLLCached = func(*dll.DLL, string) (string, error) { return "/cache/dlss.dll", nil }
+			mutated := false
+			boundary.installDLL = func(uint64, string, string, []dll.GameDLL, string, string) error {
+				mutated = true
+				return nil
+			}
+			boundary.scanDLLDirectory = func(string) ([]game.DetectedDLL, error) {
+				return []game.DetectedDLL{{Name: "nvngx_dlss.dll", Version: "3.8.10"}}, test.scanError
+			}
+			boundary.saveDatabase = func(*game.Database) error { return test.saveError }
+
+			err := boundary.installDLLVersion(1091500, "dlss", "3.8.10")
+			if !mutated {
+				t.Fatal("DLL mutation did not occur before partial outcome")
+			}
+			if err == nil || err.Error() != test.want {
+				t.Fatalf("partial-outcome error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
 func TestGUILoggingPassUsesCentralizedHandler(t *testing.T) {
 	dataHome := t.TempDir()
 	t.Setenv("XDG_DATA_HOME", dataHome)

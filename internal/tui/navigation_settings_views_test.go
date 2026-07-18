@@ -1,0 +1,204 @@
+package tui
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/jgabor/spela/internal/config"
+	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/nav"
+)
+
+func TestContextNavigationSupportedStateTransitionsAndViews(t *testing.T) {
+	styles := NewStyles(DefaultTheme, true)
+	entry := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
+	sidebar := testSidebar(entry)
+	state := nav.DefaultState()
+	context := NewContextNav(styles, sidebar, &state)
+	context.SetSize(30, 20)
+	if view := stripANSI(context.View(true)); !strings.Contains(view, "All games") || !strings.Contains(view, "Cyberpunk 2077") {
+		t.Fatalf("global context view:\n%s", view)
+	}
+
+	state = state.SelectScope(nav.Scope{Kind: nav.ScopeGame, GameName: entry.Name, AppID: entry.AppID})
+	context.SetState(state)
+	for key, want := range map[string]nav.Aspect{"1": nav.AspectOverview, "2": nav.AspectProfile, "3": nav.AspectDLLs} {
+		next, _, handled := context.Update(keyMsg(key))
+		context = next
+		if !handled || context.State().Aspect != want {
+			t.Errorf("aspect key %s = state %+v, handled %v", key, context.State(), handled)
+		}
+	}
+	state = context.State().SelectAspect(nav.AspectProfile)
+	context.SetState(state)
+	for _, key := range []string{"down", "j", "up", "k"} {
+		next, _, handled := context.Update(keyMsg(key))
+		context = next
+		if !handled {
+			t.Errorf("profile subsystem key %s was not handled", key)
+		}
+	}
+	if view := stripANSI(context.View(false)); !strings.Contains(view, "Subsystem") || !strings.Contains(view, "Overlay") {
+		t.Fatalf("profile context view:\n%s", view)
+	}
+
+	for _, destination := range []nav.Destination{nav.DestinationDLLCatalog, nav.DestinationMonitor, nav.DestinationSettings} {
+		state = state.SelectDestination(destination)
+		state.Zone = nav.ZoneContext
+		context.SetState(state)
+		for _, key := range []string{"down", "j", "up", "k"} {
+			next, _, handled := context.Update(keyMsg(key))
+			context = next
+			if !handled {
+				t.Errorf("destination %v key %s was not handled", destination, key)
+			}
+		}
+		if view := stripANSI(context.View(true)); view == "" || strings.Contains(view, "unknown") {
+			t.Errorf("destination %v context view:\n%s", destination, view)
+		}
+	}
+	context.navState = nil
+	if context.State().Destination != nav.DestinationLibrary {
+		t.Fatal("nil navigation state did not fall back to default")
+	}
+	if _, _, handled := context.Update("not a key"); handled {
+		t.Fatal("non-key message was unexpectedly handled")
+	}
+}
+
+func TestOptionsModalSupportedOpenCancelSaveFailureAndInlineSections(t *testing.T) {
+	styles := NewStyles(DefaultTheme, true)
+	original := config.Default()
+	modal := NewOptionsModal(styles)
+	if next, command := modal.Update(keyMsg("down")); next == nil || command != nil || modal.View() != "" || modal.ViewInline() != "" {
+		t.Fatal("hidden modal should ignore updates and render nothing")
+	}
+	modal.Open(original)
+	modal.SetSize(100, 40)
+	if !modal.Visible() || !strings.Contains(stripANSI(modal.View()), "Display") {
+		t.Fatal("modal open state did not render")
+	}
+	modal.cycleValue(1)
+	if !modal.modified {
+		t.Fatal("option cycle did not mark modal modified")
+	}
+	next, command := modal.Update(keyMsg("esc"))
+	modal = *next.(*OptionsModalModel)
+	if modal.Visible() || command == nil {
+		t.Fatal("escape did not cancel visible settings modal")
+	}
+	if _, ok := command().(optionsCancelledMsg); !ok {
+		t.Fatalf("cancel command returned %#v", command())
+	}
+
+	modal.OpenEmbedded(config.Default())
+	modal.SyncNavSection(nav.SettingsSection(-1))
+	modal.SyncNavSection(nav.SettingsSection(99))
+	for _, key := range []string{"down", "j", "up", "k", "left", "h", "right", "l"} {
+		next, _ := modal.Update(keyMsg(key))
+		modal = *next.(*OptionsModalModel)
+	}
+	if next, command := modal.Update(keyMsg("esc")); next == nil || command != nil || !modal.Visible() {
+		t.Fatal("embedded escape should leave settings visible")
+	}
+	for section := range nav.SettingsSectionLabels {
+		modal.SyncNavSection(nav.SettingsSection(section))
+		view := stripANSI(modal.ViewInline())
+		if !strings.Contains(view, modal.sections[section].Options[0].Label) {
+			t.Errorf("inline section %d missing heading:\n%s", section, view)
+		}
+	}
+	modal.sectionCursor = len(modal.sections)
+	if modal.getCurrentOption() != nil {
+		t.Fatal("out-of-range section unexpectedly returned an option")
+	}
+	modal.sectionCursor = 0
+	modal.optionCursor = len(modal.sections[0].Options)
+	if modal.getCurrentOption() != nil {
+		t.Fatal("out-of-range option unexpectedly returned an option")
+	}
+	modal.SyncNavSection(nav.SettingsPaths)
+	modal.optionCursor = 0
+	next, _ = modal.Update(keyMsg("enter"))
+	modal = *next.(*OptionsModalModel)
+	if !modal.editingPath {
+		t.Fatal("path option did not enter editor")
+	}
+	modal.pathInput.SetValue("/cancelled")
+	next, _ = modal.Update(keyMsg("esc"))
+	modal = *next.(*OptionsModalModel)
+	if modal.editingPath || modal.config.SteamPath != "" {
+		t.Fatal("path editor escape did not cancel edit")
+	}
+	next, _ = modal.Update(keyMsg("enter"))
+	modal = *next.(*OptionsModalModel)
+	modal.pathInput.SetValue("/steam")
+	next, _ = modal.Update(keyMsg("enter"))
+	modal = *next.(*OptionsModalModel)
+	if modal.editingPath || modal.config.SteamPath != "/steam" {
+		t.Fatal("path editor did not confirm edit")
+	}
+
+	state := t.TempDir()
+	configHomeFile := filepath.Join(state, "config-file")
+	if err := os.WriteFile(configHomeFile, []byte("not a directory"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("XDG_CONFIG_HOME", configHomeFile)
+	modal.Open(config.Default())
+	modal.modified = true
+	_, command = modal.Update(keyMsg("s"))
+	if command == nil {
+		t.Fatal("save failure path did not return command")
+	}
+	message, ok := command().(optionsSaveErrorMsg)
+	if !ok || message.err == nil || !errors.Is(message.err, os.ErrNotExist) && !strings.Contains(message.err.Error(), "not a directory") {
+		t.Fatalf("save failure message = %#v", message)
+	}
+}
+
+func TestSidebarSupportedRenderedSelectionFilterAndBatchStates(t *testing.T) {
+	services := testServices()
+	services.ProfileExists = func(appID uint64) bool { return appID == 2 }
+	styles := NewStyles(DefaultTheme, true)
+	first := testGame("Alpha", testDLL(game.DLLTypeDLSS, "3.8.10"))
+	first.AppID = 1
+	second := testGame("Beta")
+	second.AppID = 2
+	sidebar, _ := NewSidebar([]*game.Game{second, first}, styles, services)
+	sidebar.SetSize(30, 12)
+	view := stripANSI(sidebar.View())
+	for _, fragment := range []string{"All games", "Alpha", "Beta", "●", "◆"} {
+		if !strings.Contains(view, fragment) {
+			t.Errorf("sidebar missing %q:\n%s", fragment, view)
+		}
+	}
+
+	for _, key := range []string{"down", "space", "down", "space", "a", "A", "d", "P", "s", "s", "s", "s", "C"} {
+		next, _ := sidebar.Update(keyMsg(key))
+		sidebar = next
+		_ = sidebar.View()
+	}
+	if sidebar.InSelectMode() && sidebar.SelectionCount() != 0 {
+		t.Fatalf("batch selection after clear = %d", sidebar.SelectionCount())
+	}
+	sidebar, _ = sidebar.FocusSearch()
+	if !sidebar.search.Focused() {
+		t.Fatal("search focus contract failed")
+	}
+	sidebar, _ = sidebar.Update(keyMsg("z"))
+	if view := stripANSI(sidebar.View()); !strings.Contains(view, "No games found") {
+		t.Fatalf("empty filtered sidebar:\n%s", view)
+	}
+	sidebar, _ = sidebar.Update(keyMsg("esc"))
+	if sidebar.search.Focused() {
+		t.Fatal("escape did not leave sidebar search")
+	}
+	empty := sidebar.SetGames(nil)
+	if empty.Selected() != nil || empty.SelectedItem() != nil {
+		t.Fatalf("empty sidebar selection = game %+v item %+v", empty.Selected(), empty.SelectedItem())
+	}
+}

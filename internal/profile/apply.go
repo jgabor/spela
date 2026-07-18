@@ -19,6 +19,13 @@ type Cleanup struct {
 	Run  func() error
 }
 
+type profileHardwareOperations struct {
+	currentGovernor func() (cpu.Governor, error)
+	smtStatus       func() (bool, error)
+	powerLimit      func() (int, error)
+	execSelf        func(...string) (*privilege.ExecResult, error)
+}
+
 // ApplyEnv applies only environment variable settings from the profile,
 // without touching hardware or creating cleanup closures. Used by dry-run.
 func (p *Profile) ApplyEnv(e *env.Environment) {
@@ -58,14 +65,23 @@ func (p *Profile) needsHardwareApply() bool {
 // round-trip to spela apply-profile. Returns a cleanup function that restores
 // the previous settings on game exit.
 func (p *Profile) applyHardware() (Cleanup, error) {
+	return p.applyHardwareWithOperations(profileHardwareOperations{
+		currentGovernor: cpu.GetCurrentGovernor,
+		smtStatus:       cpu.GetSMTStatus,
+		powerLimit:      gpu.GetCurrentPowerLimit,
+		execSelf:        privilege.ExecSelf,
+	})
+}
+
+func (p *Profile) applyHardwareWithOperations(operations profileHardwareOperations) (Cleanup, error) {
 	if !p.needsHardwareApply() {
 		return Cleanup{}, nil
 	}
 
 	// Capture current state for restoration.
-	prevGovernor, _ := cpu.GetCurrentGovernor()
-	prevSMT, _ := cpu.GetSMTStatus()
-	prevPowerLimit, _ := gpu.GetCurrentPowerLimit()
+	prevGovernor, _ := operations.currentGovernor()
+	prevSMT, _ := operations.smtStatus()
+	prevPowerLimit, _ := operations.powerLimit()
 
 	args := []string{"apply-profile"}
 
@@ -92,7 +108,7 @@ func (p *Profile) applyHardware() (Cleanup, error) {
 		args = append(args, fmt.Sprintf("--cpu-smt=%s", value))
 	}
 
-	if _, err := privilege.ExecSelf(args...); err != nil {
+	if _, err := operations.execSelf(args...); err != nil {
 		return Cleanup{}, fmt.Errorf("apply hardware settings: %w", err)
 	}
 
@@ -114,7 +130,7 @@ func (p *Profile) applyHardware() (Cleanup, error) {
 			}
 			resetArgs = append(resetArgs, fmt.Sprintf("--cpu-smt=%s", value))
 		}
-		if _, err := privilege.ExecSelf(resetArgs...); err != nil {
+		if _, err := operations.execSelf(resetArgs...); err != nil {
 			return fmt.Errorf("restore hardware settings: %w", err)
 		}
 		return nil
