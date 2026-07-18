@@ -59,6 +59,56 @@ mage test            # run all tests
 go test ./...        # alternative
 ```
 
+### TUI testing
+
+Use [Terminal Control](https://github.com/anomalyco/terminal-control) for every
+change that can affect Spela's interactive terminal. Build the compiled
+executable, run it in a named session, wait for visible content instead of
+sleeping, and read the rendered terminal with `termctrl show`:
+
+```bash
+mage build
+termctrl start spela-tui-review --cols 120 --rows 40 -- ./spela tui
+termctrl wait spela-tui-review "Library" --timeout 20000
+termctrl status spela-tui-review
+termctrl show spela-tui-review
+```
+
+Use a unique session name when reviews may run concurrently, and use that name
+for every later command. Send text and keys as separate arguments:
+
+```bash
+termctrl send spela-tui-review 'text:?'
+termctrl wait spela-tui-review "Keyboard shortcuts" --timeout 20000
+termctrl show spela-tui-review
+termctrl send spela-tui-review escape
+```
+
+Visual review means reading the visible screen returned by `termctrl show`.
+Do not substitute process logs, raw stdout, screenshots, or unit tests. Exercise
+relevant keyboard paths, then inspect standard and constrained layouts:
+
+```bash
+termctrl resize spela-tui-review --cols 80 --rows 24
+termctrl show spela-tui-review
+termctrl resize spela-tui-review --cols 120 --rows 40
+termctrl show spela-tui-review
+```
+
+Inspect the final screen before stopping a failed or exited session. Always stop
+named sessions when finished:
+
+```bash
+termctrl stop spela-tui-review
+termctrl list
+```
+
+Use isolated XDG state when startup may rescan, and for profile mutations,
+empty-state testing, and failure paths. Never approve privileged or destructive
+actions against real game files during visual review. See
+[`docs/tui-testing.md`](docs/tui-testing.md) for the complete setup, review
+checklist, evidence requirements, and cleanup procedure.
+
 ## Workflow
 
 - Use beans for task tracking (not TodoWrite)

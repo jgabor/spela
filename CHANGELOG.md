@@ -11,8 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Wails nav bindings and `tools/gen-nav-js` codegen so GUI navigation constants and transitions stay aligned with `internal/nav`.
 
-- TUI rmux/tmux e2e suite (`tests/e2e/`, `mage TestTUIE2E`) covering three-zone navigation, profile mutations, and DLL aspect/update flows.
-- Manual QA script `scripts/e2e-rmux.sh` aligned with the three-zone shell.
+- TUI tmux e2e suite (`tests/e2e/`, `mage TestTUIE2E`) covering three-zone navigation, profile mutations, and DLL aspect/update flows.
 
 ### Fixed
 

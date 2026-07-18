@@ -235,7 +235,7 @@ func SetupTestEnvironment(t *testing.T) (*TestEnvironment, func()) {
 	manifestJSON := fmt.Sprintf(`{
   "version": "1.0",
   "updated_at": "%s",
-  "repository": "helvesec/rmux",
+  "repository": "jgabor/spela",
   "dlls": {
     "dlss": [
       {

@@ -521,8 +521,7 @@ func focusField(t *testing.T, d *DetailModel, field string) {
 }
 
 // TestDetail_ArrowDownUsesKeyDownCode documents that profile field navigation
-// responds to tea.KeyDown (the code rmux sends for raw escape sequences like
-// $'\033[B'; named `rmux send-keys Down` does not produce this code).
+// responds to the tea.KeyDown code produced by a terminal's down-arrow input.
 func TestDetail_ArrowDownUsesKeyDownCode(t *testing.T) {
 	d, _, _ := newGameDetailForTask5(t)
 	initial := d.Cursor()

@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// Session represents an active RMUX (or TMUX) automation session.
+// Session represents an active tmux automation session.
 type Session struct {
 	name       string
 	binaryPath string
@@ -22,7 +22,7 @@ type Session struct {
 	tempDir    string
 }
 
-// NewSession starts a new detached RMUX or TMUX session running the target command.
+// NewSession starts a new detached tmux session running the target command.
 func NewSession(sessionName string, width, height int, command string, args []string, environment []string) (*Session, error) {
 	multiplexer, err := locateMultiplexer()
 	if err != nil {
@@ -162,16 +162,12 @@ func (s *Session) Close() error {
 	return killSession(s.binaryPath, s.name)
 }
 
-// locateMultiplexer looks for 'rmux' first, and falls back to 'tmux' if not found.
+// locateMultiplexer locates the tmux transport used by headless E2E tests.
 func locateMultiplexer() (string, error) {
-	if path, err := exec.LookPath("rmux"); err == nil {
-		return path, nil
-	}
 	if path, err := exec.LookPath("tmux"); err == nil {
-		fmt.Fprintln(os.Stderr, "DIAGNOSTIC: rmux not found in PATH; falling back to tmux")
 		return path, nil
 	}
-	return "", fmt.Errorf("neither rmux nor tmux was found in PATH")
+	return "", fmt.Errorf("tmux was not found in PATH")
 }
 
 func killSession(multiplexer, name string) error {
