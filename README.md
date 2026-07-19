@@ -15,13 +15,16 @@ paru -S spela-git    # development
 
 ### Build from source
 
-Requires Go 1.25+, Bun (for GUI frontend), NVIDIA driver, polkit.
+Build prerequisites are Git, Go 1.25.5 or newer, Bun 1.3.14, a C toolchain,
+`pkg-config`, and the GTK 3 and WebKit2GTK 4.1 development headers. Running
+Spela requires the proprietary NVIDIA driver; privileged tuning also requires
+polkit. The install command additionally uses `sudo` to install to `/usr/bin`.
 
 ```bash
 git clone https://github.com/jgabor/spela.git
 cd spela
-mage build     # builds binary with embedded frontend
-mage install   # installs to GOPATH/bin
+go tool mage build     # builds binary with embedded frontend
+go tool mage install   # installs to GOPATH/bin and /usr/bin
 ```
 
 ## Quick start

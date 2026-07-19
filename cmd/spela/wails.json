@@ -1,7 +1,7 @@
 {
   "name": "spela",
   "frontend:dir": "../../internal/gui/frontend",
-  "frontend:install": "bun install",
+  "frontend:install": "bun install --frozen-lockfile",
   "frontend:build": "bun run build",
   "assetdir": "../../internal/gui/frontend/dist",
   "wailsjsdir": "../../internal/gui/frontend",

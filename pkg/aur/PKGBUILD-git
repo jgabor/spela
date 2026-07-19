@@ -7,7 +7,7 @@ arch=('x86_64')
 url="https://github.com/jgabor/spela"
 license=('MIT')
 depends=('nvidia-utils' 'webkit2gtk-4.1' 'gtk3')
-makedepends=('go>=1.22' 'bun' 'git')
+makedepends=('go>=1.25' 'bun' 'git')
 optdepends=(
     'nvidia-settings: GPU settings control'
     'polkit: Privileged operations support'
@@ -25,13 +25,7 @@ pkgver() {
 build() {
     cd spela
 
-    cd internal/gui/frontend
-    bun install
-    bun run build
-    cd ../../..
-
-    export CGO_ENABLED=1
-    go build -tags production -ldflags="-s -w -X main.version=$pkgver" -o spela ./cmd/spela
+    SPELA_VERSION="$pkgver" CGO_ENABLED=1 go tool mage build
 }
 
 package() {

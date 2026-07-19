@@ -68,7 +68,7 @@ func TestReleaseWorkflowArtifactContract(t *testing.T) {
 			With map[string]string
 		}{step.Uses, step.Run, step.With}
 	}
-	if got := nonemptyLines(steps["Build unified binary"].Run); !equalStrings(got, []string{"mage build", "mv spela spela-linux-amd64"}) {
+	if got := nonemptyLines(steps["Build unified binary"].Run); !equalStrings(got, []string{"go tool mage build", "mv spela spela-linux-amd64"}) {
 		t.Fatalf("release build commands = %q", got)
 	}
 	if got := strings.TrimSpace(steps["Create checksums"].Run); got != "sha256sum spela-linux-amd64 > checksums.txt" {
@@ -83,6 +83,143 @@ func TestReleaseWorkflowArtifactContract(t *testing.T) {
 	}
 	if release.With["body_path"] != "release_notes.md" {
 		t.Fatalf("release body path = %q", release.With["body_path"])
+	}
+	if got := strings.TrimSpace(steps["Extract release notes from CHANGELOG.md"].Run); got != `sh scripts/release-notes.sh "${{ github.ref_name }}" > release_notes.md` {
+		t.Fatalf("release notes command = %q", got)
+	}
+	aur, ok := workflow.Jobs["aur-publish"]
+	if !ok {
+		t.Fatal("release workflow has no aur-publish job")
+	}
+	var published []string
+	for _, step := range aur.Steps {
+		if strings.HasPrefix(step.Uses, "KSXGitHub/github-actions-deploy-aur@") {
+			published = append(published, step.With["pkgname"]+":"+step.With["pkgbuild"])
+		}
+	}
+	if !equalStrings(published, []string{"spela:pkg/aur/PKGBUILD", "spela-git:pkg/aur/PKGBUILD-git"}) {
+		t.Fatalf("AUR publications = %q", published)
+	}
+}
+
+func TestWorkflowSyntax(t *testing.T) {
+	repositoryRoot := contractRepositoryRoot(t)
+	workflows, err := filepath.Glob(filepath.Join(repositoryRoot, ".github", "workflows", "*.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(workflows) == 0 {
+		t.Fatal("no workflows found")
+	}
+	for _, path := range workflows {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var document yaml.Node
+		if err := yaml.Unmarshal(data, &document); err != nil {
+			t.Errorf("parse %s: %v", filepath.Base(path), err)
+			continue
+		}
+		if len(document.Content) != 1 || document.Content[0].Kind != yaml.MappingNode {
+			t.Errorf("%s does not contain a workflow mapping", filepath.Base(path))
+		}
+	}
+}
+
+func TestReleaseBuildInputsContract(t *testing.T) {
+	repositoryRoot := contractRepositoryRoot(t)
+	read := func(path string) string {
+		t.Helper()
+		data, err := os.ReadFile(filepath.Join(repositoryRoot, path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(data)
+	}
+
+	goModule := read("go.mod")
+	for _, pin := range []string{
+		"github.com/magefile/mage v1.15.0",
+		"github.com/wailsapp/wails/v2 v2.12.0",
+		"tool (",
+		"github.com/wailsapp/wails/v2/cmd/wails",
+	} {
+		if !strings.Contains(goModule, pin) {
+			t.Errorf("go.mod does not pin %q", pin)
+		}
+	}
+	if !strings.Contains(read("internal/gui/frontend/package.json"), `"packageManager": "bun@1.3.14"`) {
+		t.Error("package.json does not pin Bun 1.3.14")
+	}
+	for _, workflowPath := range []string{".github/workflows/ci.yml", ".github/workflows/release.yml"} {
+		workflow := read(workflowPath)
+		if strings.Contains(workflow, "@latest") || strings.Contains(workflow, "bun-version: latest") {
+			t.Errorf("%s contains an unpinned tool", workflowPath)
+		}
+		if strings.Contains(workflow, "hashFiles('**/bun.lock") || !strings.Contains(workflow, "hashFiles('internal/gui/frontend/bun.lock')") {
+			t.Errorf("%s does not use the tracked Bun lockfile cache key", workflowPath)
+		}
+	}
+	if !strings.Contains(read("cmd/spela/wails.json"), `"frontend:install": "bun install --frozen-lockfile"`) {
+		t.Error("Wails frontend install is not frozen")
+	}
+
+	magefile := read("magefile.go")
+	for _, removed := range []string{"type Release mg.Namespace", "func (Release)", "func (Aur) Publish", "func (Aur) Srcinfo", "findGitCliff", "opencode", "gh release"} {
+		if strings.Contains(magefile, removed) {
+			t.Errorf("magefile retains removed release publisher %q", removed)
+		}
+	}
+	if got := strings.Count(magefile, `"go", "tool", "wails", "build"`); got != 2 {
+		t.Errorf("pinned Wails build calls = %d, want 2 (frontend and coverage)", got)
+	}
+	if strings.Contains(magefile, `environment, "wails", "build"`) {
+		t.Error("coverage requires an unpinned Wails executable on PATH")
+	}
+	for _, path := range []string{"pkg/aur/PKGBUILD", "pkg/aur/PKGBUILD-git"} {
+		pkgbuild := read(path)
+		if !strings.Contains(pkgbuild, "go tool mage build") {
+			t.Errorf("%s does not use the canonical build target", path)
+		}
+		if !strings.Contains(pkgbuild, `SPELA_VERSION="$pkgver"`) {
+			t.Errorf("%s does not preserve the package version in the binary", path)
+		}
+		if strings.Contains(pkgbuild, "bun run build") || strings.Contains(pkgbuild, "go build ") {
+			t.Errorf("%s duplicates canonical build steps", path)
+		}
+	}
+}
+
+func TestReleaseNotesAreExactChangelogSection(t *testing.T) {
+	repositoryRoot := contractRepositoryRoot(t)
+	command := exec.Command("sh", filepath.Join(repositoryRoot, "scripts", "release-notes.sh"), "v0.6.0")
+	command.Dir = repositoryRoot
+	output, err := command.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	notes := string(output)
+	if !strings.Contains(notes, "This minor release makes the trusted profile loop visible") {
+		t.Fatalf("unexpected release body: %q", notes)
+	}
+	if strings.Contains(notes, "## [0.6.0]") || strings.Contains(notes, "## [0.5.1]") || strings.Contains(notes, "This patch release hardens") {
+		t.Fatalf("release body crosses changelog section boundary: %q", notes)
+	}
+	missing := exec.Command("sh", filepath.Join(repositoryRoot, "scripts", "release-notes.sh"), "v999.0.0")
+	missing.Dir = repositoryRoot
+	if err := missing.Run(); err == nil {
+		t.Fatal("missing changelog version unexpectedly produced release notes")
+	}
+	for _, tag := range []string{
+		"", "0.6.0", "v0.6", "v0.6.0.1", "v01.2.3", "v1.02.3", "v1.2.03",
+		"v[0].6.0", "v0.*.0", "v0x6x0", "v1.2.3-rc.1", "v1.2.3+meta",
+	} {
+		command := exec.Command("sh", filepath.Join(repositoryRoot, "scripts", "release-notes.sh"), tag)
+		command.Dir = repositoryRoot
+		if err := command.Run(); err == nil {
+			t.Errorf("malformed tag %q unexpectedly produced release notes", tag)
+		}
 	}
 }
 
@@ -153,12 +290,40 @@ func TestReleaseArtifactContractBuildsFromCleanArchiveAndVerifiesChecksum(t *tes
 			t.Fatalf("extract %s: %v", header.Name, err)
 		}
 	}
+	// Overlay current tracked and newly added source so this nonpublishing test
+	// exercises the candidate tree before it has been committed.
+	files, err := exec.Command("git", "-C", repositoryRoot, "ls-files", "--cached", "--others", "--exclude-standard", "-z").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range strings.Split(strings.TrimSuffix(string(files), "\x00"), "\x00") {
+		source := filepath.Join(repositoryRoot, name)
+		data, readErr := os.ReadFile(source)
+		if os.IsNotExist(readErr) {
+			_ = os.Remove(filepath.Join(sourceRoot, name))
+			continue
+		}
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		info, err := os.Stat(source)
+		if err != nil {
+			t.Fatal(err)
+		}
+		destination := filepath.Join(sourceRoot, name)
+		if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(destination, data, info.Mode()); err != nil {
+			t.Fatal(err)
+		}
+	}
 
-	command := exec.Command("mage", "build")
+	command := exec.Command("go", "tool", "mage", "build")
 	command.Dir = sourceRoot
 	command.Env = isolatedBuildEnvironment(t)
 	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("clean archive mage build: %v\n%s", err, output)
+		t.Fatalf("clean archive canonical build: %v\n%s", err, output)
 	}
 	binary := filepath.Join(sourceRoot, "spela")
 	artifact := filepath.Join(sourceRoot, "spela-linux-amd64")

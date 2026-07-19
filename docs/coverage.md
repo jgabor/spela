@@ -88,10 +88,14 @@ than the duplicated implementation that those epics will remove.
   post-mutation scan/save failure outcomes.
 - **Make GitHub Actions the sole release publisher:**
   `TestReleaseWorkflowArtifactContract` parses the actual release workflow and
-  pins its `v*` tag trigger, `contents: write` permission, build command, binary
-  rename, checksum command, release action inputs, and published files.
+  pins its `v*` tag trigger, `contents: write` permission, canonical build,
+  binary rename, checksum command, changelog body extraction, release action
+  inputs, and both stable and development AUR publications.
   `TestReleaseArtifactContractBuildsFromCleanArchiveAndVerifiesChecksum`
-  complements it by executing the artifact path from a clean source archive.
+  complements it by executing the artifact path from a clean tracked-source
+  snapshot. `TestReleaseBuildInputsContract` keeps tool pins, frozen Bun
+  installs, PKGBUILD outputs, and the absence of local publishing helpers in
+  the same nonpublishing contract.
 - **Unify profile fields and field-level mutations:** `TestProfileYAMLContract`,
   `TestOverrides_YAMLRoundTrip`, `TestMigration_LegacyProfileRoundTrip`,
   `TestProfileCLITextJSONAndErrorContract`, and the remaining
