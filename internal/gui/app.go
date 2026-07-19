@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/cpu"
@@ -16,7 +17,6 @@ import (
 	"github.com/jgabor/spela/internal/logging"
 	"github.com/jgabor/spela/internal/nav"
 	"github.com/jgabor/spela/internal/profile"
-	"github.com/jgabor/spela/internal/settings"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -27,32 +27,16 @@ var (
 )
 
 type App struct {
-	ctx context.Context
-	db  *game.Database
+	ctx                context.Context
+	db                 *game.Database
+	configurationMutex sync.Mutex
 }
 
-type ConfigInfo struct {
-	LogLevel               string   `json:"logLevel"`
-	ShaderCache            string   `json:"shaderCache"`
-	CheckUpdates           bool     `json:"checkUpdates"`
-	ShowHints              bool     `json:"showHints"`
-	RescanOnStartup        bool     `json:"rescanOnStartup"`
-	AutoUpdateDLLs         bool     `json:"autoUpdateDLLs"`
-	SteamPath              string   `json:"steamPath"`
-	AdditionalLibraryPaths []string `json:"additionalLibraryPaths"`
-	DLLCachePath           string   `json:"dllCachePath"`
-	BackupPath             string   `json:"backupPath"`
-	DLLManifestURL         string   `json:"dllManifestURL"`
-	AutoRefreshManifest    bool     `json:"autoRefreshManifest"`
-	ManifestRefreshHours   int      `json:"manifestRefreshHours"`
-	PreferredDLLSource     string   `json:"preferredDLLSource"`
-	Theme                  string   `json:"theme"`
-	CompactMode            bool     `json:"compactMode"`
-	ConfirmDestructive     bool     `json:"confirmDestructive"`
-}
+// ConfigInfo preserves the Wails-owned source model while sharing Config's fields and tags.
+type ConfigInfo config.Config
 
-func (a *App) GetSettingsCatalog() []settings.CatalogSection {
-	return settings.WailsCatalog()
+func (a *App) GetSettingsCatalog() []config.CatalogSection {
+	return config.WailsCatalog()
 }
 
 func (a *App) GetNavContract() nav.GUIContract {
@@ -95,112 +79,49 @@ func (a *App) NavDestinationFromHotkey(key string) (int, bool) {
 	return nav.DestinationFromHotkeyGUI(key)
 }
 
-
 func (a *App) GetConfig() (ConfigInfo, error) {
+	a.configurationMutex.Lock()
+	defer a.configurationMutex.Unlock()
+
 	cfg, err := config.Load()
 	if err != nil {
 		return ConfigInfo{}, err
 	}
-	return configInfoFromConfig(cfg), nil
+	return ConfigInfo(*cfg), nil
 }
 
 func (a *App) SaveConfig(info ConfigInfo) error {
+	a.configurationMutex.Lock()
+	defer a.configurationMutex.Unlock()
+
 	current, err := config.Load()
 	if err != nil {
 		return err
 	}
-	if err := applyConfigInfo(current, info); err != nil {
+	*current = config.Config(info)
+	if err := config.Validate(current); err != nil {
 		return err
 	}
 	return current.Save()
 }
 
-func configInfoFromConfig(cfg *config.Config) ConfigInfo {
-	return ConfigInfo{
-		LogLevel:               string(cfg.LogLevel),
-		ShaderCache:            cfg.ShaderCache,
-		CheckUpdates:           cfg.CheckUpdates,
-		ShowHints:              cfg.ShowHints,
-		RescanOnStartup:        cfg.RescanOnStartup,
-		AutoUpdateDLLs:         cfg.AutoUpdateDLLs,
-		SteamPath:              cfg.SteamPath,
-		AdditionalLibraryPaths: cfg.AdditionalLibraryPaths,
-		DLLCachePath:           cfg.DLLCachePath,
-		BackupPath:             cfg.BackupPath,
-		DLLManifestURL:         cfg.DLLManifestURL,
-		AutoRefreshManifest:    cfg.AutoRefreshManifest,
-		ManifestRefreshHours:   cfg.ManifestRefreshHours,
-		PreferredDLLSource:     cfg.PreferredDLLSource,
-		Theme:                  cfg.Theme,
-		CompactMode:            cfg.CompactMode,
-		ConfirmDestructive:     cfg.ConfirmDestructive,
+func (a *App) SaveConfigOption(key, value string) error {
+	option := config.OptionByJSONKey(key)
+	if option == nil || !option.Visibility.Includes(config.VisibilityGUI) {
+		return fmt.Errorf("unknown config option: %s", key)
 	}
-}
 
-func applyConfigInfo(cfg *config.Config, info ConfigInfo) error {
-	logLevel, err := parseLogLevel(info.LogLevel)
+	a.configurationMutex.Lock()
+	defer a.configurationMutex.Unlock()
+
+	current, err := config.Load()
 	if err != nil {
 		return err
 	}
-	preferredDLLSource, err := parsePreferredDLLSource(info.PreferredDLLSource)
-	if err != nil {
+	if err := option.Set(current, value); err != nil {
 		return err
 	}
-	theme, err := parseTheme(info.Theme)
-	if err != nil {
-		return err
-	}
-	cfg.LogLevel = logLevel
-	cfg.ShaderCache = info.ShaderCache
-	cfg.CheckUpdates = info.CheckUpdates
-	cfg.ShowHints = info.ShowHints
-	cfg.RescanOnStartup = info.RescanOnStartup
-	cfg.AutoUpdateDLLs = info.AutoUpdateDLLs
-	cfg.SteamPath = info.SteamPath
-	cfg.AdditionalLibraryPaths = info.AdditionalLibraryPaths
-	cfg.DLLCachePath = info.DLLCachePath
-	cfg.BackupPath = info.BackupPath
-	cfg.DLLManifestURL = info.DLLManifestURL
-	cfg.AutoRefreshManifest = info.AutoRefreshManifest
-	cfg.ManifestRefreshHours = info.ManifestRefreshHours
-	cfg.PreferredDLLSource = preferredDLLSource
-	cfg.Theme = theme
-	cfg.CompactMode = info.CompactMode
-	cfg.ConfirmDestructive = info.ConfirmDestructive
-	return nil
-}
-
-func parseLogLevel(level string) (config.LogLevel, error) {
-	switch level {
-	case string(config.LogLevelDebug):
-		return config.LogLevelDebug, nil
-	case string(config.LogLevelInfo):
-		return config.LogLevelInfo, nil
-	case string(config.LogLevelWarn):
-		return config.LogLevelWarn, nil
-	case string(config.LogLevelError):
-		return config.LogLevelError, nil
-	default:
-		return "", fmt.Errorf("unsupported log level: %s", level)
-	}
-}
-
-func parsePreferredDLLSource(source string) (string, error) {
-	switch source {
-	case "techpowerup", "github":
-		return source, nil
-	default:
-		return "", fmt.Errorf("unsupported DLL source: %s", source)
-	}
-}
-
-func parseTheme(theme string) (string, error) {
-	switch theme {
-	case "default", "dark", "light":
-		return theme, nil
-	default:
-		return "", fmt.Errorf("unsupported theme: %s", theme)
-	}
+	return current.Save()
 }
 
 func (a *App) GetVersion() string {
@@ -302,9 +223,9 @@ func gameInfoFromGame(g *game.Game) GameInfo {
 }
 
 type ProfileInfo struct {
-	SRMode     string `json:"srMode"`
-	SRPreset   string `json:"srPreset"`
-	SROverride bool   `json:"srOverride"`
+	SRMode               string                  `json:"srMode"`
+	SRPreset             string                  `json:"srPreset"`
+	SROverride           bool                    `json:"srOverride"`
 	RRMode               string                  `json:"rrMode"`
 	RRPreset             string                  `json:"rrPreset"`
 	RROverride           bool                    `json:"rrOverride"`
@@ -354,9 +275,9 @@ func profileInfoFromProfileWithSemantics(p *profile.Profile, semantics []profile
 	}
 
 	return &ProfileInfo{
-		SRMode:     string(p.DLSS.SRMode),
-		SRPreset:   string(p.DLSS.SRPreset),
-		SROverride: p.DLSS.SROverride,
+		SRMode:               string(p.DLSS.SRMode),
+		SRPreset:             string(p.DLSS.SRPreset),
+		SROverride:           p.DLSS.SROverride,
 		RRMode:               string(p.DLSS.RRMode),
 		RRPreset:             string(p.DLSS.RRPreset),
 		RROverride:           p.DLSS.RROverride,
@@ -409,17 +330,17 @@ func profileFieldSemanticsFromExplanations(explanations []profile.FieldExplanati
 func profileFromInfo(info ProfileInfo) *profile.Profile {
 	return &profile.Profile{
 		DLSS: profile.DLSSSettings{
-			SRMode:     profile.DLSSMode(info.SRMode),
-			SRPreset:   profile.NormalizeSRPreset(info.SRPreset),
-			SROverride: info.SROverride,
-			RRMode:        profile.DLSSMode(info.RRMode),
-			RRPreset:      profile.DLSSPreset(info.RRPreset),
-			RROverride:    info.RROverride,
-			FGEnabled:     info.FGEnabled,
-			FGOverride:    info.FGOverride,
-			FGIndicator:   info.FGIndicator,
-			MultiFrame:    info.MultiFrame,
-			Indicator:     info.Indicator,
+			SRMode:      profile.DLSSMode(info.SRMode),
+			SRPreset:    profile.NormalizeSRPreset(info.SRPreset),
+			SROverride:  info.SROverride,
+			RRMode:      profile.DLSSMode(info.RRMode),
+			RRPreset:    profile.DLSSPreset(info.RRPreset),
+			RROverride:  info.RROverride,
+			FGEnabled:   info.FGEnabled,
+			FGOverride:  info.FGOverride,
+			FGIndicator: info.FGIndicator,
+			MultiFrame:  info.MultiFrame,
+			Indicator:   info.Indicator,
 		},
 		GPU: profile.GPUSettings{
 			ShaderCache:          info.ShaderCache,

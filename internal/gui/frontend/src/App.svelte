@@ -68,18 +68,6 @@
     return state
   }
 
-  function configFromOptionsState(state, baseConfig) {
-    const updated = { ...(baseConfig || {}) }
-    for (const [key, value] of Object.entries(state)) {
-      if (key === 'manifestRefreshHours') {
-        updated[key] = Number(value)
-      } else {
-        updated[key] = value
-      }
-    }
-    return updated
-  }
-
   onMount(async () => {
     nav = await defaultNavState()
     await loadSettingsCatalog()
@@ -270,10 +258,9 @@
     if (!config) {
       return
     }
-    const updated = configFromOptionsState(optionsState, config)
     try {
-      await desktop.SaveConfig(updated)
-      config = updated
+      await desktop.SaveConfigOption(key, String(value))
+      config = { ...config, [key]: value }
       setConfigMessage('Options saved', 'success')
     } catch (error) {
       setConfigMessage('Failed to save options', 'error')

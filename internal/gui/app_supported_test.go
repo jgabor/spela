@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/jgabor/spela/internal/game"
@@ -68,6 +69,26 @@ func TestAppSupportedConfigProfileGameAndNavigationFlows(t *testing.T) {
 	gotConfig, err := app.GetConfig()
 	if err != nil || !reflect.DeepEqual(gotConfig, configInfo) {
 		t.Fatalf("config round trip = %+v, %v; want %+v", gotConfig, err, configInfo)
+	}
+	if err := app.SaveConfigOption("showHints", "true"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := app.GetConfig(); err != nil || !got.ShowHints {
+		t.Fatalf("field-level config save = %+v, %v", got, err)
+	}
+	if err := app.SaveConfigOption("shaderCache", "/new"); err == nil || err.Error() != "unknown config option: shaderCache" {
+		t.Fatalf("hidden GUI option error = %v", err)
+	}
+	themeChoices := []string{}
+	for _, section := range app.GetSettingsCatalog() {
+		for _, option := range section.Options {
+			if option.Key == "theme" {
+				themeChoices = option.Choices
+			}
+		}
+	}
+	if !reflect.DeepEqual(themeChoices, []string{"default", "dark", "light"}) {
+		t.Fatalf("GUI theme choices = %v", themeChoices)
 	}
 	for _, test := range []struct {
 		name string
@@ -152,6 +173,63 @@ func TestAppSupportedConfigProfileGameAndNavigationFlows(t *testing.T) {
 	app.shutdown(context.Background())
 }
 
+func TestSaveConfigOptionSerializesConcurrentFieldEdits(t *testing.T) {
+	isolateGUIState(t)
+	app := NewApp()
+
+	type edit struct {
+		key   string
+		value string
+	}
+	edits := []edit{{key: "showHints", value: "false"}, {key: "theme", value: "light"}}
+	ready := make(chan struct{}, len(edits))
+	start := make(chan struct{})
+	results := make(chan struct {
+		edit edit
+		err  error
+	}, len(edits))
+
+	var workers sync.WaitGroup
+	app.configurationMutex.Lock()
+	for _, requested := range edits {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			ready <- struct{}{}
+			<-start
+			results <- struct {
+				edit edit
+				err  error
+			}{edit: requested, err: app.SaveConfigOption(requested.key, requested.value)}
+		}()
+	}
+	for range edits {
+		<-ready
+	}
+	close(start)
+	app.configurationMutex.Unlock()
+	workers.Wait()
+	close(results)
+
+	returned := make(map[string]bool, len(edits))
+	for result := range results {
+		if result.err != nil {
+			t.Errorf("SaveConfigOption(%q, %q) error = %v", result.edit.key, result.edit.value, result.err)
+		}
+		returned[result.edit.key] = true
+	}
+	if len(returned) != len(edits) {
+		t.Fatalf("completed edits = %v, want both distinct calls", returned)
+	}
+	got, err := app.GetConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ShowHints || got.Theme != "light" {
+		t.Fatalf("concurrent field edits persisted ShowHints=%v Theme=%q", got.ShowHints, got.Theme)
+	}
+}
+
 func TestAppStartupScanLogoAndMissingDatabasePaths(t *testing.T) {
 	stateRoot := isolateGUIState(t)
 	app := NewApp()
@@ -214,22 +292,7 @@ func TestAppStartupScanLogoAndMissingDatabasePaths(t *testing.T) {
 	}
 }
 
-func TestAppParsingProjectionAndHostReadBranches(t *testing.T) {
-	for _, level := range []string{"debug", "info", "warn", "error"} {
-		if parsed, err := parseLogLevel(level); err != nil || string(parsed) != level {
-			t.Errorf("parseLogLevel(%q) = %q, %v", level, parsed, err)
-		}
-	}
-	for _, source := range []string{"techpowerup", "github"} {
-		if parsed, err := parsePreferredDLLSource(source); err != nil || parsed != source {
-			t.Errorf("parsePreferredDLLSource(%q) = %q, %v", source, parsed, err)
-		}
-	}
-	for _, theme := range []string{"default", "dark", "light"} {
-		if parsed, err := parseTheme(theme); err != nil || parsed != theme {
-			t.Errorf("parseTheme(%q) = %q, %v", theme, parsed, err)
-		}
-	}
+func TestAppProjectionAndHostReadBranches(t *testing.T) {
 	if profileInfoFromProfile(nil, false) != nil || profileFieldSemanticsFromExplanations(nil) != nil {
 		t.Fatal("nil profile/semantics projections changed")
 	}

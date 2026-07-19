@@ -27,7 +27,7 @@ func TestOptionsModalPathEditingAndBoundaryContracts(t *testing.T) {
 	modal.OpenEmbedded(configuration)
 	for sectionIndex, section := range modal.sections {
 		for optionIndex, option := range section.Options {
-			if option.Type != OptionTypePath {
+			if option.Kind != config.KindPath {
 				continue
 			}
 			modal.sectionCursor, modal.optionCursor = sectionIndex, optionIndex
@@ -56,7 +56,7 @@ func TestOptionsModalPathEditingAndBoundaryContracts(t *testing.T) {
 	modal.sectionCursor = 0
 	modal.optionCursor = len(modal.sections[0].Options)
 	modal.cycleValue(1)
-	modal.sections = []OptionsSection{{Title: "Empty"}}
+	modal.sections = []config.Section{{Title: "Empty"}}
 	modal.sectionCursor, modal.optionCursor = 0, 0
 	modal.moveCursor(1)
 	modal.startPathEditing()

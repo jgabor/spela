@@ -10,6 +10,11 @@ import (
 )
 
 func TestWailsJSONKeyContracts(t *testing.T) {
+	configType := reflect.TypeOf(ConfigInfo{})
+	if configType.Name() != "ConfigInfo" || configType.PkgPath() != "github.com/jgabor/spela/internal/gui" {
+		t.Fatalf("ConfigInfo Wails source model = %s.%s, want gui.ConfigInfo", configType.PkgPath(), configType.Name())
+	}
+
 	tests := []struct {
 		name  string
 		value any

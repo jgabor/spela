@@ -91,6 +91,23 @@ export const config = {
   preferredDLLSource: 'techpowerup',
 }
 
+export const settingsCatalog = [
+  {
+    id: 0,
+    title: 'Display',
+    options: [
+      { key: 'theme', label: 'Theme', description: 'Choose the application theme.', type: 'select', choices: ['default', 'dark', 'light'] },
+      { key: 'showHints', label: 'Show hints', description: 'Show keyboard hints.', type: 'toggle', choices: ['true', 'false'] },
+      { key: 'compactMode', label: 'Compact mode', description: 'Use compact spacing.', type: 'toggle', choices: ['true', 'false'] },
+      { key: 'confirmDestructive', label: 'Confirm destructive', description: 'Confirm destructive actions.', type: 'toggle', choices: ['true', 'false'] },
+    ],
+  },
+  { id: 1, title: 'Startup', options: [{ key: 'rescanOnStartup', label: 'Re-scan on startup', description: 'Scan at startup.', type: 'toggle', choices: ['true', 'false'] }] },
+  { id: 2, title: 'Paths', options: [{ key: 'steamPath', label: 'Steam path', description: 'Custom Steam path.', type: 'path' }] },
+  { id: 3, title: 'DLL policy', options: [{ key: 'manifestRefreshHours', label: 'Refresh interval', description: 'Manifest refresh interval.', type: 'select', choices: ['1', '6', '12', '24', '48', '168'] }] },
+  { id: 4, title: 'Logging', options: [{ key: 'logLevel', label: 'Log level', description: 'Logging verbosity.', type: 'select', choices: ['debug', 'info', 'warn', 'error'] }] },
+]
+
 export const dllUpdates = {
   1091500: [
     { name: 'nvngx_dlss.dll', currentVersion: '3.7.0', latestVersion: '3.8.0', hasUpdate: true },
@@ -107,6 +124,7 @@ function createMockScript(mockData) {
     const profiles = ${JSON.stringify(mockData.profiles)};
     const defaultProfile = ${JSON.stringify(mockData.defaultProfile)};
     let config = ${JSON.stringify(mockData.config)};
+    const settingsCatalog = ${JSON.stringify(mockData.settingsCatalog)};
     const dllUpdates = ${JSON.stringify(mockData.dllUpdates)};
 
     const defaultNav = {
@@ -126,7 +144,7 @@ function createMockScript(mockData) {
       gui: {
         App: {
           GetConfig: async () => config,
-          GetSettingsCatalog: async () => [],
+          GetSettingsCatalog: async () => settingsCatalog,
           DefaultNavState: async () => cloneNav(defaultNav),
           NavSelectDestination: async (state, destination) => cloneNav({ ...state, destination }),
           NavSelectScope: async (state, scopeGlobal, gameName = '') => cloneNav({ ...state, scopeGlobal, gameName, aspect: scopeGlobal ? 1 : state.aspect }),
@@ -138,6 +156,15 @@ function createMockScript(mockData) {
 
           SaveConfig: async (nextConfig) => {
             config = nextConfig;
+          },
+          SaveConfigOption: async (key, value) => {
+            if (typeof config[key] === 'boolean') {
+              config[key] = value === 'true';
+            } else if (typeof config[key] === 'number') {
+              config[key] = Number(value);
+            } else {
+              config[key] = value;
+            }
           },
           GetVersion: async () => '0.5.1',
           GetGames: async () => games,
@@ -193,7 +220,7 @@ function createMockScript(mockData) {
 
 export const test = base.extend({
   page: async ({ page }, use) => {
-    const mockData = { games, gpuInfo, cpuInfo, profiles, defaultProfile, config, dllUpdates }
+    const mockData = { games, gpuInfo, cpuInfo, profiles, defaultProfile, config, settingsCatalog, dllUpdates }
     await page.addInitScript(createMockScript(mockData))
     await use(page)
   },

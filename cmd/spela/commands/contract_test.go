@@ -28,6 +28,14 @@ func TestConfigCLITextAndErrorContract(t *testing.T) {
 	if err := ConfigCmd.Execute(); err == nil || err.Error() != "unknown config key: not_a_key" {
 		t.Fatalf("unknown-key error = %v", err)
 	}
+	ConfigCmd.SetArgs([]string{"set", "theme", "dark"})
+	if err := ConfigCmd.Execute(); err == nil || err.Error() != "unknown config key: theme" {
+		t.Fatalf("hidden-key error = %v", err)
+	}
+	ConfigCmd.SetArgs([]string{"set", "log_level", "verbose"})
+	if err := ConfigCmd.Execute(); err == nil || err.Error() != "unsupported log level: verbose" {
+		t.Fatalf("invalid-value error = %v", err)
+	}
 }
 
 func TestProfileCLITextJSONAndErrorContract(t *testing.T) {

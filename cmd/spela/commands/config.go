@@ -55,16 +55,12 @@ func runConfigSet(cmd *cobra.Command, args []string) error {
 	}
 
 	key, value := args[0], args[1]
-
-	switch key {
-	case "log_level":
-		cfg.LogLevel = config.LogLevel(value)
-	case "shader_cache":
-		cfg.ShaderCache = value
-	case "check_updates":
-		cfg.CheckUpdates = value == "true" || value == "1"
-	default:
+	option := config.OptionByKey(key)
+	if option == nil || !option.Visibility.Includes(config.VisibilityCLI) {
 		return fmt.Errorf("unknown config key: %s", key)
+	}
+	if err := option.Set(cfg, value); err != nil {
+		return err
 	}
 
 	if err := cfg.Save(); err != nil {

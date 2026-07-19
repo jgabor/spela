@@ -16,10 +16,6 @@ func boolStr(b bool) string {
 	return "false"
 }
 
-func intStr(i int) string {
-	return strconv.Itoa(i)
-}
-
 func srPresetValue(p profile.DLSSPreset) string {
 	if p == "" {
 		return "default"

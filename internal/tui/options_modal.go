@@ -10,36 +10,13 @@ import (
 
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/nav"
-	"github.com/jgabor/spela/internal/settings"
 )
-
-type OptionType int
-
-const (
-	OptionTypeBool OptionType = iota
-	OptionTypeEnum
-	OptionTypePath
-	OptionTypeInt
-)
-
-type Option struct {
-	Key         string
-	Label       string
-	Description string
-	Type        OptionType
-	Options     []string
-}
-
-type OptionsSection struct {
-	Title   string
-	Options []Option
-}
 
 type OptionsModalModel struct {
 	styles         *Styles
 	config         *config.Config
 	originalConfig *config.Config
-	sections       []OptionsSection
+	sections       []config.Section
 	sectionCursor  int
 	optionCursor   int
 	modified       bool
@@ -72,40 +49,8 @@ func NewOptionsModal(styles *Styles) OptionsModalModel {
 
 	return OptionsModalModel{
 		styles:    styles,
-		sections:  catalogOptionsSections(),
+		sections:  config.Sections(config.VisibilityTUI),
 		pathInput: ti,
-	}
-}
-
-func catalogOptionsSections() []OptionsSection {
-	catalog := settings.Catalog()
-	sections := make([]OptionsSection, len(catalog))
-	for i, section := range catalog {
-		opts := make([]Option, len(section.Options))
-		for j, opt := range section.Options {
-			opts[j] = Option{
-				Key:         opt.Key,
-				Label:       opt.Label,
-				Description: opt.Description,
-				Type:        catalogOptionType(opt.Kind),
-				Options:     opt.Choices,
-			}
-		}
-		sections[i] = OptionsSection{Title: section.Title, Options: opts}
-	}
-	return sections
-}
-
-func catalogOptionType(kind settings.Kind) OptionType {
-	switch kind {
-	case settings.KindBool:
-		return OptionTypeBool
-	case settings.KindPath:
-		return OptionTypePath
-	case settings.KindInt:
-		return OptionTypeInt
-	default:
-		return OptionTypeEnum
 	}
 }
 
@@ -183,7 +128,7 @@ func (m *OptionsModalModel) updateOptions(msg tea.Msg) (Dialog, tea.Cmd) {
 			m.cycleValue(1)
 		case "enter":
 			opt := m.getCurrentOption()
-			if opt != nil && opt.Type == OptionTypePath {
+			if opt != nil && opt.Kind == config.KindPath {
 				m.startPathEditing()
 				return m, nil
 			}
@@ -317,24 +262,24 @@ func (m *OptionsModalModel) cycleValue(direction int) {
 
 	currentValue := m.getConfigValue(opt.Key)
 
-	if opt.Type == OptionTypePath {
+	if opt.Kind == config.KindPath {
 		return
 	}
 
-	if len(opt.Options) == 0 {
+	if len(opt.Choices) == 0 {
 		return
 	}
 
 	currentIndex := 0
-	for i, o := range opt.Options {
+	for i, o := range opt.Choices {
 		if o == currentValue {
 			currentIndex = i
 			break
 		}
 	}
 
-	newIndex := (currentIndex + direction + len(opt.Options)) % len(opt.Options)
-	newValue := opt.Options[newIndex]
+	newIndex := (currentIndex + direction + len(opt.Choices)) % len(opt.Choices)
+	newValue := opt.Choices[newIndex]
 	m.setConfigValue(opt.Key, newValue)
 	m.modified = true
 }
@@ -343,104 +288,36 @@ func (m OptionsModalModel) getConfigValue(key string) string {
 	if m.config == nil {
 		return ""
 	}
-
-	switch key {
-	case "rescan_on_startup":
-		return boolStr(m.config.RescanOnStartup)
-	case "auto_update_dlls":
-		return boolStr(m.config.AutoUpdateDLLs)
-	case "check_updates":
-		return boolStr(m.config.CheckUpdates)
-	case "steam_path":
-		if m.config.SteamPath == "" {
-			return "(default)"
-		}
-		return m.config.SteamPath
-	case "dll_cache_path":
-		if m.config.DLLCachePath == "" {
-			return "(default)"
-		}
-		return m.config.DLLCachePath
-	case "backup_path":
-		if m.config.BackupPath == "" {
-			return "(default)"
-		}
-		return m.config.BackupPath
-	case "auto_refresh_manifest":
-		return boolStr(m.config.AutoRefreshManifest)
-	case "manifest_refresh_hours":
-		return intStr(m.config.ManifestRefreshHours)
-	case "preferred_dll_source":
-		if m.config.PreferredDLLSource == "" {
-			return "techpowerup"
-		}
-		return m.config.PreferredDLLSource
-	case "show_hints":
-		return boolStr(m.config.ShowHints)
-	case "compact_mode":
-		return boolStr(m.config.CompactMode)
-	case "confirm_destructive":
-		return boolStr(m.config.ConfirmDestructive)
-	case "theme":
-		if m.config.Theme == "" {
-			return "default"
-		}
-		return m.config.Theme
-	case "log_level":
-		return string(m.config.LogLevel)
+	option := config.OptionByKey(key)
+	if option == nil || !option.Visibility.Includes(config.VisibilityTUI) {
+		return ""
 	}
-	return ""
+	value := option.Get(m.config)
+	if value == "" && option.Kind == config.KindPath {
+		return "(default)"
+	}
+	if value == "" && option.Kind == config.KindEnum {
+		return option.Get(config.Default())
+	}
+	return value
 }
 
 func (m *OptionsModalModel) setConfigValue(key, value string) {
 	if m.config == nil {
 		return
 	}
-
-	switch key {
-	case "rescan_on_startup":
-		m.config.RescanOnStartup = value == "true"
-	case "auto_update_dlls":
-		m.config.AutoUpdateDLLs = value == "true"
-	case "check_updates":
-		m.config.CheckUpdates = value == "true"
-	case "steam_path":
-		if value == "(default)" {
-			m.config.SteamPath = ""
-		} else {
-			m.config.SteamPath = value
-		}
-	case "dll_cache_path":
-		if value == "(default)" {
-			m.config.DLLCachePath = ""
-		} else {
-			m.config.DLLCachePath = value
-		}
-	case "backup_path":
-		if value == "(default)" {
-			m.config.BackupPath = ""
-		} else {
-			m.config.BackupPath = value
-		}
-	case "auto_refresh_manifest":
-		m.config.AutoRefreshManifest = value == "true"
-	case "manifest_refresh_hours":
-		var v int
-		_, _ = fmt.Sscanf(value, "%d", &v)
-		m.config.ManifestRefreshHours = v
-	case "preferred_dll_source":
-		m.config.PreferredDLLSource = value
-	case "show_hints":
-		m.config.ShowHints = value == "true"
+	option := config.OptionByKey(key)
+	if option == nil || !option.Visibility.Includes(config.VisibilityTUI) {
+		return
+	}
+	if value == "(default)" && option.Kind == config.KindPath {
+		value = ""
+	}
+	if option.Set(m.config, value) != nil {
+		return
+	}
+	if key == "show_hints" {
 		m.styles.SetShowHints(m.config.ShowHints)
-	case "compact_mode":
-		m.config.CompactMode = value == "true"
-	case "confirm_destructive":
-		m.config.ConfirmDestructive = value == "true"
-	case "theme":
-		m.config.Theme = value
-	case "log_level":
-		m.config.LogLevel = config.LogLevel(value)
 	}
 }
 
@@ -506,10 +383,12 @@ func (m *OptionsModalModel) renderOptionsBody() string {
 
 	flatIndex := 0
 	currentFlat := m.flatIndex()
+	labelWidth := 22
+	compactLabels := m.width < 60
 
 	sections := m.sections
 	if m.embedded && m.sectionCursor < len(m.sections) {
-		sections = []OptionsSection{m.sections[m.sectionCursor]}
+		sections = []config.Section{m.sections[m.sectionCursor]}
 	}
 
 	for _, section := range sections {
@@ -533,10 +412,18 @@ func (m *OptionsModalModel) renderOptionsBody() string {
 				style = s.Selected
 			}
 
-			label := fmt.Sprintf("%s%-22s: ", cursor, opt.Label)
+			optionLabel := opt.Label
+			label := fmt.Sprintf("%s%-*s: ", cursor, labelWidth, optionLabel)
+			if compactLabels {
+				labelRunes := []rune(optionLabel)
+				if len(labelRunes) > 14 {
+					optionLabel = string(labelRunes[:13]) + "…"
+				}
+				label = fmt.Sprintf("%s%s: ", cursor, optionLabel)
+			}
 			b.WriteString(style.Render(label))
 
-			if isCurrentOption && m.editingPath && opt.Type == OptionTypePath {
+			if isCurrentOption && m.editingPath && opt.Kind == config.KindPath {
 				b.WriteString(m.pathInput.View())
 			} else {
 				value := m.getConfigValue(opt.Key)
@@ -549,7 +436,7 @@ func (m *OptionsModalModel) renderOptionsBody() string {
 	}
 
 	currentOption := m.getCurrentOption()
-	if currentOption != nil {
+	if currentOption != nil && !compactLabels {
 		b.WriteString(s.Dim.Render(currentOption.Description))
 		b.WriteString("\n")
 	}
@@ -562,10 +449,13 @@ func (m *OptionsModalModel) renderOptionsBody() string {
 	var hint string
 	if m.editingPath {
 		hint = "\nenter:confirm • esc:cancel"
-	} else if currentOption != nil && currentOption.Type == OptionTypePath {
+	} else if currentOption != nil && currentOption.Kind == config.KindPath {
 		hint = "\n↑↓:navigate • enter:edit • s:save • esc:close"
 	} else {
 		hint = "\n↑↓:navigate • ←→:change • s:save • esc:close"
+	}
+	if compactLabels {
+		hint = "\n↑↓ • ←→ • s:save"
 	}
 	if h := s.RenderHint(hint); h != "" {
 		b.WriteString(h)
@@ -583,7 +473,7 @@ func (m OptionsModalModel) calculateModalHeight() int {
 	return height
 }
 
-func (m OptionsModalModel) getCurrentOption() *Option {
+func (m OptionsModalModel) getCurrentOption() *config.Option {
 	if m.sectionCursor >= len(m.sections) {
 		return nil
 	}

@@ -156,6 +156,9 @@ Files follow XDG Base Directory specification:
 └── manifest.json         # DLL version manifest
 ```
 
+See [the global configuration contract](docs/configuration.md) for every key,
+default, accepted value, public JSON name, and settings-surface classification.
+
 ## System requirements
 
 - **NVIDIA GPU** with proprietary driver (`nvidia-utils`)

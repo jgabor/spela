@@ -11,9 +11,19 @@ test.describe('shell', () => {
   test('opens settings destination and help overlay', async ({ page }) => {
     await page.goto('/')
     await page.getByRole('button', { name: 'Settings', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Display' })).toBeVisible()
     await page.keyboard.press('?')
     await expect(page.getByRole('dialog', { name: 'Help' })).toBeVisible()
+  })
+
+  test('saves a settings field through SaveConfigOption', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    const showHints = page.getByRole('button', { name: 'Show hints' })
+    await expect(showHints).toHaveAttribute('aria-pressed', 'true')
+    await showHints.click()
+    await expect(showHints).toHaveAttribute('aria-pressed', 'false')
+    await expect.poll(() => page.evaluate(() => window.go.gui.App.GetConfig().then((current) => current.showHints))).toBe(false)
   })
 })
 

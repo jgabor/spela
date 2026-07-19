@@ -114,6 +114,7 @@ vi.mock('../wailsjs/go/gui/App', () => ({
   ListDLLVersions: vi.fn().mockResolvedValue([]),
   RestoreDLLs: vi.fn().mockResolvedValue(undefined),
   SaveConfig: vi.fn().mockResolvedValue(undefined),
+  SaveConfigOption: vi.fn().mockResolvedValue(undefined),
   SaveDefaultProfile: vi.fn().mockResolvedValue(undefined),
   SaveProfile: vi.fn().mockResolvedValue(undefined),
   ScanGames: vi.fn().mockResolvedValue(undefined),
@@ -164,6 +165,7 @@ function makeDesktop(overrides = {}) {
     ListDLLVersions: vi.fn().mockResolvedValue([]),
     RestoreDLLs: vi.fn().mockResolvedValue(undefined),
     SaveConfig: vi.fn().mockResolvedValue(undefined),
+    SaveConfigOption: vi.fn().mockResolvedValue(undefined),
     SaveDefaultProfile: vi.fn().mockResolvedValue(undefined),
     SaveProfile: vi.fn().mockResolvedValue(undefined),
     ScanGames: vi.fn().mockResolvedValue(undefined),
@@ -205,7 +207,7 @@ describe('App keyboard behavior', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Display' })).toBeTruthy())
     const showHintsRow = screen.getByText('Show hints').closest('.option-row')
     await fireEvent.click(within(showHintsRow).getByRole('button'))
-    await waitFor(() => expect(desktop.SaveConfig).toHaveBeenCalledWith(expect.objectContaining({ showHints: false })))
+    await waitFor(() => expect(desktop.SaveConfigOption).toHaveBeenCalledWith('showHints', 'false'))
     expect(screen.getByText('Options saved')).toBeTruthy()
 
     await fireEvent.keyDown(window, { key: '?' })
@@ -295,7 +297,7 @@ describe('App keyboard behavior', () => {
     expect(screen.queryByText(/v0.6.0/)).toBeNull()
     failedView.unmount()
 
-    const desktop = makeDesktop({ SaveConfig: vi.fn().mockRejectedValue(new Error('read-only')) })
+    const desktop = makeDesktop({ SaveConfigOption: vi.fn().mockRejectedValue(new Error('read-only')) })
     render(App, { props: { desktop } })
     await waitFor(() => expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy())
     await fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
@@ -305,10 +307,10 @@ describe('App keyboard behavior', () => {
     await waitFor(() => expect(screen.getByText('Failed to save options')).toBeTruthy())
     expect(document.documentElement.getAttribute('data-theme')).toBe('light')
 
-    desktop.SaveConfig.mockResolvedValue(undefined)
+    desktop.SaveConfigOption.mockResolvedValue(undefined)
     await fireEvent.click(screen.getByRole('button', { name: 'Startup' }))
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Startup' })).toBeTruthy())
     await fireEvent.change(screen.getByRole('combobox'), { target: { value: '12' } })
-    await waitFor(() => expect(desktop.SaveConfig).toHaveBeenCalledWith(expect.objectContaining({ manifestRefreshHours: 12 })))
+    await waitFor(() => expect(desktop.SaveConfigOption).toHaveBeenCalledWith('manifestRefreshHours', '12'))
   })
 })

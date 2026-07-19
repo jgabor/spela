@@ -75,15 +75,15 @@ func TestOptionsModalEditsEveryCatalogOptionThroughKeyboardContract(t *testing.T
 			modal.optionCursor = optionIndex
 			before := modal.getConfigValue(option.Key)
 			var key string
-			switch option.Type {
-			case OptionTypePath:
+			switch option.Kind {
+			case config.KindPath:
 				key = "enter"
-			case OptionTypeBool, OptionTypeEnum, OptionTypeInt:
+			case config.KindBool, config.KindEnum, config.KindInt:
 				key = "right"
 			}
 			next, _ := modal.Update(keyMsg(key))
 			modal = *next.(*OptionsModalModel)
-			if option.Type == OptionTypePath {
+			if option.Kind == config.KindPath {
 				if !modal.editingPath {
 					t.Fatalf("%s did not enter path editing", option.Key)
 				}
