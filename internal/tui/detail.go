@@ -1,22 +1,9 @@
-// Package tui — detail renderer for the Games and Defaults resources.
-//
-// This file implements the shared single-column, grouped-by-subsystem profile
-// detail renderer per .agentera/DECISIONS.md Decision 1. It is consumed in two
-// contexts:
-//
-//   - Games resource: renders the currently selected game's resolved profile
-//     (ResolveForApply) with isRoot=false. Task 5 will layer inheritance
-//     markers on top of this renderer; Task 4 only wires the structural
-//     spine (groups, fields, focus navigation).
-//   - Defaults resource: renders the default profile as root with isRoot=true.
-//     No inherited/overridden markers, no reset/pin keybindings.
-//
-// Task 4 scope deliberately excludes inheritance markers and r/shift+r/p
-// keybindings — those land in Task 5.
+// Package tui contains the terminal user interface.
 package tui
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -24,8 +11,7 @@ import (
 	"github.com/jgabor/spela/internal/profile"
 )
 
-// detailSectionOrder is the canonical rendering order for subsystem groups
-// (per .agentera/DECISIONS.md Decision 1). Load-bearing: tests assert this.
+// detailSectionOrder is the canonical rendering order for subsystem groups.
 var detailSectionOrder = []string{"proton", "dlss", "gpu", "cpu", "overlay"}
 
 // detailSectionTitle maps a subsystem key to its human-readable header.
@@ -92,21 +78,18 @@ type detailRow struct {
 // isHeader reports whether the row is a group header (non-focusable).
 func (r detailRow) isHeader() bool { return r.headerLabel != "" }
 
-// DetailModel is the shared read-only profile detail renderer used by both
+// DetailModel is the shared profile detail renderer used by both
 // the Games and Defaults resources. Navigation: j/k moves cursor through the
 // focusable field rows, skipping group headers; the focused row renders with
 // the accent-focus token. Actual field values come from ResolveForApply so
 // Games view reflects inherited defaults without the caller pre-resolving.
 //
 // isRoot=true signals "this is the defaults profile root" — no inheritance
-// markers, no reset/pin bindings offered. Task 5 consumes isRoot to gate the
-// marker rendering.
+// markers or pin bindings are offered.
 type DetailModel struct {
 	styles *Styles
 
-	// raw is the profile as stored on disk (game or defaults). Task 5 reads
-	// IsOverridden on this to decide marker rendering. In Task 4 we stash it
-	// for structural symmetry but do not consult it during rendering.
+	// raw is the profile as stored on disk (game or defaults).
 	raw *profile.Profile
 
 	// resolved is the effective profile for display — the output of
@@ -120,7 +103,7 @@ type DetailModel struct {
 	isRoot bool
 
 	// activeSubsystem limits rendering to one section key (e.g. "dlss").
-	// Empty string renders all sections (legacy full scroll).
+	// Empty string renders all sections.
 	activeSubsystem string
 
 	rows          []detailRow
@@ -274,8 +257,8 @@ func (m DetailModel) Update(msg tea.Msg) (DetailModel, tea.Cmd, bool) {
 }
 
 // CycleFocusedField cycles the focused field on a root defaults profile.
-// Bool fields rotate through "(default)", "true", and "false" (matching the
-// profile widget). Returns true when the value changed.
+// Bool fields rotate through "(default)", "true", and "false". Returns true
+// when the value changed.
 func (m *DetailModel) CycleFocusedField(direction int) bool {
 	if !m.isRoot || m.raw == nil {
 		return false
@@ -391,7 +374,7 @@ func (m *DetailModel) ResetAll() bool {
 // profile (which already accounts for defaults inheritance) so the pin
 // captures exactly what the user sees. No-op when the field is already
 // overridden, when no field is focused, or when in root mode. Returns
-// (changed, error). Task 5 consumes this for the `p` binding.
+// (changed, error).
 func (m *DetailModel) PinFocused() (bool, error) {
 	if m.isRoot || m.raw == nil {
 		return false, nil
@@ -434,8 +417,8 @@ func (m *DetailModel) rebuildResolved() {
 }
 
 // overrideMarkerGlyph is the single-character marker rendered next to an
-// overridden field in the Games detail view. Task 5 picks the diamond so it
-// lines up with the ◆ already used in the games sidebar to indicate "game
+// overridden field in the Games detail view. The diamond lines up with the ◆
+// already used in the games sidebar to indicate "game
 // has a profile", reading as a consistent family of override signals. Rendered
 // in AccentOverride (magenta) via OverrideMarkerStyle. Root profiles never
 // render this marker (isRoot suppresses all inheritance rendering).
@@ -444,13 +427,13 @@ const overrideMarkerGlyph = "◆"
 // View renders the detail as a single column: for each group, a bold header
 // line then one row per field formatted as `  marker label  value  semantics`.
 //
-// Per-row styling (Task 5):
+// Per-row styling:
 //   - Focused row wins: rendered with FocusStyle (accent-focus cyan, bold).
 //   - Otherwise, in a game-profile view (isRoot=false): overridden fields
 //     render in OverrideStyle (fg) with a magenta ◆ marker; inherited fields
 //     render in InheritedStyle (fg-muted) with no marker.
 //   - In the root defaults view (isRoot=true), all fields render in Normal
-//     style with no marker — matching the Task 4 acceptance.
+//     style with no marker.
 func (m DetailModel) View() string {
 	s := m.styles
 	if s == nil {
@@ -611,6 +594,44 @@ func formatRootFieldValue(p *profile.Profile, field string) string {
 		return formatRootBoolField(p, field)
 	}
 	return formatFieldValue(p, field)
+}
+
+func srPresetValue(preset profile.DLSSPreset) string {
+	if preset == "" {
+		return "default"
+	}
+	if preset == profile.DLSSPresetAuto {
+		return "auto"
+	}
+	return string(preset)
+}
+
+func displayValue(value string) string {
+	if value == "" || value == "default" || value == "auto" {
+		return "(default)"
+	}
+	return value
+}
+
+func displayBool(value bool) string {
+	if !value {
+		return "(default)"
+	}
+	return "true"
+}
+
+func displayBoolPtr(value *bool) string {
+	if value == nil {
+		return "(default)"
+	}
+	return strconv.FormatBool(*value)
+}
+
+func displayInt(value int) string {
+	if value == 0 {
+		return "(default)"
+	}
+	return strconv.Itoa(value)
 }
 
 // formatFieldValue returns a display string for the given field on the

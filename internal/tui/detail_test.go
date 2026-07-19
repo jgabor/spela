@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -445,6 +446,65 @@ func TestResourcePane_DefaultsJKMovesFieldFocus(t *testing.T) {
 	pane, _ = pane.Update(keyMsg("k"))
 	if pane.defaultsDetail.Cursor() != before {
 		t.Errorf("k should move defaults cursor back to %d, got %d", before, pane.defaultsDetail.Cursor())
+	}
+}
+
+func TestResourcePane_RootMutationPersistsAndRetainsSelection(t *testing.T) {
+	stateRoot := t.TempDir()
+	t.Setenv("HOME", filepath.Join(stateRoot, "home"))
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(stateRoot, "config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(stateRoot, "data"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(stateRoot, "cache"))
+
+	if err := profile.SaveDefault(&profile.Profile{Name: "Default profile"}); err != nil {
+		t.Fatalf("save initial defaults: %v", err)
+	}
+	services := testServices()
+	services.LoadDefaultProfile = profile.LoadDefault
+	styles := NewStyles(DefaultTheme, true)
+	state := nav.DefaultState().
+		SelectAspect(nav.AspectProfile).
+		SelectProfileSubsystem(nav.SubsystemDLSS)
+	state.Zone = nav.ZoneContent
+	pane := newResourcePane(styles, NewContent(styles, true, services))
+	pane.BindNavState(&state)
+	pane.setServices(services)
+	pane.SetState(state)
+	focusField(t, &pane.defaultsDetail, profile.FieldDLSSSROverride)
+	wantField := pane.defaultsDetail.FocusedField()
+	wantCursor := pane.defaultsDetail.Cursor()
+
+	mutated, saveCommand := pane.Update(keyMsg("right"))
+	if saveCommand == nil {
+		t.Fatal("root mutation returned no save command")
+	}
+	message, ok := saveCommand().(profileSaveMsg)
+	if !ok || !message.success || message.err != nil {
+		t.Fatalf("root save result = %#v", message)
+	}
+	persisted, err := profile.LoadDefault()
+	if err != nil {
+		t.Fatalf("load persisted defaults: %v", err)
+	}
+	if !persisted.DLSS.SROverride || !persisted.IsOverridden(profile.FieldDLSSSROverride) {
+		t.Fatalf("persisted SR override = %v, overrides %v", persisted.DLSS.SROverride, persisted.Overrides)
+	}
+
+	layout := testLayout()
+	layout.navState = &state
+	layout.pane = mutated
+	updated, announcements := layout.handleAppMessages(message, nil)
+	if len(announcements) == 0 {
+		t.Fatal("profile save result did not route to a user announcement")
+	}
+	if got := updated.pane.defaultsDetail.FocusedField(); got != wantField {
+		t.Fatalf("focused field after save = %q, want %q", got, wantField)
+	}
+	if got := updated.pane.defaultsDetail.Cursor(); got != wantCursor {
+		t.Fatalf("cursor after save = %d, want %d", got, wantCursor)
+	}
+	if got := updated.pane.defaultsDetail.activeSubsystem; got != nav.SubsystemDLSS.Key() {
+		t.Fatalf("active subsystem after save = %q, want %q", got, nav.SubsystemDLSS.Key())
 	}
 }
 

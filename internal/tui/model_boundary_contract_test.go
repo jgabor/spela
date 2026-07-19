@@ -36,22 +36,10 @@ func TestContentSupportedIdentityDefaultsAndNoSelectionOperations(t *testing.T) 
 		t.Fatalf("empty DLL check = %+v", message)
 	}
 
-	content = content.SetDefaultProfile()
-	if content.Name() != "Default Profile" || content.profileSectionHeight() != 5 {
-		t.Fatalf("default content identity = %q", content.Name())
-	}
 	entry := testGame("Cyberpunk 2077")
 	content = content.SetGame(entry)
 	if content.Name() != entry.Name || !content.HasGameSelection() {
 		t.Fatalf("game content identity = %q", content.Name())
-	}
-	if got, inherited := content.loadEffectiveProfile(entry.AppID); got == nil || !inherited {
-		t.Fatalf("effective default profile = %+v, %v", got, inherited)
-	}
-	services.LoadDefaultProfile = func() (*profile.Profile, error) { return nil, nil }
-	content.services = services
-	if got, inherited := content.loadEffectiveProfile(entry.AppID); got != nil || inherited {
-		t.Fatalf("missing effective profile = %+v, %v", got, inherited)
 	}
 }
 

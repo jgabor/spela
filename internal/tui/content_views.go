@@ -153,9 +153,7 @@ func (m ContentModel) renderDLLs() string {
 	return b.String()
 }
 
-// renderProfile renders the profile detail section using the shared
-// single-column grouped-by-subsystem DetailModel (Task 4 — Decision 1).
-// Task 5 layers inheritance markers and reset/pin bindings on top.
+// renderProfile renders the profile detail section.
 func (m ContentModel) renderProfile() string {
 	var b strings.Builder
 	if m.usingDefaultProfile {

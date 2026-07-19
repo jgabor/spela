@@ -10,10 +10,14 @@ import (
 	"github.com/jgabor/spela/internal/profile"
 )
 
+type openDLSSPresetModalMsg struct {
+	currentPreset profile.DLSSPreset
+}
+
 // dlssPresetOrder defines the display order for DLSS presets. The slice is
 // expanded at package init through dedupePresets so the invariant "every
 // preset appears at most once" holds even if duplicates are accidentally
-// introduced upstream (Task 5 acceptance). Callers (modal, tests) must
+// introduced upstream. Callers (modal, tests) must
 // consult dlssPresets() rather than referencing this raw slice directly.
 var dlssPresetOrderRaw = []profile.DLSSPreset{
 	profile.DLSSPresetDefault,

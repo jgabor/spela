@@ -62,7 +62,10 @@ func (m ContentModel) updateContentMessage(msg tea.Msg) (ContentModel, tea.Cmd, 
 	case dlssPresetCancelledMsg:
 		return m, nil, true
 	case profileSaveMsg:
-		return m.updateProfileSaveMsg(msg), nil, true
+		if msg.success && m.game != nil && msg.appID == m.game.AppID {
+			m.usingDefaultProfile = false
+		}
+		return m, nil, true
 	case dllUpdateMsg:
 		return m.updateDLLUpdateMsg(msg)
 	case dllRestoreMsg:
@@ -74,21 +77,6 @@ func (m ContentModel) updateContentMessage(msg tea.Msg) (ContentModel, tea.Cmd, 
 		return m, nil, true
 	}
 	return m, nil, false
-}
-
-func (m ContentModel) updateProfileSaveMsg(msg profileSaveMsg) ContentModel {
-	if msg.success {
-		if m.defaultProfile {
-			p, _ := m.services.LoadDefaultProfile()
-			m.profile = p
-		} else if m.game != nil {
-			p, inherited := m.loadEffectiveProfile(m.game.AppID)
-			m.profile = p
-			m.usingDefaultProfile = inherited
-			m.profileHeight = m.profileSectionHeight()
-		}
-	}
-	return m
 }
 
 func (m ContentModel) updateDLLUpdateMsg(msg dllUpdateMsg) (ContentModel, tea.Cmd, bool) {

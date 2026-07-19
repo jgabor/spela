@@ -47,13 +47,16 @@ func (p *resourcePaneModel) setServices(svc *Services) {
 func (p *resourcePaneModel) refreshDefaultsDetail() {
 	preserveField := p.defaultsDetail.FocusedField()
 	preserveCursor := p.defaultsDetail.Cursor()
+	preserveSubsystem := p.defaultsDetail.activeSubsystem
 	if p.services == nil || p.services.LoadDefaultProfile == nil {
 		p.defaultsDetail = NewRootDetail(p.styles, nil)
+		p.defaultsDetail.SetActiveSubsystem(preserveSubsystem)
 		p.defaultsDetail.RestoreFocus(preserveField, preserveCursor)
 		return
 	}
 	defaults, _ := p.services.LoadDefaultProfile()
 	p.defaultsDetail = NewRootDetail(p.styles, defaults)
+	p.defaultsDetail.SetActiveSubsystem(preserveSubsystem)
 	p.defaultsDetail.RestoreFocus(preserveField, preserveCursor)
 }
 

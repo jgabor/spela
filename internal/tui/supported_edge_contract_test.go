@@ -176,29 +176,26 @@ func TestResourcePaneSupportedDestinationsScopesAndDefaultMutations(t *testing.T
 
 func TestProfileDisplaySupportedDefaultsAndOverrides(t *testing.T) {
 	valueTrue, valueFalse := true, false
-	checks := map[string]string{
-		boolStr(true):                         "true",
-		boolStr(false):                        "false",
-		srPresetValue(""):                     "default",
-		srPresetValue(profile.DLSSPresetAuto): "auto",
-		srPresetValue(profile.DLSSPresetK):    "K",
-		powerMizerValue(""):                   "auto",
-		powerMizerValue("max"):                "max",
-		displayValue("default"):               "(default)",
-		displayValue("quality"):               "quality",
-		displayBool(false):                    "(default)",
-		displayBool(true):                     "true",
-		displayBoolPtr(nil):                   "(default)",
-		displayBoolPtr(&valueTrue):            "true",
-		displayBoolPtr(&valueFalse):           "false",
-		displayFrameGeneration(false, false):  "(default)",
-		displayFrameGeneration(false, true):   "false",
-		displayInt(0):                         "(default)",
-		displayInt(42):                        "42",
+	checks := []struct{ got, want string }{
+		{srPresetValue(""), "default"},
+		{srPresetValue(profile.DLSSPresetAuto), "auto"},
+		{srPresetValue(profile.DLSSPresetK), "K"},
+		{formatFieldValue(&profile.Profile{}, profile.FieldGPUPowerMizer), "(default)"},
+		{formatFieldValue(&profile.Profile{GPU: profile.GPUSettings{PowerMizer: "max"}}, profile.FieldGPUPowerMizer), "max"},
+		{displayValue("default"), "(default)"},
+		{displayValue("quality"), "quality"},
+		{displayBool(false), "(default)"},
+		{displayBool(true), "true"},
+		{displayBoolPtr(nil), "(default)"},
+		{displayBoolPtr(&valueTrue), "true"},
+		{displayBoolPtr(&valueFalse), "false"},
+		{formatFieldValue(&profile.Profile{}, profile.FieldDLSSFGEnabled), "(default)"},
+		{displayInt(0), "(default)"},
+		{displayInt(42), "42"},
 	}
-	for got, want := range checks {
-		if got != want {
-			t.Errorf("display value = %q, want %q", got, want)
+	for _, check := range checks {
+		if check.got != check.want {
+			t.Errorf("display value = %q, want %q", check.got, check.want)
 		}
 	}
 }

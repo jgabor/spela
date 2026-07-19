@@ -49,30 +49,17 @@ const (
 )
 
 // ContentModel renders the detail for the Games resource: the currently
-// selected game's info, its detected DLLs, and its profile. The per-game
-// detail is the only resource that has substantive content in Task 3;
-// Tasks 4-5 flesh out profile inheritance rendering and Task 6 expands the
-// DLLs and Metrics resources. The Launch-tab surface and ContentTab enum
-// were removed as part of Task 3 (the shell redesign).
-//
-// Task 4 replaces the per-group ProfileWidget grid with a single-column
-// grouped DetailModel rendering resolved (inheritance-aware) values. The
-// legacy ProfileWidget is retained for now to keep the existing modal and
-// save pipeline intact while Task 5 replaces in-place editing with r/p/
-// shift+r bindings on the DetailModel.
+// selected game's info, its detected DLLs, and its profile.
 type ContentModel struct {
 	styles              *Styles
 	services            *Services
 	game                *game.Game
-	defaultProfile      bool
-	profile             *profile.Profile
 	detail              DetailModel
 	dlssPresetModal     DLSSPresetModalModel
 	confirmDestructive  bool
 	pendingAction       PendingAction
 	width               int
 	height              int
-	profileHeight       int
 	dllOperating        bool
 	dllOperatingLabel   string
 	hasBackup           bool
@@ -92,6 +79,12 @@ type ContentModel struct {
 type contentNoticeMsg struct {
 	text        string
 	messageType MessageType
+}
+
+type profileSaveMsg struct {
+	success bool
+	err     error
+	appID   uint64
 }
 
 type dllUpdateMsg struct {
@@ -122,9 +115,6 @@ type dllTypesLoadedMsg struct {
 
 // Name returns the display name for breadcrumb rendering.
 func (m ContentModel) Name() string {
-	if m.defaultProfile {
-		return "Default Profile"
-	}
 	if m.game != nil {
 		return m.game.Name
 	}
@@ -142,11 +132,9 @@ func NewContent(styles *Styles, confirmDestructive bool, svc *Services) ContentM
 
 func (m ContentModel) SetGame(g *game.Game) ContentModel {
 	m.game = g
-	m.defaultProfile = false
 	m.dllOperating = false
 	m.scrollOffset = 0
 	m.dllInstallState = DLLInstallNone
-	m.profileHeight = m.profileSectionHeight()
 	m.hasUpdates = false
 	m.usingDefaultProfile = false
 
@@ -154,11 +142,6 @@ func (m ContentModel) SetGame(g *game.Game) ContentModel {
 		rawProfile, _ := m.services.LoadProfile(g.AppID)
 		defaults, _ := m.services.LoadDefaultProfile()
 		m.usingDefaultProfile = rawProfile == nil
-		widgetProfile := rawProfile
-		if widgetProfile == nil {
-			widgetProfile = defaults
-		}
-		m.profile = widgetProfile
 		m.detail = NewDetail(m.styles, rawProfile, defaults)
 		m.hasBackup = m.services.BackupExists(g.AppID)
 	}
@@ -166,36 +149,13 @@ func (m ContentModel) SetGame(g *game.Game) ContentModel {
 	return m
 }
 
-func (m ContentModel) SetDefaultProfile() ContentModel {
-	m.game = nil
-	m.defaultProfile = true
-	m.dllOperating = false
-	m.scrollOffset = 0
-	m.dllInstallState = DLLInstallNone
-	m.hasBackup = false
-	m.profileHeight = m.profileSectionHeight()
-	m.hasUpdates = false
-	m.usingDefaultProfile = false
-
-	p, _ := m.services.LoadDefaultProfile()
-	m.profile = p
-	m.detail = NewRootDetail(m.styles, m.profile)
-
-	return m
-}
-
 func (m *ContentModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
-	m.profileHeight = m.profileSectionHeight()
 }
 
-// profileSectionHeight returns the space allotted to the profile widget
-// inside the detail view.
+// profileSectionHeight returns the space allotted to the game profile detail.
 func (m ContentModel) profileSectionHeight() int {
-	if m.defaultProfile {
-		return max(m.height-3, 5)
-	}
 	// Game detail: header + dll section + blank
 	used := headerSectionHeight + dllSectionHeight + 1
 	return max(m.height-used, 5)
@@ -217,10 +177,7 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	return m, nil
 }
 
-// saveResolvedProfile emits a save command for the current game's raw
-// profile after a Task 5 binding (r/R/p) has mutated it. The save target
-// is the game profile on disk; the resolved inheritance view refreshes on
-// the profileSaveMsg round-trip (same pipeline as the legacy widget save).
+// saveResolvedProfile emits a save command for the current game's raw profile.
 func (m ContentModel) saveResolvedProfile() tea.Cmd {
 	if m.game == nil {
 		return nil
@@ -238,9 +195,9 @@ func (m ContentModel) saveResolvedProfile() tea.Cmd {
 	toSave := *raw
 	return func() tea.Msg {
 		if err := profile.Save(appID, &toSave); err != nil {
-			return profileSaveMsg{err: err}
+			return profileSaveMsg{err: err, appID: appID}
 		}
-		return profileSaveMsg{success: true}
+		return profileSaveMsg{success: true, appID: appID}
 	}
 }
 
@@ -341,18 +298,6 @@ func (m ContentModel) ViewDLLAspect() string {
 
 func (m ContentModel) View() string {
 	return m.ViewProfileAspect()
-}
-
-func (m ContentModel) loadEffectiveProfile(appID uint64) (*profile.Profile, bool) {
-	p, _ := m.services.LoadProfile(appID)
-	if p != nil {
-		return p, false
-	}
-	defaultProfile, _ := m.services.LoadDefaultProfile()
-	if defaultProfile == nil {
-		return nil, false
-	}
-	return defaultProfile, true
 }
 
 func (m ContentModel) loadDLLTypes() tea.Cmd {

@@ -78,6 +78,27 @@ than the duplicated implementation that those epics will remove.
   `TestTUIGameDetail_ProfileMutations` exercises the compiled active detail
   flow against isolated XDG state; `TestDetail_ProfileSemantics*` covers the
   package-level inherited/override behavior.
+
+  Game profiles use `ContentModel.detail`; the canonical defaults editor is
+  `resourcePaneModel.defaultsDetail`. Both are `DetailModel` instances. The
+  deleted `ProfileWidgetModel` had no constructor or update call in the
+  compiled path. Its old assertions classify as follows:
+
+  | Observable contract | Supported-path coverage |
+  | --- | --- |
+  | Every profile field renders in subsystem order and focus skips headings | `TestDetail_FieldEnumeration_*`, `TestDetail_JKCrossesGroupHeaders`, and `TestDetail_JKClampsAtEnds` |
+  | Game values distinguish inherited and overridden state; reset, reset-all, and pin persist the intended overrides | `TestDetail_ProfileSemantics*`, `TestDetail_Reset*`, `TestDetail_Pin*`, and `TestTUIGameDetail_ProfileMutations` |
+  | Root defaults render without inheritance markers and support direct cycle/reset/save | `TestDetail_Root*`, `TestResourcePane_RootMutationPersistsAndRetainsSelection`, and `TestTUISmoke_DefaultProfile` for compiled rendering |
+  | Save success/failure is reported; root saves reload persisted defaults without losing selection | `TestResourcePane_RootMutationPersistsAndRetainsSelection`, `TestContentSupportedMessageAndKeyRouting`, and layout application-message assertions |
+  | The retained DLSS modal component selects, cancels, and renders presets | `TestDLSSPresetModalSupportedKeyAliasesAndBoundaryViews`, `TestDLSSPresetModalView_EachPresetAppearsOnce`, and direct-message content routing assertions |
+
+  Widget grid/edit mode, disabled “Coming soon” fields, its manual `s` binding,
+  and its injected VKD3D inline callback were unreachable implementation
+  details, not supported user-observable behavior. Value-format assertions now
+  exercise `DetailModel` formatting rather than the deleted widget helpers.
+  The DLSS modal remains tested as a component and message receiver, but no
+  compiled user-input path opens it after removal of the widget; it is not
+  described as an active user path.
 - **Unify global configuration operations:** `TestConfigYAMLContract`,
   `TestRoundtrip`, `TestConfigCLITextAndErrorContract`, and the `config` case of
   `TestWailsJSONKeyContracts` preserve YAML, CLI, and Wails keys.

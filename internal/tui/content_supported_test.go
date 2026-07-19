@@ -219,12 +219,6 @@ func TestContentSupportedMessageAndKeyRouting(t *testing.T) {
 		t.Fatal("preset cancellation unexpectedly scheduled work")
 	}
 
-	content.defaultProfile = true
-	content, _ = content.Update(profileSaveMsg{success: true})
-	if content.profile == nil {
-		t.Fatal("default profile save did not reload profile")
-	}
-	content.defaultProfile = false
 	content.dllOperating = true
 	content, command = content.Update(dllUpdateMsg{err: errors.New("offline")})
 	if content.dllOperating || command != nil {
@@ -255,5 +249,53 @@ func TestContentSupportedMessageAndKeyRouting(t *testing.T) {
 	content, command = content.Update(keyMsg("ctrl+shift+r"))
 	if !content.dllOperating || command == nil {
 		t.Fatal("restore key did not start direct supported restoration")
+	}
+}
+
+func TestContentFirstGameProfileSaveClearsInheritedBannerAndRetainsFocus(t *testing.T) {
+	stateRoot := t.TempDir()
+	t.Setenv("HOME", filepath.Join(stateRoot, "home"))
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(stateRoot, "config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(stateRoot, "data"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(stateRoot, "cache"))
+
+	defaults := &profile.Profile{Proton: profile.ProtonSettings{EnableHDR: true}}
+	defaults.MarkOverride(profile.FieldProtonEnableHDR)
+	services := testServices()
+	services.LoadProfile = profile.Load
+	services.LoadDefaultProfile = func() (*profile.Profile, error) { return defaults, nil }
+	entry := testGame("Cyberpunk 2077")
+	content := NewContent(NewStyles(DefaultTheme, true), true, services).SetGame(entry)
+	content.SetSize(100, 30)
+	wantField := content.detail.FocusedField()
+	if !content.usingDefaultProfile || !strings.Contains(stripANSI(content.ViewProfileAspect()), "Using default profile values") {
+		t.Fatal("profile-free game did not begin with inherited-only banner")
+	}
+
+	mutated, saveCommand := content.Update(keyMsg("p"))
+	if saveCommand == nil {
+		t.Fatal("pin returned no save command")
+	}
+	message, ok := saveCommand().(profileSaveMsg)
+	if !ok || !message.success || message.err != nil || message.appID != entry.AppID {
+		t.Fatalf("pin save result = %#v", message)
+	}
+	persisted, err := profile.Load(entry.AppID)
+	if err != nil {
+		t.Fatalf("load persisted game profile: %v", err)
+	}
+	if persisted == nil || !persisted.IsOverridden(profile.FieldProtonEnableHDR) {
+		t.Fatalf("persisted game profile = %#v", persisted)
+	}
+
+	routed, command := mutated.Update(message)
+	if command != nil {
+		t.Fatal("profile save result unexpectedly scheduled more work")
+	}
+	if routed.usingDefaultProfile || strings.Contains(stripANSI(routed.ViewProfileAspect()), "Using default profile values") {
+		t.Fatal("successful first game-profile save retained inherited-only banner")
+	}
+	if got := routed.detail.FocusedField(); got != wantField {
+		t.Fatalf("focused field after save = %q, want %q", got, wantField)
 	}
 }
