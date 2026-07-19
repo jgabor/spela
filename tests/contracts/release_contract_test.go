@@ -92,11 +92,21 @@ func TestReleaseWorkflowArtifactContract(t *testing.T) {
 	if !ok {
 		t.Fatal("release workflow has no aur-publish job")
 	}
+	updateTargetFound := false
 	var published []string
 	for _, step := range aur.Steps {
+		if step.Name == "Update PKGBUILD version and checksum" {
+			updateTargetFound = true
+			if strings.TrimSpace(step.Run) != "go tool mage aur:updateVersion ${{ github.ref_name }}" {
+				t.Fatalf("AUR version update command = %q", step.Run)
+			}
+		}
 		if strings.HasPrefix(step.Uses, "KSXGitHub/github-actions-deploy-aur@") {
 			published = append(published, step.With["pkgname"]+":"+step.With["pkgbuild"])
 		}
+	}
+	if !updateTargetFound {
+		t.Fatal("release workflow does not update the AUR package version")
 	}
 	if !equalStrings(published, []string{"spela:pkg/aur/PKGBUILD", "spela-git:pkg/aur/PKGBUILD-git"}) {
 		t.Fatalf("AUR publications = %q", published)
@@ -323,6 +333,9 @@ func TestReleaseBuildInputsContract(t *testing.T) {
 	}
 
 	magefile := read("magefile.go")
+	if !strings.Contains(magefile, "func (Aur) UpdateVersion") {
+		t.Error("release workflow references missing aur:updateVersion target")
+	}
 	for _, removed := range []string{"type Release mg.Namespace", "func (Release)", "func (Aur) Publish", "func (Aur) Srcinfo", "findGitCliff", "opencode", "gh release"} {
 		if strings.Contains(magefile, removed) {
 			t.Errorf("magefile retains removed release publisher %q", removed)

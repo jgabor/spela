@@ -28,27 +28,6 @@ func TestHasDLSSEmpty(t *testing.T) {
 	}
 }
 
-func TestGetDLL(t *testing.T) {
-	g := &Game{
-		DLLs: []DetectedDLL{
-			{Name: "nvngx_dlss.dll", Type: DLLTypeDLSS, Version: "3.7.20"},
-			{Name: "libxess.dll", Type: DLLTypeXeSS, Version: "1.3.0"},
-		},
-	}
-
-	dlss := g.GetDLL(DLLTypeDLSS)
-	if dlss == nil {
-		t.Fatal("GetDLL(DLSS) = nil")
-	}
-	if dlss.Version != "3.7.20" {
-		t.Errorf("GetDLL(DLSS).Version = %q, want %q", dlss.Version, "3.7.20")
-	}
-
-	if got := g.GetDLL(DLLTypeFSR); got != nil {
-		t.Errorf("GetDLL(FSR) = %v, want nil", got)
-	}
-}
-
 func TestIsToolName(t *testing.T) {
 	tests := []struct {
 		name string

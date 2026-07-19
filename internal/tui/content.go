@@ -55,7 +55,8 @@ type ContentModel struct {
 	database            *game.Database
 	game                *game.Game
 	detail              DetailModel
-	dlssPresetModal     DLSSPresetModalModel
+	persistedProfile    *profile.Profile
+	profileSaves        *profileSaveState
 	confirmDestructive  bool
 	pendingAction       PendingAction
 	width               int
@@ -82,9 +83,76 @@ type contentNoticeMsg struct {
 }
 
 type profileSaveMsg struct {
-	success bool
 	err     error
-	appID   uint64
+	request profileSaveRequest
+}
+
+type profileSaveRequest struct {
+	appID           uint64
+	before, desired *profile.Profile
+}
+
+type profileSaveState struct {
+	active *profileSaveRequest
+	queued []profileSaveRequest
+}
+
+func (s *profileSaveState) start(request profileSaveRequest) tea.Cmd {
+	if s.active != nil {
+		last := len(s.queued) - 1
+		if last >= 0 && s.queued[last].appID == request.appID {
+			request.before = s.queued[last].before
+			s.queued[last] = request
+		} else {
+			s.queued = append(s.queued, request)
+		}
+		return nil
+	}
+	s.active = &request
+	return func() tea.Msg {
+		var err error
+		merge := func(current *profile.Profile) error {
+			return profile.MergeChanges(current, request.before, request.desired)
+		}
+		if request.appID == 0 {
+			err = profile.MutateDefault(merge)
+		} else {
+			err = profile.Mutate(request.appID, func(current, _ *profile.Profile) error {
+				return merge(current)
+			})
+		}
+		return profileSaveMsg{err: err, request: request}
+	}
+}
+
+func (s *profileSaveState) complete(message profileSaveMsg) tea.Cmd {
+	s.active = nil
+	if message.err != nil {
+		for index := range s.queued {
+			if s.queued[index].appID == message.request.appID {
+				s.queued[index].before = message.request.before.Clone()
+				break
+			}
+		}
+	}
+	if len(s.queued) == 0 {
+		return nil
+	}
+	request := s.queued[0]
+	s.queued = s.queued[1:]
+	return s.start(request)
+}
+
+func (s *profileSaveState) latest(appID uint64) *profile.Profile {
+	for index := len(s.queued) - 1; index >= 0; index-- {
+		if s.queued[index].appID == appID {
+			return s.queued[index].desired
+		}
+	}
+	if s.active != nil && s.active.appID == appID {
+		return s.active.desired
+	}
+	return nil
 }
 
 type dllUpdateMsg struct {
@@ -111,35 +179,31 @@ type dllTypesLoadedMsg struct {
 	types []string
 }
 
-// Name returns the display name for breadcrumb rendering.
-func (m ContentModel) Name() string {
-	if m.game != nil {
-		return m.game.Name
-	}
-	return "Details"
-}
-
 func NewContent(styles *Styles, confirmDestructive bool, svc *Services) ContentModel {
 	return ContentModel{
 		styles:             styles,
 		services:           svc,
+		profileSaves:       &profileSaveState{},
 		confirmDestructive: confirmDestructive,
-		dlssPresetModal:    NewDLSSPresetModal(styles),
 	}
 }
 
 func (m ContentModel) SetGame(g *game.Game) ContentModel {
-	m.game = g
-	m.dllOperating = false
-	m.scrollOffset = 0
-	m.dllInstallState = DLLInstallNone
-	m.hasUpdates = false
-	m.usingDefaultProfile = false
+	m.game, m.dllOperating = g, false
+	m.scrollOffset, m.dllInstallState = 0, DLLInstallNone
+	m.hasUpdates, m.usingDefaultProfile = false, false
 
 	if g != nil {
 		rawProfile, _ := m.services.LoadProfile(g.AppID)
 		defaults, _ := m.services.LoadDefaultProfile()
+		if desired := m.profileSaves.latest(0); desired != nil {
+			defaults = desired.Clone()
+		}
 		m.usingDefaultProfile = rawProfile == nil
+		m.persistedProfile = rawProfile.Clone()
+		if desired := m.profileSaves.latest(g.AppID); desired != nil {
+			rawProfile, m.usingDefaultProfile = desired.Clone(), false
+		}
 		m.detail = NewDetail(m.styles, rawProfile, defaults)
 		m.hasBackup = m.services.BackupExists(g.AppID)
 	}
@@ -148,8 +212,7 @@ func (m ContentModel) SetGame(g *game.Game) ContentModel {
 }
 
 func (m *ContentModel) SetSize(width, height int) {
-	m.width = width
-	m.height = height
+	m.width, m.height = width, height
 }
 
 // profileSectionHeight returns the space allotted to the game profile detail.
@@ -176,11 +239,10 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 }
 
 // saveResolvedProfile emits a save command for the current game's raw profile.
-func (m ContentModel) saveResolvedProfile() tea.Cmd {
+func (m *ContentModel) saveResolvedProfile() tea.Cmd {
 	if m.game == nil {
 		return nil
 	}
-	appID := m.game.AppID
 	raw := m.detail.RawProfile()
 	if raw == nil {
 		return nil
@@ -190,13 +252,11 @@ func (m ContentModel) saveResolvedProfile() tea.Cmd {
 	if raw.Name == "" && m.game != nil {
 		raw.Name = m.game.Name
 	}
-	toSave := *raw
-	return func() tea.Msg {
-		if err := profile.Save(appID, &toSave); err != nil {
-			return profileSaveMsg{err: err, appID: appID}
-		}
-		return profileSaveMsg{success: true, appID: appID}
+	before := m.persistedProfile
+	if desired := m.profileSaves.latest(m.game.AppID); desired != nil {
+		before = desired
 	}
+	return m.profileSaves.start(profileSaveRequest{appID: m.game.AppID, before: before.Clone(), desired: raw.Clone()})
 }
 
 func (m ContentModel) updateDLLs() tea.Cmd {
@@ -221,18 +281,11 @@ func (m ContentModel) restoreDLLs() tea.Cmd {
 }
 
 func (m ContentModel) HasModalOpen() bool {
-	return m.dlssPresetModal.Visible() || m.dllInstallState != DLLInstallNone || m.pendingAction != PendingNone
-}
-
-func (m ContentModel) HasGameSelection() bool {
-	return m.game != nil
+	return m.dllInstallState != DLLInstallNone || m.pendingAction != PendingNone
 }
 
 // ViewProfileAspect renders Library › Profile for the selected game.
 func (m ContentModel) ViewProfileAspect() string {
-	if m.dlssPresetModal.Visible() {
-		return m.dlssPresetModal.View()
-	}
 	if m.game == nil {
 		return m.styles.Dim.Render("Select a game from the scope list")
 	}
@@ -248,10 +301,6 @@ func (m ContentModel) ViewDLLAspect() string {
 		return m.styles.Dim.Render("Select a game from the scope list")
 	}
 	return m.renderDLLs()
-}
-
-func (m ContentModel) View() string {
-	return m.ViewProfileAspect()
 }
 
 func (m ContentModel) loadDLLTypes() tea.Cmd {

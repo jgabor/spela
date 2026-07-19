@@ -300,7 +300,7 @@ func TestFactories_Smoke(t *testing.T) {
 	t.Run("testLayoutWithGame selects the game", func(t *testing.T) {
 		g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
 		withGame := testLayoutWithGame(g)
-		cm := withGame.contentModel()
+		cm := withGame.pane.contentModel()
 		if cm == nil || cm.game == nil {
 			t.Fatal("expected game to be selected in content")
 		}

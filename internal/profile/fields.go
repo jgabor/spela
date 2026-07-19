@@ -222,3 +222,34 @@ func (p *Profile) Set(field string, value any) error {
 	p.MarkOverride(field)
 	return nil
 }
+
+// MergeChanges applies only fields changed between before and after to current.
+// It lets a transaction preserve unrelated edits committed by another surface.
+func MergeChanges(current, before, after *Profile) error {
+	if before == nil {
+		before = &Profile{}
+	}
+	if after == nil {
+		after = &Profile{}
+	}
+	if before.Name != after.Name {
+		current.Name = after.Name
+	}
+	for _, descriptor := range Fields() {
+		oldValue, _ := ReadField(before, descriptor.Key)
+		newValue, _ := ReadField(after, descriptor.Key)
+		if reflect.DeepEqual(oldValue, newValue) && before.IsOverridden(descriptor.Key) == after.IsOverridden(descriptor.Key) {
+			continue
+		}
+		if !after.IsOverridden(descriptor.Key) {
+			if err := current.Reset(descriptor.Key); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := current.Set(descriptor.Key, newValue); err != nil {
+			return err
+		}
+	}
+	return nil
+}

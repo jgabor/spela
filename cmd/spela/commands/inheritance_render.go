@@ -24,6 +24,30 @@ func inheritanceMarker(p *profile.Profile, field string) string {
 	return tui.CLIDim("[inherited]")
 }
 
+func resolvedProfileForShow(query string) (*game.Game, *profile.Profile, *profile.Profile, error) {
+	database, err := game.LoadDatabase()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	selected := database.FindGame(query)
+	if selected == nil {
+		return nil, nil, nil, fmt.Errorf("game not found: %s", query)
+	}
+	raw, err := profile.Load(selected.AppID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if raw == nil {
+		fmt.Printf("No profile for %s\n", selected.Name)
+		raw = &profile.Profile{}
+	}
+	defaults, err := profile.LoadDefault()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("load default profile: %w", err)
+	}
+	return selected, raw, raw.ResolveForApply(defaults), nil
+}
+
 func resolveProfileField(section, input string) (string, bool) {
 	leaf := strings.ReplaceAll(input, "-", "_")
 	switch section + "." + leaf {
@@ -44,16 +68,34 @@ func resolveProfileField(section, input string) (string, bool) {
 }
 
 type profileChanges struct {
-	profile *profile.Profile
-	changed bool
-	err     error
+	name      string
+	mutations []func(*profile.Profile) error
 }
 
 func (changes *profileChanges) set(field string, value any) {
-	changes.changed = true
-	if changes.err == nil {
-		changes.err = changes.profile.Set(field, value)
-	}
+	changes.mutations = append(changes.mutations, func(current *profile.Profile) error {
+		return current.Set(field, value)
+	})
+}
+
+func (changes *profileChanges) reset(field string) {
+	changes.mutations = append(changes.mutations, func(current *profile.Profile) error {
+		return current.Reset(field)
+	})
+}
+
+func (changes profileChanges) save(appID uint64) error {
+	return profile.Mutate(appID, func(current, _ *profile.Profile) error {
+		if current.Name == "" {
+			current.Name = changes.name
+		}
+		for _, mutate := range changes.mutations {
+			if err := mutate(current); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func resetProfileField(args []string, section, fieldName, errorSuffix string) error {
@@ -69,23 +111,24 @@ func resetProfileField(args []string, section, fieldName, errorSuffix string) er
 	if !ok {
 		return fmt.Errorf("unknown %s field %q%s", fieldName, args[1], errorSuffix)
 	}
-	stored, err := profile.Load(selectedGame.AppID)
+	reset := false
+	exists, err := profile.MutateExisting(selectedGame.AppID, func(current, _ *profile.Profile) error {
+		if !current.IsOverridden(field) {
+			return nil
+		}
+		reset = true
+		return current.Reset(field)
+	})
 	if err != nil {
 		return err
 	}
-	if stored == nil {
+	if !exists {
 		fmt.Printf("No profile for %s; field is already inherited.\n", selectedGame.Name)
 		return nil
 	}
-	if !stored.IsOverridden(field) {
+	if !reset {
 		fmt.Printf("%s: %s is already inherited.\n", selectedGame.Name, args[1])
 		return nil
-	}
-	if err := stored.Reset(field); err != nil {
-		return err
-	}
-	if err := profile.Save(selectedGame.AppID, stored); err != nil {
-		return err
 	}
 	fmt.Printf("Reset %s on %s to inherited.\n", args[1], selectedGame.Name)
 	return nil

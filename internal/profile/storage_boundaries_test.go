@@ -24,35 +24,6 @@ func TestProfileStorageSupportedFilesystemAndListingBoundaries(t *testing.T) {
 		}
 	})
 
-	t.Run("effective errors and fallback", func(t *testing.T) {
-		root := t.TempDir()
-		t.Setenv("XDG_CONFIG_HOME", root)
-		if err := EnsureProfilesDir(); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(profilePath(1), []byte("not: [yaml"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := LoadEffective(1); err == nil {
-			t.Fatal("malformed game profile unexpectedly loaded")
-		}
-		if err := os.Remove(profilePath(1)); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(defaultProfilePath(), []byte("not: [yaml"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := LoadEffective(1); err == nil {
-			t.Fatal("malformed default profile unexpectedly loaded")
-		}
-		if err := os.WriteFile(defaultProfilePath(), []byte("name: Defaults\noverrides: {}\n"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		if effective, err := LoadEffective(1); err != nil || effective == nil || effective.Name != "Defaults" {
-			t.Fatalf("default effective profile = %+v, %v", effective, err)
-		}
-	})
-
 	t.Run("list filters unsupported entries", func(t *testing.T) {
 		root := t.TempDir()
 		t.Setenv("XDG_CONFIG_HOME", root)

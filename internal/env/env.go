@@ -19,30 +19,6 @@ func (e *Environment) Set(key, value string) {
 	e.vars[key] = value
 }
 
-func (e *Environment) SetIf(key, value string, condition bool) {
-	if condition {
-		e.vars[key] = value
-	}
-}
-
-func (e *Environment) Get(key string) string {
-	return e.vars[key]
-}
-
-func (e *Environment) All() map[string]string {
-	result := make(map[string]string, len(e.vars))
-	for k, v := range e.vars {
-		result[k] = v
-	}
-	return result
-}
-
-func (e *Environment) Apply() {
-	for k, v := range e.vars {
-		_ = os.Setenv(k, v)
-	}
-}
-
 func (e *Environment) BuildEnv() []string {
 	env := os.Environ()
 	for k, v := range e.vars {
@@ -78,18 +54,9 @@ func (e *Environment) EnableVKD3DHeap(legacyProtonGate bool) {
 	e.Set("VKD3D_CONFIG", "descriptor_heap")
 }
 
-// Unset removes a variable from the launch environment overlay.
-func (e *Environment) Unset(key string) {
-	delete(e.vars, key)
-}
-
 func (e *Environment) SetShaderCache(path string) {
 	e.Set("__GL_SHADER_DISK_CACHE", "1")
 	e.Set("__GL_SHADER_DISK_CACHE_PATH", path)
-}
-
-func (e *Environment) SetDXVKCache(path string) {
-	e.Set("DXVK_STATE_CACHE_PATH", path)
 }
 
 func (e *Environment) SetThreadedOptimization(enabled bool) {
@@ -98,8 +65,4 @@ func (e *Environment) SetThreadedOptimization(enabled bool) {
 	} else {
 		e.Set("__GL_THREADED_OPTIMIZATION", "0")
 	}
-}
-
-func (e *Environment) SetDXVKConfigFile(path string) {
-	e.Set("DXVK_CONFIG_FILE", path)
 }

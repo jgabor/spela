@@ -446,22 +446,28 @@ func TestGUIBoundaryProfileFallbackAndErrorContracts(t *testing.T) {
 	boundary.loadDefaultProfile = func() (*profile.Profile, error) {
 		return &profile.Profile{Proton: profile.ProtonSettings{EnableHDR: true}}, nil
 	}
-	if info := boundary.getProfile(1); info == nil || info["inheritedFromDefault"] != true || info["enableHdr"] != true {
+	if info := boundary.profileView(appID(1)); info == nil || info["inheritedFromDefault"] != true || info["enableHdr"] != true {
 		t.Fatalf("default fallback profile = %+v", info)
 	}
-	if info := boundary.getDefaultProfile(); info == nil || info["enableHdr"] != true {
+	if info := boundary.profileView(nil); info == nil || info["enableHdr"] != true {
 		t.Fatalf("default profile = %+v", info)
 	}
 	boundary.loadDefaultProfile = func() (*profile.Profile, error) { return nil, errors.New("invalid defaults") }
-	if boundary.getProfile(1) != nil || boundary.getDefaultProfile() != nil {
+	if boundary.profileView(appID(1)) != nil || boundary.profileView(nil) != nil {
 		t.Fatal("default profile load errors did not return nil")
 	}
 	boundary.loadProfile = func(uint64) (*profile.Profile, error) { return nil, errors.New("invalid game profile") }
+	boundary.mutateProfile = func(uint64, func(*profile.Profile, *profile.Profile) error) error {
+		return errors.New("invalid game profile")
+	}
 	if err := boundary.patchGameProfile(1, []ProfilePatch{{Field: profile.FieldProtonEnableHDR, Operation: "set", Value: true}}); err == nil || !strings.Contains(err.Error(), "invalid game profile") {
 		t.Fatalf("save profile load error = %v", err)
 	}
 	boundary.loadProfile = func(uint64) (*profile.Profile, error) { return nil, nil }
 	boundary.loadDefaultProfile = func() (*profile.Profile, error) { return nil, errors.New("invalid defaults") }
+	boundary.mutateProfile = func(uint64, func(*profile.Profile, *profile.Profile) error) error {
+		return errors.New("load default profile: invalid defaults")
+	}
 	if err := boundary.patchGameProfile(1, []ProfilePatch{{Field: profile.FieldProtonEnableHDR, Operation: "set", Value: true}}); err == nil || !strings.Contains(err.Error(), "load default profile") {
 		t.Fatalf("save profile defaults error = %v", err)
 	}

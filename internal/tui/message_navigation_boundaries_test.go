@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/jgabor/spela/internal/nav"
-	"github.com/jgabor/spela/internal/profile"
 )
 
 func TestMessageBarSupportedTypesFlashAndStaleTimerContracts(t *testing.T) {
@@ -39,40 +38,6 @@ func TestMessageBarSupportedTypesFlashAndStaleTimerContracts(t *testing.T) {
 	bar.Clear()
 	if bar.HasMessage() {
 		t.Fatal("manual clear retained message")
-	}
-}
-
-func TestDLSSPresetModalSupportedKeyAliasesAndBoundaryViews(t *testing.T) {
-	modal := NewDLSSPresetModal(NewStyles(DefaultTheme, true))
-	if next, command := modal.Update(keyMsg("enter")); next.Visible() || command != nil || next.View() != "" {
-		t.Fatal("hidden preset modal handled input")
-	}
-	modal.SetSize(20, 10)
-	modal.Open(profile.DLSSPresetAuto)
-	if !strings.Contains(stripANSI(modal.View()), "auto") {
-		t.Fatal("auto preset view missing selection")
-	}
-	for _, key := range []string{"up", "k", "down", "j"} {
-		modal, _ = modal.Update(keyMsg(key))
-	}
-	modal.cursor = 0
-	modal, _ = modal.Update(keyMsg("up"))
-	modal.cursor = len(dlssPresetOrder) - 1
-	modal, _ = modal.Update(keyMsg("down"))
-	modal, command := modal.Update(keyMsg("enter"))
-	if modal.Visible() || command == nil {
-		t.Fatal("preset selection did not close modal")
-	}
-	if _, ok := command().(dlssPresetSelectedMsg); !ok {
-		t.Fatalf("preset selection = %#v", command())
-	}
-	modal.Open(profile.DLSSPresetDefault)
-	modal, command = modal.Update(keyMsg("q"))
-	if modal.Visible() || command == nil {
-		t.Fatal("preset q did not cancel")
-	}
-	if _, ok := command().(dlssPresetCancelledMsg); !ok {
-		t.Fatalf("preset cancellation = %#v", command())
 	}
 }
 

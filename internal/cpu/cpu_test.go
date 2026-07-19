@@ -234,26 +234,6 @@ func TestGetCPUMetrics(t *testing.T) {
 	}
 }
 
-func TestLaunchWithAffinity(t *testing.T) {
-	cmd := LaunchWithAffinity("0-3", []string{"echo", "hello"})
-	args := cmd.Args
-	if len(args) < 4 {
-		t.Fatalf("args = %v, want at least 4 elements", args)
-	}
-	if args[0] != "taskset" {
-		t.Errorf("args[0] = %q, want taskset", args[0])
-	}
-	if args[1] != "-c" {
-		t.Errorf("args[1] = %q, want -c", args[1])
-	}
-	if args[2] != "0-3" {
-		t.Errorf("args[2] = %q, want 0-3", args[2])
-	}
-	if args[3] != "echo" {
-		t.Errorf("args[3] = %q, want echo", args[3])
-	}
-}
-
 func TestCPUFixtureErrorAndUtilizationBoundaries(t *testing.T) {
 	root := setupMockSysfs(t)
 	if _, err := GetAvailableGovernors(); err == nil {

@@ -11,7 +11,7 @@ import (
 	"github.com/jgabor/spela/internal/nav"
 )
 
-func TestLayoutConstructionDialogAndRenderingBoundaryContracts(t *testing.T) {
+func TestLayoutConstructionAndRenderingBoundaryContracts(t *testing.T) {
 	services := testServices()
 	services.LoadConfig = func() (*config.Config, error) { return nil, errors.New("missing") }
 	services.ScanGames = func(*config.Config) (*game.Database, error) { return nil, errors.New("offline") }
@@ -21,15 +21,6 @@ func TestLayoutConstructionDialogAndRenderingBoundaryContracts(t *testing.T) {
 	}
 	if message, ok := layout.rescanGames()().(rescanGamesMsg); !ok || message.err == nil {
 		t.Fatalf("rescan error message = %#v", message)
-	}
-
-	dialog := NewOptionsModal(layout.styles)
-	dialog.Open(config.Default())
-	layout.activeDialog = &dialog
-	model, _ := layout.Update(keyMsg("esc"))
-	layout = model.(LayoutModel)
-	if layout.activeDialog != nil {
-		t.Fatal("closed active dialog remained attached")
 	}
 
 	if zoneLabel(nav.Zone(99)) != "Primary" || zoneLabel(nav.ZoneContext) != "Context" || zoneLabel(nav.ZoneContent) != "Content" {

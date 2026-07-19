@@ -14,7 +14,7 @@ func TestOptionsModal_EmbeddedShowsSingleSection(t *testing.T) {
 	modal.OpenEmbedded(config.Default())
 	modal.SyncNavSection(nav.SettingsLogging)
 
-	view := modal.ViewInline()
+	view := modal.renderOptionsBody()
 	if !strings.Contains(view, "Log level") {
 		t.Fatalf("expected logging option in view, got %q", view)
 	}
@@ -43,7 +43,7 @@ func TestOptionsModal_CompactWidthKeepsValuesOnOptionRows(t *testing.T) {
 	modal.OpenEmbedded(config.Default())
 	modal.SetSize(34, 14)
 
-	view := stripANSI(modal.ViewInline())
+	view := stripANSI(modal.renderOptionsBody())
 	for _, row := range []string{"Theme: default", "Show hints: true", "Compact mode: false", "Confirm destr…: true"} {
 		if !strings.Contains(view, row) {
 			t.Errorf("compact settings missing row %q:\n%s", row, view)

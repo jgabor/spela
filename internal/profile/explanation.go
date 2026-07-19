@@ -106,24 +106,6 @@ func (p *Profile) ExplainField(field string, defaults *Profile) (FieldExplanatio
 	return item, nil
 }
 
-// FieldLaunchImpact returns the launch impact category for a profile field.
-func FieldLaunchImpact(field string) (LaunchImpact, error) {
-	descriptor, ok := Field(field)
-	if !ok {
-		return "", fmt.Errorf("unknown profile field: %q", field)
-	}
-	return descriptor.Impact, nil
-}
-
-// FieldRestoreCoverage returns the cleanup category for a profile field.
-func FieldRestoreCoverage(field string) (RestoreCoverage, error) {
-	descriptor, ok := Field(field)
-	if !ok {
-		return "", fmt.Errorf("unknown profile field: %q", field)
-	}
-	return descriptor.Restore, nil
-}
-
 func explanationValue(v reflect.Value) any {
 	if v.Kind() == reflect.Pointer {
 		if v.IsNil() {

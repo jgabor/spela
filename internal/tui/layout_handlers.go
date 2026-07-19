@@ -74,6 +74,9 @@ func (m LayoutModel) handleSystemKey(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd,
 		m.calculateDimensions()
 		return m, nil, true
 	case "?":
+		if m.pane.HasModalOpen() {
+			return m, nil, false
+		}
 		m.showHelp = true
 		return m, nil, true
 	}
@@ -304,8 +307,6 @@ func (m LayoutModel) handleAppMessages(msg tea.Msg, cmds []tea.Cmd) (LayoutModel
 	case optionsSaveErrorMsg:
 		cmds = append(cmds, m.messageBar.SetMessage(fmt.Sprintf("Failed to save settings: %v", msg.err), MessageError))
 
-	case optionsCancelledMsg:
-		// no-op for embedded settings
 	}
 
 	return m, cmds
@@ -387,7 +388,7 @@ func (m LayoutModel) handleRescanGamesMsg(msg rescanGamesMsg, cmds []tea.Cmd) (L
 		fmt.Sprintf("Rescan complete: %d games found", len(games)),
 		MessageSuccess,
 	))
-	if cm := m.contentModel(); cm != nil && cm.game != nil {
+	if cm := m.pane.contentModel(); cm != nil && cm.game != nil {
 		if refreshed := msg.db.GetGame(cm.game.AppID); refreshed != nil {
 			m.pane.loadGameScope(refreshed)
 			*m.navState = m.pane.State()
@@ -401,7 +402,7 @@ func (m LayoutModel) handleRescanGamesMsg(msg rescanGamesMsg, cmds []tea.Cmd) (L
 func (m LayoutModel) handleProfileSaveMsg(msg profileSaveMsg, cmds []tea.Cmd) (LayoutModel, []tea.Cmd) {
 	var msgType MessageType
 	var message string
-	if msg.success {
+	if msg.err == nil {
 		message = "Profile saved!"
 		msgType = MessageSuccess
 	} else if msg.err != nil {
@@ -409,8 +410,12 @@ func (m LayoutModel) handleProfileSaveMsg(msg profileSaveMsg, cmds []tea.Cmd) (L
 		msgType = MessageError
 	}
 	cmds = append(cmds, m.messageBar.SetMessage(message, msgType))
-	updated, _ := m.pane.content.Update(msg)
-	m.pane.content = updated
-	m.pane.refreshDefaultsDetail()
+	if msg.request.appID == 0 {
+		cmds = append(cmds, m.pane.completeDefaultSave(msg))
+	} else {
+		updated, cmd := m.pane.content.Update(msg)
+		m.pane.content = updated
+		cmds = append(cmds, cmd)
+	}
 	return m, cmds
 }

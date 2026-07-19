@@ -151,12 +151,8 @@ func (db *Database) FindGame(query string) *Game {
 			return g
 		}
 	}
-	return db.GetGameByName(query)
-}
-
-func (db *Database) GetGameByName(name string) *Game {
 	for _, g := range db.Games {
-		if g.Name == name {
+		if g.Name == query {
 			return g
 		}
 	}

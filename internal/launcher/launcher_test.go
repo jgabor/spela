@@ -20,6 +20,16 @@ import (
 	"github.com/jgabor/spela/internal/xdg"
 )
 
+func launcherEnvironmentValue(launcher *Launcher, key string) string {
+	environment := launcher.Environment.BuildEnv()
+	for index := len(environment) - 1; index >= 0; index-- {
+		if value, found := strings.CutPrefix(environment[index], key+"="); found {
+			return value
+		}
+	}
+	return ""
+}
+
 func withTempXDGConfig(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
@@ -100,10 +110,10 @@ func TestPrepare_VKD3DHeap_IntegratedBuild_OmitsLegacyEnv(t *testing.T) {
 	l.Profile = p
 	requirePrepare(t, l)
 
-	if got := l.Environment.Get("VKD3D_CONFIG"); got != "descriptor_heap" {
+	if got := launcherEnvironmentValue(l, "VKD3D_CONFIG"); got != "descriptor_heap" {
 		t.Errorf("VKD3D_CONFIG = %q, want descriptor_heap", got)
 	}
-	if got := l.Environment.Get("PROTON_VKD3D_HEAP"); got != "" {
+	if got := launcherEnvironmentValue(l, "PROTON_VKD3D_HEAP"); got != "" {
 		t.Errorf("PROTON_VKD3D_HEAP = %q, want unset for integrated 11.x build", got)
 	}
 }
@@ -123,10 +133,10 @@ func TestPrepare_VKD3DHeap_LegacyBuild_SetsLegacyEnv(t *testing.T) {
 	l.Profile = p
 	requirePrepare(t, l)
 
-	if got := l.Environment.Get("VKD3D_CONFIG"); got != "descriptor_heap" {
+	if got := launcherEnvironmentValue(l, "VKD3D_CONFIG"); got != "descriptor_heap" {
 		t.Errorf("VKD3D_CONFIG = %q, want descriptor_heap", got)
 	}
-	if got := l.Environment.Get("PROTON_VKD3D_HEAP"); got != "1" {
+	if got := launcherEnvironmentValue(l, "PROTON_VKD3D_HEAP"); got != "1" {
 		t.Errorf("PROTON_VKD3D_HEAP = %q, want 1 for legacy 10.x build", got)
 	}
 }
@@ -249,7 +259,7 @@ func TestPrepareOverlayCreatesIPC(t *testing.T) {
 	l.Profile = p
 	requirePrepare(t, l)
 
-	ipcPath := l.Environment.Get("SPELA_OVERLAY_IPC")
+	ipcPath := launcherEnvironmentValue(l, "SPELA_OVERLAY_IPC")
 	if ipcPath == "" {
 		t.Fatal("SPELA_OVERLAY_IPC not set after Prepare()")
 	}
@@ -306,7 +316,7 @@ func TestPrepareNoOverlayWithoutProfile(t *testing.T) {
 	l := New(nil)
 	requirePrepare(t, l)
 
-	if ipc := l.Environment.Get("SPELA_OVERLAY_IPC"); ipc != "" {
+	if ipc := launcherEnvironmentValue(l, "SPELA_OVERLAY_IPC"); ipc != "" {
 		t.Errorf("SPELA_OVERLAY_IPC = %q, want empty (no profile)", ipc)
 	}
 }

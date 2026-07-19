@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"syscall"
 
 	"gopkg.in/yaml.v3"
 
@@ -73,59 +74,131 @@ func LoadDefault() (*Profile, error) {
 	return unmarshalProfileYAML(data)
 }
 
-// LoadEffective returns the profile that should be applied for a game launch.
-// If a game profile exists, it is resolved against the current defaults so
-// inherited fields take their value from defaults and overridden fields keep
-// their pinned value. If no game profile exists, the defaults profile is
-// returned directly.
-func LoadEffective(appID uint64) (*Profile, error) {
-	p, err := Load(appID)
-	if err != nil {
-		return nil, err
-	}
-	defaults, err := LoadDefault()
-	if err != nil {
-		return nil, fmt.Errorf("load default profile: %w", err)
-	}
-	if p != nil {
-		return p.ResolveForApply(defaults), nil
-	}
-	return defaults, nil
-}
-
 func Save(appID uint64, p *Profile) error {
-	if err := EnsureProfilesDir(); err != nil {
-		return err
-	}
-
-	data, err := yaml.Marshal(p)
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(profilePath(appID), data, 0o644)
+	return save(profilePath(appID), p)
 }
 
 func SaveDefault(p *Profile) error {
+	return save(defaultProfilePath(), p)
+}
+
+func save(path string, p *Profile) error {
 	if err := EnsureProfilesDir(); err != nil {
 		return err
 	}
-
 	data, err := yaml.Marshal(p)
 	if err != nil {
 		return err
 	}
+	temporary, err := os.CreateTemp(filepath.Dir(path), ".profile-*.tmp")
+	if err != nil {
+		return err
+	}
+	temporaryPath := temporary.Name()
+	defer func() { _ = os.Remove(temporaryPath) }()
+	if err := temporary.Chmod(0o644); err != nil {
+		_ = temporary.Close()
+		return err
+	}
+	if _, err := temporary.Write(data); err != nil {
+		_ = temporary.Close()
+		return err
+	}
+	if err := temporary.Close(); err != nil {
+		return err
+	}
+	return os.Rename(temporaryPath, path)
+}
 
-	return os.WriteFile(defaultProfilePath(), data, 0o644)
+// Mutate serializes a fresh read-modify-write transaction across processes.
+// The callback must not call Mutate or MutateDefault. A missing profile is
+// supplied as an empty profile; defaults are loaded fresh for pin/reset logic.
+func Mutate(appID uint64, callback func(current, defaults *Profile) error) error {
+	_, err := mutate(appID, true, callback)
+	return err
+}
+
+// MutateExisting is Mutate without implicit profile creation.
+func MutateExisting(appID uint64, callback func(current, defaults *Profile) error) (bool, error) {
+	return mutate(appID, false, callback)
+}
+
+func mutate(appID uint64, create bool, callback func(current, defaults *Profile) error) (bool, error) {
+	exists := false
+	err := withMutationLock(func() error {
+		current, err := Load(appID)
+		if err != nil {
+			return err
+		}
+		if current == nil && !create {
+			return nil
+		}
+		exists = current != nil
+		defaults, err := LoadDefault()
+		if err != nil {
+			return fmt.Errorf("load default profile: %w", err)
+		}
+		current = current.Clone()
+		if err := callback(current, defaults); err != nil {
+			return err
+		}
+		return Save(appID, current)
+	})
+	return exists, err
+}
+
+// MutateDefault is the default-profile form of Mutate. Its callback must not recurse.
+func MutateDefault(callback func(current *Profile) error) error {
+	return withMutationLock(func() error {
+		current, err := LoadDefault()
+		if err != nil {
+			return err
+		}
+		current = current.Clone()
+		if err := callback(current); err != nil {
+			return err
+		}
+		return SaveDefault(current)
+	})
+}
+
+func withMutationLock(callback func() error) error {
+	if err := EnsureProfilesDir(); err != nil {
+		return err
+	}
+	file, err := os.OpenFile(filepath.Join(profilesDir(), ".mutation.lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = file.Close() }()
+	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
+		return err
+	}
+	defer func() { _ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) }()
+	return callback()
 }
 
 func Delete(appID uint64) error {
-	path := profilePath(appID)
-	err := os.Remove(path)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
-	}
-	return err
+	return withMutationLock(func() error {
+		err := os.Remove(profilePath(appID))
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return err
+	})
+}
+
+// Create writes a profile only when no profile exists in the locked transaction.
+func Create(appID uint64, p *Profile) (bool, error) {
+	created := false
+	err := withMutationLock(func() error {
+		if Exists(appID) {
+			return nil
+		}
+		created = true
+		return Save(appID, p)
+	})
+	return created, err
 }
 
 func List() (map[uint64]*Profile, error) {

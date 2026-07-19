@@ -69,29 +69,21 @@ func TestFieldSemantics_ClassifyImpactAndRestoreCoverage(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		impact, err := profile.FieldLaunchImpact(tc.field)
-		if err != nil {
-			t.Fatalf("FieldLaunchImpact(%s): %v", tc.field, err)
+		descriptor, ok := profile.Field(tc.field)
+		if !ok {
+			t.Fatalf("Field(%s) not found", tc.field)
 		}
-		if impact != tc.impact {
-			t.Fatalf("FieldLaunchImpact(%s): expected %s, got %s", tc.field, tc.impact, impact)
+		if descriptor.Impact != tc.impact {
+			t.Fatalf("Field(%s) impact: expected %s, got %s", tc.field, tc.impact, descriptor.Impact)
 		}
-
-		restore, err := profile.FieldRestoreCoverage(tc.field)
-		if err != nil {
-			t.Fatalf("FieldRestoreCoverage(%s): %v", tc.field, err)
-		}
-		if restore != tc.restore {
-			t.Fatalf("FieldRestoreCoverage(%s): expected %s, got %s", tc.field, tc.restore, restore)
+		if descriptor.Restore != tc.restore {
+			t.Fatalf("Field(%s) restore: expected %s, got %s", tc.field, tc.restore, descriptor.Restore)
 		}
 	}
 }
 
 func TestFieldSemantics_RejectUnknownField(t *testing.T) {
-	if _, err := profile.FieldLaunchImpact("gpu.unknown"); err == nil {
-		t.Fatal("FieldLaunchImpact: expected unknown field error")
-	}
-	if _, err := profile.FieldRestoreCoverage("gpu.unknown"); err == nil {
-		t.Fatal("FieldRestoreCoverage: expected unknown field error")
+	if _, ok := profile.Field("gpu.unknown"); ok {
+		t.Fatal("Field: expected unknown field rejection")
 	}
 }

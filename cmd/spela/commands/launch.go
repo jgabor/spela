@@ -140,19 +140,16 @@ func printEnvironmentSummary(p *profile.Profile) {
 	if p != nil {
 		p.ApplyEnv(e)
 	}
-	envVars := e.All()
 	fmt.Printf("\n%s\n", tui.CLIPrimary("Environment"))
-	if len(envVars) == 0 {
+	parentCount := len(os.Environ())
+	entries := e.BuildEnv()[parentCount:]
+	if len(entries) == 0 {
 		fmt.Printf("  %s\n", tui.CLIDim("no launch environment variables planned"))
 		return
 	}
-	keys := make([]string, 0, len(envVars))
-	for k := range envVars {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		fmt.Printf("  %s=%s\n", tui.CLIDim(k), envVars[k])
+	sort.Strings(entries)
+	for _, entry := range entries {
+		fmt.Printf("  %s\n", tui.CLIDim(entry))
 	}
 }
 

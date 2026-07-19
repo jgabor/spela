@@ -14,20 +14,24 @@ import (
 
 // resourcePaneModel renders the content column for the active destination.
 type resourcePaneModel struct {
-	styles         *Styles
-	services       *Services
-	navState       *nav.State
-	content        ContentModel
-	defaultsDetail DetailModel
-	overview       OverviewModel
-	dllsResource   DLLsResourceModel
-	metricsView    MetricsResourceModel
-	settings       OptionsModalModel
-	width          int
-	height         int
+	styles            *Styles
+	services          *Services
+	navState          *nav.State
+	content           ContentModel
+	defaultsDetail    DetailModel
+	persistedDefaults *profile.Profile
+	overview          OverviewModel
+	dllsResource      DLLsResourceModel
+	metricsView       MetricsResourceModel
+	settings          OptionsModalModel
+	width             int
+	height            int
 }
 
 func newResourcePane(styles *Styles, content ContentModel) resourcePaneModel {
+	if content.profileSaves == nil {
+		content.profileSaves = &profileSaveState{}
+	}
 	return resourcePaneModel{
 		styles:       styles,
 		content:      content,
@@ -39,8 +43,7 @@ func newResourcePane(styles *Styles, content ContentModel) resourcePaneModel {
 }
 
 func (p *resourcePaneModel) setServices(svc *Services) {
-	p.services = svc
-	p.dllsResource.services = svc
+	p.services, p.dllsResource.services = svc, svc
 	p.refreshDefaultsDetail()
 }
 
@@ -48,13 +51,14 @@ func (p *resourcePaneModel) refreshDefaultsDetail() {
 	preserveField := p.defaultsDetail.FocusedField()
 	preserveCursor := p.defaultsDetail.Cursor()
 	preserveSubsystem := p.defaultsDetail.activeSubsystem
-	if p.services == nil || p.services.LoadDefaultProfile == nil {
-		p.defaultsDetail = NewRootDetail(p.styles, nil)
-		p.defaultsDetail.SetActiveSubsystem(preserveSubsystem)
-		p.defaultsDetail.RestoreFocus(preserveField, preserveCursor)
-		return
+	var defaults *profile.Profile
+	if p.services != nil && p.services.LoadDefaultProfile != nil {
+		defaults, _ = p.services.LoadDefaultProfile()
+		p.persistedDefaults = defaults.Clone()
 	}
-	defaults, _ := p.services.LoadDefaultProfile()
+	if desired := p.content.profileSaves.latest(0); desired != nil {
+		defaults = desired.Clone()
+	}
 	p.defaultsDetail = NewRootDetail(p.styles, defaults)
 	p.defaultsDetail.SetActiveSubsystem(preserveSubsystem)
 	p.defaultsDetail.RestoreFocus(preserveField, preserveCursor)
@@ -92,8 +96,7 @@ func (p *resourcePaneModel) applyProfileSubsystem() {
 }
 
 func (p *resourcePaneModel) SetSize(width, height int) {
-	p.width = width
-	p.height = height
+	p.width, p.height = width, height
 	p.content.SetSize(width-4, height)
 	p.defaultsDetail.SetSize(width-4, height)
 	p.dllsResource.SetSize(width-4, height)
@@ -184,7 +187,7 @@ func (p resourcePaneModel) renderSettings(contentFocused bool) string {
 	var b strings.Builder
 	b.WriteString(s.Title.Render("Settings"))
 	b.WriteString("\n\n")
-	b.WriteString(p.settings.ViewInline())
+	b.WriteString(p.settings.renderOptionsBody())
 	return boxStyle.Render(b.String())
 }
 
@@ -204,10 +207,8 @@ func (p resourcePaneModel) Update(msg tea.Msg) (resourcePaneModel, tea.Cmd) {
 		p.dllsResource = next
 		return p, cmd
 	case nav.DestinationSettings:
-		dialog, cmd := p.settings.Update(msg)
-		if next, ok := dialog.(*OptionsModalModel); ok {
-			p.settings = *next
-		}
+		var cmd tea.Cmd
+		p.settings, cmd = p.settings.Update(msg)
 		return p, cmd
 	}
 	return p, nil
@@ -266,14 +267,9 @@ func (p resourcePaneModel) updateLibrary(msg tea.Msg) (resourcePaneModel, tea.Cm
 
 // HasModalOpen reports modals that should suppress global hotkeys.
 func (p resourcePaneModel) HasModalOpen() bool {
-	switch p.State().Destination {
-	case nav.DestinationLibrary:
-		return p.content.HasModalOpen()
-	case nav.DestinationSettings:
-		return p.settings.editingPath
-	default:
-		return false
-	}
+	destination := p.State().Destination
+	return destination == nav.DestinationLibrary && p.content.HasModalOpen() ||
+		destination == nav.DestinationSettings && p.settings.editingPath
 }
 
 func (p resourcePaneModel) contentModel() *ContentModel {
@@ -285,18 +281,23 @@ func (p resourcePaneModel) contentModel() *ContentModel {
 
 // saveDefaultProfile persists the root defaults profile asynchronously,
 // emitting profileSaveMsg on completion (handled by the layout).
-func (p resourcePaneModel) saveDefaultProfile() tea.Cmd {
+func (p *resourcePaneModel) saveDefaultProfile() tea.Cmd {
 	raw := p.defaultsDetail.RawProfile()
 	if raw == nil {
 		return nil
 	}
-	toSave := *raw
-	return func() tea.Msg {
-		if err := profile.SaveDefault(&toSave); err != nil {
-			return profileSaveMsg{err: err}
-		}
-		return profileSaveMsg{success: true}
+	before := p.persistedDefaults
+	if desired := p.content.profileSaves.latest(0); desired != nil {
+		before = desired
 	}
+	return p.content.profileSaves.start(profileSaveRequest{before: before.Clone(), desired: raw.Clone()})
+}
+
+func (p *resourcePaneModel) completeDefaultSave(message profileSaveMsg) tea.Cmd {
+	if message.err == nil && message.request.desired != nil {
+		p.persistedDefaults = message.request.desired.Clone()
+	}
+	return p.content.profileSaves.complete(message)
 }
 
 // loadGlobalScope prepares default profile content.

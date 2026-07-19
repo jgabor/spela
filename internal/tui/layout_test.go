@@ -14,6 +14,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/nav"
@@ -83,6 +84,29 @@ func TestLayout_HelpBlocksOtherKeys(t *testing.T) {
 	if layout.rail.Active() != activeBefore {
 		t.Error("expected help to block rail hotkeys")
 	}
+}
+
+func TestLayout_SettingsPathInputReceivesQuestionMark(t *testing.T) {
+	m := testLayout()
+	*m.navState = m.navState.SelectDestination(nav.DestinationSettings)
+	m.navState.Zone = nav.ZoneContent
+	m.syncNavToComponents()
+	for sectionIndex, section := range m.pane.settings.sections {
+		for optionIndex, option := range section.Options {
+			if option.Kind == config.KindPath {
+				m.pane.settings.sectionCursor = sectionIndex
+				m.pane.settings.optionCursor = optionIndex
+				m.pane.settings.startPathEditing()
+				result, _ := sendKey(&m, "?")
+				layout := result.(LayoutModel)
+				if layout.showHelp || !strings.Contains(layout.pane.settings.pathInput.Value(), "?") {
+					t.Fatalf("question mark opened help or missed focused input: help=%v value=%q", layout.showHelp, layout.pane.settings.pathInput.Value())
+				}
+				return
+			}
+		}
+	}
+	t.Fatal("no path setting found")
 }
 
 // ---------------------------------------------------------------------------
@@ -203,8 +227,8 @@ func TestLayout_SettingsDestination(t *testing.T) {
 	if layout.rail.Active() != nav.DestinationSettings {
 		t.Fatalf("expected Settings destination, got %v", layout.rail.Active())
 	}
-	if !layout.pane.settings.visible {
-		t.Error("expected embedded settings pane to be visible")
+	if layout.pane.settings.config == nil || layout.pane.settings.renderOptionsBody() == "" {
+		t.Error("expected settings destination content")
 	}
 }
 

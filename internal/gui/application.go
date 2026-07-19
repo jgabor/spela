@@ -21,8 +21,8 @@ type guiApplicationBoundary struct {
 	loadConfig          func() (*config.Config, error)
 	loadProfile         func(uint64) (*profile.Profile, error)
 	loadDefaultProfile  func() (*profile.Profile, error)
-	saveProfile         func(uint64, *profile.Profile) error
-	saveDefaultProfile  func(*profile.Profile) error
+	mutateProfile       func(uint64, func(*profile.Profile, *profile.Profile) error) error
+	mutateDefault       func(func(*profile.Profile) error) error
 	findSteamPath       func() string
 	compatibilityNotice func(uint64, proton.NoticeDeps) string
 	resolveProton       func(string, uint64) (proton.Build, error)
@@ -38,8 +38,8 @@ func defaultGUIApplicationBoundary(db *game.Database) guiApplicationBoundary {
 		loadConfig:          config.Load,
 		loadProfile:         profile.Load,
 		loadDefaultProfile:  profile.LoadDefault,
-		saveProfile:         profile.Save,
-		saveDefaultProfile:  profile.SaveDefault,
+		mutateProfile:       profile.Mutate,
+		mutateDefault:       profile.MutateDefault,
 		findSteamPath:       steam.FindSteamPath,
 		compatibilityNotice: proton.CompatibilityNotice,
 		resolveProton:       proton.ResolveForAppID,
@@ -58,75 +58,52 @@ func newGUIApplicationBoundary(db *game.Database, emitDLLProgress func(string)) 
 	return boundary
 }
 
-func (b guiApplicationBoundary) getProfile(appID uint64) map[string]any {
-	perGameProfile, err := b.loadProfile(appID)
-	if err != nil {
-		return nil
-	}
+func (b guiApplicationBoundary) profileView(appID *uint64) map[string]any {
 	defaultProfile, err := b.loadDefaultProfile()
 	if err != nil {
 		return nil
 	}
-	if perGameProfile != nil {
-		explanations, err := perGameProfile.Explain(defaultProfile)
+	var raw *profile.Profile
+	if appID != nil {
+		raw, err = b.loadProfile(*appID)
 		if err != nil {
 			return nil
 		}
-		return profileView(perGameProfile.ResolveForApply(defaultProfile), explanations, false)
 	}
-
-	if defaultProfile == nil {
+	resolved := defaultProfile
+	if raw != nil {
+		resolved = raw.ResolveForApply(defaultProfile)
+	}
+	if resolved == nil {
 		return nil
 	}
-	explanations, err := (*profile.Profile)(nil).Explain(defaultProfile)
+	explanations, err := raw.Explain(defaultProfile)
 	if err != nil {
 		return nil
 	}
-	return profileView(defaultProfile, explanations, true)
-}
-
-func (b guiApplicationBoundary) getDefaultProfile() map[string]any {
-	defaultProfile, err := b.loadDefaultProfile()
-	if err != nil {
-		return nil
-	}
-	explanations, err := (*profile.Profile)(nil).Explain(defaultProfile)
-	if err != nil {
-		return nil
-	}
-	return profileView(defaultProfile, explanations, true)
+	return profileView(resolved, explanations, raw == nil)
 }
 
 func (b guiApplicationBoundary) patchGameProfile(appID uint64, patches []ProfilePatch) error {
-	current, err := b.loadProfile(appID)
-	if err != nil {
-		return err
-	}
-	current = current.Clone()
-	defaults, err := b.loadDefaultProfile()
-	if err != nil {
-		return fmt.Errorf("load default profile: %w", err)
-	}
-	for _, patch := range patches {
-		if err := applyProfilePatch(current, defaults, patch, false); err != nil {
-			return err
+	return b.mutateProfile(appID, func(current, defaults *profile.Profile) error {
+		for _, patch := range patches {
+			if err := applyProfilePatch(current, defaults, patch, false); err != nil {
+				return err
+			}
 		}
-	}
-	return b.saveProfile(appID, current)
+		return nil
+	})
 }
 
 func (b guiApplicationBoundary) patchDefaultProfile(patches []ProfilePatch) error {
-	current, err := b.loadDefaultProfile()
-	if err != nil {
-		return err
-	}
-	current = current.Clone()
-	for _, patch := range patches {
-		if err := applyProfilePatch(current, nil, patch, true); err != nil {
-			return err
+	return b.mutateDefault(func(current *profile.Profile) error {
+		for _, patch := range patches {
+			if err := applyProfilePatch(current, nil, patch, true); err != nil {
+				return err
+			}
 		}
-	}
-	return b.saveDefaultProfile(current)
+		return nil
+	})
 }
 
 func applyProfilePatch(current, defaults *profile.Profile, patch ProfilePatch, root bool) error {

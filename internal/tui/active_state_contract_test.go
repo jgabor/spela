@@ -66,7 +66,7 @@ func TestOptionsModalEditsEveryCatalogOptionThroughKeyboardContract(t *testing.T
 	state := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", state)
 	modal := NewOptionsModal(NewStyles(DefaultTheme, true))
-	modal.Open(config.Default())
+	modal.OpenEmbedded(config.Default())
 	modal.SetSize(100, 40)
 
 	for sectionIndex, section := range modal.sections {
@@ -82,20 +82,20 @@ func TestOptionsModalEditsEveryCatalogOptionThroughKeyboardContract(t *testing.T
 				key = "right"
 			}
 			next, _ := modal.Update(keyMsg(key))
-			modal = *next.(*OptionsModalModel)
+			modal = next
 			if option.Kind == config.KindPath {
 				if !modal.editingPath {
 					t.Fatalf("%s did not enter path editing", option.Key)
 				}
 				modal.pathInput.SetValue("/contract/" + option.Key)
 				next, _ = modal.Update(keyMsg("enter"))
-				modal = *next.(*OptionsModalModel)
+				modal = next
 			}
 			after := modal.getConfigValue(option.Key)
 			if before == after {
 				t.Errorf("keyboard edit did not change %s from %q", option.Key, before)
 			}
-			if view := stripANSI(modal.View()); !strings.Contains(view, option.Label) {
+			if view := stripANSI(modal.renderOptionsBody()); !strings.Contains(view, option.Label) {
 				t.Errorf("option view missing active label %q:\n%s", option.Label, view)
 			}
 		}
@@ -104,15 +104,11 @@ func TestOptionsModalEditsEveryCatalogOptionThroughKeyboardContract(t *testing.T
 		t.Fatal("catalog edits did not mark settings modified")
 	}
 	next, command := modal.Update(keyMsg("s"))
-	modal = *next.(*OptionsModalModel)
+	modal = next
 	if command == nil {
 		t.Fatal("save key did not return a persistence command")
 	}
 	if message, ok := command().(optionsSavedMsg); !ok || message.config == nil {
 		t.Fatalf("save command returned %#v", message)
-	}
-	modal.Close()
-	if modal.Visible() {
-		t.Fatal("close did not hide settings modal")
 	}
 }

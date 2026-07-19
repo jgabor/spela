@@ -112,14 +112,12 @@ func runProfileCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("game not found: %s", args[0])
 	}
 
-	if profile.Exists(g.AppID) {
-		return fmt.Errorf("profile already exists for %s", g.Name)
-	}
-
-	p := &profile.Profile{Name: g.Name}
-
-	if err := profile.Save(g.AppID, p); err != nil {
+	created, err := profile.Create(g.AppID, &profile.Profile{Name: g.Name})
+	if err != nil {
 		return fmt.Errorf("failed to save profile: %w", err)
+	}
+	if !created {
+		return fmt.Errorf("profile already exists for %s", g.Name)
 	}
 
 	fmt.Printf("%s %s\n", tui.CLISuccess("Created profile for"), tui.CLIPrimary(g.Name))

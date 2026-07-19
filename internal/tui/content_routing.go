@@ -7,11 +7,6 @@ import (
 )
 
 func (m ContentModel) updateBlockingFlow(msg tea.Msg) (ContentModel, tea.Cmd, bool) {
-	if m.dlssPresetModal.Visible() {
-		var cmd tea.Cmd
-		m.dlssPresetModal, cmd = m.dlssPresetModal.Update(msg)
-		return m, cmd, true
-	}
 	if m.dllInstallState != DLLInstallNone {
 		m, cmd := m.updateDLLInstall(msg)
 		return m, cmd, true
@@ -50,22 +45,12 @@ func (m ContentModel) updatePendingAction(msg tea.KeyPressMsg) (ContentModel, te
 
 func (m ContentModel) updateContentMessage(msg tea.Msg) (ContentModel, tea.Cmd, bool) {
 	switch msg := msg.(type) {
-	case openDLSSPresetModalMsg:
-		m.dlssPresetModal.SetSize(m.width, m.height)
-		m.dlssPresetModal.Open(msg.currentPreset)
-		return m, nil, true
-	case dlssPresetSelectedMsg:
-		if raw := m.detail.RawProfile(); raw != nil {
-			raw.DLSS.SRPreset = msg.preset
-		}
-		return m, m.saveResolvedProfile(), true
-	case dlssPresetCancelledMsg:
-		return m, nil, true
 	case profileSaveMsg:
-		if msg.success && m.game != nil && msg.appID == m.game.AppID {
+		if msg.err == nil && m.game != nil && msg.request.appID == m.game.AppID {
+			m.persistedProfile = msg.request.desired.Clone()
 			m.usingDefaultProfile = false
 		}
-		return m, nil, true
+		return m, m.profileSaves.complete(msg), true
 	case dllUpdateMsg:
 		return m.updateDLLUpdateMsg(msg)
 	case dllRestoreMsg:

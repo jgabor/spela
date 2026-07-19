@@ -69,44 +69,32 @@ func TestContextNavigationSupportedStateTransitionsAndViews(t *testing.T) {
 	}
 }
 
-func TestOptionsModalSupportedOpenCancelSaveFailureAndInlineSections(t *testing.T) {
+func TestOptionsModalSupportedSaveFailureAndInlineSections(t *testing.T) {
 	styles := NewStyles(DefaultTheme, true)
 	original := config.Default()
 	modal := NewOptionsModal(styles)
-	if next, command := modal.Update(keyMsg("down")); next == nil || command != nil || modal.View() != "" || modal.ViewInline() != "" {
-		t.Fatal("hidden modal should ignore updates and render nothing")
-	}
-	modal.Open(original)
+	modal.OpenEmbedded(original)
 	modal.SetSize(100, 40)
-	if !modal.Visible() || !strings.Contains(stripANSI(modal.View()), "Display") {
-		t.Fatal("modal open state did not render")
+	if !strings.Contains(stripANSI(modal.renderOptionsBody()), "Show hints") {
+		t.Fatal("settings destination did not render")
 	}
 	modal.cycleValue(1)
 	if !modal.modified {
 		t.Fatal("option cycle did not mark modal modified")
 	}
-	next, command := modal.Update(keyMsg("esc"))
-	modal = *next.(*OptionsModalModel)
-	if modal.Visible() || command == nil {
-		t.Fatal("escape did not cancel visible settings modal")
-	}
-	if _, ok := command().(optionsCancelledMsg); !ok {
-		t.Fatalf("cancel command returned %#v", command())
-	}
-
 	modal.OpenEmbedded(config.Default())
 	modal.SyncNavSection(nav.SettingsSection(-1))
 	modal.SyncNavSection(nav.SettingsSection(99))
 	for _, key := range []string{"down", "j", "up", "k", "left", "h", "right", "l"} {
 		next, _ := modal.Update(keyMsg(key))
-		modal = *next.(*OptionsModalModel)
+		modal = next
 	}
-	if next, command := modal.Update(keyMsg("esc")); next == nil || command != nil || !modal.Visible() {
-		t.Fatal("embedded escape should leave settings visible")
+	if _, command := modal.Update(keyMsg("esc")); command != nil {
+		t.Fatal("embedded escape should not emit a command")
 	}
 	for section := range nav.SettingsSectionLabels {
 		modal.SyncNavSection(nav.SettingsSection(section))
-		view := stripANSI(modal.ViewInline())
+		view := stripANSI(modal.renderOptionsBody())
 		if !strings.Contains(view, modal.sections[section].Options[0].Label) {
 			t.Errorf("inline section %d missing heading:\n%s", section, view)
 		}
@@ -122,22 +110,22 @@ func TestOptionsModalSupportedOpenCancelSaveFailureAndInlineSections(t *testing.
 	}
 	modal.SyncNavSection(nav.SettingsPaths)
 	modal.optionCursor = 0
-	next, _ = modal.Update(keyMsg("enter"))
-	modal = *next.(*OptionsModalModel)
+	next, _ := modal.Update(keyMsg("enter"))
+	modal = next
 	if !modal.editingPath {
 		t.Fatal("path option did not enter editor")
 	}
 	modal.pathInput.SetValue("/cancelled")
 	next, _ = modal.Update(keyMsg("esc"))
-	modal = *next.(*OptionsModalModel)
+	modal = next
 	if modal.editingPath || modal.config.SteamPath != "" {
 		t.Fatal("path editor escape did not cancel edit")
 	}
 	next, _ = modal.Update(keyMsg("enter"))
-	modal = *next.(*OptionsModalModel)
+	modal = next
 	modal.pathInput.SetValue("/steam")
 	next, _ = modal.Update(keyMsg("enter"))
-	modal = *next.(*OptionsModalModel)
+	modal = next
 	if modal.editingPath || modal.config.SteamPath != "/steam" {
 		t.Fatal("path editor did not confirm edit")
 	}
@@ -148,9 +136,9 @@ func TestOptionsModalSupportedOpenCancelSaveFailureAndInlineSections(t *testing.
 		t.Fatal(err)
 	}
 	t.Setenv("XDG_CONFIG_HOME", configHomeFile)
-	modal.Open(config.Default())
+	modal.OpenEmbedded(config.Default())
 	modal.modified = true
-	_, command = modal.Update(keyMsg("s"))
+	_, command := modal.Update(keyMsg("s"))
 	if command == nil {
 		t.Fatal("save failure path did not return command")
 	}

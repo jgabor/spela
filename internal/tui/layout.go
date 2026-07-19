@@ -41,10 +41,8 @@ type LayoutModel struct {
 	contextNav    ContextNavModel
 	pane          resourcePaneModel
 	navState      *nav.State
-	statusBar     StatusBarModel
 	messageBar    MessageBarModel
 	help          HelpModel
-	activeDialog  Dialog
 	config        *config.Config
 	db            *game.Database
 	showHelp      bool
@@ -92,7 +90,6 @@ func NewLayout(db *game.Database, svc *Services) LayoutModel {
 		rail:       NewRail(styles),
 		pane:       pane,
 		navState:   &state,
-		statusBar:  NewStatusBar(styles),
 		messageBar: NewMessageBar(styles),
 		help:       NewHelp(styles),
 		config:     cfg,
@@ -130,21 +127,10 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// the single metrics source-of-truth).
 	m.pane.SetMetricsData(m.header)
 
-	// Route to active dialog first (intercepts all input).
-	if m.activeDialog != nil {
-		var cmd tea.Cmd
-		m.activeDialog, cmd = m.activeDialog.Update(msg)
-		if !m.activeDialog.Visible() {
-			m.activeDialog = nil
-		}
-		return m, cmd
-	}
-
 	// Handle window resize and key overlays/globals.
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
+		m.width, m.height = msg.Width, msg.Height
 		m.calculateDimensions()
 		return m, tea.Batch(cmds...)
 
@@ -166,6 +152,9 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Route application messages that affect multiple components.
 	m, cmds = m.handleAppMessages(msg, cmds)
+	if _, handled := msg.(profileSaveMsg); handled {
+		return m, tea.Batch(cmds...)
+	}
 
 	// Route keys to the focused zone; always route non-key msgs to content.
 	if key, ok := msg.(tea.KeyPressMsg); ok {
@@ -230,7 +219,6 @@ func (m *LayoutModel) calculateDimensions() {
 	m.rail.SetSize(primaryNavWidth-4, panelHeight)
 	m.contextNav.SetSize(contextNavWidth, panelHeight)
 	m.pane.SetSize(m.contentWidth(), panelHeight)
-	m.statusBar.SetWidth(m.width)
 	m.messageBar.SetWidth(m.width)
 }
 
@@ -243,8 +231,9 @@ func (m LayoutModel) contentWidth() int {
 
 // contentModel returns the ContentModel inside ResourceGames for layout-
 // level logic (e.g. HasModalOpen checks). Returns nil when not applicable.
-func (m LayoutModel) contentModel() *ContentModel {
-	return m.pane.contentModel()
+func (m LayoutModel) renderStatusBar(text string) string {
+	return lipgloss.NewStyle().Foreground(m.styles.Theme.TextDim).
+		Width(m.width).Padding(0, 1).Render(text)
 }
 
 func (m LayoutModel) View() tea.View {
@@ -270,13 +259,6 @@ func (m LayoutModel) View() tea.View {
 		batchContent := m.renderBatchContent()
 		batchLayer := m.positionModalLayer(batchContent, "batch", 20, modalCount)
 		compositor.AddLayers(batchLayer)
-		modalCount++
-	}
-
-	if m.activeDialog != nil {
-		dialogContent := m.activeDialog.View()
-		dialogLayer := m.positionModalLayer(dialogContent, "dialog", 30, modalCount)
-		compositor.AddLayers(dialogLayer)
 	}
 
 	content := compositor.Render()
@@ -334,7 +316,7 @@ func (m LayoutModel) renderStandard() string {
 	messageBar := m.messageBar.View()
 
 	hints := nav.ContentHints{}
-	if cm := m.contentModel(); cm != nil {
+	if cm := m.pane.contentModel(); cm != nil {
 		hints = nav.ContentHints{
 			HasUpdates:   cm.hasUpdates,
 			HasBackup:    cm.hasBackup,
@@ -343,7 +325,7 @@ func (m LayoutModel) renderStandard() string {
 	}
 	contextHelp := RenderNavContextBar(m.navState.ContextKeys(m.styles.ShowHints, hints), m.width/2, &m.styles.Theme)
 	crumbs := m.renderBreadcrumbs()
-	statusBar := m.statusBar.ViewWithHelp(crumbs + "  " + m.renderZoneIndicator() + "  " + contextHelp)
+	statusBar := m.renderStatusBar(crumbs + "  " + m.renderZoneIndicator() + "  " + contextHelp)
 
 	return lipgloss.JoinVertical(lipgloss.Left, header, mainArea, messageBar, statusBar)
 }
@@ -369,7 +351,7 @@ func (m LayoutModel) renderFocused() string {
 	messageBar := m.messageBar.View()
 
 	escHint := lipgloss.NewStyle().Foreground(m.styles.Theme.TextDim).Render("F11:exit focused  ?:help  q:quit")
-	statusBar := m.statusBar.ViewWithHelp(escHint)
+	statusBar := m.renderStatusBar(escHint)
 
 	return lipgloss.JoinVertical(lipgloss.Left, paneBox, messageBar, statusBar)
 }

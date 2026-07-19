@@ -43,12 +43,3 @@ func (g *Game) HasDLSSG() bool {
 func (g *Game) HasDLSSD() bool {
 	return slices.ContainsFunc(g.DLLs, func(d DetectedDLL) bool { return d.Type == DLLTypeDLSSD })
 }
-
-func (g *Game) GetDLL(dllType DLLType) *DetectedDLL {
-	for i := range g.DLLs {
-		if g.DLLs[i].Type == dllType {
-			return &g.DLLs[i]
-		}
-	}
-	return nil
-}

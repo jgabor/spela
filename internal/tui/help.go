@@ -3,7 +3,6 @@ package tui
 import (
 	"strings"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
 	"github.com/jgabor/spela/internal/nav"
@@ -22,8 +21,6 @@ type HelpBinding struct {
 type HelpModel struct {
 	styles   *Styles
 	sections []HelpSection
-	width    int
-	height   int
 }
 
 func NewHelp(styles *Styles) HelpModel {
@@ -146,15 +143,6 @@ func NewHelp(styles *Styles) HelpModel {
 	}
 }
 
-func (m *HelpModel) SetSize(width, height int) {
-	m.width = width
-	m.height = height
-}
-
-func (m HelpModel) Update(msg tea.Msg) (HelpModel, tea.Cmd) {
-	return m, nil
-}
-
 func (m HelpModel) View() string {
 	s := m.styles
 	t := s.Theme
@@ -212,94 +200,6 @@ var globalKeys = []ContextKey{
 	{Key: "?", Action: "help", Enabled: true},
 	{Key: "o", Action: "options", Enabled: true},
 	{Key: "q", Action: "quit", Enabled: true},
-}
-
-// ContextKeys returns the keybindings relevant to the current context. The
-// first argument used to be `sidebarFocused` in the previous shell; here
-// it means `railFocused`. Kept positional so callers don't ripple.
-func ContextKeys(railFocused bool, searchFocused, selectMode bool, content *ContentModel, showHints bool) []ContextKey {
-	if !showHints {
-		return globalKeys
-	}
-
-	var keys []ContextKey
-
-	switch {
-	case searchFocused:
-		keys = []ContextKey{
-			{Key: "type", Action: "filter", Enabled: true},
-			{Key: "enter", Action: "done", Enabled: true},
-			{Key: "esc", Action: "cancel", Enabled: true},
-		}
-
-	case selectMode:
-		keys = []ContextKey{
-			{Key: "↑↓", Action: "navigate", Enabled: true},
-			{Key: "space", Action: "toggle", Enabled: true},
-			{Key: "a", Action: "all", Enabled: true},
-			{Key: "A", Action: "none", Enabled: true},
-			{Key: "enter", Action: "batch", Enabled: true},
-			{Key: "esc", Action: "exit", Enabled: true},
-		}
-
-	case railFocused:
-		keys = []ContextKey{
-			{Key: "↑↓", Action: "navigate", Enabled: true},
-			{Key: "1-4", Action: "resource", Enabled: true},
-			{Key: "enter", Action: "activate", Enabled: true},
-			{Key: "tab", Action: "pane", Enabled: true},
-		}
-
-	default: // resource pane focused (games list / game detail)
-		keys = []ContextKey{
-			{Key: "↑↓", Action: "navigate", Enabled: true},
-			{Key: "/", Action: "search", Enabled: true},
-			{Key: "d", Action: "DLLs", Enabled: true},
-			{Key: "P", Action: "profile", Enabled: true},
-			{Key: "s", Action: "sort", Enabled: true},
-			{Key: "ctrl+r", Action: "rescan", Enabled: true},
-			{Key: "enter", Action: "select", Enabled: true},
-		}
-
-		if content != nil && content.game != nil {
-			keys = append(
-				keys,
-				ContextKey{Key: "r", Action: "reset-field", Enabled: !content.dllOperating, Reason: "busy"},
-				ContextKey{Key: "R", Action: "reset-all", Enabled: !content.dllOperating, Reason: "busy"},
-				ContextKey{Key: "p", Action: "pin", Enabled: !content.dllOperating, Reason: "busy"},
-				ContextKey{Key: "i", Action: "install", Enabled: !content.dllOperating, Reason: "busy"},
-				ContextKey{
-					Key: "u", Action: "update",
-					Enabled: content.hasUpdates && content.hasBackup && !content.dllOperating,
-					Reason:  reasonForUpdate(content),
-				},
-				ContextKey{
-					Key: "ctrl+shift+r", Action: "restore",
-					Enabled: content.hasBackup && !content.dllOperating,
-					Reason:  "no backup",
-				},
-			)
-		}
-
-		keys = append(keys, ContextKey{Key: "tab", Action: "rail", Enabled: true})
-	}
-
-	keys = append(keys, globalKeys...)
-	return keys
-}
-
-// reasonForUpdate returns the most relevant reason why the update key is disabled.
-func reasonForUpdate(content *ContentModel) string {
-	if content.dllOperating {
-		return "busy"
-	}
-	if !content.hasUpdates {
-		return "up to date"
-	}
-	if !content.hasBackup {
-		return "no backup"
-	}
-	return ""
 }
 
 // contextKeySeparator is placed between rendered keys in the bar.

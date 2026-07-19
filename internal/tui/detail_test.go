@@ -479,7 +479,7 @@ func TestResourcePane_RootMutationPersistsAndRetainsSelection(t *testing.T) {
 		t.Fatal("root mutation returned no save command")
 	}
 	message, ok := saveCommand().(profileSaveMsg)
-	if !ok || !message.success || message.err != nil {
+	if !ok || message.err != nil {
 		t.Fatalf("root save result = %#v", message)
 	}
 	persisted, err := profile.LoadDefault()
@@ -933,94 +933,5 @@ func TestDetail_RebuildResolvedAfterReset(t *testing.T) {
 	// And the marker should be gone.
 	if strings.Count(view, "◆") != 0 {
 		t.Errorf("after reset: expected zero override markers, got:\n%s", view)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// DLSS preset modal — Task 5 dedup
-// ---------------------------------------------------------------------------
-
-// TestDLSSPresetOrder_NoDuplicates_Pass — the rendered order contains every
-// preset at most once.
-func TestDLSSPresetOrder_NoDuplicates_Pass(t *testing.T) {
-	seen := make(map[profile.DLSSPreset]int)
-	for _, p := range dlssPresetOrder {
-		seen[p]++
-	}
-	for p, count := range seen {
-		if count > 1 {
-			t.Errorf("DLSS preset %q appears %d times, want 1", p, count)
-		}
-	}
-}
-
-// TestDedupePresets_StripsDuplicates_Pass — the dedupePresets helper strips
-// duplicates while preserving the first-seen order. Adversarial input.
-func TestDedupePresets_StripsDuplicates_Pass(t *testing.T) {
-	in := []profile.DLSSPreset{
-		profile.DLSSPresetA,
-		profile.DLSSPresetB,
-		profile.DLSSPresetA, // dup — must be dropped
-		profile.DLSSPresetC,
-		profile.DLSSPresetB, // dup — must be dropped
-	}
-	out := dedupePresets(in)
-	want := []profile.DLSSPreset{
-		profile.DLSSPresetA,
-		profile.DLSSPresetB,
-		profile.DLSSPresetC,
-	}
-	if len(out) != len(want) {
-		t.Fatalf("dedupePresets: len=%d want %d (%v)", len(out), len(want), out)
-	}
-	for i, p := range want {
-		if out[i] != p {
-			t.Errorf("position %d: got %q, want %q (order must be preserved)", i, out[i], p)
-		}
-	}
-}
-
-// TestDedupePresets_EmptyInput_Fail (negative pair) — empty input produces
-// empty output, never nil-ness or panic.
-func TestDedupePresets_EmptyInput_Fail(t *testing.T) {
-	out := dedupePresets(nil)
-	if len(out) != 0 {
-		t.Errorf("dedupePresets(nil): expected empty, got %v", out)
-	}
-}
-
-// TestDLSSPresetModalView_EachPresetAppearsOnce — the rendered picker string
-// shows each preset letter exactly once (end-to-end assertion at the view
-// layer, not just the slice).
-func TestDLSSPresetModalView_EachPresetAppearsOnce(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
-	m := NewDLSSPresetModal(styles)
-	m.SetSize(120, 40)
-	m.Open(profile.DLSSPresetDefault)
-
-	view := m.View()
-	// Each non-default preset appears once as a standalone letter on its
-	// row. Count occurrences of the pattern " A " / " B " etc (with a
-	// leading space inside the row padding).
-	for _, preset := range []profile.DLSSPreset{
-		profile.DLSSPresetA,
-		profile.DLSSPresetB,
-		profile.DLSSPresetC,
-		profile.DLSSPresetD,
-		profile.DLSSPresetE,
-		profile.DLSSPresetF,
-		profile.DLSSPresetJ,
-		profile.DLSSPresetK,
-		profile.DLSSPresetL,
-		profile.DLSSPresetM,
-	} {
-		// Modal pads with "%-10s" so each preset letter appears followed
-		// by whitespace. We count rough occurrences of " <letter> " as a
-		// weak uniqueness probe.
-		needle := string(preset)
-		count := strings.Count(view, needle+"    ") // trailing padding
-		if count > 1 {
-			t.Errorf("preset %q appears %d times in modal view, want 1", preset, count)
-		}
 	}
 }

@@ -31,7 +31,6 @@ type App struct {
 	ctx                context.Context
 	database           *game.Database
 	configurationMutex sync.Mutex
-	profileMutex       sync.Mutex
 	dbMutex            sync.RWMutex
 	dllMutex           sync.Mutex
 }
@@ -287,25 +286,19 @@ func profileFieldSemanticsFromExplanations(explanations []profile.FieldExplanati
 }
 
 func (a *App) GetProfile(appID uint64) map[string]any {
-	a.profileMutex.Lock()
-	defer a.profileMutex.Unlock()
-	return defaultGUIApplicationBoundary(a.databaseSnapshot()).getProfile(appID)
+	return defaultGUIApplicationBoundary(a.databaseSnapshot()).profileView(&appID)
 }
 
 func (a *App) GetDefaultProfile() map[string]any {
-	a.profileMutex.Lock()
-	defer a.profileMutex.Unlock()
-	return defaultGUIApplicationBoundary(a.databaseSnapshot()).getDefaultProfile()
+	return defaultGUIApplicationBoundary(a.databaseSnapshot()).profileView(nil)
 }
 
 func (a *App) PatchProfile(appID uint64, patches []ProfilePatch) (map[string]any, error) {
-	a.profileMutex.Lock()
-	defer a.profileMutex.Unlock()
 	boundary := defaultGUIApplicationBoundary(a.databaseSnapshot())
 	if err := boundary.patchGameProfile(appID, patches); err != nil {
 		return nil, err
 	}
-	return boundary.getProfile(appID), nil
+	return boundary.profileView(&appID), nil
 }
 
 // VKD3DHeapCompatibilityNotice returns a human-readable inline notice
@@ -317,13 +310,11 @@ func (a *App) VKD3DHeapCompatibilityNotice(appID uint64) string {
 }
 
 func (a *App) PatchDefaultProfile(patches []ProfilePatch) (map[string]any, error) {
-	a.profileMutex.Lock()
-	defer a.profileMutex.Unlock()
 	boundary := defaultGUIApplicationBoundary(a.databaseSnapshot())
 	if err := boundary.patchDefaultProfile(patches); err != nil {
 		return nil, err
 	}
-	return boundary.getDefaultProfile(), nil
+	return boundary.profileView(nil), nil
 }
 
 type GPUInfo struct {

@@ -205,13 +205,3 @@ func runNvidiaSMIElevated(args ...string) error {
 	_, err := privilege.Exec("nvidia-smi", args...)
 	return err
 }
-
-type GPUGeneration int
-
-const (
-	GPUGenerationUnknown GPUGeneration = iota
-	GPUGenerationTuring
-	GPUGenerationAmpere
-	GPUGenerationAdaLovelace
-	GPUGenerationBlackwell
-)

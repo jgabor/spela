@@ -84,15 +84,7 @@ func runOverlaySet(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("game not found: %s", args[0])
 	}
 
-	p, err := profile.Load(g.AppID)
-	if err != nil {
-		return err
-	}
-	if p == nil {
-		p = &profile.Profile{Name: g.Name}
-	}
-
-	changes := profileChanges{profile: p}
+	changes := profileChanges{name: g.Name}
 
 	if overlaySetEnabled != "" {
 		b, err := parseBoolFlag(overlaySetEnabled)
@@ -150,15 +142,12 @@ func runOverlaySet(cmd *cobra.Command, args []string) error {
 		changes.set(profile.FieldOverlayToggleKey, overlaySetToggleKey)
 	}
 
-	if changes.err != nil {
-		return changes.err
-	}
-	if !changes.changed {
+	if len(changes.mutations) == 0 {
 		fmt.Println("No changes specified. Use --help to see available options.")
 		return nil
 	}
 
-	if err := profile.Save(g.AppID, p); err != nil {
+	if err := changes.save(g.AppID); err != nil {
 		return err
 	}
 
@@ -167,30 +156,10 @@ func runOverlaySet(cmd *cobra.Command, args []string) error {
 }
 
 func runOverlayShow(cmd *cobra.Command, args []string) error {
-	db, err := game.LoadDatabase()
+	g, p, resolved, err := resolvedProfileForShow(args[0])
 	if err != nil {
 		return err
 	}
-
-	g := db.FindGame(args[0])
-	if g == nil {
-		return fmt.Errorf("game not found: %s", args[0])
-	}
-
-	p, err := profile.Load(g.AppID)
-	if err != nil {
-		return err
-	}
-	if p == nil {
-		fmt.Printf("No profile for %s\n", g.Name)
-		p = &profile.Profile{}
-	}
-
-	defaults, err := profile.LoadDefault()
-	if err != nil {
-		return fmt.Errorf("load default profile: %w", err)
-	}
-	resolved := p.ResolveForApply(defaults)
 
 	if overlayShowJSON {
 		data, err := json.MarshalIndent(resolved.Overlay, "", "  ")

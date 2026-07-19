@@ -33,7 +33,7 @@ func TestGUIBoundaryProfilePassUsesGameProfile(t *testing.T) {
 		return nil, nil
 	}
 
-	info := boundary.getProfile(1091500)
+	info := boundary.profileView(appID(1091500))
 	if info == nil {
 		t.Fatal("expected profile info")
 	}
@@ -48,7 +48,7 @@ func TestGUIBoundaryProfileFailReturnsNil(t *testing.T) {
 		return nil, errors.New("profile read failed")
 	}
 
-	if info := boundary.getProfile(1091500); info != nil {
+	if info := boundary.profileView(appID(1091500)); info != nil {
 		t.Fatalf("expected nil profile on load failure, got %+v", info)
 	}
 }
@@ -65,7 +65,7 @@ func TestGUIBoundaryProfileSemanticsPassResolvesInheritedValues(t *testing.T) {
 		}, nil
 	}
 
-	info := boundary.getProfile(1091500)
+	info := boundary.profileView(appID(1091500))
 	if info == nil {
 		t.Fatal("expected profile info")
 	}
@@ -80,7 +80,7 @@ func TestGUIBoundaryProfileSemanticsPassResolvesInheritedValues(t *testing.T) {
 	boundary.loadDefaultProfile = func() (*profile.Profile, error) {
 		return &profile.Profile{Proton: profile.ProtonSettings{EnableHDR: false, VKD3DHeap: true}}, nil
 	}
-	reloaded := boundary.getProfile(1091500)
+	reloaded := boundary.profileView(appID(1091500))
 	if reloaded == nil || reloaded["enableHdr"] != false {
 		t.Fatalf("expected live inherited HDR default to reload as false, got %+v", reloaded)
 	}
@@ -96,7 +96,7 @@ func TestGUIBoundaryDefaultProfileSemanticsPass(t *testing.T) {
 		}, nil
 	}
 
-	info := boundary.getDefaultProfile()
+	info := boundary.profileView(nil)
 	if info == nil {
 		t.Fatal("expected default profile info")
 	}
@@ -123,11 +123,14 @@ func TestGUIBoundaryOneFieldPatchPreservesHiddenOverrides(t *testing.T) {
 	boundary.loadProfile = func(uint64) (*profile.Profile, error) { return current, nil }
 	boundary.loadDefaultProfile = func() (*profile.Profile, error) { return defaults, nil }
 	var saved *profile.Profile
-	boundary.saveProfile = func(appID uint64, p *profile.Profile) error {
+	boundary.mutateProfile = func(appID uint64, callback func(*profile.Profile, *profile.Profile) error) error {
 		if appID != 1091500 {
 			t.Fatalf("unexpected appID: %d", appID)
 		}
-		saved = p
+		saved = current.Clone()
+		if err := callback(saved, defaults); err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -196,7 +199,14 @@ func TestGUIProfilePatchBatchIsAtomicOnLateFailure(t *testing.T) {
 	boundary.loadProfile = func(uint64) (*profile.Profile, error) { return original, nil }
 	boundary.loadDefaultProfile = func() (*profile.Profile, error) { return &profile.Profile{}, nil }
 	saves := 0
-	boundary.saveProfile = func(uint64, *profile.Profile) error { saves++; return nil }
+	boundary.mutateProfile = func(_ uint64, callback func(*profile.Profile, *profile.Profile) error) error {
+		current := original.Clone()
+		if err := callback(current, &profile.Profile{}); err != nil {
+			return err
+		}
+		saves++
+		return nil
+	}
 	err := boundary.patchGameProfile(1, []ProfilePatch{
 		{Field: profile.FieldProtonEnableHDR, Operation: "set", Value: false},
 		{Field: profile.FieldDLSSSRMode, Operation: "set", Value: "invalid"},
@@ -218,7 +228,15 @@ func TestGUIProfilePatchBatchSavesAllFieldsOnce(t *testing.T) {
 	boundary.loadDefaultProfile = func() (*profile.Profile, error) { return &profile.Profile{}, nil }
 	saves := 0
 	var saved *profile.Profile
-	boundary.saveProfile = func(_ uint64, value *profile.Profile) error { saves++; saved = value; return nil }
+	boundary.mutateProfile = func(_ uint64, callback func(*profile.Profile, *profile.Profile) error) error {
+		value := &profile.Profile{}
+		if err := callback(value, &profile.Profile{}); err != nil {
+			return err
+		}
+		saves++
+		saved = value
+		return nil
+	}
 	if err := boundary.patchGameProfile(1, []ProfilePatch{
 		{Field: profile.FieldProtonEnableHDR, Operation: "set", Value: false},
 		{Field: profile.FieldGPUClockOffset, Operation: "set", Value: float64(0)},
@@ -237,6 +255,8 @@ func semanticsByField(items []ProfileFieldSemantics) map[string]ProfileFieldSema
 	}
 	return out
 }
+
+func appID(value uint64) *uint64 { return &value }
 
 func assertProfileSemantic(t *testing.T, item ProfileFieldSemantics, source, impact, restore string) {
 	t.Helper()

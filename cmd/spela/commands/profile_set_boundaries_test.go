@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jgabor/spela/internal/profile"
 	"github.com/spf13/cobra"
 )
 
@@ -20,6 +21,18 @@ func TestCPUAndGPUProfileSetDefaultAndValidationContracts(t *testing.T) {
 		}
 	}); !strings.Contains(output, "No changes specified") {
 		t.Fatalf("CPU no-change output = %q", output)
+	}
+	cpuSetGovernor = "performance"
+	if err := runCPUSet(cpuCommand, []string{"Cyberpunk 2077"}); err != nil {
+		t.Fatal(err)
+	}
+	cpuSetGovernor = "default"
+	if err := runCPUSet(cpuCommand, []string{"Cyberpunk 2077"}); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := profile.Load(1091500)
+	if err != nil || stored.IsOverridden(profile.FieldCPUGovernor) {
+		t.Fatalf("governor default persisted %+v, %v", stored, err)
 	}
 	for _, value := range []string{"off", "false", "default"} {
 		cpuSetGovernor, cpuSetSMT = "default", value

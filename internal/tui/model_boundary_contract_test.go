@@ -16,8 +16,8 @@ func TestContentSupportedIdentityDefaultsAndNoSelectionOperations(t *testing.T) 
 	services := testServices()
 	styles := NewStyles(DefaultTheme, true)
 	content := NewContent(styles, true, services)
-	if content.Name() != "Details" || content.HasGameSelection() {
-		t.Fatalf("empty content identity = %q", content.Name())
+	if content.game != nil {
+		t.Fatal("empty content unexpectedly selected a game")
 	}
 	content.SetSize(80, 4)
 	if content.profileSectionHeight() != 5 {
@@ -38,8 +38,8 @@ func TestContentSupportedIdentityDefaultsAndNoSelectionOperations(t *testing.T) 
 
 	entry := testGame("Cyberpunk 2077")
 	content = content.SetGame(entry)
-	if content.Name() != entry.Name || !content.HasGameSelection() {
-		t.Fatalf("game content identity = %q", content.Name())
+	if content.game != entry {
+		t.Fatal("game content lost selected game")
 	}
 }
 

@@ -1,6 +1,7 @@
 package profile_test
 
 import (
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -16,10 +17,10 @@ func TestApplyProton_VKD3DHeapEnabled(t *testing.T) {
 	e := env.New()
 	p.Apply(e)
 
-	if got := e.Get("PROTON_VKD3D_HEAP"); got != "" {
+	if got := environmentValue(e, "PROTON_VKD3D_HEAP"); got != "" {
 		t.Errorf("PROTON_VKD3D_HEAP: expected unset at apply time, got %q", got)
 	}
-	if got := e.Get("VKD3D_CONFIG"); got != "descriptor_heap" {
+	if got := environmentValue(e, "VKD3D_CONFIG"); got != "descriptor_heap" {
 		t.Errorf("VKD3D_CONFIG: expected %q, got %q", "descriptor_heap", got)
 	}
 }
@@ -31,10 +32,10 @@ func TestApplyProton_VKD3DHeapDisabled(t *testing.T) {
 	e := env.New()
 	p.Apply(e)
 
-	if got := e.Get("PROTON_VKD3D_HEAP"); got != "" {
+	if got := environmentValue(e, "PROTON_VKD3D_HEAP"); got != "" {
 		t.Errorf("PROTON_VKD3D_HEAP: expected unset, got %q", got)
 	}
-	if got := e.Get("VKD3D_CONFIG"); got != "" {
+	if got := environmentValue(e, "VKD3D_CONFIG"); got != "" {
 		t.Errorf("VKD3D_CONFIG: expected unset, got %q", got)
 	}
 }
@@ -147,10 +148,20 @@ func TestSRPresetSelection(t *testing.T) {
 			}
 			e := env.New()
 			p.Apply(e)
-			actual := e.Get("DXVK_NVAPI_DRS_NGX_DLSS_SR_OVERRIDE_RENDER_PRESET_SELECTION")
+			actual := environmentValue(e, "DXVK_NVAPI_DRS_NGX_DLSS_SR_OVERRIDE_RENDER_PRESET_SELECTION")
 			if actual != tt.expected {
 				t.Errorf("expected %s, got %s", tt.expected, actual)
 			}
 		})
 	}
+}
+
+func environmentValue(environment *env.Environment, key string) string {
+	values := environment.BuildEnv()
+	for index := len(values) - 1; index >= 0; index-- {
+		if value, found := strings.CutPrefix(values[index], key+"="); found {
+			return value
+		}
+	}
+	return ""
 }

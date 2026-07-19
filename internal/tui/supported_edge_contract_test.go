@@ -40,14 +40,14 @@ func TestOptionsModalPathEditingAndBoundaryContracts(t *testing.T) {
 			}
 			modal.pathInput.SetValue("/tmp/" + option.Key)
 			next, _ := modal.updatePathEditing(keyMsg("enter"))
-			modal = *next.(*OptionsModalModel)
+			modal = next
 			if got := modal.getConfigValue(option.Key); got != "/tmp/"+option.Key {
 				t.Errorf("%s = %q", option.Key, got)
 			}
 			modal.startPathEditing()
 			modal.pathInput.SetValue("")
 			next, _ = modal.updatePathEditing(keyMsg("enter"))
-			modal = *next.(*OptionsModalModel)
+			modal = next
 			if got := modal.getConfigValue(option.Key); got != "(default)" {
 				t.Errorf("reset %s = %q", option.Key, got)
 			}
@@ -65,7 +65,7 @@ func TestOptionsModalPathEditingAndBoundaryContracts(t *testing.T) {
 	modal.startPathEditing()
 	modal.cycleValue(1)
 	modal.SyncNavSection(nav.SettingsSection(100))
-	if got := stripANSI(modal.ViewInline()); got == "" {
+	if got := stripANSI(modal.renderOptionsBody()); got == "" {
 		t.Fatalf("empty inline section:\n%s", got)
 	}
 }
@@ -75,28 +75,21 @@ func TestOptionsModalSupportedKeyAlternatesAndValueProjection(t *testing.T) {
 	configuration := config.Default()
 	configuration.PreferredDLLSource = ""
 	configuration.Theme = ""
-	modal.Open(configuration)
+	modal.OpenEmbedded(configuration)
 	for _, key := range []string{"j", "k", "h", "l"} {
 		next, _ := modal.Update(keyMsg(key))
-		modal = *next.(*OptionsModalModel)
+		modal = next
 	}
 	for _, key := range []string{"preferred_dll_source", "theme", "unknown"} {
 		_ = modal.getConfigValue(key)
 	}
 	modal.setConfigValue("unknown", "ignored")
 
-	modal.Open(config.Default())
-	next, command := modal.Update(keyMsg("q"))
-	modal = *next.(*OptionsModalModel)
-	if modal.Visible() || command == nil {
-		t.Fatal("modal q did not cancel")
-	}
-	modal.OpenEmbedded(config.Default())
 	for _, key := range []string{"q", "esc"} {
-		next, command = modal.Update(keyMsg(key))
-		modal = *next.(*OptionsModalModel)
-		if command != nil || !modal.Visible() {
-			t.Fatalf("embedded %s closed settings", key)
+		next, command := modal.Update(keyMsg(key))
+		modal = next
+		if command != nil {
+			t.Fatalf("embedded %s emitted a command", key)
 		}
 	}
 }

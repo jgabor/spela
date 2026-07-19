@@ -72,17 +72,9 @@ func (l *Launcher) OnCleanupResult(area string, fn func() error) {
 	l.cleanup = append(l.cleanup, cleanupStep{area: area, run: fn})
 }
 
-// Prepare applies the profile settings, creates a restore point for
-// environment variables, registers all cleanup closures, and starts the
+// Prepare applies the profile settings, registers cleanup closures, and starts the
 // overlay collector if enabled. Call before Launch.
 func (l *Launcher) Prepare() error {
-	restore := profile.NewRestorePoint()
-	restore.SaveAllProfileEnvVars()
-	l.OnCleanupResult("launch environment", func() error {
-		restore.Restore()
-		return nil
-	})
-
 	if l.Profile != nil {
 		cleanups := l.Profile.Apply(l.Environment)
 		for _, c := range cleanups {
@@ -239,9 +231,11 @@ func (l *Launcher) Launch(args []string) error {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	done := make(chan error, 1)
-	go func() {
-		done <- cmd.Run()
-	}()
+	if err := cmd.Start(); err != nil {
+		l.runCleanup()
+		return err
+	}
+	go func() { done <- cmd.Wait() }()
 
 	var err error
 	select {

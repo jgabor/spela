@@ -42,11 +42,6 @@ func TestLayoutApplicationMessagesMaintainCrossComponentState(t *testing.T) {
 	if updated.config != newConfig || len(commands) == 0 {
 		t.Fatal("options save did not update layout config and announce success")
 	}
-	updated.activeDialog = &updated.pane.settings
-	updated, commands = updated.handleAppMessages(optionsCancelledMsg{}, nil)
-	if updated.activeDialog == nil || len(commands) != 0 {
-		t.Fatal("embedded options cancel should leave layout state unchanged")
-	}
 	updated, commands = updated.handleAppMessages(optionsSaveErrorMsg{err: errors.New("read-only")}, nil)
 	if len(commands) == 0 {
 		t.Fatal("options save failure did not announce error")
@@ -84,7 +79,7 @@ func TestLayoutApplicationMessagesMaintainCrossComponentState(t *testing.T) {
 	if len(commands) == 0 {
 		t.Fatal("rescan failure did not announce error")
 	}
-	updated, commands = updated.handleAppMessages(profileSaveMsg{success: true}, nil)
+	updated, commands = updated.handleAppMessages(profileSaveMsg{}, nil)
 	if len(commands) == 0 {
 		t.Fatal("profile save did not announce success")
 	}
@@ -140,8 +135,7 @@ func TestLayoutApplicationMessagesMaintainCrossComponentState(t *testing.T) {
 	updated.showHelp = true
 	updated.showBatchMenu = true
 	updated.batchGames = []*game.Game{entry}
-	updated.activeDialog = &updated.pane.settings
-	if modalView := stripANSI(updated.View().Content); !strings.Contains(modalView, "Keyboard shortcuts") || !strings.Contains(modalView, "Theme") {
+	if modalView := stripANSI(updated.View().Content); !strings.Contains(modalView, "Keyboard shortcuts") {
 		t.Fatalf("stacked layout overlays missing:\n%s", modalView)
 	}
 }

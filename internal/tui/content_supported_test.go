@@ -25,7 +25,7 @@ func TestContentSupportedProfileDLLAndInstallViews(t *testing.T) {
 	)
 	content := testContent(entry)
 	content.SetSize(80, 30)
-	if !content.HasGameSelection() || content.HasModalOpen() {
+	if content.game == nil || content.HasModalOpen() {
 		t.Fatal("selected game content state is inconsistent")
 	}
 
@@ -71,10 +71,6 @@ func TestContentSupportedProfileDLLAndInstallViews(t *testing.T) {
 	}
 
 	content.dllInstallState = DLLInstallNone
-	content.dlssPresetModal.Open(profile.DLSSPresetK)
-	if view := stripANSI(content.ViewProfileAspect()); !strings.Contains(view, "Select DLSS preset") {
-		t.Fatalf("profile modal view:\n%s", view)
-	}
 	empty := testContent(nil)
 	if !strings.Contains(stripANSI(empty.ViewProfileAspect()), "Select a game") || !strings.Contains(stripANSI(empty.ViewDLLAspect()), "Select a game") {
 		t.Fatal("empty content did not retain selection guidance")
@@ -222,24 +218,8 @@ func TestContentSupportedMessageAndKeyRouting(t *testing.T) {
 	content := testContent(entry)
 	content.SetSize(80, 30)
 
-	content, command := content.Update(openDLSSPresetModalMsg{currentPreset: profile.DLSSPresetK})
-	if !content.dlssPresetModal.Visible() || command != nil {
-		t.Fatal("open preset message did not open blocking modal")
-	}
-	content.dlssPresetModal.visible = false
-	content, command = content.Update(dlssPresetSelectedMsg{preset: profile.DLSSPresetL})
-	if content.detail.RawProfile().DLSS.SRPreset != profile.DLSSPresetL || command == nil {
-		t.Fatal("preset selection did not mutate raw profile and schedule save")
-	}
-	if message, ok := command().(profileSaveMsg); !ok || !message.success {
-		t.Fatalf("profile save command = %#v", message)
-	}
-	if _, command = content.Update(dlssPresetCancelledMsg{}); command != nil {
-		t.Fatal("preset cancellation unexpectedly scheduled work")
-	}
-
 	content.dllOperating = true
-	content, command = content.Update(dllUpdateMsg{err: errors.New("offline")})
+	content, command := content.Update(dllUpdateMsg{err: errors.New("offline")})
 	if content.dllOperating || command == nil {
 		t.Fatal("DLL update error did not clear operation and recheck update state")
 	}
@@ -296,7 +276,7 @@ func TestContentFirstGameProfileSaveClearsInheritedBannerAndRetainsFocus(t *test
 		t.Fatal("pin returned no save command")
 	}
 	message, ok := saveCommand().(profileSaveMsg)
-	if !ok || !message.success || message.err != nil || message.appID != entry.AppID {
+	if !ok || message.err != nil || message.request.appID != entry.AppID {
 		t.Fatalf("pin save result = %#v", message)
 	}
 	persisted, err := profile.Load(entry.AppID)

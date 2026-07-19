@@ -141,11 +141,6 @@ func setSMTDirect(value string) error {
 	return nil
 }
 
-func LaunchWithAffinity(affinity string, args []string) *exec.Cmd {
-	tasksetArgs := append([]string{"-c", affinity}, args...)
-	return exec.Command("taskset", tasksetArgs...)
-}
-
 func GetCPUInfo() (map[string]string, error) {
 	data, err := os.ReadFile(sysPath("/proc/cpuinfo"))
 	if err != nil {

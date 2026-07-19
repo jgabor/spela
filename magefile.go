@@ -242,7 +242,7 @@ func Coverage() error {
 
 // CoverageCheck measures canonical coverage and enforces the simplification gate.
 func CoverageCheck() error {
-	if err := sh.RunV("python3", "-m", "unittest", "scripts/test_merge_coverage.py"); err != nil {
+	if err := sh.RunV("python3", "-m", "unittest", "tests/test_merge_coverage.py"); err != nil {
 		return err
 	}
 	if err := Coverage(); err != nil {
@@ -344,26 +344,20 @@ func (Aur) UpdateVersion(version string) error {
 		return fmt.Errorf("version argument required")
 	}
 	version = strings.TrimPrefix(version, "v")
-
 	pkgbuild := "pkg/aur/PKGBUILD"
 	content, err := os.ReadFile(pkgbuild)
 	if err != nil {
 		return fmt.Errorf("failed to read PKGBUILD: %w", err)
 	}
-
-	pkgverRe := regexp.MustCompile(`(?m)^pkgver=.*$`)
-	content = pkgverRe.ReplaceAll(content, []byte(fmt.Sprintf("pkgver=%s", version)))
-
+	content = regexp.MustCompile(`(?m)^pkgver=.*$`).ReplaceAll(content, []byte(fmt.Sprintf("pkgver=%s", version)))
 	tarballURL := fmt.Sprintf("https://github.com/jgabor/spela/archive/v%s.tar.gz", version)
 	fmt.Printf("Fetching tarball checksum from %s...\n", tarballURL)
-
 	tmpFile, err := os.CreateTemp("", "spela-*.tar.gz")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	tmpFile.Close()
-
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	_ = tmpFile.Close()
 	maxRetries := 5
 	var downloadErr error
 	for attempt := 1; attempt <= maxRetries; attempt++ {
@@ -380,20 +374,15 @@ func (Aur) UpdateVersion(version string) error {
 	if downloadErr != nil {
 		return fmt.Errorf("failed to download tarball after %d attempts: %w", maxRetries, downloadErr)
 	}
-
 	checksumOut, err := sh.Output("sha256sum", tmpFile.Name())
 	if err != nil {
 		return fmt.Errorf("failed to compute checksum: %w", err)
 	}
 	checksum := strings.Fields(checksumOut)[0]
-
-	sha256Re := regexp.MustCompile(`(?m)^sha256sums=\('.*'\)$`)
-	content = sha256Re.ReplaceAll(content, []byte(fmt.Sprintf("sha256sums=('%s')", checksum)))
-
+	content = regexp.MustCompile(`(?m)^sha256sums=\('.*'\)$`).ReplaceAll(content, []byte(fmt.Sprintf("sha256sums=('%s')", checksum)))
 	if err := os.WriteFile(pkgbuild, content, 0o644); err != nil {
 		return fmt.Errorf("failed to write PKGBUILD: %w", err)
 	}
-
 	fmt.Printf("Updated PKGBUILD: pkgver=%s, sha256=%s\n", version, checksum)
 	return nil
 }

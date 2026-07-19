@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 
-SCRIPT_DIR = Path(__file__).parent
+SCRIPT_DIR = Path(__file__).parents[1] / "scripts"
 
 
 def load_script(name):

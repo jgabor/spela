@@ -131,10 +131,6 @@ func ResolveSteamPath(configured string) string {
 	return FindSteamPath()
 }
 
-func ScanAllLibraries() (*game.Database, error) {
-	return ScanLibraries("", nil)
-}
-
 // ScanLibraries discovers games from the Steam install at steamPath and any
 // additional library folders. When steamPath is empty, Steam is auto-detected.
 func ScanLibraries(steamPath string, additionalPaths []string) (*game.Database, error) {
