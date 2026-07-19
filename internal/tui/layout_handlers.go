@@ -301,10 +301,12 @@ func (m LayoutModel) handleAppMessages(msg tea.Msg, cmds []tea.Cmd) (LayoutModel
 		m, cmds = m.handleProfileSaveMsg(msg, cmds)
 
 	case optionsSavedMsg:
-		m.config = msg.config
+		m.pane.settings.saving = false
+		m.pane.settings.modified = false
 		cmds = append(cmds, m.messageBar.SetMessage("Settings saved!", MessageSuccess))
 
 	case optionsSaveErrorMsg:
+		m.pane.settings.saving = false
 		cmds = append(cmds, m.messageBar.SetMessage(fmt.Sprintf("Failed to save settings: %v", msg.err), MessageError))
 
 	}

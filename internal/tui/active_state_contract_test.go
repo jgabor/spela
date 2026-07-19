@@ -108,7 +108,7 @@ func TestOptionsModalEditsEveryCatalogOptionThroughKeyboardContract(t *testing.T
 	if command == nil {
 		t.Fatal("save key did not return a persistence command")
 	}
-	if message, ok := command().(optionsSavedMsg); !ok || message.config == nil {
+	if message, ok := command().(optionsSavedMsg); !ok {
 		t.Fatalf("save command returned %#v", message)
 	}
 }

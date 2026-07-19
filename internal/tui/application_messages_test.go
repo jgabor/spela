@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/nav"
@@ -36,15 +35,16 @@ func TestLayoutApplicationMessagesMaintainCrossComponentState(t *testing.T) {
 		t.Fatalf("all-current batch message = %q, %v", updated.messageBar.message, updated.messageBar.messageType)
 	}
 
-	newConfig := config.Default()
-	newConfig.ShowHints = false
-	updated, commands = updated.handleAppMessages(optionsSavedMsg{config: newConfig}, nil)
-	if updated.config != newConfig || len(commands) == 0 {
-		t.Fatal("options save did not update layout config and announce success")
+	configuration := updated.config
+	updated.pane.settings.saving, updated.pane.settings.modified = true, true
+	updated, commands = updated.handleAppMessages(optionsSavedMsg{}, nil)
+	if updated.config != configuration || updated.pane.settings.config != configuration || updated.pane.settings.saving || updated.pane.settings.modified || len(commands) == 0 {
+		t.Fatal("options save did not preserve config ownership, reset state, and announce success")
 	}
+	updated.pane.settings.saving, updated.pane.settings.modified = true, true
 	updated, commands = updated.handleAppMessages(optionsSaveErrorMsg{err: errors.New("read-only")}, nil)
-	if len(commands) == 0 {
-		t.Fatal("options save failure did not announce error")
+	if updated.pane.settings.saving || !updated.pane.settings.modified || len(commands) == 0 {
+		t.Fatal("options save failure did not preserve retry state and announce error")
 	}
 
 	updated.pane.content.dllOperating = true

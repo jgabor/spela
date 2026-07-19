@@ -19,6 +19,7 @@ type OptionsModalModel struct {
 	sectionCursor int
 	optionCursor  int
 	modified      bool
+	saving        bool
 	editingPath   bool
 	pathInput     textinput.Model
 	width         int
@@ -26,9 +27,7 @@ type OptionsModalModel struct {
 
 func (m *OptionsModalModel) SetSize(width, _ int) { m.width = width }
 
-type optionsSavedMsg struct {
-	config *config.Config
-}
+type optionsSavedMsg struct{}
 
 type optionsSaveErrorMsg struct {
 	err error
@@ -61,11 +60,16 @@ func (m *OptionsModalModel) SyncNavSection(section nav.SettingsSection) {
 // OpenEmbedded activates settings as a full destination (not a modal overlay).
 func (m *OptionsModalModel) OpenEmbedded(cfg *config.Config) {
 	m.config = cfg
-	m.modified = false
+	if !m.saving {
+		m.modified = false
+	}
 	m.editingPath = false
 }
 
 func (m OptionsModalModel) Update(msg tea.Msg) (OptionsModalModel, tea.Cmd) {
+	if m.saving {
+		return m, nil
+	}
 	if m.editingPath {
 		return m.updatePathEditing(msg)
 	}
@@ -197,13 +201,13 @@ func (m *OptionsModalModel) setConfigValue(key, value string) {
 }
 
 func (m OptionsModalModel) save() (OptionsModalModel, tea.Cmd) {
-	cfg := m.config
-	m.modified = false
+	cfg := m.config.Clone()
+	m.saving = true
 	return m, func() tea.Msg {
 		if err := cfg.Save(); err != nil {
 			return optionsSaveErrorMsg{err: err}
 		}
-		return optionsSavedMsg{config: cfg}
+		return optionsSavedMsg{}
 	}
 }
 

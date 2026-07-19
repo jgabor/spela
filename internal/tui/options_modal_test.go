@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -20,6 +21,63 @@ func TestOptionsModal_EmbeddedShowsSingleSection(t *testing.T) {
 	}
 	if strings.Contains(view, "Steam path") {
 		t.Fatal("paths section should not render when logging section is active")
+	}
+}
+
+func TestOptionsModal_SaveUsesInvocationSnapshot(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	configuration := config.Default()
+	modal := NewOptionsModal(NewStyles(DefaultTheme, true))
+	modal.OpenEmbedded(configuration)
+	modal.modified = true
+
+	modal, command := modal.save()
+	configuration.ShowHints = false
+	if _, ok := command().(optionsSavedMsg); !ok {
+		t.Fatal("save command did not report success")
+	}
+	persisted, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !persisted.ShowHints || !modal.saving {
+		t.Fatalf("persisted live mutation or lost pending state: show hints=%v saving=%v", persisted.ShowHints, modal.saving)
+	}
+}
+
+func TestOptionsModal_SavePendingSerializesEditsAndRecovers(t *testing.T) {
+	styles := NewStyles(DefaultTheme, true)
+	configuration := config.Default()
+	modal := NewOptionsModal(styles)
+	modal.OpenEmbedded(configuration)
+	modal.SyncNavSection(nav.SettingsDisplay)
+	modal.optionCursor = 1
+	modal.modified = true
+
+	modal, first := modal.save()
+	before := configuration.ShowHints
+	modal, edit := modal.Update(keyMsg("right"))
+	modal, second := modal.Update(keyMsg("s"))
+	if first == nil || edit != nil || second != nil || configuration.ShowHints != before {
+		t.Fatal("an edit or second save passed an in-flight save")
+	}
+
+	layout := LayoutModel{config: configuration, pane: resourcePaneModel{settings: modal}, messageBar: NewMessageBar(styles)}
+	layout, _ = layout.handleAppMessages(optionsSaveErrorMsg{err: errors.New("read-only")}, nil)
+	if layout.pane.settings.saving || !layout.pane.settings.modified {
+		t.Fatal("failed save was not left retryable")
+	}
+	layout.pane.settings, second = layout.pane.settings.Update(keyMsg("s"))
+	if second == nil || !layout.pane.settings.saving {
+		t.Fatal("failed save could not be retried")
+	}
+	layout, _ = layout.handleAppMessages(optionsSavedMsg{}, nil)
+	if layout.pane.settings.saving || layout.pane.settings.modified || layout.config != layout.pane.settings.config {
+		t.Fatal("successful save did not reset state with coherent config ownership")
+	}
+	layout.pane.settings, _ = layout.pane.settings.Update(keyMsg("right"))
+	if configuration.ShowHints == before {
+		t.Fatal("normal input remained blocked after save completion")
 	}
 }
 
