@@ -73,9 +73,7 @@ func TestListProfileAndDenylistAlternateSupportedProjections(t *testing.T) {
 	}
 	entry := &game.Game{AppID: 7, Name: "Fixture", DLLs: []game.DetectedDLL{{Name: "nvngx_dlss.dll", Version: "3.8.10", Type: game.DLLTypeDLSS}}}
 	database := &game.Database{Games: map[uint64]*game.Game{7: entry}}
-	if err := database.Save(); err != nil {
-		t.Fatal(err)
-	}
+	saveCommandDatabase(t, database)
 	if output := executeSupportedCommand(t, ListCmd, "--json", "--with-dlls"); !strings.Contains(output, `"AppID": 7`) {
 		t.Fatalf("JSON list output:\n%s", output)
 	}

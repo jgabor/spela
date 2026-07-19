@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -53,6 +52,7 @@ const (
 type ContentModel struct {
 	styles              *Styles
 	services            *Services
+	database            *game.Database
 	game                *game.Game
 	detail              DetailModel
 	dlssPresetModal     DLSSPresetModalModel
@@ -88,14 +88,13 @@ type profileSaveMsg struct {
 }
 
 type dllUpdateMsg struct {
-	success bool
-	err     error
-	dlls    []game.DetectedDLL
+	batch dll.BatchResult
+	err   error
 }
 
 type dllRestoreMsg struct {
-	success bool
-	err     error
+	result dll.Result
+	err    error
 }
 
 type dllUpdatesCheckedMsg struct {
@@ -104,9 +103,8 @@ type dllUpdatesCheckedMsg struct {
 }
 
 type dllInstallMsg struct {
-	success bool
-	err     error
-	dlls    []game.DetectedDLL
+	result dll.Result
+	err    error
 }
 
 type dllTypesLoadedMsg struct {
@@ -202,67 +200,23 @@ func (m ContentModel) saveResolvedProfile() tea.Cmd {
 }
 
 func (m ContentModel) updateDLLs() tea.Cmd {
-	g := m.game
+	if m.game == nil {
+		return func() tea.Msg { return dllUpdateMsg{err: fmt.Errorf("no game selected")} }
+	}
+	appID := m.game.AppID
 	return func() tea.Msg {
-		if g == nil || len(g.DLLs) == 0 {
-			return dllUpdateMsg{err: fmt.Errorf("no game or DLLs selected")}
-		}
-
-		manifest, err := dll.GetManifest(false, "")
-		if err != nil {
-			return dllUpdateMsg{err: fmt.Errorf("failed to fetch manifest: %w", err)}
-		}
-
-		gameDLLs := dll.GameDLLsFromDetected(g.DLLs)
-
-		updatedCount := 0
-		for _, d := range g.DLLs {
-			dllType := strings.ToLower(string(d.Type))
-			latest := manifest.GetLatestDLL(dllType)
-			if latest == nil {
-				continue
-			}
-
-			if d.Version != "" && !dll.IsNewer(d.Version, latest.Version) {
-				continue
-			}
-
-			cachePath, err := dll.DownloadDLL(latest, dllType)
-			if err != nil {
-				return dllUpdateMsg{err: fmt.Errorf("download %s failed: %w", dllType, err)}
-			}
-
-			if err := dll.SwapDLL(g.AppID, g.Name, gameDLLs, d.Name, cachePath); err != nil {
-				return dllUpdateMsg{err: fmt.Errorf("swap %s failed: %w", dllType, err)}
-			}
-			updatedCount++
-		}
-
-		if updatedCount == 0 {
-			return dllUpdateMsg{err: fmt.Errorf("no updates available")}
-		}
-
-		detected, err := dll.ScanDirectory(g.InstallDir)
-		if err != nil {
-			return dllUpdateMsg{err: err}
-		}
-
-		return dllUpdateMsg{success: true, dlls: detected}
+		return dllUpdateMsg{batch: dll.UpdateGame(appID, "", nil)}
 	}
 }
 
 func (m ContentModel) restoreDLLs() tea.Cmd {
-	g := m.game
+	if m.game == nil {
+		return func() tea.Msg { return dllRestoreMsg{err: fmt.Errorf("no game selected")} }
+	}
+	appID := m.game.AppID
 	return func() tea.Msg {
-		if g == nil {
-			return dllRestoreMsg{err: fmt.Errorf("no game selected")}
-		}
-
-		if err := dll.RestoreBackup(g.AppID); err != nil {
-			return dllRestoreMsg{err: err}
-		}
-
-		return dllRestoreMsg{success: true}
+		result, err := dll.Restore(appID, nil)
+		return dllRestoreMsg{result: result, err: err}
 	}
 }
 
@@ -373,11 +327,8 @@ func (m ContentModel) updateDLLInstall(msg tea.Msg) (ContentModel, tea.Cmd) {
 	case dllInstallMsg:
 		m.dllInstallState = DLLInstallNone
 		m.dllOperating = false
-		if msg.success {
-			if msg.dlls != nil && m.game != nil {
-				m.game.DLLs = msg.dlls
-				m.game.ScannedAt = time.Now()
-			}
+		if msg.result.Game != nil {
+			m.applyDLLResult(msg.result)
 			m.hasBackup = m.game != nil && m.services.BackupExists(m.game.AppID)
 			return m, m.LoadDLLUpdates()
 		}
@@ -405,9 +356,12 @@ func (m ContentModel) loadDLLVersions() tea.Cmd {
 }
 
 func (m ContentModel) LoadDLLUpdates() tea.Cmd {
-	g := m.game
+	var detected []game.DetectedDLL
+	if m.game != nil {
+		detected = append(detected, m.game.DLLs...)
+	}
 	return func() tea.Msg {
-		if g == nil || len(g.DLLs) == 0 {
+		if len(detected) == 0 {
 			return dllUpdatesCheckedMsg{hasUpdates: false}
 		}
 
@@ -416,7 +370,7 @@ func (m ContentModel) LoadDLLUpdates() tea.Cmd {
 			return dllUpdatesCheckedMsg{err: fmt.Errorf("failed to fetch manifest: %w", err)}
 		}
 
-		for _, d := range g.DLLs {
+		for _, d := range detected {
 			dllType := strings.ToLower(string(d.Type))
 			latest := manifest.GetLatestDLL(dllType)
 			if latest == nil {
@@ -439,26 +393,10 @@ type dllVersionsLoadedMsg struct {
 func (m ContentModel) installSelectedDLL() tea.Cmd {
 	dllType := m.selectedDLLType
 	dllInfo := m.dllVersions[m.dllVersionCursor]
-	g := m.game
+	appID := m.game.AppID
 
 	return func() tea.Msg {
-		cachePath, err := dll.DownloadDLL(&dllInfo, dllType)
-		if err != nil {
-			return dllInstallMsg{err: err}
-		}
-
-		gameDLLs := dll.GameDLLsFromDetected(g.DLLs)
-
-		targetName := dllInfo.Filename
-		if err := dll.InstallDLL(g.AppID, g.Name, g.InstallDir, gameDLLs, targetName, cachePath); err != nil {
-			return dllInstallMsg{err: err}
-		}
-
-		detected, err := dll.ScanDirectory(g.InstallDir)
-		if err != nil {
-			return dllInstallMsg{err: err}
-		}
-
-		return dllInstallMsg{success: true, dlls: detected}
+		result, err := dll.Install(appID, dllType, dllInfo.Version, nil)
+		return dllInstallMsg{result: result, err: err}
 	}
 }

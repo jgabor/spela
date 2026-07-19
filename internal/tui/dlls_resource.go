@@ -13,73 +13,29 @@ import (
 	"github.com/jgabor/spela/internal/nav"
 )
 
-// DLLsResourceModel renders the DLLs resource pane introduced by Task 6.
-// Two sections are always visible at once:
-//
-//  1. Library: inventory of every DLL type the detector recognises, paired
-//     with the latest manifest version and the number of cached payloads on
-//     disk (plus the newest cached version string).
-//  2. Deployment: a games × DLL-types matrix. Each cell shows the version of
-//     that DLL currently installed in that game, or "-" when no DLL of that
-//     type is installed. Cells carrying a version strictly older than the
-//     newest cached payload are marked with the accent-override (magenta)
-//     token, matching the inheritance-override marker used elsewhere.
-//
-// Rows are omitted entirely for DLL types that no tracked game installs —
-// the matrix never shows empty columns. DLL types with zero detected
-// installations across all games are dropped from the column set.
-//
-// Focus model: j/k (and arrow aliases) move the deployment row cursor
-// across games. The rail owns 1-4 and tab; this pane only cares about
-// row navigation and the update-all trigger.
-//
-// Keybindings:
-//   - j / down: focus the next game row in the deployment table
-//   - k / up:   focus the previous game row
-//   - U or ctrl+u: update every stale cell to its latest cached version
-//     in a single batched action; per-cell success/failure is reflected in
-//     the lastBatchResult map after completion.
+// DLLsResourceModel renders cached DLL inventory and installed deployment.
+// U updates every stale deployment cell in one batch.
 type DLLsResourceModel struct {
-	styles   *Styles
-	services *Services
-	// games is the list the pane iterates for the deployment matrix. It is
-	// a snapshot taken from the game database at construction / refresh
-	// time — the pane does not watch the database for live changes.
-	games []*game.Game
-	// manifest caches the manifest consulted for "latest" versions. nil
-	// when the manifest could not be loaded; the view degrades gracefully
-	// by omitting latest-version cells.
-	manifest *dll.Manifest
-	// cached maps manifest-key → sorted-descending list of cached versions.
-	// Populated via RefreshCached on construction. The first element (when
-	// present) is the newest cached version.
-	cached map[string][]string
-	// typesInUse is the ordered list of manifest keys for DLL types that
-	// at least one tracked game installs. Used for deployment columns and
-	// derived from dll.KnownDLLTypes() filtered by installation.
+	styles     *Styles
+	services   *Services
+	database   *game.Database
+	games      []*game.Game
+	manifest   *dll.Manifest
+	cached     map[string][]string
 	typesInUse []dll.KnownDLLTypeInfo
-	// gameRowCursor: index into games that carry at least one installed
-	// DLL matching typesInUse. Clamped on set-games and on construction.
-	gameRowCursor int
-	// deploymentGames: subset of games with at least one installed DLL.
-	// These are the rows of the deployment matrix.
-	deploymentGames []*game.Game
-	// lastBatchResult maps "appID:manifestKey" to a short status snippet
-	// (empty = not touched, "ok" = updated, "err: <reason>" = failed).
-	// Rendered inline after a successful update-all cycle.
+
+	gameRowCursor    int
+	deploymentGames  []*game.Game
 	lastBatchResult  map[string]string
 	lastBatchSummary string
-	// busy is true while an update-all batch is in flight.
-	busy  bool
-	width int
+	busy             bool
+	width            int
 }
 
-// dllsUpdateAllCompleteMsg is delivered when the batched update-all has
-// finished. Results is keyed "appID:manifestKey". Each value is either
-// empty (unchanged), "ok" (updated), or "err: <reason>" (failure).
 type dllsUpdateAllCompleteMsg struct {
 	results map[string]string
 	summary string
+	games   map[uint64]*game.Game
 }
 
 // NewDLLsResource constructs an empty DLLs resource. Use SetGames and
@@ -106,11 +62,11 @@ func (m DLLsResourceModel) listCachedDLLs(manifestKey string) ([]string, error) 
 	return dll.ListCachedVersions(manifestKey)
 }
 
-func (m DLLsResourceModel) updateCachedDLL(req DLLUpdateRequest) error {
-	if m.services != nil && m.services.UpdateCachedDLL != nil {
-		return m.services.UpdateCachedDLL(req)
+func (m DLLsResourceModel) batchUpdateDLLs(requests []dll.UpdateRequest) dll.BatchResult {
+	if m.services != nil && m.services.BatchUpdateDLLs != nil {
+		return m.services.BatchUpdateDLLs(requests)
 	}
-	return defaultUpdateCachedDLL(req)
+	return dll.BatchUpdate(requests, nil)
 }
 
 // SetGames replaces the tracked game list and recomputes which DLL types
@@ -248,6 +204,17 @@ func (m DLLsResourceModel) Update(msg tea.Msg) (DLLsResourceModel, tea.Cmd) {
 		}
 	case dllsUpdateAllCompleteMsg:
 		m.busy = false
+		for appID, updated := range msg.games {
+			if m.database != nil {
+				m.database.Games[appID] = updated
+			}
+			for index, entry := range m.games {
+				if entry.AppID == appID {
+					m.games[index] = updated
+				}
+			}
+		}
+		m = m.SetGames(m.games)
 		m.lastBatchResult = msg.results
 		m.lastBatchSummary = msg.summary
 		// Freshly-downloaded payloads may have been cached; refresh so the
@@ -263,9 +230,10 @@ func (m DLLsResourceModel) Update(msg tea.Msg) (DLLsResourceModel, tea.Cmd) {
 func (m DLLsResourceModel) hasStaleCells() bool {
 	for _, g := range m.deploymentGames {
 		for _, info := range m.typesInUse {
-			installed := installedVersionFor(g, info.Type)
-			if m.isStale(installed, info.ManifestKey) {
-				return true
+			for _, detected := range g.DLLs {
+				if detected.Type == info.Type && m.isStale(detected.Version, info.ManifestKey) {
+					return true
+				}
 			}
 		}
 	}
@@ -283,67 +251,46 @@ func installedVersionFor(g *game.Game, t game.DLLType) string {
 	return ""
 }
 
-// updateAllCmd captures a snapshot of the current stale cells and returns a
-// tea.Cmd that performs the swap per cell, aggregating per-cell success /
-// failure into dllsUpdateAllCompleteMsg.results.
 func (m DLLsResourceModel) updateAllCmd() tea.Cmd {
-	type staleCell struct {
-		g           *game.Game
-		typeInfo    dll.KnownDLLTypeInfo
-		latest      string
-		installedOn string // original filename in the game install dir
-	}
-	var cells []staleCell
+	var requests []dll.UpdateRequest
+	var keys []string
 	for _, g := range m.deploymentGames {
 		for _, info := range m.typesInUse {
-			installed := installedVersionFor(g, info.Type)
-			if !m.isStale(installed, info.ManifestKey) {
-				continue
-			}
-			// Find the detected DLL filename so SwapDLL can locate the
-			// in-game target path. Fall back to the canonical filename
-			// from KnownDLLTypes when the detection omitted it.
-			installedName := info.Filename
 			for _, d := range g.DLLs {
-				if d.Type == info.Type {
-					installedName = d.Name
-					break
+				if d.Type != info.Type || !m.isStale(d.Version, info.ManifestKey) {
+					continue
 				}
+				requests = append(requests, dll.UpdateRequest{AppID: g.AppID, DLLType: info.ManifestKey, Version: m.latestCached(info.ManifestKey), InstalledPath: d.Path, CachedOnly: true})
+				keys = append(keys, fmt.Sprintf("%d:%s", g.AppID, info.ManifestKey))
 			}
-			cells = append(cells, staleCell{
-				g:           g,
-				typeInfo:    info,
-				latest:      m.latestCached(info.ManifestKey),
-				installedOn: installedName,
-			})
 		}
 	}
 
 	return func() tea.Msg {
-		results := make(map[string]string, len(cells))
-		succeeded := 0
-		failed := 0
-		for _, c := range cells {
-			key := fmt.Sprintf("%d:%s", c.g.AppID, c.typeInfo.ManifestKey)
-			if err := m.updateCachedDLL(DLLUpdateRequest{
-				Game:          c.g,
-				TypeInfo:      c.typeInfo,
-				LatestVersion: c.latest,
-				InstalledName: c.installedOn,
-			}); err != nil {
-				results[key] = fmt.Sprintf("err: %v", err)
-				failed++
+		batch := m.batchUpdateDLLs(requests)
+		results := make(map[string]string, len(requests))
+		games := make(map[uint64]*game.Game)
+		for index, item := range batch.Items {
+			if item.Result.Game != nil {
+				games[item.Result.Game.AppID] = item.Result.Game
+			}
+			if index >= len(keys) {
 				continue
 			}
-			results[key] = "ok"
-			succeeded++
+			if item.Err != nil {
+				results[keys[index]] = fmt.Sprintf("err: %v", item.Err)
+			} else if item.Result.Outcome != dll.OutcomeNoOp {
+				results[keys[index]] = "ok"
+			}
 		}
-		summary := fmt.Sprintf("Update-all: %d updated, %d failed", succeeded, failed)
-		return dllsUpdateAllCompleteMsg{results: results, summary: summary}
+		summary := fmt.Sprintf("Update-all: %d updated, %d current, %d failed", batch.Updated, batch.Unchanged, batch.Failed)
+		if batch.Updated == 0 && batch.Failed == 0 {
+			summary = "Update-all: already current"
+		}
+		return dllsUpdateAllCompleteMsg{results: results, summary: summary, games: games}
 	}
 }
 
-// View renders the DLL Catalog content pane for the selected section.
 func (m DLLsResourceModel) View(paneFocused bool, section nav.DLLCatalogSection) string {
 	s := m.styles
 	borderColor := s.BorderColor(paneFocused)
@@ -366,11 +313,6 @@ func (m DLLsResourceModel) View(paneFocused bool, section nav.DLLCatalogSection)
 	return box.Render(b.String())
 }
 
-// renderLibrary renders the library section: one row per DLL type, listing
-// the latest manifest version, the newest cached version, and how many
-// payloads are cached locally. Types with no manifest data and no cached
-// payloads still appear — the library is an inventory, not a deployment
-// status view.
 func (m DLLsResourceModel) renderLibrary() string {
 	s := m.styles
 	var b strings.Builder

@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -72,6 +74,13 @@ func TestManifestFetchCacheAndLookupContract(t *testing.T) {
 	if cached, err := GetManifest(false, server.URL+"/failure"); err != nil || cached.Repository != "fixture" {
 		t.Fatalf("fresh cached manifest = %+v, %v", cached, err)
 	}
+	loaded.UpdatedAt = time.Now().Add(-2 * ManifestMaxAge)
+	if err := SaveManifest(loaded); err != nil {
+		t.Fatal(err)
+	}
+	if cached, err := GetManifest(false, server.URL+"/failure"); err != nil || cached.Repository != "fixture" {
+		t.Fatalf("stale offline cached manifest = %+v, %v", cached, err)
+	}
 	if _, err := FetchManifest(server.URL + "/failure"); err == nil || !strings.Contains(err.Error(), "HTTP 502") {
 		t.Fatalf("manifest HTTP error = %v", err)
 	}
@@ -102,7 +111,7 @@ func TestDownloadCacheProgressChecksumAndDirectoryContract(t *testing.T) {
 
 	entry := &DLL{Version: "3.8.10", URL: server.URL, SHA256: hex.EncodeToString(digest[:])}
 	var downloaded, total int64
-	path, err := DownloadDLLWithProgress(entry, "dlss", func(current, expected int64) {
+	path, err := acquireDLL(entry, "dlss", true, func(current, expected int64) {
 		downloaded, total = current, expected
 	})
 	if err != nil || downloaded != int64(len(payload)) || total != int64(len(payload)) {
@@ -111,7 +120,7 @@ func TestDownloadCacheProgressChecksumAndDirectoryContract(t *testing.T) {
 	if data, err := os.ReadFile(path); err != nil || string(data) != string(payload) {
 		t.Fatalf("downloaded payload = %q, %v", data, err)
 	}
-	if cached, err := EnsureCached(entry, "dlss"); err != nil || cached != path {
+	if cached, err := acquireDLL(entry, "dlss", false, nil); err != nil || cached != path {
 		t.Fatalf("valid cache = %q, %v", cached, err)
 	}
 	versions, err := ListCachedVersions("dlss")
@@ -122,12 +131,37 @@ func TestDownloadCacheProgressChecksumAndDirectoryContract(t *testing.T) {
 		t.Fatalf("missing cached versions = %v, %v", versions, err)
 	}
 	bad := &DLL{Version: "bad", URL: server.URL, SHA256: strings.Repeat("0", 64)}
-	if _, err := DownloadDLL(bad, "dlss"); err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
+	if _, err := acquireDLL(bad, "dlss", true, nil); err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
 		t.Fatalf("checksum error = %v", err)
 	}
 	missing := &DLL{Version: "missing", URL: server.URL + "/missing"}
-	if _, err := DownloadDLL(missing, "dlss"); err == nil || !strings.Contains(err.Error(), "HTTP 404") {
+	if _, err := acquireDLL(missing, "dlss", true, nil); err == nil || !strings.Contains(err.Error(), "HTTP 404") {
 		t.Fatalf("download HTTP error = %v", err)
+	}
+}
+
+func TestAcquireDLLTimesOutWhileReadingBody(t *testing.T) {
+	isolateDLLCache(t)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Length", "1024")
+		writer.WriteHeader(http.StatusOK)
+		writer.(http.Flusher).Flush()
+		<-request.Context().Done()
+	}))
+	defer server.Close()
+	originalClient := httpClient
+	client := server.Client()
+	client.Timeout = 50 * time.Millisecond
+	httpClient = client
+	t.Cleanup(func() { httpClient = originalClient })
+
+	started := time.Now()
+	_, err := acquireDLL(&DLL{Version: "1", URL: server.URL, SHA256: strings.Repeat("0", 64)}, "dlss", true, nil)
+	if err == nil || !strings.Contains(err.Error(), "context deadline exceeded") {
+		t.Fatalf("stalled body error = %v", err)
+	}
+	if elapsed := time.Since(started); elapsed > time.Second {
+		t.Fatalf("stalled body timeout took %v", elapsed)
 	}
 }
 
@@ -142,8 +176,8 @@ func TestDLLDetectionCatalogueAndVersionResourceContract(t *testing.T) {
 	if err != nil || len(detected) != 2 || detected[0].Type != game.DLLTypeDLSS || detected[1].Type != game.DLLTypeXeSS {
 		t.Fatalf("detected DLLs = %+v, %v", detected, err)
 	}
-	if missing, err := ScanDirectory(filepath.Join(directory, "missing")); err != nil || len(missing) != 0 {
-		t.Fatalf("missing scan directory = %+v, %v", missing, err)
+	if missing, err := ScanDirectory(filepath.Join(directory, "missing")); err == nil || len(missing) != 0 {
+		t.Fatalf("missing scan directory should fail = %+v, %v", missing, err)
 	}
 	types := KnownDLLTypes()
 	if len(types) != 5 || types[0].ManifestKey != "dlss" || types[4].ManifestKey != "fsr" {
@@ -168,5 +202,15 @@ func TestDLLDetectionCatalogueAndVersionResourceContract(t *testing.T) {
 	}
 	if extractVersionFromResource(nil) != "" || formatVersion(1, 2, 0, 0) != "1.2" || formatVersion(1, 2, 3, 4) != "1.2.3.4" {
 		t.Fatal("version resource edge formatting changed")
+	}
+}
+
+func TestScanDirectoryPropagatesNestedTraversalError(t *testing.T) {
+	want := errors.New("injected nested traversal failure")
+	detected, err := scanDirectory("/fixture", func(root string, visit fs.WalkDirFunc) error {
+		return visit(filepath.Join(root, "nested"), nil, want)
+	})
+	if !errors.Is(err, want) || len(detected) != 0 {
+		t.Fatalf("scanDirectory() = %+v, %v", detected, err)
 	}
 }

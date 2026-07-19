@@ -50,31 +50,12 @@ func TestGUIBoundaryDLLDiscoveryAndRestoreSupportedAdapter(t *testing.T) {
 		t.Fatalf("current DLL updates = %+v", updates)
 	}
 
-	var progress []string
-	restored := false
-	saved := false
-	boundary.emitDLLProgress = func(stage string) { progress = append(progress, stage) }
-	boundary.restoreBackup = func(appID uint64) error { restored = appID == entry.AppID; return nil }
-	boundary.scanDLLDirectory = func(path string) ([]game.DetectedDLL, error) {
-		return []game.DetectedDLL{{Version: "original"}}, nil
-	}
-	boundary.saveDatabase = func(*game.Database) error { saved = true; return nil }
-	if err := boundary.restoreDLLs(entry.AppID); err != nil || !restored || !saved || entry.DLLs[0].Version != "original" || progress[len(progress)-1] != "" {
-		t.Fatalf("restore = error %v, restored %v, saved %v, game %+v, progress %v", err, restored, saved, entry, progress)
-	}
-	boundary.restoreBackup = func(uint64) error { return errors.New("backup corrupt") }
-	if err := boundary.restoreDLLs(entry.AppID); err == nil || !strings.Contains(err.Error(), "restore backup") {
-		t.Fatalf("restore failure = %v", err)
-	}
 }
 
 func TestGUIBoundaryDLLAdapterRejectsMissingDatabaseGameAndTypes(t *testing.T) {
 	empty := defaultGUIApplicationBoundary(nil)
 	if _, err := empty.listDLLInstallTypes(1); !errors.Is(err, ErrDatabaseNotLoaded) {
 		t.Fatalf("missing database install types = %v", err)
-	}
-	if err := empty.restoreDLLs(1); !errors.Is(err, ErrDatabaseNotLoaded) {
-		t.Fatalf("missing database restore = %v", err)
 	}
 	if updates := empty.checkDLLUpdates(1); len(updates) != 0 {
 		t.Fatalf("missing database updates = %+v", updates)
@@ -83,8 +64,5 @@ func TestGUIBoundaryDLLAdapterRejectsMissingDatabaseGameAndTypes(t *testing.T) {
 	boundary := defaultGUIApplicationBoundary(database)
 	if _, err := boundary.listDLLInstallTypes(1); !errors.Is(err, ErrGameNotFound) {
 		t.Fatalf("missing game install types = %v", err)
-	}
-	if err := boundary.restoreDLLs(1); !errors.Is(err, ErrGameNotFound) {
-		t.Fatalf("missing game restore = %v", err)
 	}
 }

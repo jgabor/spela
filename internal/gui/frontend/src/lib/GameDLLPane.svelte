@@ -19,6 +19,7 @@
   let installError = ''
   let dllProgressStage = ''
   let unsubscribeDllProgress = null
+  let dllBusy = false
 
   $: hasUpdates = dllUpdates.some(d => d.hasUpdate)
 
@@ -123,9 +124,10 @@
   }
 
   async function selectInstallVersion(version) {
-    if (!game || !selectedInstallType) {
+    if (!game || !selectedInstallType || dllBusy) {
       return
     }
+    dllBusy = true
     installingDLL = true
     installError = ''
     try {
@@ -139,6 +141,7 @@
     } finally {
       clearDllProgress()
       installingDLL = false
+      dllBusy = false
     }
   }
 
@@ -164,21 +167,31 @@
   }
 
   async function updateDLLs() {
+    if (dllBusy) return
+    dllBusy = true
     updatingDLLs = true
     try {
-      await desktop.UpdateDLLs(game.appId)
+      const outcome = await desktop.UpdateDLLs(game.appId)
+      if (outcome?.failed > 0) {
+        const details = outcome.failures?.map(failure => `${failure.path}: ${failure.error}`).join('; ')
+        dispatch('error', `DLL update: ${outcome.updated} updated, ${outcome.unchanged} current, ${outcome.failed} failed${details ? `; ${details}` : ''}`)
+      } else {
+        dispatch('success', outcome?.updated === 0 ? 'DLLs already up to date' : `DLLs updated: ${outcome.updated} changed, ${outcome.unchanged} already current`)
+      }
       await refreshGameDetails()
       await checkDLLUpdates()
-      dispatch('success', 'DLLs updated!')
     } catch (e) {
       dispatch('error', 'Failed to update: ' + formatError(e))
     } finally {
       clearDllProgress()
       updatingDLLs = false
+      dllBusy = false
     }
   }
 
   async function restoreDLLs() {
+    if (dllBusy) return
+    dllBusy = true
     restoringDLLs = true
     try {
       await desktop.RestoreDLLs(game.appId)
@@ -190,6 +203,7 @@
     } finally {
       clearDllProgress()
       restoringDLLs = false
+      dllBusy = false
     }
   }
 </script>
@@ -214,15 +228,15 @@
   </div>
   <div class="dll-actions">
     {#if hasUpdates}
-      <button class="update-btn" on:click={updateDLLs} disabled={updatingDLLs}>
+      <button class="update-btn" on:click={updateDLLs} disabled={dllBusy}>
         {updatingDLLs ? 'Updating...' : 'Update all DLLs'}
       </button>
     {/if}
-    <button class="install-btn" on:click={openInstallWizard} disabled={installingDLL}>
+    <button class="install-btn" on:click={openInstallWizard} disabled={dllBusy}>
       {installingDLL ? 'Installing...' : 'Install DLL'}
     </button>
     {#if hasBackup}
-      <button class="restore-btn" on:click={restoreDLLs} disabled={restoringDLLs}>
+      <button class="restore-btn" on:click={restoreDLLs} disabled={dllBusy}>
         {restoringDLLs ? 'Restoring...' : 'Restore original DLLs'}
       </button>
     {/if}

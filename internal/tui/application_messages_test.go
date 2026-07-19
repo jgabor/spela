@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jgabor/spela/internal/config"
+	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/nav"
 )
@@ -26,6 +27,14 @@ func TestLayoutApplicationMessagesMaintainCrossComponentState(t *testing.T) {
 	if updated.batchMessage != "Updated 1 game" || len(commands) == 0 {
 		t.Fatalf("batch completion = message %q, commands %d", updated.batchMessage, len(commands))
 	}
+	updated, _ = updated.handleAppMessages(batchCompleteMsg{message: "Updated 0 games, 1 failed", failed: true}, nil)
+	if updated.messageBar.messageType != MessageError {
+		t.Fatal("failed TUI batch was posted as success")
+	}
+	updated, _ = updated.handleAppMessages(batchCompleteMsg{message: "Selected games are already current", batch: dll.BatchResult{Unchanged: 1}}, nil)
+	if updated.messageBar.messageType != MessageInfo || !strings.Contains(updated.messageBar.message, "already current") {
+		t.Fatalf("all-current batch message = %q, %v", updated.messageBar.message, updated.messageBar.messageType)
+	}
 
 	newConfig := config.Default()
 	newConfig.ShowHints = false
@@ -44,9 +53,14 @@ func TestLayoutApplicationMessagesMaintainCrossComponentState(t *testing.T) {
 	}
 
 	updated.pane.content.dllOperating = true
-	updated, commands = updated.handleAppMessages(dllUpdateMsg{success: true, dlls: []game.DetectedDLL{testDLL(game.DLLTypeDLSS, "3.8.10")}}, nil)
+	updatedGame := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
+	updated, commands = updated.handleAppMessages(dllUpdateMsg{batch: dll.BatchResult{Updated: 1, Items: []dll.BatchItem{{Result: dll.Result{Outcome: dll.OutcomeChanged, Game: updatedGame}}}}}, nil)
 	if updated.pane.content.dllOperating || updated.pane.content.game.DLLs[0].Version != "3.8.10" || len(commands) == 0 {
 		t.Fatal("DLL update success did not synchronize content and message state")
+	}
+	updated, _ = updated.handleAppMessages(dllUpdateMsg{batch: dll.BatchResult{Unchanged: 1}}, nil)
+	if updated.messageBar.messageType != MessageInfo || updated.messageBar.message != "DLLs already up to date" {
+		t.Fatalf("DLL no-op message = %q, %v", updated.messageBar.message, updated.messageBar.messageType)
 	}
 	updated.pane.content.dllOperating = true
 	updated, commands = updated.handleAppMessages(dllRestoreMsg{err: errors.New("backup missing")}, nil)
@@ -106,8 +120,8 @@ func TestLayoutApplicationMessagesMaintainCrossComponentState(t *testing.T) {
 	if !updated.pane.content.hasUpdates || len(updated.pane.content.dllTypes) != 1 {
 		t.Fatal("DLL loading messages did not synchronize content")
 	}
-	updated, commands = updated.handleAppMessages(dllRestoreMsg{success: true}, nil)
-	updated, commands = updated.handleAppMessages(dllInstallMsg{success: true}, commands)
+	updated, commands = updated.handleAppMessages(dllRestoreMsg{result: dll.Result{Outcome: dll.OutcomeChanged}}, nil)
+	updated, commands = updated.handleAppMessages(dllInstallMsg{result: dll.Result{Outcome: dll.OutcomeChanged}}, commands)
 	updated, commands = updated.handleAppMessages(profileSaveMsg{err: errors.New("read-only")}, commands)
 	if len(commands) < 3 {
 		t.Fatalf("success/error messages did not schedule notices: %d", len(commands))

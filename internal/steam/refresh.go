@@ -9,18 +9,22 @@ import (
 
 // Rescan discovers installed games from Steam libraries and persists the database.
 func Rescan(cfg *config.Config) (*game.Database, error) {
+	return rescan(cfg, ScanLibraries)
+}
+
+func rescan(cfg *config.Config, scan func(string, []string) (*game.Database, error)) (*game.Database, error) {
 	steamPath, additional := scanPaths(cfg)
-	db, err := ScanLibraries(steamPath, additional)
-	if err != nil {
-		return nil, err
-	}
-	if db == nil {
-		return nil, fmt.Errorf("could not find Steam installation")
-	}
-	if err := db.Save(); err != nil {
-		return nil, err
-	}
-	return db, nil
+	return game.Transaction(func(current *game.Database) (bool, error) {
+		discovered, err := scan(steamPath, additional)
+		if err != nil {
+			return false, err
+		}
+		if discovered == nil {
+			return false, fmt.Errorf("could not find Steam installation")
+		}
+		*current = *discovered
+		return true, nil
+	})
 }
 
 // RefreshIfNeeded rescans when the database is empty or rescan-on-startup is enabled.

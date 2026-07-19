@@ -262,7 +262,8 @@ func ContextKeys(railFocused bool, searchFocused, selectMode bool, content *Cont
 		}
 
 		if content != nil && content.game != nil {
-			keys = append(keys,
+			keys = append(
+				keys,
 				ContextKey{Key: "r", Action: "reset-field", Enabled: !content.dllOperating, Reason: "busy"},
 				ContextKey{Key: "R", Action: "reset-all", Enabled: !content.dllOperating, Reason: "busy"},
 				ContextKey{Key: "p", Action: "pin", Enabled: !content.dllOperating, Reason: "busy"},

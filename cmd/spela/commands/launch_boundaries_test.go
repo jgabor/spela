@@ -55,6 +55,9 @@ func TestRunLaunchSupportedLookupAndLoadErrors(t *testing.T) {
 	if err := runLaunch(nil, []string{"Fixture"}); err == nil || !strings.Contains(err.Error(), "load game database") {
 		t.Fatalf("database error = %v", err)
 	}
+	if err := os.Remove(gamesPath); err != nil {
+		t.Fatal(err)
+	}
 	seedGame(t, "Fixture", 7)
 	launchGameID = 999
 	if err := runLaunch(nil, []string{"Fixture"}); err == nil || !strings.Contains(err.Error(), "game not found") {

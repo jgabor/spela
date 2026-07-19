@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -157,63 +158,54 @@ func runDLLUpdate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("game not found: %s", gameArg)
 	}
 
-	var targetDLL *game.DetectedDLL
-	for i := range g.DLLs {
-		if strings.ToLower(string(g.DLLs[i].Type)) == dllType {
-			targetDLL = &g.DLLs[i]
-			break
+	version := ""
+	downloadStarted := false
+	batch := dll.UpdateGame(g.AppID, dllType, func(event dll.ProgressEvent) {
+		if event.Version != "" {
+			version = event.Version
 		}
-	}
-	if targetDLL == nil {
-		return fmt.Errorf("game does not have a %s DLL", dllType)
-	}
-
-	manifest, err := dll.GetManifest(false, "")
-	if err != nil {
-		return fmt.Errorf("failed to fetch manifest: %w", err)
-	}
-
-	latest := manifest.GetLatestDLL(dllType)
-	if latest == nil {
-		return fmt.Errorf("no %s versions available in manifest", dllType)
-	}
-
-	if targetDLL.Version != "" && !dll.IsNewer(targetDLL.Version, latest.Version) {
-		fmt.Printf("%s is already at the latest version (%s)\n", targetDLL.Name, targetDLL.Version)
-		return nil
-	}
-
-	fmt.Printf("Downloading %s %s...\n", dllType, latest.Version)
-
-	cachePath, err := dll.DownloadDLLWithProgress(latest, dllType, func(downloaded, total int64) {
-		if total > 0 {
-			percent := float64(downloaded) / float64(total) * 100
-			fmt.Printf("\rDownloading: %.1f%%", percent)
-		} else {
-			fmt.Printf("\rDownloading: %d bytes", downloaded)
+		if event.Stage != dll.StageDownloading {
+			return
+		}
+		if !downloadStarted {
+			fmt.Printf("Downloading %s %s...\n", dllType, event.Version)
+			downloadStarted = true
+		}
+		if event.Downloaded > 0 && event.Total > 0 {
+			fmt.Printf("\rDownloading: %.1f%%", float64(event.Downloaded)/float64(event.Total)*100)
+		} else if event.Downloaded > 0 {
+			fmt.Printf("\rDownloading: %d bytes", event.Downloaded)
 		}
 	})
-	fmt.Println()
-	if err != nil {
-		return fmt.Errorf("failed to download DLL: %w", err)
+	if downloadStarted {
+		fmt.Println()
 	}
-
-	gameDLLs := dll.GameDLLsFromDetected(g.DLLs)
-
-	if err := dll.SwapDLL(g.AppID, g.Name, gameDLLs, targetDLL.Name, cachePath); err != nil {
-		return fmt.Errorf("failed to swap DLL: %w", err)
+	if len(batch.Items) == 0 {
+		return fmt.Errorf("game does not have a %s DLL", dllType)
 	}
-
-	// Re-scan DLLs and persist updated versions to database
-	detected, err := dll.ScanDirectory(g.InstallDir)
-	if err == nil {
-		g.DLLs = detected
+	var failures []error
+	for _, item := range batch.Items {
+		if item.Err != nil {
+			fmt.Printf("Failed %s: %v\n", item.Path, item.Err)
+			failures = append(failures, item.Err)
+		}
 	}
-	if err := db.Save(); err != nil {
-		fmt.Printf("Warning: failed to save database: %v\n", err)
+	if batch.Failed > 0 {
+		fmt.Printf("DLL update result: %d updated, %d unchanged, %d failed\n", batch.Updated, batch.Unchanged, batch.Failed)
+		return fmt.Errorf("%d DLL update(s) failed: %w", batch.Failed, errors.Join(failures...))
 	}
-
-	fmt.Printf("Updated %s to version %s\n", targetDLL.Name, latest.Version)
+	if batch.Updated == 0 {
+		fmt.Printf("%s DLLs are already at the latest version\n", dllType)
+		fmt.Printf("DLL update result: 0 updated, %d unchanged, 0 failed\n", batch.Unchanged)
+		return nil
+	}
+	if batch.Updated > 1 {
+		fmt.Printf("Updated %d %s DLLs to version %s\n", batch.Updated, dllType, version)
+		fmt.Printf("DLL update result: %d updated, %d unchanged, 0 failed\n", batch.Updated, batch.Unchanged)
+		return nil
+	}
+	fmt.Printf("Updated %s DLL to version %s\n", dllType, version)
+	fmt.Printf("DLL update result: 1 updated, %d unchanged, 0 failed\n", batch.Unchanged)
 	return nil
 }
 
@@ -230,21 +222,8 @@ func runDLLRestore(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("game not found: %s", gameArg)
 	}
 
-	if !dll.BackupExists(g.AppID) {
-		return fmt.Errorf("no backup found for %s", g.Name)
-	}
-
-	if err := dll.RestoreBackup(g.AppID); err != nil {
-		return fmt.Errorf("failed to restore backup: %w", err)
-	}
-
-	// Re-scan DLLs and persist restored versions to database
-	detected, err := dll.ScanDirectory(g.InstallDir)
-	if err == nil {
-		g.DLLs = detected
-	}
-	if err := db.Save(); err != nil {
-		fmt.Printf("Warning: failed to save database: %v\n", err)
+	if _, err := dll.Restore(g.AppID, nil); err != nil {
+		return err
 	}
 
 	fmt.Printf("Restored original DLLs for %s\n", g.Name)

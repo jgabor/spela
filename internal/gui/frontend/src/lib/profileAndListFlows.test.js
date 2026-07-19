@@ -20,7 +20,9 @@ describe('game list supported interaction flows', () => {
     const desktop = {
       GetGames: vi.fn().mockResolvedValue(games),
       ScanGames: vi.fn().mockResolvedValue(undefined),
-      UpdateDLLs: vi.fn(appId => appId === 3 ? Promise.reject(new Error('offline')) : Promise.resolve())
+      UpdateDLLs: vi.fn(appId => appId === 3
+        ? Promise.reject(new Error('offline'))
+        : Promise.resolve({ updated: 0, unchanged: 1, failed: 0 }))
     }
     const view = render(GameList, { props: { desktop } })
     await waitFor(() => expect(screen.getByText('Alpha')).toBeTruthy())
@@ -41,7 +43,7 @@ describe('game list supported interaction flows', () => {
     await fireEvent.click(screen.getByText('Select all'))
     await fireEvent.click(screen.getByText('Update all DLLs'))
     await waitFor(() => expect(desktop.UpdateDLLs).toHaveBeenCalledTimes(2))
-    await waitFor(() => expect(screen.getByText('Updated 1 game, 1 failed, 1 skipped')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Updated 0 games, 1 already current, 1 failed, 1 skipped')).toBeTruthy())
 
     await fireEvent.click(screen.getByText('Select'))
     const betaCheckbox = screen.getByText('Beta').closest('label').querySelector('input')

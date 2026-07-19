@@ -22,9 +22,7 @@ func TestShowAndGPUInfoSupportedTextAndFallbackErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry := &game.Game{AppID: 7, Name: "Fixture", InstallDir: "/games/fixture", PrefixPath: "/prefix", DLLs: []game.DetectedDLL{{Name: "nvngx_dlss.dll", Path: "/games/fixture/nvngx_dlss.dll", Type: game.DLLTypeDLSS}}}
-	if err := (&game.Database{Games: map[uint64]*game.Game{7: entry}}).Save(); err != nil {
-		t.Fatal(err)
-	}
+	saveCommandDatabase(t, &game.Database{Games: map[uint64]*game.Game{7: entry}})
 	if err := profile.Save(7, &profile.Profile{Name: "Fixture"}); err != nil {
 		t.Fatal(err)
 	}
@@ -63,9 +61,7 @@ func TestDLLCommandSupportedEmptyMissingAndCurrentContracts(t *testing.T) {
 	t.Setenv("HOME", state+"/home")
 	t.Setenv("XDG_CACHE_HOME", state+"/cache")
 	empty := &game.Database{Games: map[uint64]*game.Game{}}
-	if err := empty.Save(); err != nil {
-		t.Fatal(err)
-	}
+	saveCommandDatabase(t, empty)
 	if output := captureStdout(t, func() {
 		if err := runDLLList(nil, nil); err != nil {
 			t.Fatal(err)
@@ -78,9 +74,7 @@ func TestDLLCommandSupportedEmptyMissingAndCurrentContracts(t *testing.T) {
 	}
 
 	entry := &game.Game{AppID: 7, Name: "Fixture", InstallDir: state + "/game", DLLs: []game.DetectedDLL{{Name: "nvngx_dlss.dll", Path: state + "/game/nvngx_dlss.dll", Type: game.DLLTypeDLSS, Version: "3.9.0"}}}
-	if err := (&game.Database{Games: map[uint64]*game.Game{7: entry}}).Save(); err != nil {
-		t.Fatal(err)
-	}
+	saveCommandDatabase(t, &game.Database{Games: map[uint64]*game.Game{7: entry}})
 	manifest := &dll.Manifest{Version: "1", UpdatedAt: time.Now(), DLLs: map[string][]dll.DLL{"dlss": {{Version: "3.9.0", Filename: "nvngx_dlss.dll"}}}}
 	if err := dll.SaveManifest(manifest); err != nil {
 		t.Fatal(err)

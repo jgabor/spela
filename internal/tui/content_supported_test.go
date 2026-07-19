@@ -1,7 +1,9 @@
 package tui
 
 import (
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,7 +18,8 @@ import (
 )
 
 func TestContentSupportedProfileDLLAndInstallViews(t *testing.T) {
-	entry := testGame("Cyberpunk 2077",
+	entry := testGame(
+		"Cyberpunk 2077",
 		testDLL(game.DLLTypeDLSS, "3.8.10"),
 		game.DetectedDLL{Name: "libxess.dll", Type: game.DLLTypeXeSS},
 	)
@@ -107,9 +110,24 @@ func TestContentInstallStateMachineSupportedMessagesAndKeys(t *testing.T) {
 	}
 	content.dllInstallState = DLLInstallDownloading
 	content.dllOperating = true
-	content, _ = content.Update(dllInstallMsg{success: true, dlls: []game.DetectedDLL{testDLL(game.DLLTypeDLSS, "3.8.10")}})
+	content, _ = content.Update(dllInstallMsg{result: dll.Result{Outcome: dll.OutcomeChanged, Game: testGame("Fixture", testDLL(game.DLLTypeDLSS, "3.8.10"))}})
 	if content.game.DLLs[0].Version != "3.8.10" || content.dllInstallState != DLLInstallNone {
 		t.Fatalf("successful install state = %+v", content)
+	}
+	partialGame := testGame("Fixture", testDLL(game.DLLTypeDLSS, "3.8.11"))
+	partialResult := dll.Result{Outcome: dll.OutcomeChanged, FilesChanged: true, Game: partialGame}
+	partialErr := &dll.PartialFailure{Result: partialResult, Stage: dll.StageSaving, Err: errors.New("disk full")}
+	content.dllInstallState = DLLInstallDownloading
+	content, _ = content.Update(dllInstallMsg{result: partialResult, err: partialErr})
+	if content.game.DLLs[0].Version != "3.8.11" {
+		t.Fatalf("partial install did not apply scanned metadata: %+v", content.game.DLLs)
+	}
+	partialGame = testGame("Fixture", testDLL(game.DLLTypeDLSS, "3.8.12"))
+	partialResult.Game = partialGame
+	partialErr.Result = partialResult
+	content, _ = content.Update(dllRestoreMsg{result: partialResult, err: partialErr})
+	if content.game.DLLs[0].Version != "3.8.12" {
+		t.Fatalf("partial restore did not apply scanned metadata: %+v", content.game.DLLs)
 	}
 
 	content.dllInstallState = DLLInstallSelectType
@@ -147,7 +165,7 @@ func TestContentDLLCommandsCompleteAgainstIsolatedGameFiles(t *testing.T) {
 	manifest := &dll.Manifest{
 		Version: "1", UpdatedAt: time.Now(),
 		DLLs: map[string][]dll.DLL{
-			"dlss": {{Version: "3.9.0", Filename: "nvngx_dlss.dll", URL: server.URL}},
+			"dlss": {{Version: "3.9.0", Filename: "nvngx_dlss.dll", URL: server.URL, SHA256: fmt.Sprintf("%x", sha256.Sum256(payload))}},
 		},
 	}
 	if err := dll.SaveManifest(manifest); err != nil {
@@ -158,6 +176,7 @@ func TestContentDLLCommandsCompleteAgainstIsolatedGameFiles(t *testing.T) {
 		DLLs: []game.DetectedDLL{{Name: "nvngx_dlss.dll", Path: targetPath, Type: game.DLLTypeDLSS, Version: "3.8.10"}},
 	}
 	content := testContent(entry)
+	saveTestDatabase(t, content.database)
 	if message, ok := execCmd(content.LoadDLLUpdates()).(dllUpdatesCheckedMsg); !ok || message.err != nil || !message.hasUpdates {
 		t.Fatalf("DLL update check = %#v", message)
 	}
@@ -169,13 +188,13 @@ func TestContentDLLCommandsCompleteAgainstIsolatedGameFiles(t *testing.T) {
 		t.Fatalf("DLL version load = %#v", message)
 	}
 	message, ok := execCmd(content.updateDLLs()).(dllUpdateMsg)
-	if !ok || message.err != nil || !message.success {
+	if !ok || message.err != nil || message.batch.Updated != 1 {
 		t.Fatalf("DLL update = %#v", message)
 	}
 	if data, err := os.ReadFile(targetPath); err != nil || string(data) != string(payload) {
 		t.Fatalf("updated DLL = %q, %v", data, err)
 	}
-	if restore, ok := execCmd(content.restoreDLLs()).(dllRestoreMsg); !ok || restore.err != nil || !restore.success {
+	if restore, ok := execCmd(content.restoreDLLs()).(dllRestoreMsg); !ok || restore.err != nil || restore.result.Outcome != dll.OutcomeChanged {
 		t.Fatalf("DLL restore = %#v", restore)
 	}
 	if data, err := os.ReadFile(targetPath); err != nil || string(data) != "old DLL" {
@@ -186,7 +205,7 @@ func TestContentDLLCommandsCompleteAgainstIsolatedGameFiles(t *testing.T) {
 	content.dllVersions = manifest.DLLs["dlss"]
 	content.dllVersionCursor = 0
 	install, ok := execCmd(content.installSelectedDLL()).(dllInstallMsg)
-	if !ok || install.err != nil || !install.success {
+	if !ok || install.err != nil || install.result.Outcome != dll.OutcomeChanged {
 		t.Fatalf("DLL install = %#v", install)
 	}
 	if data, err := os.ReadFile(targetPath); err != nil || string(data) != string(payload) {
@@ -221,11 +240,11 @@ func TestContentSupportedMessageAndKeyRouting(t *testing.T) {
 
 	content.dllOperating = true
 	content, command = content.Update(dllUpdateMsg{err: errors.New("offline")})
-	if content.dllOperating || command != nil {
-		t.Fatal("DLL update error did not clear operation without scheduling a refresh")
+	if content.dllOperating || command == nil {
+		t.Fatal("DLL update error did not clear operation and recheck update state")
 	}
 	content.dllOperating = true
-	content, _ = content.Update(dllRestoreMsg{success: true})
+	content, _ = content.Update(dllRestoreMsg{result: dll.Result{Outcome: dll.OutcomeChanged}})
 	if content.dllOperating || content.hasBackup {
 		t.Fatal("DLL restore success did not update operation/backup state")
 	}

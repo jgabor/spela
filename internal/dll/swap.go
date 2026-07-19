@@ -1,6 +1,7 @@
 package dll
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -51,7 +52,18 @@ func LoadBackup(appID uint64) (*Backup, error) {
 
 	var backup Backup
 	if err := json.Unmarshal(data, &backup); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parse backup metadata: %w", err)
+	}
+	if backup.AppID != appID {
+		return nil, fmt.Errorf("invalid backup metadata: app ID is %d, want %d", backup.AppID, appID)
+	}
+	if len(backup.Files) == 0 {
+		return nil, fmt.Errorf("invalid backup metadata: no files")
+	}
+	for index, file := range backup.Files {
+		if file.OriginalPath == "" || file.BackupPath == "" {
+			return nil, fmt.Errorf("invalid backup metadata: file %d has an empty path", index)
+		}
 	}
 
 	return &backup, nil
@@ -68,35 +80,15 @@ func SaveBackup(backup *Backup) error {
 		return err
 	}
 
-	return os.WriteFile(GetBackupMetadataPath(backup.AppID), data, 0o644)
+	return writeFileAtomically(GetBackupMetadataPath(backup.AppID), data, 0o644)
 }
 
 func BackupExists(appID uint64) bool {
-	backup, _ := LoadBackup(appID)
-	return backup != nil
+	backup, err := LoadBackup(appID)
+	return err == nil && backup != nil
 }
 
-type GameDLL struct {
-	Name    string
-	Path    string
-	Version string
-}
-
-// GameDLLsFromDetected converts detected DLLs to the GameDLL type used
-// by backup and swap operations.
-func GameDLLsFromDetected(dlls []game.DetectedDLL) []GameDLL {
-	result := make([]GameDLL, len(dlls))
-	for i, d := range dlls {
-		result[i] = GameDLL{
-			Name:    d.Name,
-			Path:    d.Path,
-			Version: d.Version,
-		}
-	}
-	return result
-}
-
-func CreateBackup(appID uint64, gameName string, dlls []GameDLL) (*Backup, error) {
+func CreateBackup(appID uint64, gameName string, dlls []game.DetectedDLL) (*Backup, error) {
 	if len(dlls) == 0 {
 		return nil, fmt.Errorf("no DLLs to backup")
 	}
@@ -106,19 +98,52 @@ func CreateBackup(appID uint64, gameName string, dlls []GameDLL) (*Backup, error
 		return nil, fmt.Errorf("failed to create backup directory: %w", err)
 	}
 
-	backup := &Backup{
-		AppID:      appID,
-		GameName:   gameName,
-		CreatedAt:  time.Now(),
-		BackupPath: backupDir,
+	backup, err := LoadBackup(appID)
+	if err != nil {
+		return nil, fmt.Errorf("load existing backup metadata: %w", err)
+	}
+	if backup == nil {
+		backup = &Backup{
+			AppID:      appID,
+			GameName:   gameName,
+			CreatedAt:  time.Now(),
+			BackupPath: backupDir,
+		}
 	}
 
+	existing := make(map[string]BackedUpFile, len(backup.Files))
+	for _, file := range backup.Files {
+		existing[filepath.Clean(file.OriginalPath)] = file
+		if err := preflightRegularFile(file.BackupPath); err != nil {
+			return nil, fmt.Errorf("existing backup for %s is unreadable: %w", file.OriginalPath, err)
+		}
+	}
 	for _, dll := range dlls {
-		backupPath := filepath.Join(backupDir, filepath.Base(dll.Path))
+		if _, ok := existing[filepath.Clean(dll.Path)]; ok {
+			continue
+		}
+		if err := preflightRegularFile(dll.Path); err != nil {
+			return nil, fmt.Errorf("cannot backup %s: %w", dll.Name, err)
+		}
+	}
+
+	var created []string
+	for _, dll := range dlls {
+		if _, ok := existing[filepath.Clean(dll.Path)]; ok {
+			continue
+		}
+		backupPath := uniqueBackupPath(backupDir, dll.Path)
+		if _, err := os.Lstat(backupPath); err == nil {
+			return nil, fmt.Errorf("backup destination already exists without metadata: %s", backupPath)
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			return nil, fmt.Errorf("inspect backup destination: %w", err)
+		}
 
 		if err := copyFile(dll.Path, backupPath); err != nil {
+			removeFiles(created)
 			return nil, fmt.Errorf("failed to backup %s: %w", dll.Name, err)
 		}
+		created = append(created, backupPath)
 
 		backup.Files = append(backup.Files, BackedUpFile{
 			OriginalPath: dll.Path,
@@ -129,28 +154,46 @@ func CreateBackup(appID uint64, gameName string, dlls []GameDLL) (*Backup, error
 	}
 
 	if err := SaveBackup(backup); err != nil {
+		removeFiles(created)
 		return nil, fmt.Errorf("failed to save backup metadata: %w", err)
 	}
 
 	return backup, nil
 }
 
-func RestoreBackup(appID uint64) error {
+func restoreBackup(appID uint64, replace func(string, string) error) (int, error) {
 	backup, err := LoadBackup(appID)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if backup == nil {
-		return fmt.Errorf("no backup found for app %d", appID)
+		return 0, fmt.Errorf("no backup found for app %d", appID)
 	}
 
 	for _, file := range backup.Files {
-		if err := copyFile(file.BackupPath, file.OriginalPath); err != nil {
-			return fmt.Errorf("failed to restore %s: %w", file.DLLName, err)
+		if err := preflightRegularFile(file.BackupPath); err != nil {
+			return 0, fmt.Errorf("cannot restore %s: %w", file.DLLName, err)
+		}
+		parent, err := os.Stat(filepath.Dir(file.OriginalPath))
+		if err != nil || !parent.IsDir() {
+			return 0, fmt.Errorf("cannot restore %s: target directory is unavailable", file.DLLName)
+		}
+		if info, statErr := os.Stat(file.OriginalPath); statErr == nil && info.IsDir() {
+			return 0, fmt.Errorf("cannot restore %s: target is a directory", file.DLLName)
+		} else if statErr != nil && !errors.Is(statErr, fs.ErrNotExist) {
+			return 0, fmt.Errorf("cannot restore %s: %w", file.DLLName, statErr)
 		}
 	}
 
-	return nil
+	changed := 0
+	for _, file := range backup.Files {
+		if err := replace(file.BackupPath, file.OriginalPath); err != nil {
+			return changed, fmt.Errorf("failed to restore %s: %w", file.DLLName, err)
+		}
+		changed++
+	}
+
+	return changed, nil
 }
 
 func guardSwap(appID uint64) error {
@@ -160,27 +203,15 @@ func guardSwap(appID uint64) error {
 	return nil
 }
 
-func SwapDLL(appID uint64, gameName string, dlls []GameDLL, dllName, cachePath string) error {
+func swapDLLAtPath(appID uint64, gameName string, dlls []game.DetectedDLL, targetPath, cachePath string) error {
 	if err := guardSwap(appID); err != nil {
 		return err
 	}
-
-	var targetPath string
-	for _, dll := range dlls {
-		if dll.Name == dllName {
-			targetPath = dll.Path
-			break
-		}
-	}
-
 	if targetPath == "" {
-		return fmt.Errorf("DLL %s not found in game", dllName)
+		return fmt.Errorf("DLL target path is required")
 	}
-
-	if !BackupExists(appID) {
-		if _, err := CreateBackup(appID, gameName, dlls); err != nil {
-			return fmt.Errorf("failed to create backup before swap: %w", err)
-		}
+	if _, err := CreateBackup(appID, gameName, dlls); err != nil {
+		return fmt.Errorf("failed to create backup before swap: %w", err)
 	}
 
 	if err := copyFile(cachePath, targetPath); err != nil {
@@ -190,44 +221,25 @@ func SwapDLL(appID uint64, gameName string, dlls []GameDLL, dllName, cachePath s
 	return nil
 }
 
-func InstallDLL(appID uint64, gameName, installDir string, dlls []GameDLL, dllName, cachePath string) error {
+func installDLLAtPath(appID uint64, gameName string, dlls []game.DetectedDLL, targetPath, targetVersion, dllName, cachePath string) error {
 	if err := guardSwap(appID); err != nil {
 		return err
 	}
-
-	if installDir == "" {
-		return fmt.Errorf("install directory is required")
-	}
-
-	targetPath := ""
-	targetVersion := ""
-	for _, dll := range dlls {
-		if dll.Name == dllName {
-			targetPath = dll.Path
-			targetVersion = dll.Version
-			break
+	backupDLLs := append([]game.DetectedDLL(nil), dlls...)
+	if _, err := os.Stat(targetPath); err == nil {
+		found := false
+		for _, candidate := range backupDLLs {
+			found = found || filepath.Clean(candidate.Path) == filepath.Clean(targetPath)
 		}
-	}
-
-	if targetPath == "" {
-		targetPath = filepath.Join(installDir, dllName)
-	}
-
-	if !BackupExists(appID) {
-		backupDLLs := dlls
-		if len(backupDLLs) == 0 {
-			if _, err := os.Stat(targetPath); err == nil {
-				backupDLLs = []GameDLL{{
-					Name:    dllName,
-					Path:    targetPath,
-					Version: targetVersion,
-				}}
-			}
+		if !found {
+			backupDLLs = append(backupDLLs, game.DetectedDLL{Name: dllName, Path: targetPath, Version: targetVersion})
 		}
-		if len(backupDLLs) > 0 {
-			if _, err := CreateBackup(appID, gameName, backupDLLs); err != nil {
-				return fmt.Errorf("failed to create backup before install: %w", err)
-			}
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("inspect install target: %w", err)
+	}
+	if len(backupDLLs) > 0 {
+		if _, err := CreateBackup(appID, gameName, backupDLLs); err != nil {
+			return fmt.Errorf("failed to create backup before install: %w", err)
 		}
 	}
 
@@ -239,30 +251,75 @@ func InstallDLL(appID uint64, gameName, installDir string, dlls []GameDLL, dllNa
 }
 
 func copyFile(src, dst string) error {
-	sourceFile, err := os.Open(src)
+	source, err := os.Open(src)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = sourceFile.Close() }()
+	defer func() { _ = source.Close() }()
+	mode := fs.FileMode(0o644)
+	if info, statErr := source.Stat(); statErr == nil {
+		mode = info.Mode().Perm()
+	}
+	if info, statErr := os.Stat(dst); statErr == nil {
+		mode = info.Mode().Perm()
+	}
+	return writeAtomically(dst, mode, func(destination io.Writer) error {
+		_, err := io.Copy(destination, source)
+		return err
+	})
+}
 
-	tmpPath := dst + ".tmp"
-	destFile, err := os.Create(tmpPath)
+func writeFileAtomically(path string, data []byte, mode fs.FileMode) error {
+	return writeAtomically(path, mode, func(destination io.Writer) error {
+		_, err := destination.Write(data)
+		return err
+	})
+}
+
+func writeAtomically(path string, mode fs.FileMode, write func(io.Writer) error) error {
+	temporary, err := os.CreateTemp(filepath.Dir(path), ".spela-write-*")
 	if err != nil {
 		return err
 	}
-
-	_, err = io.Copy(destFile, sourceFile)
-	if closeErr := destFile.Close(); err == nil {
-		err = closeErr
+	temporaryPath := temporary.Name()
+	defer func() { _ = os.Remove(temporaryPath) }()
+	if err := temporary.Chmod(mode); err != nil {
+		_ = temporary.Close()
+		return err
 	}
+	if err := write(temporary); err != nil {
+		_ = temporary.Close()
+		return err
+	}
+	if err := temporary.Close(); err != nil {
+		return err
+	}
+	return os.Rename(temporaryPath, path)
+}
+
+func uniqueBackupPath(directory, originalPath string) string {
+	digest := sha256.Sum256([]byte(filepath.Clean(originalPath)))
+	return filepath.Join(directory, fmt.Sprintf("%x-%s", digest, filepath.Base(originalPath)))
+}
+
+func preflightRegularFile(path string) error {
+	file, err := os.Open(path)
 	if err != nil {
-		_ = os.Remove(tmpPath)
 		return err
 	}
-
-	if err := os.Rename(tmpPath, dst); err != nil {
-		_ = os.Remove(tmpPath)
+	defer func() { _ = file.Close() }()
+	info, err := file.Stat()
+	if err != nil {
 		return err
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("%s is not a regular file", path)
 	}
 	return nil
+}
+
+func removeFiles(paths []string) {
+	for _, path := range paths {
+		_ = os.Remove(path)
+	}
 }

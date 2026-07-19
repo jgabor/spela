@@ -16,12 +16,13 @@ import (
 )
 
 // httpClient is used for all HTTP requests in the dll package.
-// ResponseHeaderTimeout ensures hanging connections are detected without
-// cutting off large DLL downloads that take time to transfer.
+// The client timeout bounds both response headers and body transfer so a
+// stalled download cannot hold a DLL mutation indefinitely.
 var httpClient = &http.Client{
 	Transport: &http.Transport{
 		ResponseHeaderTimeout: 30 * time.Second,
 	},
+	Timeout: 2 * time.Minute,
 }
 
 const (
@@ -76,7 +77,7 @@ func SaveManifest(manifest *Manifest) error {
 		return err
 	}
 
-	return os.WriteFile(cachePath, data, 0o644)
+	return writeFileAtomically(cachePath, data, 0o644)
 }
 
 func FetchManifest(manifestURL string) (*Manifest, error) {
@@ -121,16 +122,25 @@ func UpdateManifest(manifestURL string) (*Manifest, error) {
 }
 
 func GetManifest(forceUpdate bool, manifestURL string) (*Manifest, error) {
+	var cached *Manifest
 	if !forceUpdate {
-		manifest, err := LoadManifest()
-		if err == nil && manifest != nil {
-			if time.Since(manifest.UpdatedAt) < ManifestMaxAge {
-				return manifest, nil
+		var err error
+		cached, err = LoadManifest()
+		if err != nil {
+			return nil, err
+		}
+		if cached != nil {
+			if time.Since(cached.UpdatedAt) < ManifestMaxAge {
+				return cached, nil
 			}
 		}
 	}
 
-	return UpdateManifest(manifestURL)
+	manifest, err := UpdateManifest(manifestURL)
+	if err != nil && cached != nil {
+		return cached, nil
+	}
+	return manifest, err
 }
 
 func (m *Manifest) GetLatestDLL(name string) *DLL {

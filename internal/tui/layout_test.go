@@ -600,8 +600,9 @@ func TestExecuteBatchDLLUpdatePersists(t *testing.T) {
 		}},
 	}
 	db := &game.Database{Games: map[uint64]*game.Game{1091500: gameEntry}}
+	saveTestDatabase(t, db)
 
-	msg := executeBatchDLLUpdate(db, []*game.Game{gameEntry})
+	msg := executeBatchDLLUpdate([]uint64{gameEntry.AppID})
 	if msg.message == "" {
 		t.Fatal("expected batch completion message")
 	}

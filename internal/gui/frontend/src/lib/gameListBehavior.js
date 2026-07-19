@@ -60,8 +60,11 @@ function plural(count, singular, pluralForm = `${singular}s`) {
   return count === 1 ? singular : pluralForm
 }
 
-export function formatBatchDLLResult(successCount, failCount, skippedCount) {
+export function formatBatchDLLResult(successCount, unchangedCount, failCount, skippedCount) {
   const parts = [`Updated ${successCount} ${plural(successCount, 'game')}`]
+  if (unchangedCount > 0) {
+    parts.push(`${unchangedCount} already current`)
+  }
   if (failCount > 0) {
     parts.push(`${failCount} failed`)
   }

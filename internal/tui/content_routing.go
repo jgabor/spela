@@ -1,9 +1,9 @@
 package tui
 
 import (
-	"time"
-
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/jgabor/spela/internal/dll"
 )
 
 func (m ContentModel) updateBlockingFlow(msg tea.Msg) (ContentModel, tea.Cmd, bool) {
@@ -81,24 +81,33 @@ func (m ContentModel) updateContentMessage(msg tea.Msg) (ContentModel, tea.Cmd, 
 
 func (m ContentModel) updateDLLUpdateMsg(msg dllUpdateMsg) (ContentModel, tea.Cmd, bool) {
 	m.dllOperating = false
-	if msg.success && msg.dlls != nil && m.game != nil {
-		m.game.DLLs = msg.dlls
-		m.game.ScannedAt = time.Now()
+	for _, item := range msg.batch.Items {
+		m.applyDLLResult(item.Result)
 	}
 	m.hasBackup = m.game != nil && m.services.BackupExists(m.game.AppID)
-	if msg.success {
-		m.hasUpdates = false
-		return m, m.LoadDLLUpdates(), true
-	}
-	return m, nil, true
+	m.hasUpdates = false
+	return m, m.LoadDLLUpdates(), true
 }
 
 func (m ContentModel) updateDLLRestoreMsg(msg dllRestoreMsg) ContentModel {
 	m.dllOperating = false
-	if msg.success {
+	if msg.result.Game != nil {
+		m.applyDLLResult(msg.result)
 		m.hasBackup = m.game != nil && m.services.BackupExists(m.game.AppID)
 	}
 	return m
+}
+
+func (m *ContentModel) applyDLLResult(result dll.Result) {
+	if result.Game == nil {
+		return
+	}
+	if m.database != nil {
+		m.database.Games[result.Game.AppID] = result.Game
+	}
+	if m.game != nil && m.game.AppID == result.Game.AppID {
+		m.game = result.Game
+	}
 }
 
 func (m ContentModel) updateContentKey(msg tea.KeyPressMsg) (ContentModel, tea.Cmd, bool) {

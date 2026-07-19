@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image/color"
 	"strings"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -74,7 +73,9 @@ func NewLayout(db *game.Database, svc *Services) LayoutModel {
 	games := db.List()
 	sidebar, sidebarCmd := NewSidebar(games, styles, svc)
 	content := NewContent(styles, cfg.ConfirmDestructive, svc)
+	content.database = db
 	pane := newResourcePane(styles, content)
+	pane.dllsResource.database = db
 	pane.setServices(svc)
 	manifest, _ := dll.LoadManifest()
 	pane.SetDLLsData(games, manifest)
@@ -107,7 +108,8 @@ func NewLayout(db *game.Database, svc *Services) LayoutModel {
 func (m LayoutModel) Init() tea.Cmd {
 	cmds := []tea.Cmd{m.header.Init(), m.initCmd}
 	if m.config.RescanOnStartup || len(m.db.Games) == 0 {
-		cmds = append(cmds,
+		cmds = append(
+			cmds,
 			m.messageBar.SetMessage("Scanning games...", MessageInfo),
 			m.rescanGames(),
 		)
@@ -544,6 +546,8 @@ func Run(db *game.Database) error {
 
 type batchCompleteMsg struct {
 	message string
+	failed  bool
+	batch   dll.BatchResult
 }
 
 var batchActions = []string{
@@ -551,75 +555,31 @@ var batchActions = []string{
 }
 
 func (m LayoutModel) executeBatchAction() tea.Cmd {
-	games := m.batchGames
-
+	appIDs := make([]uint64, len(m.batchGames))
+	for index, entry := range m.batchGames {
+		appIDs[index] = entry.AppID
+	}
 	return func() tea.Msg {
-		return executeBatchDLLUpdate(m.db, games)
+		return executeBatchDLLUpdate(appIDs)
 	}
 }
 
-func executeBatchDLLUpdate(db *game.Database, games []*game.Game) batchCompleteMsg {
-	manifest, err := dll.GetManifest(false, "")
-	if err != nil {
-		return batchCompleteMsg{message: fmt.Sprintf("Failed to load manifest: %v", err)}
-	}
-
-	succeeded := 0
-	failed := 0
-
-	for _, g := range games {
-		if len(g.DLLs) == 0 {
-			continue
-		}
-
-		gameDLLs := dll.GameDLLsFromDetected(g.DLLs)
-
-		gameUpdated := false
-		for _, d := range g.DLLs {
-			dllType := strings.ToLower(string(d.Type))
-			latest := manifest.GetLatestDLL(dllType)
-			if latest == nil {
-				continue
-			}
-
-			if d.Version != "" && !dll.IsNewer(d.Version, latest.Version) {
-				continue
-			}
-
-			cachePath, err := dll.DownloadDLL(latest, dllType)
-			if err != nil {
-				failed++
-				continue
-			}
-
-			if err := dll.SwapDLL(g.AppID, g.Name, gameDLLs, d.Name, cachePath); err != nil {
-				failed++
-				continue
-			}
-			gameUpdated = true
-		}
-
-		if gameUpdated {
-			detected, err := dll.ScanDirectory(g.InstallDir)
-			if err == nil {
-				g.DLLs = detected
-				g.ScannedAt = time.Now()
-			}
-			succeeded++
+func executeBatchDLLUpdate(appIDs []uint64) batchCompleteMsg {
+	batch := dll.UpdateGames(appIDs, "", nil)
+	updatedGames := make(map[uint64]bool)
+	for _, item := range batch.Items {
+		if item.Err == nil && item.Result.Outcome == dll.OutcomeChanged && item.Result.Game != nil {
+			updatedGames[item.Result.Game.AppID] = true
 		}
 	}
-
-	message := fmt.Sprintf("Updated DLLs for %d/%d games", succeeded, len(games))
-	if failed > 0 {
-		message = fmt.Sprintf("Updated %d games, %d failed", succeeded, failed)
+	message := fmt.Sprintf("Updated DLLs for %d/%d games", len(updatedGames), len(appIDs))
+	if batch.Updated == 0 && batch.Failed == 0 {
+		message = "Selected games are already current"
 	}
-	if db != nil {
-		if err := db.Save(); err != nil {
-			message = fmt.Sprintf("%s (failed to save database: %v)", message, err)
-		}
+	if batch.Failed > 0 {
+		message = formatDLLBatch(batch)
 	}
-
-	return batchCompleteMsg{message: message}
+	return batchCompleteMsg{message: message, failed: batch.Failed > 0, batch: batch}
 }
 
 func (m LayoutModel) renderBatchContent() string {

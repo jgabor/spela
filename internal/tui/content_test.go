@@ -305,7 +305,7 @@ func TestContent_DLLUpdateMsg_ClearsOperating(t *testing.T) {
 	m := testContent(g)
 	m.dllOperating = true
 
-	result, _ := m.Update(dllUpdateMsg{success: true, dlls: g.DLLs})
+	result, _ := m.Update(dllUpdateMsg{batch: dll.BatchResult{Updated: 1, Items: []dll.BatchItem{{Result: dll.Result{Outcome: dll.OutcomeChanged, Game: g}}}}})
 	if result.dllOperating {
 		t.Error("expected dllOperating to be cleared")
 	}
@@ -319,7 +319,7 @@ func TestContent_DLLRestoreMsg_ClearsOperating(t *testing.T) {
 	m := testContent(g)
 	m.dllOperating = true
 
-	result, _ := m.Update(dllRestoreMsg{success: true})
+	result, _ := m.Update(dllRestoreMsg{result: dll.Result{Outcome: dll.OutcomeChanged}})
 	if result.dllOperating {
 		t.Error("expected dllOperating to be cleared after restore")
 	}

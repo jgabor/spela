@@ -129,7 +129,7 @@ function dllDesktop(overrides = {}) {
       ListDLLInstallTypes: vi.fn().mockResolvedValue(['dlss', 'xess']),
       ListDLLVersions: vi.fn().mockResolvedValue(['3.8.10', '3.7.0']),
       InstallDLL: vi.fn().mockResolvedValue(undefined),
-      UpdateDLLs: vi.fn().mockResolvedValue(undefined),
+      UpdateDLLs: vi.fn().mockResolvedValue({ updated: 1, unchanged: 0, failed: 0, failures: [] }),
       RestoreDLLs: vi.fn().mockResolvedValue(undefined),
       ...overrides
     },
@@ -152,7 +152,7 @@ describe('game DLL mutation adapter flow', () => {
 
     await fireEvent.click(screen.getByText('Update all DLLs'))
     await waitFor(() => expect(adapter.desktop.UpdateDLLs).toHaveBeenCalledWith(1091500))
-    expect(adapter.desktop.GetGame).toHaveBeenCalledWith(1091500)
+    await waitFor(() => expect(adapter.desktop.GetGame).toHaveBeenCalledWith(1091500))
 
     await fireEvent.click(screen.getByText('Restore original DLLs'))
     await waitFor(() => expect(adapter.desktop.RestoreDLLs).toHaveBeenCalledWith(1091500))

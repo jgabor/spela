@@ -200,11 +200,11 @@
       <button class="save" on:click={save} disabled={saving}>
         {saving ? 'Saving...' : profileMode === 'default' ? 'Save default profile' : 'Save profile'}
       </button>
-
-      {#if message}
-        <div class="message" data-type={messageType}>{message}</div>
-      {/if}
     </div>
+  {/if}
+
+  {#if message}
+    <div class="message" data-type={messageType}>{message}</div>
   {/if}
 </div>
 

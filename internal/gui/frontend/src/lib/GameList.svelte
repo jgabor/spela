@@ -122,18 +122,25 @@
     batchMessage = `Updating DLLs for ${batchPlan.eligible.length} games...`
     let successCount = 0
     let failCount = 0
+    let unchangedCount = 0
 
     for (const g of batchPlan.eligible) {
       try {
-        await desktop.UpdateDLLs(g.appId)
-        successCount++
+        const outcome = await desktop.UpdateDLLs(g.appId)
+        if (outcome?.failed > 0) {
+          failCount++
+        } else if (outcome?.updated === 0) {
+          unchangedCount++
+        } else {
+          successCount++
+        }
       } catch (e) {
         console.error(`Failed to update DLLs for ${g.name}:`, e)
         failCount++
       }
     }
 
-    batchMessage = formatBatchDLLResult(successCount, failCount, batchPlan.skipped.length)
+    batchMessage = formatBatchDLLResult(successCount, unchangedCount, failCount, batchPlan.skipped.length)
     clearMessageAfter(5000)
     batchUpdating = false
     selected = new Set()

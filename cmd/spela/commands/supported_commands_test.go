@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -30,6 +32,16 @@ func executeSupportedCommand(t *testing.T, command *cobra.Command, args ...strin
 	})
 }
 
+func saveCommandDatabase(t *testing.T, database *game.Database) {
+	t.Helper()
+	if _, err := game.Transaction(func(current *game.Database) (bool, error) {
+		*current = *database
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestListSupportedTextFlow(t *testing.T) {
 	state := withTempXDG(t)
 	t.Setenv("HOME", state+"/home")
@@ -56,9 +68,7 @@ func TestListSupportedTextFlow(t *testing.T) {
 	if err := configuration.Save(); err != nil {
 		t.Fatal(err)
 	}
-	if err := (&game.Database{Games: map[uint64]*game.Game{}}).Save(); err != nil {
-		t.Fatal(err)
-	}
+	saveCommandDatabase(t, &game.Database{Games: map[uint64]*game.Game{}})
 	if output := executeSupportedCommand(t, ListCmd); !strings.Contains(output, "No games found") {
 		t.Fatalf("empty list output:\n%s", output)
 	}
@@ -84,7 +94,8 @@ func TestProfileSettingCommandsExecuteSupportedMutationAndProjectionFlows(t *tes
 		t.Fatalf("profile list output:\n%s", output)
 	}
 
-	dlssOutput := executeSupportedCommand(t, DLSSCmd,
+	dlssOutput := executeSupportedCommand(
+		t, DLSSCmd,
 		"set", "Cyberpunk 2077",
 		"--sr-mode", "quality", "--sr-preset", "K",
 		"--rr-mode", "dlaa", "--rr-preset", "L", "--rr-override", "true",
@@ -104,7 +115,8 @@ func TestProfileSettingCommandsExecuteSupportedMutationAndProjectionFlows(t *tes
 		t.Fatalf("DLSS reset output:\n%s", output)
 	}
 
-	overlayOutput := executeSupportedCommand(t, OverlayCmd,
+	overlayOutput := executeSupportedCommand(
+		t, OverlayCmd,
 		"set", "Cyberpunk 2077", "--enabled", "true", "--position", "bottom-right",
 		"--show-fps", "true", "--show-frametime", "true", "--show-cpu", "true",
 		"--show-gpu", "true", "--show-vram", "true", "--toggle-key", "F12",
@@ -122,7 +134,8 @@ func TestProfileSettingCommandsExecuteSupportedMutationAndProjectionFlows(t *tes
 		t.Fatalf("overlay reset output:\n%s", output)
 	}
 
-	gpuOutput := executeSupportedCommand(t, GPUCmd,
+	gpuOutput := executeSupportedCommand(
+		t, GPUCmd,
 		"set", "Cyberpunk 2077", "--clock-offset", "150", "--memory-offset", "500",
 		"--power-limit", "300", "--fan-speed", "70", "--power-mizer", "max",
 		"--shader-cache", "true", "--shader-cache-path", "/shader", "--threaded-opt", "true",
@@ -190,9 +203,7 @@ func TestGameDLLAndDenylistCommandsExecuteSupportedReadWriteFlows(t *testing.T) 
 		DLLs: []game.DetectedDLL{{Name: "nvngx_dlss.dll", Path: state + "/game/nvngx_dlss.dll", Version: "3.8.10", Type: game.DLLTypeDLSS}},
 	}
 	db := &game.Database{Games: map[uint64]*game.Game{entry.AppID: entry}, UpdatedAt: time.Now()}
-	if err := db.Save(); err != nil {
-		t.Fatal(err)
-	}
+	saveCommandDatabase(t, db)
 	configuration := config.Default()
 	configuration.RescanOnStartup = false
 	if err := configuration.Save(); err != nil {
@@ -222,7 +233,7 @@ func TestGameDLLAndDenylistCommandsExecuteSupportedReadWriteFlows(t *testing.T) 
 	defer server.Close()
 	manifest := &dll.Manifest{
 		Version: "1", UpdatedAt: time.Now(),
-		DLLs: map[string][]dll.DLL{"dlss": {{Version: "3.9.0", Filename: "nvngx_dlss.dll", URL: server.URL}}},
+		DLLs: map[string][]dll.DLL{"dlss": {{Version: "3.9.0", Filename: "nvngx_dlss.dll", URL: server.URL, SHA256: fmt.Sprintf("%x", sha256.Sum256(payload))}}},
 	}
 	if err := dll.SaveManifest(manifest); err != nil {
 		t.Fatal(err)
@@ -230,7 +241,7 @@ func TestGameDLLAndDenylistCommandsExecuteSupportedReadWriteFlows(t *testing.T) 
 	if output := executeSupportedCommand(t, DLLCmd, "check-updates"); !strings.Contains(output, "3.8.10 -> 3.9.0") {
 		t.Fatalf("DLL update check output:\n%s", output)
 	}
-	if output := executeSupportedCommand(t, DLLCmd, "update", "Cyberpunk 2077", "dlss"); !strings.Contains(output, "Updated nvngx_dlss.dll to version 3.9.0") {
+	if output := executeSupportedCommand(t, DLLCmd, "update", "Cyberpunk 2077", "dlss"); !strings.Contains(output, "Updated dlss DLL to version 3.9.0") {
 		t.Fatalf("DLL update output:\n%s", output)
 	}
 	if data, err := os.ReadFile(targetPath); err != nil || string(data) != string(payload) {

@@ -155,10 +155,8 @@ func seedGameWithDLL(t *testing.T) {
 			},
 		},
 	}
-	if err := db.Save(); err != nil {
-		t.Fatalf("save database: %v", err)
-	}
-	if _, err := dll.CreateBackup(1091500, "Cyberpunk 2077", []dll.GameDLL{{Name: "nvngx_dlss.dll", Path: dllPath, Version: "3.7.0"}}); err != nil {
+	saveCommandDatabase(t, db)
+	if _, err := dll.CreateBackup(1091500, "Cyberpunk 2077", []game.DetectedDLL{{Name: "nvngx_dlss.dll", Path: dllPath, Version: "3.7.0"}}); err != nil {
 		t.Fatalf("create DLL backup: %v", err)
 	}
 	if err := denylist.Deny(1091500, "Cyberpunk 2077", "anti-cheat"); err != nil {

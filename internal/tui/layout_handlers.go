@@ -224,11 +224,28 @@ func (m LayoutModel) handleAppMessages(msg tea.Msg, cmds []tea.Cmd) (LayoutModel
 		m.batchMessage = ""
 
 	case batchCompleteMsg:
+		for _, item := range msg.batch.Items {
+			m.pane.content.applyDLLResult(item.Result)
+		}
+		if m.db != nil {
+			games := m.db.List()
+			m.pane.dllsResource = m.pane.dllsResource.SetGames(games)
+			m.contextNav.sidebar = m.contextNav.sidebar.SetGames(games)
+		}
 		m.batchMessage = msg.message
-		cmds = append(cmds, m.messageBar.SetMessage(msg.message, MessageSuccess))
+		messageType := MessageSuccess
+		if msg.failed {
+			messageType = MessageError
+		} else if msg.batch.Updated == 0 {
+			messageType = MessageInfo
+		}
+		cmds = append(cmds, m.messageBar.SetMessage(msg.message, messageType))
 
 	case dllsUpdateAllCompleteMsg:
 		msgType := MessageSuccess
+		if strings.Contains(msg.summary, "already current") {
+			msgType = MessageInfo
+		}
 		for _, v := range msg.results {
 			if strings.HasPrefix(v, "err:") {
 				msgType = MessageError
@@ -236,11 +253,6 @@ func (m LayoutModel) handleAppMessages(msg tea.Msg, cmds []tea.Cmd) (LayoutModel
 			}
 		}
 		cmds = append(cmds, m.messageBar.SetMessage(msg.summary, msgType))
-		if err := m.db.Save(); err != nil {
-			cmds = append(cmds, m.messageBar.SetMessage(
-				fmt.Sprintf("Update-all: saved partial state: %v", err), MessageError,
-			))
-		}
 
 	case contentNoticeMsg:
 		cmds = append(cmds, m.messageBar.SetMessage(msg.text, msg.messageType))
@@ -300,18 +312,13 @@ func (m LayoutModel) handleAppMessages(msg tea.Msg, cmds []tea.Cmd) (LayoutModel
 }
 
 func (m LayoutModel) handleDLLUpdateMsg(msg dllUpdateMsg, cmds []tea.Cmd) (LayoutModel, []tea.Cmd) {
-	var msgType MessageType
-	var message string
-	if msg.success {
-		message = "DLLs updated successfully!"
-		msgType = MessageSuccess
-		if err := m.db.Save(); err != nil {
-			message = fmt.Sprintf("DLLs updated but failed to save database: %v", err)
-			msgType = MessageError
-		}
-	} else if msg.err != nil {
-		message = fmt.Sprintf("Update failed: %v", msg.err)
-		msgType = MessageError
+	message, msgType := "DLLs already up to date", MessageInfo
+	if msg.err != nil {
+		message, msgType = fmt.Sprintf("Update failed: %v", msg.err), MessageError
+	} else if msg.batch.Failed > 0 {
+		message, msgType = formatDLLBatch(msg.batch), MessageError
+	} else if msg.batch.Updated > 0 {
+		message, msgType = formatDLLBatch(msg.batch), MessageSuccess
 	}
 	cmds = append(cmds, m.messageBar.SetMessage(message, msgType))
 	updated, contentCmd := m.pane.content.Update(msg)
@@ -323,19 +330,9 @@ func (m LayoutModel) handleDLLUpdateMsg(msg dllUpdateMsg, cmds []tea.Cmd) (Layou
 func (m LayoutModel) handleDLLRestoreMsg(msg dllRestoreMsg, cmds []tea.Cmd) (LayoutModel, []tea.Cmd) {
 	var msgType MessageType
 	var message string
-	if msg.success {
+	if msg.err == nil {
 		message = "Original DLLs restored!"
 		msgType = MessageSuccess
-		if cm := m.contentModel(); cm != nil && cm.game != nil {
-			detected, err := dll.ScanDirectory(cm.game.InstallDir)
-			if err == nil {
-				cm.game.DLLs = detected
-			}
-		}
-		if err := m.db.Save(); err != nil {
-			message = fmt.Sprintf("DLLs restored but failed to save database: %v", err)
-			msgType = MessageError
-		}
 	} else if msg.err != nil {
 		message = fmt.Sprintf("Restore failed: %v", msg.err)
 		msgType = MessageError
@@ -350,13 +347,9 @@ func (m LayoutModel) handleDLLRestoreMsg(msg dllRestoreMsg, cmds []tea.Cmd) (Lay
 func (m LayoutModel) handleDLLInstallMsg(msg dllInstallMsg, cmds []tea.Cmd) (LayoutModel, []tea.Cmd) {
 	var msgType MessageType
 	var message string
-	if msg.success {
+	if msg.err == nil {
 		message = "DLL installed successfully!"
 		msgType = MessageSuccess
-		if err := m.db.Save(); err != nil {
-			message = fmt.Sprintf("DLL installed but failed to save database: %v", err)
-			msgType = MessageError
-		}
 	} else if msg.err != nil {
 		message = fmt.Sprintf("Install failed: %v", msg.err)
 		msgType = MessageError
@@ -368,12 +361,24 @@ func (m LayoutModel) handleDLLInstallMsg(msg dllInstallMsg, cmds []tea.Cmd) (Lay
 	return m, cmds
 }
 
+func formatDLLBatch(batch dll.BatchResult) string {
+	message := fmt.Sprintf("DLL update: %d updated, %d current, %d failed", batch.Updated, batch.Unchanged, batch.Failed)
+	for _, item := range batch.Items {
+		if item.Err != nil {
+			message += fmt.Sprintf("; %s: %v", item.Path, item.Err)
+		}
+	}
+	return message
+}
+
 func (m LayoutModel) handleRescanGamesMsg(msg rescanGamesMsg, cmds []tea.Cmd) (LayoutModel, []tea.Cmd) {
 	if msg.err != nil {
 		cmds = append(cmds, m.messageBar.SetMessage(fmt.Sprintf("Rescan failed: %v", msg.err), MessageError))
 		return m, cmds
 	}
 	m.db = msg.db
+	m.pane.content.database = msg.db
+	m.pane.dllsResource.database = msg.db
 	games := msg.db.List()
 	m.contextNav.sidebar = m.contextNav.sidebar.SetGames(games)
 	manifest, _ := dll.LoadManifest()

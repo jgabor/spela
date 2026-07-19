@@ -21,7 +21,7 @@ type Services struct {
 	BackupExists       func(appID uint64) bool
 	KnownDLLTypes      func() []dll.KnownDLLTypeInfo
 	ListCachedDLLs     func(manifestKey string) ([]string, error)
-	UpdateCachedDLL    func(req DLLUpdateRequest) error
+	BatchUpdateDLLs    func([]dll.UpdateRequest) dll.BatchResult
 	// VKD3DNotice returns a human-readable descriptor_heap compatibility
 	// notice for the given AppID, or "" when everything is compatible or
 	// checks were skipped cleanly. Tests may override to inject a stub.
@@ -39,31 +39,9 @@ func DefaultServices() *Services {
 		BackupExists:       dll.BackupExists,
 		KnownDLLTypes:      dll.KnownDLLTypes,
 		ListCachedDLLs:     dll.ListCachedVersions,
-		UpdateCachedDLL:    defaultUpdateCachedDLL,
+		BatchUpdateDLLs:    func(requests []dll.UpdateRequest) dll.BatchResult { return dll.BatchUpdate(requests, nil) },
 		VKD3DNotice:        defaultVKD3DNotice,
 	}
-}
-
-// DLLUpdateRequest describes a single stale deployment cell update.
-type DLLUpdateRequest struct {
-	Game          *game.Game
-	TypeInfo      dll.KnownDLLTypeInfo
-	LatestVersion string
-	InstalledName string
-}
-
-func defaultUpdateCachedDLL(req DLLUpdateRequest) error {
-	cachePath := dll.GetDLLCachePath(req.TypeInfo.ManifestKey, req.LatestVersion)
-	gameDLLs := dll.GameDLLsFromDetected(req.Game.DLLs)
-	if err := dll.SwapDLL(req.Game.AppID, req.Game.Name, gameDLLs, req.InstalledName, cachePath); err != nil {
-		return err
-	}
-	for i := range req.Game.DLLs {
-		if req.Game.DLLs[i].Type == req.TypeInfo.Type {
-			req.Game.DLLs[i].Version = req.LatestVersion
-		}
-	}
-	return nil
 }
 
 // defaultVKD3DNotice wires the production resolver + NVML driver probe

@@ -5,6 +5,7 @@ import (
 	"debug/pe"
 	"encoding/binary"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,10 +52,17 @@ func KnownDLLTypes() []KnownDLLTypeInfo {
 }
 
 func ScanDirectory(dir string) ([]game.DetectedDLL, error) {
+	return scanDirectory(dir, filepath.WalkDir)
+}
+
+func scanDirectory(dir string, walk func(string, fs.WalkDirFunc) error) ([]game.DetectedDLL, error) {
 	var results []game.DetectedDLL
 
-	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+	err := walk(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
 			return nil
 		}
 

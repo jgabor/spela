@@ -105,7 +105,7 @@ function desktop(overrides = {}) {
     SaveDefaultProfile: vi.fn().mockResolvedValue(undefined),
     SaveProfile: vi.fn().mockResolvedValue(undefined),
     SubscribeDLLProgress: vi.fn((handler) => progressEvents.subscribe(handler)),
-    UpdateDLLs: vi.fn().mockResolvedValue(undefined),
+    UpdateDLLs: vi.fn().mockResolvedValue({ updated: 1, unchanged: 0, failed: 0, failures: [] }),
     VKD3DHeapCompatibilityNotice: vi.fn().mockResolvedValue(''),
     ...overrides
   }
@@ -209,6 +209,63 @@ describe('GameDetail current behavior', () => {
     expect(screen.queryByText('Failed to update: download failed')).toBeNull()
   })
 
+  it('reports an all-no-op update without claiming files were updated', async () => {
+    const replacementDesktop = desktop({
+      UpdateDLLs: vi.fn().mockResolvedValue({ updated: 0, unchanged: 1 }),
+      GetGame: vi.fn().mockResolvedValue({
+        appId: 1091500,
+        name: 'Cyberpunk 2077',
+        installDir: '/games/cyberpunk',
+        dlls: [{ dllType: 'dlss', version: '3.7.0' }]
+      })
+    })
+    render(GameDetail, {
+      props: {
+        desktop: replacementDesktop,
+        game: {
+          appId: 1091500,
+          name: 'Cyberpunk 2077',
+          installDir: '/games/cyberpunk',
+          dlls: [{ dllType: 'dlss', version: '3.7.0' }]
+        },
+        profileMode: 'game',
+        aspect: 'dlls'
+      }
+    })
+
+    await fireEvent.click(await screen.findByText('Update all DLLs'))
+    await waitFor(() => expect(screen.getByText('DLLs already up to date')).toBeTruthy())
+    expect(screen.queryByText('DLLs updated!')).toBeNull()
+  })
+
+  it('reports successful and failed items from one resolved batch outcome', async () => {
+    const replacementDesktop = desktop({
+      UpdateDLLs: vi.fn().mockResolvedValue({
+        updated: 1,
+        unchanged: 0,
+        failed: 1,
+        failures: [{ path: '/game/nvngx_dlssg.dll', error: 'checksum mismatch' }]
+      })
+    })
+    render(GameDetail, {
+      props: {
+        desktop: replacementDesktop,
+        game: {
+          appId: 1091500,
+          name: 'Cyberpunk 2077',
+          installDir: '/games/cyberpunk',
+          dlls: [{ dllType: 'dlss', version: '3.7.0' }]
+        },
+        profileMode: 'game',
+        aspect: 'dlls'
+      }
+    })
+
+    await fireEvent.click(await screen.findByText('Update all DLLs'))
+    await waitFor(() => expect(screen.getByText(/1 updated, 0 current, 1 failed/)).toBeTruthy())
+    expect(screen.getByText(/nvngx_dlssg\.dll: checksum mismatch/)).toBeTruthy()
+  })
+
   it('shows active DLL progress and clears stale progress after success or failure', async () => {
     const firstUpdate = deferred()
     const secondUpdate = deferred()
@@ -234,10 +291,12 @@ describe('GameDetail current behavior', () => {
 
     await waitFor(() => expect(screen.getByText('Update all DLLs')).toBeTruthy())
     await fireEvent.click(screen.getByText('Update all DLLs'))
+    expect(screen.getByText('Install DLL').disabled).toBe(true)
+    expect(screen.getByText('Restore original DLLs').disabled).toBe(true)
     progressEvents.emit('downloading')
 
     await waitFor(() => expect(screen.getByText('downloading…')).toBeTruthy())
-    firstUpdate.resolve()
+    firstUpdate.resolve({ updated: 1, unchanged: 0, failed: 0, failures: [] })
     await waitFor(() => expect(screen.queryByText('downloading…')).toBeNull())
 
     await fireEvent.click(screen.getByText('Update all DLLs'))

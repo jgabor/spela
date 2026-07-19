@@ -46,10 +46,20 @@ func testServices() *Services {
 		ListCachedDLLs: func(manifestKey string) ([]string, error) {
 			return nil, nil
 		},
-		UpdateCachedDLL: defaultUpdateCachedDLL,
+		BatchUpdateDLLs: func(requests []dll.UpdateRequest) dll.BatchResult { return dll.BatchUpdate(requests, nil) },
 		VKD3DNotice: func(appID uint64) string {
 			return ""
 		},
+	}
+}
+
+func saveTestDatabase(t *testing.T, database *game.Database) {
+	t.Helper()
+	if _, err := game.Transaction(func(current *game.Database) (bool, error) {
+		*current = *database
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -146,6 +156,7 @@ func testContent(g *game.Game) ContentModel {
 	styles := NewStyles(DefaultTheme, true)
 	m := NewContent(styles, true, svc)
 	if g != nil {
+		m.database = &game.Database{Games: map[uint64]*game.Game{g.AppID: g}}
 		m = m.SetGame(g)
 	}
 	return m

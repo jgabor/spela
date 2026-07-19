@@ -1,11 +1,14 @@
 package tui
 
 import (
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/dll"
@@ -217,33 +220,42 @@ func TestDefaultServicesCachedDLLMutationAndNoticeContracts(t *testing.T) {
 
 	entry := testGame("Fixture", testDLL(game.DLLTypeDLSS, "3.8.0"))
 	entry.AppID = 42
+	database := &game.Database{Games: map[uint64]*game.Game{entry.AppID: entry}}
 	typeInfo := services.KnownDLLTypes()[0]
 	cachePath := filepath.Join(root, "cached.dll")
 	entry.DLLs[0].Path = filepath.Join(root, "game", entry.DLLs[0].Name)
+	entry.InstallDir = filepath.Dir(entry.DLLs[0].Path)
 	if err := os.MkdirAll(filepath.Dir(entry.DLLs[0].Path), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(entry.DLLs[0].Path, []byte("old"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := defaultUpdateCachedDLL(DLLUpdateRequest{Game: entry, TypeInfo: typeInfo, LatestVersion: "3.9.0", InstalledName: entry.DLLs[0].Name}); err == nil {
+	payloadChecksum := fmt.Sprintf("%x", sha256.Sum256([]byte("new")))
+	if err := dll.SaveManifest(&dll.Manifest{UpdatedAt: time.Now(), DLLs: map[string][]dll.DLL{typeInfo.ManifestKey: {{Version: "3.9.0", Filename: entry.DLLs[0].Name, SHA256: payloadChecksum}}}}); err != nil {
+		t.Fatal(err)
+	}
+	saveTestDatabase(t, database)
+	request := dll.UpdateRequest{AppID: entry.AppID, DLLType: typeInfo.ManifestKey, Version: "3.9.0", InstalledPath: entry.DLLs[0].Path, CachedOnly: true}
+	if result := services.BatchUpdateDLLs([]dll.UpdateRequest{request}); result.Failed != 1 {
 		t.Fatal("missing cache file unexpectedly updated a game")
 	}
 	if err := os.WriteFile(cachePath, []byte("new"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	request := DLLUpdateRequest{Game: entry, TypeInfo: typeInfo, LatestVersion: "3.9.0", InstalledName: entry.DLLs[0].Name}
-	actualCachePath := dll.GetDLLCachePath(typeInfo.ManifestKey, request.LatestVersion)
+	actualCachePath := dll.GetDLLCachePath(typeInfo.ManifestKey, request.Version)
 	if err := os.MkdirAll(filepath.Dir(actualCachePath), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Rename(cachePath, actualCachePath); err != nil {
 		t.Fatal(err)
 	}
-	if err := defaultUpdateCachedDLL(request); err != nil {
-		t.Fatal(err)
+	batch := services.BatchUpdateDLLs([]dll.UpdateRequest{request})
+	if batch.Failed != 0 || len(batch.Items) != 1 {
+		t.Fatalf("batch update = %+v", batch)
 	}
-	if entry.DLLs[0].Version != "3.9.0" {
-		t.Fatalf("updated game DLL = %+v", entry.DLLs[0])
+	result := batch.Items[0].Result
+	if result.Game == nil || len(result.Game.DLLs) != 1 || result.Game.DLLs[0].Path == "" {
+		t.Fatalf("updated game DLL = %+v", result.Game)
 	}
 }

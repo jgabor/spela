@@ -37,9 +37,7 @@ func seedGame(t *testing.T, name string, appID uint64) {
 			appID: {AppID: appID, Name: name},
 		},
 	}
-	if err := db.Save(); err != nil {
-		t.Fatalf("save database: %v", err)
-	}
+	saveCommandDatabase(t, db)
 }
 
 // TestRunProtonSet_VKD3DHeap_Persists covers the happy path for the CLI

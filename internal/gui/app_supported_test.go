@@ -4,7 +4,11 @@ package gui
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -12,7 +16,9 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/nav"
 	"github.com/jgabor/spela/internal/profile"
@@ -27,6 +33,69 @@ func isolateGUIState(t *testing.T) string {
 	t.Setenv("XDG_DATA_HOME", filepath.Join(root, "data"))
 	t.Setenv("XDG_RUNTIME_DIR", filepath.Join(root, "runtime"))
 	return root
+}
+
+func saveGUIDatabase(t *testing.T, database *game.Database) {
+	t.Helper()
+	if _, err := game.Transaction(func(current *game.Database) (bool, error) {
+		*current = *database
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAppSerializesDLLOperationThroughSnapshotApply(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "game.dll")
+	if err := os.WriteFile(path, []byte("original"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	app := &App{database: &game.Database{Games: map[uint64]*game.Game{1: {AppID: 1}}}}
+	updatedOnDisk := make(chan struct{})
+	releaseUpdate := make(chan struct{})
+	restoreStarted := make(chan struct{})
+	updateDone := make(chan error, 1)
+	restoreDone := make(chan error, 1)
+
+	go func() {
+		updateDone <- app.runDLLOperation(func() (dll.Result, error) {
+			if err := os.WriteFile(path, []byte("updated"), 0o644); err != nil {
+				return dll.Result{}, err
+			}
+			close(updatedOnDisk)
+			<-releaseUpdate
+			return dll.Result{Game: &game.Game{AppID: 1, DLLs: []game.DetectedDLL{{Version: "updated"}}}}, nil
+		})
+	}()
+	<-updatedOnDisk
+	go func() {
+		restoreDone <- app.runDLLOperation(func() (dll.Result, error) {
+			close(restoreStarted)
+			if err := os.WriteFile(path, []byte("restored"), 0o644); err != nil {
+				return dll.Result{}, err
+			}
+			return dll.Result{Game: &game.Game{AppID: 1, DLLs: []game.DetectedDLL{{Version: "restored"}}}}, nil
+		})
+	}()
+	select {
+	case <-restoreStarted:
+		t.Fatal("restore started before the update snapshot was applied")
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(releaseUpdate)
+	if err := <-updateDone; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-restoreDone; err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "restored" || app.databaseSnapshot().Games[1].DLLs[0].Version != "restored" {
+		t.Fatalf("disk = %q, memory = %+v", data, app.databaseSnapshot().Games[1].DLLs)
+	}
 }
 
 func fullProfileInfo() ProfileInfo {
@@ -131,7 +200,7 @@ func TestAppSupportedConfigProfileGameAndNavigationFlows(t *testing.T) {
 		AppID: 1091500, Name: "Cyberpunk 2077", InstallDir: "/games/cp", PrefixPath: "/prefix",
 		DLLs: []game.DetectedDLL{{Name: "nvngx_dlss.dll", Path: "/games/cp/nvngx_dlss.dll", Version: "3.8.10", Type: game.DLLTypeDLSS}},
 	}
-	app.db = &game.Database{Games: map[uint64]*game.Game{entry.AppID: entry}}
+	app.setDatabase(&game.Database{Games: map[uint64]*game.Game{entry.AppID: entry}})
 	games := app.GetGames()
 	if len(games) != 1 || games[0].Name != entry.Name || !games[0].HasProfile || len(games[0].DLLs) != 1 {
 		t.Fatalf("GetGames projection = %+v", games)
@@ -242,14 +311,14 @@ func TestAppStartupScanLogoAndMissingDatabasePaths(t *testing.T) {
 	if _, err := app.ListDLLInstallTypes(1); !errors.Is(err, ErrDatabaseNotLoaded) {
 		t.Fatalf("empty database DLL types error = %v", err)
 	}
-	for name, operation := range map[string]func() error{
-		"install": func() error { return app.InstallDLL(1, "dlss", "3.8.10") },
-		"update":  func() error { return app.UpdateDLLs(1) },
-		"restore": func() error { return app.RestoreDLLs(1) },
-	} {
-		if err := operation(); !errors.Is(err, ErrDatabaseNotLoaded) {
-			t.Errorf("%s error = %v", name, err)
-		}
+	if err := app.InstallDLL(1, "dlss", "3.8.10"); err == nil || !strings.Contains(err.Error(), "game not found") {
+		t.Fatalf("install domain error = %v", err)
+	}
+	if outcome, err := app.UpdateDLLs(1); err != nil || outcome.Failed != 1 || len(outcome.Failures) != 1 {
+		t.Fatalf("update domain outcome = %+v, %v", outcome, err)
+	}
+	if err := app.RestoreDLLs(1); err == nil || !strings.Contains(err.Error(), "game not found") {
+		t.Fatalf("restore domain error = %v", err)
 	}
 	if updates := app.CheckDLLUpdates(1); len(updates) != 0 {
 		t.Fatalf("empty database updates = %+v", updates)
@@ -259,14 +328,12 @@ func TestAppStartupScanLogoAndMissingDatabasePaths(t *testing.T) {
 	}
 
 	db := &game.Database{Games: map[uint64]*game.Game{7: {AppID: 7, Name: "Fixture"}}}
-	if err := db.Save(); err != nil {
-		t.Fatal(err)
-	}
+	saveGUIDatabase(t, db)
 	app.startup(context.Background())
 	if app.GetGame(7) == nil {
 		t.Fatal("startup did not load isolated game database")
 	}
-	app.db = nil
+	app.setDatabase(nil)
 	if err := app.ScanGames(); err != nil || app.GetGame(7) == nil {
 		t.Fatalf("ScanGames = %v, game %+v", err, app.GetGame(7))
 	}
@@ -289,6 +356,88 @@ func TestAppStartupScanLogoAndMissingDatabasePaths(t *testing.T) {
 	}
 	if stateRoot == "" {
 		t.Fatal("isolated state root missing")
+	}
+}
+
+func TestAppDLLMutationInterleavesSafelyWithReaders(t *testing.T) {
+	root := isolateGUIState(t)
+	installDirectory := filepath.Join(root, "game")
+	if err := os.MkdirAll(installDirectory, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	targetPath := filepath.Join(installDirectory, "nvngx_dlss.dll")
+	secondTargetPath := filepath.Join(installDirectory, "nvngx_dlssg.dll")
+	if err := os.WriteFile(targetPath, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(secondTargetPath, []byte("old frame generation"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	payload := []byte("new")
+	checksum := fmt.Sprintf("%x", sha256.Sum256(payload))
+	secondPayload := []byte("new frame generation")
+	secondChecksum := fmt.Sprintf("%x", sha256.Sum256(secondPayload))
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) { _, _ = writer.Write([]byte("corrupt")) }))
+	defer server.Close()
+	if err := dll.SaveManifest(&dll.Manifest{UpdatedAt: time.Now(), DLLs: map[string][]dll.DLL{
+		"dlss":  {{Version: "2.0.0", Filename: filepath.Base(targetPath), SHA256: checksum}},
+		"dlssg": {{Version: "2.0.0", Filename: filepath.Base(secondTargetPath), URL: server.URL, SHA256: secondChecksum}},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	cachePath := dll.GetDLLCachePath("dlss", "2.0.0")
+	if err := os.MkdirAll(filepath.Dir(cachePath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cachePath, payload, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	secondCachePath := dll.GetDLLCachePath("dlssg", "2.0.0")
+	if err := os.MkdirAll(filepath.Dir(secondCachePath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(secondCachePath, []byte("corrupt"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	entry := &game.Game{AppID: 1091500, Name: "fixture", InstallDir: installDirectory, DLLs: []game.DetectedDLL{
+		{Name: filepath.Base(targetPath), Path: targetPath, Type: game.DLLTypeDLSS, Version: "1.0.0"},
+		{Name: filepath.Base(secondTargetPath), Path: secondTargetPath, Type: game.DLLTypeDLSSG, Version: "1.0.0"},
+	}}
+	database := &game.Database{Games: map[uint64]*game.Game{entry.AppID: entry}}
+	saveGUIDatabase(t, database)
+	app := NewApp()
+	app.setDatabase(database)
+
+	start := make(chan struct{})
+	var readers sync.WaitGroup
+	for range 8 {
+		readers.Add(1)
+		go func() {
+			defer readers.Done()
+			<-start
+			for range 100 {
+				_ = app.GetGames()
+				_ = app.GetGame(entry.AppID)
+			}
+		}()
+	}
+	close(start)
+	outcome, err := app.UpdateDLLs(entry.AppID)
+	readers.Wait()
+	if err != nil || outcome.Updated != 1 || outcome.Failed != 1 || len(outcome.Failures) != 1 {
+		t.Fatalf("UpdateDLLs() = %+v, %v", outcome, err)
+	}
+	if !strings.Contains(outcome.Failures[0].Error, "checksum mismatch") {
+		t.Fatalf("failure detail = %+v", outcome.Failures)
+	}
+	if info := app.GetGame(entry.AppID); info == nil || len(info.DLLs) != 2 {
+		t.Fatalf("updated game = %+v", info)
+	}
+	if data, readErr := os.ReadFile(targetPath); readErr != nil || string(data) != string(payload) {
+		t.Fatalf("successful item = %q, %v", data, readErr)
+	}
+	if data, readErr := os.ReadFile(secondTargetPath); readErr != nil || string(data) != "old frame generation" {
+		t.Fatalf("failed item mutated file = %q, %v", data, readErr)
 	}
 }
 

@@ -193,14 +193,20 @@ func TestDLLsResource_UpdateAll_PassReportsEachCell(t *testing.T) {
 	g2.AppID = 2
 	svc := testServices()
 	var calls int
-	svc.UpdateCachedDLL = func(req DLLUpdateRequest) error {
+	svc.BatchUpdateDLLs = func(requests []dll.UpdateRequest) dll.BatchResult {
 		calls++
-		for i := range req.Game.DLLs {
-			if req.Game.DLLs[i].Type == req.TypeInfo.Type {
-				req.Game.DLLs[i].Version = req.LatestVersion
+		batch := dll.BatchResult{Updated: len(requests)}
+		for _, request := range requests {
+			updated := testGame("updated", testDLL(game.DLLTypeDLSS, "3.8.10"))
+			updated.AppID = request.AppID
+			if request.AppID == g1.AppID {
+				updated.Name = g1.Name
+			} else {
+				updated.Name = g2.Name
 			}
+			batch.Items = append(batch.Items, dll.BatchItem{Result: dll.Result{Outcome: dll.OutcomeChanged, Game: updated}})
 		}
-		return nil
+		return batch
 	}
 	m := makeDLLsResourceWithServices([]*game.Game{g1, g2}, map[string][]string{
 		"dlss": {"3.8.10"},
@@ -216,8 +222,8 @@ func TestDLLsResource_UpdateAll_PassReportsEachCell(t *testing.T) {
 	}
 	next, _ = next.Update(msg)
 
-	if calls != 2 {
-		t.Fatalf("UpdateCachedDLL calls = %d, want 2", calls)
+	if calls != 1 {
+		t.Fatalf("BatchUpdateDLLs calls = %d, want 1", calls)
 	}
 	if next.lastBatchResult["1091500:dlss"] != "ok" || next.lastBatchResult["2:dlss"] != "ok" {
 		t.Fatalf("expected per-cell ok results, got %v", next.lastBatchResult)
@@ -230,8 +236,8 @@ func TestDLLsResource_UpdateAll_PassReportsEachCell(t *testing.T) {
 func TestDLLsResource_UpdateAll_FailReportsFailedCellWithoutSuccessFooter(t *testing.T) {
 	g := testGame("Alpha", testDLL(game.DLLTypeDLSS, "3.7.0"))
 	svc := testServices()
-	svc.UpdateCachedDLL = func(req DLLUpdateRequest) error {
-		return errors.New("copy denied")
+	svc.BatchUpdateDLLs = func([]dll.UpdateRequest) dll.BatchResult {
+		return dll.BatchResult{Failed: 1, Items: []dll.BatchItem{{Err: errors.New("copy denied")}}}
 	}
 	m := makeDLLsResourceWithServices([]*game.Game{g}, map[string][]string{
 		"dlss": {"3.8.10"},
@@ -256,6 +262,28 @@ func TestDLLsResource_UpdateAll_FailReportsFailedCellWithoutSuccessFooter(t *tes
 	}
 	if !strings.Contains(footer, "1 failed") {
 		t.Fatalf("failure footer should report failure count, got %q", footer)
+	}
+}
+
+func TestDLLsResource_UpdateAllAppliesSaveStagePartialMetadata(t *testing.T) {
+	entry := testGame("Alpha", testDLL(game.DLLTypeDLSS, "3.7.0"))
+	updated := testGame("Alpha", testDLL(game.DLLTypeDLSS, "3.8.10"))
+	result := dll.Result{Outcome: dll.OutcomeChanged, FilesChanged: true, Game: updated}
+	partial := &dll.PartialFailure{Result: result, Stage: dll.StageSaving, Err: errors.New("disk full")}
+	services := testServices()
+	services.BatchUpdateDLLs = func([]dll.UpdateRequest) dll.BatchResult {
+		return dll.BatchResult{Failed: 1, Items: []dll.BatchItem{{Result: result, Err: partial}}}
+	}
+	model := makeDLLsResourceWithServices([]*game.Game{entry}, map[string][]string{"dlss": {"3.8.10"}}, services)
+	model.database = &game.Database{Games: map[uint64]*game.Game{entry.AppID: entry}}
+	next, command := model.Update(keyMsg("U"))
+	message := execCmd(command).(dllsUpdateAllCompleteMsg)
+	next, _ = next.Update(message)
+	if next.database.Games[entry.AppID].DLLs[0].Version != "3.8.10" || next.games[0].DLLs[0].Version != "3.8.10" {
+		t.Fatalf("partial batch metadata was not applied: %+v", next.database.Games[entry.AppID])
+	}
+	if got := next.lastBatchResult["1091500:dlss"]; !strings.Contains(got, "disk full") {
+		t.Fatalf("partial batch cell = %q", got)
 	}
 }
 

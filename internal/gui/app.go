@@ -12,6 +12,7 @@ import (
 
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/cpu"
+	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/gpu"
 	"github.com/jgabor/spela/internal/logging"
@@ -28,8 +29,10 @@ var (
 
 type App struct {
 	ctx                context.Context
-	db                 *game.Database
+	database           *game.Database
 	configurationMutex sync.Mutex
+	dbMutex            sync.RWMutex
+	dllMutex           sync.Mutex
 }
 
 // ConfigInfo preserves the Wails-owned source model while sharing Config's fields and tags.
@@ -151,7 +154,7 @@ func (a *App) startup(ctx context.Context) {
 	if err != nil {
 		logging.Error("failed to load game database", "error", err)
 	}
-	a.db = db
+	a.setDatabase(db)
 }
 
 func (a *App) shutdown(_ context.Context) {
@@ -175,12 +178,13 @@ type DLLInfo struct {
 }
 
 func (a *App) GetGames() []GameInfo {
-	if a.db == nil {
+	database := a.databaseSnapshot()
+	if database == nil {
 		return []GameInfo{}
 	}
 
 	var games []GameInfo
-	for _, g := range a.db.List() {
+	for _, g := range database.List() {
 		games = append(games, gameInfoFromGame(g))
 	}
 
@@ -188,11 +192,12 @@ func (a *App) GetGames() []GameInfo {
 }
 
 func (a *App) GetGame(appID uint64) *GameInfo {
-	if a.db == nil {
+	database := a.databaseSnapshot()
+	if database == nil {
 		return nil
 	}
 
-	g := a.db.GetGame(appID)
+	g := database.GetGame(appID)
 	if g == nil {
 		return nil
 	}
@@ -397,15 +402,15 @@ func stringToBoolPtr(s string) *bool {
 }
 
 func (a *App) GetProfile(appID uint64) *ProfileInfo {
-	return defaultGUIApplicationBoundary(a.db).getProfile(appID)
+	return defaultGUIApplicationBoundary(a.databaseSnapshot()).getProfile(appID)
 }
 
 func (a *App) GetDefaultProfile() *ProfileInfo {
-	return defaultGUIApplicationBoundary(a.db).getDefaultProfile()
+	return defaultGUIApplicationBoundary(a.databaseSnapshot()).getDefaultProfile()
 }
 
 func (a *App) SaveProfile(appID uint64, info ProfileInfo) error {
-	return defaultGUIApplicationBoundary(a.db).saveGameProfile(appID, info)
+	return defaultGUIApplicationBoundary(a.databaseSnapshot()).saveGameProfile(appID, info)
 }
 
 // VKD3DHeapCompatibilityNotice returns a human-readable inline notice
@@ -413,11 +418,11 @@ func (a *App) SaveProfile(appID uint64, info ProfileInfo) error {
 // An empty string means the environment is compatible or checks skipped
 // cleanly. Mirrors the helper used by the CLI `proton show` command.
 func (a *App) VKD3DHeapCompatibilityNotice(appID uint64) string {
-	return defaultGUIApplicationBoundary(a.db).vkd3dHeapCompatibilityNotice(appID)
+	return defaultGUIApplicationBoundary(a.databaseSnapshot()).vkd3dHeapCompatibilityNotice(appID)
 }
 
 func (a *App) SaveDefaultProfile(info ProfileInfo) error {
-	return defaultGUIApplicationBoundary(a.db).saveDefault(info)
+	return defaultGUIApplicationBoundary(a.databaseSnapshot()).saveDefault(info)
 }
 
 type GPUInfo struct {
@@ -495,11 +500,13 @@ func (a *App) GetCPUInfo() *CPUInfo {
 }
 
 func (a *App) ScanGames() error {
+	a.dllMutex.Lock()
+	defer a.dllMutex.Unlock()
 	db, err := game.LoadDatabase()
 	if err != nil {
 		return err
 	}
-	a.db = db
+	a.setDatabase(db)
 	return nil
 }
 
@@ -510,16 +517,28 @@ type DLLUpdateInfo struct {
 	HasUpdate      bool   `json:"hasUpdate"`
 }
 
+type DLLUpdateOutcome struct {
+	Updated   int                `json:"updated"`
+	Unchanged int                `json:"unchanged"`
+	Failed    int                `json:"failed"`
+	Failures  []DLLUpdateFailure `json:"failures"`
+}
+
+type DLLUpdateFailure struct {
+	Path  string `json:"path"`
+	Error string `json:"error"`
+}
+
 func (a *App) CheckDLLUpdates(appID uint64) []DLLUpdateInfo {
-	return newGUIApplicationBoundary(a.db, a.emitDLLProgress).checkDLLUpdates(appID)
+	return newGUIApplicationBoundary(a.databaseSnapshot(), a.emitDLLProgress).checkDLLUpdates(appID)
 }
 
 func (a *App) ListDLLInstallTypes(appID uint64) ([]string, error) {
-	return newGUIApplicationBoundary(a.db, a.emitDLLProgress).listDLLInstallTypes(appID)
+	return newGUIApplicationBoundary(a.databaseSnapshot(), a.emitDLLProgress).listDLLInstallTypes(appID)
 }
 
 func (a *App) ListDLLVersions(dllType string) ([]string, error) {
-	return newGUIApplicationBoundary(a.db, a.emitDLLProgress).listDLLVersions(dllType)
+	return newGUIApplicationBoundary(a.databaseSnapshot(), a.emitDLLProgress).listDLLVersions(dllType)
 }
 
 func (a *App) emitDLLProgress(stage string) {
@@ -530,21 +549,77 @@ func (a *App) emitDLLProgress(stage string) {
 }
 
 func (a *App) InstallDLL(appID uint64, dllType, version string) error {
-	return newGUIApplicationBoundary(a.db, a.emitDLLProgress).installDLLVersion(appID, dllType, version)
+	return a.runDLLOperation(func() (dll.Result, error) {
+		return newGUIApplicationBoundary(a.databaseSnapshot(), a.emitDLLProgress).installDLLVersion(appID, dllType, version)
+	})
 }
 
-func (a *App) UpdateDLLs(appID uint64) error {
-	return newGUIApplicationBoundary(a.db, a.emitDLLProgress).updateDLLs(appID)
+func (a *App) UpdateDLLs(appID uint64) (DLLUpdateOutcome, error) {
+	a.dllMutex.Lock()
+	defer a.dllMutex.Unlock()
+	batch, err := newGUIApplicationBoundary(nil, a.emitDLLProgress).updateDLLs(appID)
+	outcome := DLLUpdateOutcome{Updated: batch.Updated, Unchanged: batch.Unchanged, Failed: batch.Failed}
+	for _, item := range batch.Items {
+		a.applyDLLResults(item.Result)
+		if item.Err != nil {
+			outcome.Failures = append(outcome.Failures, DLLUpdateFailure{Path: item.Path, Error: item.Err.Error()})
+		}
+	}
+	return outcome, err
 }
 
 func (a *App) RestoreDLLs(appID uint64) error {
-	return newGUIApplicationBoundary(a.db, a.emitDLLProgress).restoreDLLs(appID)
+	return a.runDLLOperation(func() (dll.Result, error) {
+		return newGUIApplicationBoundary(a.databaseSnapshot(), a.emitDLLProgress).restoreDLLs(appID)
+	})
 }
 
 func (a *App) HasDLLBackup(appID uint64) bool {
-	return newGUIApplicationBoundary(a.db, a.emitDLLProgress).hasDLLBackup(appID)
+	return dll.BackupExists(appID)
 }
 
 func (a *App) LaunchGame(appID uint64) error {
-	return defaultGUIApplicationBoundary(a.db).rejectDirectLaunch(appID)
+	return defaultGUIApplicationBoundary(a.databaseSnapshot()).rejectDirectLaunch(appID)
+}
+
+func (a *App) setDatabase(database *game.Database) {
+	a.dbMutex.Lock()
+	a.database = database
+	a.dbMutex.Unlock()
+}
+
+func (a *App) databaseSnapshot() *game.Database {
+	a.dbMutex.RLock()
+	defer a.dbMutex.RUnlock()
+	if a.database == nil {
+		return nil
+	}
+	clone := &game.Database{Games: make(map[uint64]*game.Game, len(a.database.Games)), UpdatedAt: a.database.UpdatedAt}
+	for appID, entry := range a.database.Games {
+		gameClone := *entry
+		gameClone.DLLs = append([]game.DetectedDLL(nil), entry.DLLs...)
+		clone.Games[appID] = &gameClone
+	}
+	return clone
+}
+
+func (a *App) applyDLLResults(results ...dll.Result) {
+	a.dbMutex.Lock()
+	defer a.dbMutex.Unlock()
+	if a.database == nil {
+		return
+	}
+	for _, result := range results {
+		if result.Game != nil {
+			a.database.Games[result.Game.AppID] = result.Game
+		}
+	}
+}
+
+func (a *App) runDLLOperation(operation func() (dll.Result, error)) error {
+	a.dllMutex.Lock()
+	defer a.dllMutex.Unlock()
+	result, err := operation()
+	a.applyDLLResults(result)
+	return err
 }
