@@ -3,13 +3,11 @@ package profile
 import (
 	"fmt"
 	"reflect"
-	"sort"
 )
 
 // Field keys for per-field inheritance tracking. Keys are dot-paths shaped
 // `<subsystem>.<yaml_field>` so they match the YAML keys users see in their
-// profile files. Every settable leaf on Profile has a key here; if a new leaf
-// is added anywhere in Profile, `fieldsBySection` below must also be updated.
+// profile files. Every settable leaf on Profile has one descriptor in fields.go.
 const (
 	FieldProtonEnableWayland    = "proton.enable_wayland"
 	FieldProtonEnableHDR        = "proton.enable_hdr"
@@ -51,68 +49,11 @@ const (
 	FieldOverlayToggleKey     = "overlay.toggle_key"
 )
 
-// fieldsBySection lists every inheritance-tracked field key, grouped by
-// subsystem. The ordering inside each section is the canonical rendering
-// order used by `spela <subsystem> show`.
-var fieldsBySection = map[string][]string{
-	"proton": {
-		FieldProtonEnableHDR,
-		FieldProtonEnableWayland,
-		FieldProtonEnableNGXUpdater,
-		FieldProtonVKD3DHeap,
-	},
-	"dlss": {
-		FieldDLSSSRMode,
-		FieldDLSSSRPreset,
-		FieldDLSSSROverride,
-		FieldDLSSRRMode,
-		FieldDLSSRRPreset,
-		FieldDLSSRROverride,
-		FieldDLSSFGEnabled,
-		FieldDLSSFGOverride,
-		FieldDLSSMultiFrame,
-		FieldDLSSIndicator,
-		FieldDLSSFGIndicator,
-	},
-	"gpu": {
-		FieldGPUClockOffset,
-		FieldGPUMemoryOffset,
-		FieldGPUPowerLimit,
-		FieldGPUFanSpeed,
-		FieldGPUPowerMizer,
-		FieldGPUShaderCache,
-		FieldGPUShaderCachePath,
-		FieldGPUThreadedOptimization,
-	},
-	"cpu": {
-		FieldCPUGovernor,
-		FieldCPUSMT,
-		FieldCPUAffinity,
-	},
-	"overlay": {
-		FieldOverlayEnabled,
-		FieldOverlayPosition,
-		FieldOverlayShowFPS,
-		FieldOverlayShowFrametime,
-		FieldOverlayShowCPU,
-		FieldOverlayShowGPU,
-		FieldOverlayShowVRAM,
-		FieldOverlayToggleKey,
-	},
-}
-
-// AllFields returns every inheritance-tracked field key on Profile in a
-// deterministic order (alphabetical by subsystem, canonical order within).
+// AllFields returns every inheritance-tracked field key in descriptor order.
 func AllFields() []string {
-	sections := make([]string, 0, len(fieldsBySection))
-	for section := range fieldsBySection {
-		sections = append(sections, section)
-	}
-	sort.Strings(sections)
-
-	var out []string
-	for _, section := range sections {
-		out = append(out, fieldsBySection[section]...)
+	out := make([]string, 0, len(fieldDescriptors))
+	for _, descriptor := range fieldDescriptors {
+		out = append(out, descriptor.Key)
 	}
 	return out
 }
@@ -120,24 +61,20 @@ func AllFields() []string {
 // SectionFields returns the ordered field keys for a named subsystem
 // (proton, dlss, gpu, cpu, overlay). Returns nil for unknown sections.
 func SectionFields(section string) []string {
-	keys := fieldsBySection[section]
-	if len(keys) == 0 {
-		return nil
+	var keys []string
+	for _, descriptor := range fieldDescriptors {
+		if descriptor.Subsystem == section {
+			keys = append(keys, descriptor.Key)
+		}
 	}
-	out := make([]string, len(keys))
-	copy(out, keys)
-	return out
+	return keys
 }
 
 // IsValidField reports whether a field key is recognized by the inheritance
 // layer. Consumers of Reset/MarkOverride should validate input with this.
 func IsValidField(field string) bool {
-	for _, f := range AllFields() {
-		if f == field {
-			return true
-		}
-	}
-	return false
+	_, ok := Field(field)
+	return ok
 }
 
 // fieldAccessor locates a field on Profile via reflection. Returns the
@@ -183,47 +120,6 @@ func yamlTagName(tag string) string {
 	return tag
 }
 
-// IsBoolField reports whether the given field key refers to a bool-typed leaf
-// on Profile (excluding *bool leaves like cpu.smt). Callers use this to pick
-// a three-state ((default)/true/false) editor for a field instead of treating
-// it as a free-form value.
-func IsBoolField(field string) bool {
-	fv, err := fieldAccessor(&Profile{}, field)
-	if err != nil {
-		return false
-	}
-	return fv.Kind() == reflect.Bool
-}
-
-// BoolFieldValue returns the bool value of `field` on `p` and whether the
-// field is a bool-typed leaf. Returns (false, false) for unknown fields,
-// non-bool fields, or nil profiles.
-func BoolFieldValue(p *Profile, field string) (val bool, isBool bool) {
-	if p == nil {
-		return false, false
-	}
-	fv, err := fieldAccessor(p, field)
-	if err != nil || fv.Kind() != reflect.Bool {
-		return false, false
-	}
-	return fv.Bool(), true
-}
-
-// SetBoolField sets a bool-typed `field` on `p` to `val` and marks it as an
-// override. Returns false (no-op) for unknown or non-bool fields.
-func SetBoolField(p *Profile, field string, val bool) bool {
-	if p == nil {
-		return false
-	}
-	fv, err := fieldAccessor(p, field)
-	if err != nil || fv.Kind() != reflect.Bool {
-		return false
-	}
-	fv.SetBool(val)
-	p.MarkOverride(field)
-	return true
-}
-
 // IsOverridden reports whether the field is explicitly pinned on this profile
 // (an override) as opposed to inheriting from the defaults.
 func (p *Profile) IsOverridden(field string) bool {
@@ -250,43 +146,15 @@ func (p *Profile) MarkOverride(field string) {
 	p.Overrides[field] = true
 }
 
-// CopyField copies one inheritance-tracked field from src to dst. It does not
-// change override state; callers decide whether the copied value is inherited
-// or pinned in their context.
-func CopyField(dst *Profile, src *Profile, field string) error {
-	if dst == nil || src == nil {
-		return fmt.Errorf("copy %s: nil profile", field)
-	}
-	if !IsValidField(field) {
-		return fmt.Errorf("unknown profile field: %q", field)
-	}
-	srcVal, err := fieldAccessor(src, field)
-	if err != nil {
-		return err
-	}
-	dstVal, err := fieldAccessor(dst, field)
-	if err != nil {
-		return err
-	}
-	dstVal.Set(deepCopyValue(srcVal))
-	return nil
-}
-
-// PinField copies the currently-resolved value of `field` onto this profile
-// and marks it as an override. The "resolved value" is the value that would
-// be used at apply time given the supplied defaults: if `p` already has the
-// field set (non-zero), the existing value is kept; otherwise the value is
-// copied from `defaults`. After pinning, the field survives subsequent
-// changes to `defaults`.
+// PinField copies the effective inherited value from defaults onto this
+// profile and marks it as an override. Stale non-overridden raw data is ignored,
+// so pinning never changes the value currently displayed to the user. The
+// pinned value survives subsequent changes to defaults.
 //
 // Semantics:
 //   - If the field is already overridden, PinField is a no-op (idempotent).
-//   - If `defaults` is nil and the field on `p` is zero, the resulting
-//     override pins the zero value explicitly.
+//   - If defaults is nil, the field's zero value is pinned explicitly.
 //   - Returns an error for unknown field keys.
-//
-// Task 5 consumes this from the TUI `p` binding so the user can lock in
-// the value they are currently looking at on an inherited field.
 func (p *Profile) PinField(field string, defaults *Profile) error {
 	if p == nil {
 		return fmt.Errorf("pin %s: nil profile", field)
@@ -297,20 +165,15 @@ func (p *Profile) PinField(field string, defaults *Profile) error {
 	if p.IsOverridden(field) {
 		return nil
 	}
-	dst, err := fieldAccessor(p, field)
+	source := defaults
+	if source == nil {
+		source = &Profile{}
+	}
+	value, err := ReadField(source, field)
 	if err != nil {
 		return err
 	}
-	// If the field on p is already set (non-zero), the resolved value is p's
-	// own value — nothing to copy. Otherwise pull the value from defaults.
-	if dst.IsZero() && defaults != nil {
-		srcVal, err := fieldAccessor(defaults, field)
-		if err == nil {
-			dst.Set(deepCopyValue(srcVal))
-		}
-	}
-	p.MarkOverride(field)
-	return nil
+	return p.Set(field, value)
 }
 
 // Reset clears the override flag on `field` and zeros the backing struct value

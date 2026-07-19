@@ -1,8 +1,11 @@
 <script>
+  import { createEventDispatcher } from 'svelte'
   import Dropdown from './Dropdown.svelte'
+  import ProfileFieldMeta from './ProfileFieldMeta.svelte'
   import {
     srModeOptions,
     srPresetOptions,
+    rrPresetOptions,
     multiFrameOptions,
     powerMizerOptions,
     frameGenerationOptions,
@@ -10,7 +13,8 @@
     memoryOffsetOptions,
     governorOptions,
     smtOptions,
-    overlayPositionOptions
+    overlayPositionOptions,
+    profileFieldByProperty
   } from './profileFieldOptions.js'
 
   export let profile
@@ -18,30 +22,49 @@
   export let profileSubsystem = null
   export let game = null
   export let desktop
+  export let pendingOperations = {}
+
+  const dispatch = createEventDispatcher()
 
   $: showSubsystem = (index) => profileSubsystem === null || profileSubsystem === index
 
-  let frameGenerationMode = '(default)'
+  let frameGenerationMode = 'no_override'
+  const frameGenerationFields = ['dlss.fg_enabled', 'dlss.fg_override']
   let semanticsByField = {}
   let vkd3dHeapNotice = ''
 
   $: if (profile) {
     frameGenerationMode = profile.fgOverride
-      ? (profile.fgEnabled ? 'true' : 'false')
-      : '(default)'
+      ? (profile.fgEnabled ? 'enabled' : 'disabled')
+      : 'no_override'
   }
 
   $: semanticsByField = Object.fromEntries((profile?.semantics || []).map(item => [item.field, item]))
+  $: frameGenerationSemantic = compositeSemantic(frameGenerationFields, semanticsByField)
+  $: frameGenerationPending = compositePending(frameGenerationFields, pendingOperations)
 
-  function semanticText(field) {
-    const semantic = semanticsByField[field]
-    if (!semantic) {
-      return ''
-    }
-    if (profileMode === 'default') {
-      return `impact ${semantic.impact} · restore ${semantic.restore}`
-    }
-    return `source ${semantic.source} · impact ${semantic.impact} · restore ${semantic.restore}`
+  function forwardPatchAction(event) {
+    dispatch('patchAction', event.detail)
+  }
+
+  function fieldChanged(...fields) {
+    dispatch('fieldChange', { fields })
+  }
+
+  function handleNativeFieldChange(event) {
+    const field = profileFieldByProperty[event.target.id]
+    if (field) fieldChanged(field)
+  }
+
+  function compositeSemantic(fields, semantics) {
+    const items = fields.map(field => semantics[field]).filter(Boolean)
+    if (!items.length) return null
+    return { ...items[0], source: items.some(item => item.source === 'override') ? 'override' : items[0].source }
+  }
+
+  function compositePending(fields, operations) {
+    const operation = operations[fields[0]]
+    return operation && fields.every(field => operations[field] === operation) ? operation : ''
   }
 
   async function refreshVkd3dHeapNotice() {
@@ -72,20 +95,16 @@
     if (!profile) {
       return
     }
-    if (value === '(default)') {
-      profile.fgOverride = false
-      profile.fgEnabled = false
-      return
-    }
-    profile.fgOverride = true
-    profile.fgEnabled = value === 'true'
+    profile.fgOverride = value !== 'no_override'
+    profile.fgEnabled = value === 'enabled'
+    fieldChanged('dlss.fg_enabled', 'dlss.fg_override')
   }
 </script>
 
 {#if profileMode === 'game' && profile.inheritedFromDefault}
   <p class="default-note">Using default profile values.</p>
 {/if}
-<div class="profile-grid">
+<div class="profile-grid" on:change={handleNativeFieldChange}>
   {#if showSubsystem(1)}
   <div class="section boxed">
     <h2>DLSS settings</h2>
@@ -96,9 +115,10 @@
         <Dropdown
           bind:value={profile.srMode}
           options={srModeOptions}
+          on:change={() => fieldChanged('dlss.sr_mode')}
         />
         <span class="hint">Resolution preset for DLSS super resolution.</span>
-        <span class="profile-meta">{semanticText('dlss.sr_mode')}</span>
+        <ProfileFieldMeta field="dlss.sr_mode" semantic={semanticsByField['dlss.sr_mode']} {profileMode} pendingOperation={pendingOperations['dlss.sr_mode']} on:action={forwardPatchAction} />
       </div>
 
       <div class="field">
@@ -106,42 +126,43 @@
         <Dropdown
           bind:value={profile.srPreset}
           options={srPresetOptions}
+          on:change={() => fieldChanged('dlss.sr_preset')}
         />
         <span class="hint">auto: mode-linked transformer; A-F: CNN (DLSS 2/3); J-M: Transformer (DLSS 4/4.5)</span>
-        <span class="profile-meta">{semanticText('dlss.sr_preset')}</span>
+        <ProfileFieldMeta field="dlss.sr_preset" semantic={semanticsByField['dlss.sr_preset']} {profileMode} pendingOperation={pendingOperations['dlss.sr_preset']} on:action={forwardPatchAction} />
       </div>
 
       <div class="field checkbox">
         <input type="checkbox" id="srOverride" bind:checked={profile.srOverride} />
         <label for="srOverride">Override (force DLSS even if unsupported)</label>
         <span class="hint">Use DLSS even if the game does not expose it.</span>
-        <span class="profile-meta">{semanticText('dlss.sr_override')}</span>
+        <ProfileFieldMeta field="dlss.sr_override" semantic={semanticsByField['dlss.sr_override']} {profileMode} pendingOperation={pendingOperations['dlss.sr_override']} on:action={forwardPatchAction} />
       </div>
 
       <div class="field checkbox">
         <input type="checkbox" id="indicator" bind:checked={profile.indicator} />
         <label for="indicator">Show DLSS indicator</label>
         <span class="hint">Display a small on-screen DLSS status overlay.</span>
-        <span class="profile-meta">{semanticText('dlss.indicator')}</span>
+        <ProfileFieldMeta field="dlss.indicator" semantic={semanticsByField['dlss.indicator']} {profileMode} pendingOperation={pendingOperations['dlss.indicator']} on:action={forwardPatchAction} />
       </div>
 
       <div class="field">
         <label for="rrMode">Ray reconstruction mode</label>
-        <Dropdown bind:value={profile.rrMode} options={srModeOptions} />
+        <Dropdown bind:value={profile.rrMode} options={srModeOptions} on:change={() => fieldChanged('dlss.rr_mode')} />
         <span class="hint">DLSS ray reconstruction quality preset.</span>
-        <span class="profile-meta">{semanticText('dlss.rr_mode')}</span>
+        <ProfileFieldMeta field="dlss.rr_mode" semantic={semanticsByField['dlss.rr_mode']} {profileMode} pendingOperation={pendingOperations['dlss.rr_mode']} on:action={forwardPatchAction} />
       </div>
 
       <div class="field">
         <label for="rrPreset">Ray reconstruction preset</label>
-        <Dropdown bind:value={profile.rrPreset} options={srPresetOptions} />
-        <span class="profile-meta">{semanticText('dlss.rr_preset')}</span>
+        <Dropdown bind:value={profile.rrPreset} options={rrPresetOptions} on:change={() => fieldChanged('dlss.rr_preset')} />
+        <ProfileFieldMeta field="dlss.rr_preset" semantic={semanticsByField['dlss.rr_preset']} {profileMode} pendingOperation={pendingOperations['dlss.rr_preset']} on:action={forwardPatchAction} />
       </div>
 
       <div class="field checkbox">
         <input type="checkbox" id="rrOverride" bind:checked={profile.rrOverride} />
         <label for="rrOverride">RR override</label>
-        <span class="profile-meta">{semanticText('dlss.rr_override')}</span>
+        <ProfileFieldMeta field="dlss.rr_override" semantic={semanticsByField['dlss.rr_override']} {profileMode} pendingOperation={pendingOperations['dlss.rr_override']} on:action={forwardPatchAction} />
       </div>
 
       <div class="field">
@@ -152,13 +173,13 @@
           on:change={(event) => updateFrameGeneration(event.detail)}
         />
         <span class="hint">Generate extra frames for higher FPS.</span>
-        <span class="profile-meta">{semanticText('dlss.fg_enabled')}</span>
+        <ProfileFieldMeta fields={frameGenerationFields} semantic={frameGenerationSemantic} {profileMode} pendingOperation={frameGenerationPending} on:action={forwardPatchAction} />
       </div>
 
       <div class="field checkbox">
         <input type="checkbox" id="fgIndicator" bind:checked={profile.fgIndicator} />
         <label for="fgIndicator">Show frame generation indicator</label>
-        <span class="profile-meta">{semanticText('dlss.fg_indicator')}</span>
+        <ProfileFieldMeta field="dlss.fg_indicator" semantic={semanticsByField['dlss.fg_indicator']} {profileMode} pendingOperation={pendingOperations['dlss.fg_indicator']} on:action={forwardPatchAction} />
       </div>
 
       <div class="field">
@@ -166,9 +187,10 @@
         <Dropdown
           bind:value={profile.multiFrame}
           options={multiFrameOptions}
+          on:change={() => fieldChanged('dlss.multi_frame')}
         />
         <span class="hint">Extra frames to generate (0=off).</span>
-        <span class="profile-meta">{semanticText('dlss.multi_frame')}</span>
+        <ProfileFieldMeta field="dlss.multi_frame" semantic={semanticsByField['dlss.multi_frame']} {profileMode} pendingOperation={pendingOperations['dlss.multi_frame']} on:action={forwardPatchAction} />
       </div>
     </div>
   </div>
@@ -183,20 +205,20 @@
         <input type="checkbox" id="shaderCache" bind:checked={profile.shaderCache} />
         <label for="shaderCache">Shader cache</label>
         <span class="hint">Enable shader caching for faster reloads.</span>
-        <span class="profile-meta">{semanticText('gpu.shader_cache')}</span>
+        <ProfileFieldMeta field="gpu.shader_cache" semantic={semanticsByField['gpu.shader_cache']} {profileMode} pendingOperation={pendingOperations['gpu.shader_cache']} on:action={forwardPatchAction} />
       </div>
 
       <div class="field">
         <label for="shaderCachePath">Shader cache path</label>
-        <input type="text" id="shaderCachePath" bind:value={profile.shaderCachePath} placeholder="(default)" />
-        <span class="profile-meta">{semanticText('gpu.shader_cache_path')}</span>
+        <input type="text" id="shaderCachePath" bind:value={profile.shaderCachePath} placeholder="Empty path" />
+        <ProfileFieldMeta field="gpu.shader_cache_path" semantic={semanticsByField['gpu.shader_cache_path']} {profileMode} pendingOperation={pendingOperations['gpu.shader_cache_path']} on:action={forwardPatchAction} />
       </div>
 
       <div class="field checkbox">
         <input type="checkbox" id="threadedOptimization" bind:checked={profile.threadedOptimization} />
         <label for="threadedOptimization">Threaded optimization</label>
         <span class="hint">Use multi-core rendering when supported.</span>
-        <span class="profile-meta">{semanticText('gpu.threaded_optimization')}</span>
+        <ProfileFieldMeta field="gpu.threaded_optimization" semantic={semanticsByField['gpu.threaded_optimization']} {profileMode} pendingOperation={pendingOperations['gpu.threaded_optimization']} on:action={forwardPatchAction} />
       </div>
 
       <div class="field">
@@ -204,9 +226,10 @@
         <Dropdown
           bind:value={profile.powerMizer}
           options={powerMizerOptions}
+          on:change={() => fieldChanged('gpu.power_mizer')}
         />
         <span class="hint">GPU power policy for the game.</span>
-        <span class="profile-meta">{semanticText('gpu.power_mizer')}</span>
+        <ProfileFieldMeta field="gpu.power_mizer" semantic={semanticsByField['gpu.power_mizer']} {profileMode} pendingOperation={pendingOperations['gpu.power_mizer']} on:action={forwardPatchAction} />
       </div>
 
       <div class="field">
@@ -214,9 +237,10 @@
         <Dropdown
           bind:value={profile.clockOffset}
           options={clockOffsetOptions}
+          on:change={() => fieldChanged('gpu.clock_offset')}
         />
         <span class="hint">GPU core clock offset in MHz.</span>
-        <span class="profile-meta">{semanticText('gpu.clock_offset')}</span>
+        <ProfileFieldMeta field="gpu.clock_offset" semantic={semanticsByField['gpu.clock_offset']} {profileMode} pendingOperation={pendingOperations['gpu.clock_offset']} on:action={forwardPatchAction} />
       </div>
 
       <div class="field">
@@ -224,9 +248,10 @@
         <Dropdown
           bind:value={profile.memoryOffset}
           options={memoryOffsetOptions}
+          on:change={() => fieldChanged('gpu.memory_offset')}
         />
         <span class="hint">GPU memory clock offset in MHz.</span>
-        <span class="profile-meta">{semanticText('gpu.memory_offset')}</span>
+        <ProfileFieldMeta field="gpu.memory_offset" semantic={semanticsByField['gpu.memory_offset']} {profileMode} pendingOperation={pendingOperations['gpu.memory_offset']} on:action={forwardPatchAction} />
       </div>
     </div>
   </div>
@@ -242,9 +267,10 @@
         <Dropdown
           bind:value={profile.governor}
           options={governorOptions}
+          on:change={() => fieldChanged('cpu.governor')}
         />
         <span class="hint">CPU frequency scaling governor for the game.</span>
-        <span class="profile-meta">{semanticText('cpu.governor')}</span>
+        <ProfileFieldMeta field="cpu.governor" semantic={semanticsByField['cpu.governor']} {profileMode} pendingOperation={pendingOperations['cpu.governor']} on:action={forwardPatchAction} />
       </div>
 
       <div class="field">
@@ -252,9 +278,10 @@
         <Dropdown
           bind:value={profile.smt}
           options={smtOptions}
+          on:change={() => fieldChanged('cpu.smt')}
         />
         <span class="hint">Simultaneous multi-threading (hyperthreading).</span>
-        <span class="profile-meta">{semanticText('cpu.smt')}</span>
+        <ProfileFieldMeta field="cpu.smt" semantic={semanticsByField['cpu.smt']} {profileMode} pendingOperation={pendingOperations['cpu.smt']} on:action={forwardPatchAction} />
       </div>
     </div>
   </div>
@@ -269,28 +296,28 @@
         <input type="checkbox" id="enableHdr" bind:checked={profile.enableHdr} />
         <label for="enableHdr">HDR</label>
         <span class="hint">Enable HDR output for supported displays.</span>
-        <span class="profile-meta">{semanticText('proton.enable_hdr')}</span>
+        <ProfileFieldMeta field="proton.enable_hdr" semantic={semanticsByField['proton.enable_hdr']} {profileMode} pendingOperation={pendingOperations['proton.enable_hdr']} on:action={forwardPatchAction} />
       </div>
 
       <div class="field checkbox">
         <input type="checkbox" id="enableWayland" bind:checked={profile.enableWayland} />
         <label for="enableWayland">Wayland</label>
         <span class="hint">Prefer native Wayland when available.</span>
-        <span class="profile-meta">{semanticText('proton.enable_wayland')}</span>
+        <ProfileFieldMeta field="proton.enable_wayland" semantic={semanticsByField['proton.enable_wayland']} {profileMode} pendingOperation={pendingOperations['proton.enable_wayland']} on:action={forwardPatchAction} />
       </div>
 
       <div class="field checkbox">
         <input type="checkbox" id="enableNgxUpdater" bind:checked={profile.enableNgxUpdater} />
         <label for="enableNgxUpdater">NGX Updater</label>
         <span class="hint">Allow Proton to update DLSS DLLs.</span>
-        <span class="profile-meta">{semanticText('proton.enable_ngx_updater')}</span>
+        <ProfileFieldMeta field="proton.enable_ngx_updater" semantic={semanticsByField['proton.enable_ngx_updater']} {profileMode} pendingOperation={pendingOperations['proton.enable_ngx_updater']} on:action={forwardPatchAction} />
       </div>
 
       <div class="field checkbox">
         <input type="checkbox" id="vkd3dHeap" bind:checked={profile.vkd3dHeap} />
         <label for="vkd3dHeap">VKD3D Heap</label>
         <span class="hint">Enable the VKD3D descriptor heap code path (VKD3D_CONFIG=descriptor_heap). Requires Proton-CachyOS 10.0-20260321+ or 11.0+ and NVIDIA driver 580.94.16+.</span>
-        <span class="profile-meta">{semanticText('proton.vkd3d_heap')}</span>
+        <ProfileFieldMeta field="proton.vkd3d_heap" semantic={semanticsByField['proton.vkd3d_heap']} {profileMode} pendingOperation={pendingOperations['proton.vkd3d_heap']} on:action={forwardPatchAction} />
         {#if profile.vkd3dHeap && vkd3dHeapNotice}
           <div class="vkd3d-notice" data-level={vkd3dHeapNotice.startsWith('⚠') ? 'warn' : 'info'}>
             {vkd3dHeapNotice}
@@ -307,42 +334,42 @@
       <div class="field checkbox">
         <input type="checkbox" id="overlayEnabled" bind:checked={profile.overlayEnabled} />
         <label for="overlayEnabled">Enable overlay</label>
-        <span class="profile-meta">{semanticText('overlay.enabled')}</span>
+        <ProfileFieldMeta field="overlay.enabled" semantic={semanticsByField['overlay.enabled']} {profileMode} pendingOperation={pendingOperations['overlay.enabled']} on:action={forwardPatchAction} />
       </div>
       <div class="field">
         <label for="overlayPosition">Position</label>
-        <Dropdown bind:value={profile.overlayPosition} options={overlayPositionOptions} />
-        <span class="profile-meta">{semanticText('overlay.position')}</span>
+        <Dropdown bind:value={profile.overlayPosition} options={overlayPositionOptions} on:change={() => fieldChanged('overlay.position')} />
+        <ProfileFieldMeta field="overlay.position" semantic={semanticsByField['overlay.position']} {profileMode} pendingOperation={pendingOperations['overlay.position']} on:action={forwardPatchAction} />
       </div>
       <div class="field checkbox">
         <input type="checkbox" id="overlayShowFps" bind:checked={profile.overlayShowFps} />
         <label for="overlayShowFps">Show FPS</label>
-        <span class="profile-meta">{semanticText('overlay.show_fps')}</span>
+        <ProfileFieldMeta field="overlay.show_fps" semantic={semanticsByField['overlay.show_fps']} {profileMode} pendingOperation={pendingOperations['overlay.show_fps']} on:action={forwardPatchAction} />
       </div>
       <div class="field checkbox">
         <input type="checkbox" id="overlayShowFrametime" bind:checked={profile.overlayShowFrametime} />
         <label for="overlayShowFrametime">Show frametime</label>
-        <span class="profile-meta">{semanticText('overlay.show_frametime')}</span>
+        <ProfileFieldMeta field="overlay.show_frametime" semantic={semanticsByField['overlay.show_frametime']} {profileMode} pendingOperation={pendingOperations['overlay.show_frametime']} on:action={forwardPatchAction} />
       </div>
       <div class="field checkbox">
         <input type="checkbox" id="overlayShowCpu" bind:checked={profile.overlayShowCpu} />
         <label for="overlayShowCpu">Show CPU</label>
-        <span class="profile-meta">{semanticText('overlay.show_cpu')}</span>
+        <ProfileFieldMeta field="overlay.show_cpu" semantic={semanticsByField['overlay.show_cpu']} {profileMode} pendingOperation={pendingOperations['overlay.show_cpu']} on:action={forwardPatchAction} />
       </div>
       <div class="field checkbox">
         <input type="checkbox" id="overlayShowGpu" bind:checked={profile.overlayShowGpu} />
         <label for="overlayShowGpu">Show GPU</label>
-        <span class="profile-meta">{semanticText('overlay.show_gpu')}</span>
+        <ProfileFieldMeta field="overlay.show_gpu" semantic={semanticsByField['overlay.show_gpu']} {profileMode} pendingOperation={pendingOperations['overlay.show_gpu']} on:action={forwardPatchAction} />
       </div>
       <div class="field checkbox">
         <input type="checkbox" id="overlayShowVram" bind:checked={profile.overlayShowVram} />
         <label for="overlayShowVram">Show VRAM</label>
-        <span class="profile-meta">{semanticText('overlay.show_vram')}</span>
+        <ProfileFieldMeta field="overlay.show_vram" semantic={semanticsByField['overlay.show_vram']} {profileMode} pendingOperation={pendingOperations['overlay.show_vram']} on:action={forwardPatchAction} />
       </div>
       <div class="field">
         <label for="overlayToggleKey">Toggle key</label>
-        <input type="text" id="overlayToggleKey" bind:value={profile.overlayToggleKey} placeholder="(default)" />
-        <span class="profile-meta">{semanticText('overlay.toggle_key')}</span>
+        <input type="text" id="overlayToggleKey" bind:value={profile.overlayToggleKey} placeholder="No key" />
+        <ProfileFieldMeta field="overlay.toggle_key" semantic={semanticsByField['overlay.toggle_key']} {profileMode} pendingOperation={pendingOperations['overlay.toggle_key']} on:action={forwardPatchAction} />
       </div>
     </div>
   </div>
@@ -458,17 +485,7 @@
     grid-column: 2;
   }
 
-  .profile-meta {
-    display: block;
-    margin-top: 0.2rem;
-    color: var(--accent-secondary);
-    font-size: 0.68rem;
-    line-height: 1.3;
-    text-transform: none;
-    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
-  }
-
-  .field.checkbox .profile-meta {
+  :global(.field.checkbox .profile-meta) {
     grid-column: 2;
   }
 

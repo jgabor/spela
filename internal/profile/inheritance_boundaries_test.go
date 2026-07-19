@@ -12,17 +12,11 @@ func TestInheritanceNilUnknownAndCopyBoundaries(t *testing.T) {
 		t.Fatal("nil profile reported an override")
 	}
 	nilProfile.MarkOverride(FieldDLSSSRMode)
-	if value, ok := BoolFieldValue(nil, FieldProtonEnableHDR); value || ok {
-		t.Fatalf("nil bool field = %v, %v", value, ok)
+	if _, err := ReadField(nil, FieldProtonEnableHDR); err == nil {
+		t.Fatal("nil field read succeeded")
 	}
-	if IsBoolField("missing") || SetBoolField(nil, FieldProtonEnableHDR, true) || SetBoolField(&Profile{}, "missing", true) {
-		t.Fatal("invalid bool field operation succeeded")
-	}
-	if err := CopyField(nil, &Profile{}, FieldDLSSSRMode); err == nil || !strings.Contains(err.Error(), "nil profile") {
-		t.Fatalf("nil copy error = %v", err)
-	}
-	if err := CopyField(&Profile{}, &Profile{}, "missing"); err == nil || !strings.Contains(err.Error(), "unknown") {
-		t.Fatalf("unknown copy error = %v", err)
+	if err := nilProfile.Set(FieldProtonEnableHDR, true); err == nil || (&Profile{}).Set("missing", true) == nil {
+		t.Fatal("invalid field set succeeded")
 	}
 	if err := nilProfile.PinField(FieldDLSSSRMode, nil); err == nil || !strings.Contains(err.Error(), "nil profile") {
 		t.Fatalf("nil pin error = %v", err)

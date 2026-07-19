@@ -76,6 +76,24 @@ describe('game list supported interaction flows', () => {
 })
 
 describe('profile editor supported projections', () => {
+  it('uses distinct descriptor-parity options for SR and RR presets', async () => {
+    render(GameProfilePane, {
+      props: { profile: emptyProfile(), desktop: {}, profileMode: 'default', profileSubsystem: 1 }
+    })
+
+    const srField = screen.getByText('DLSS preset').closest('.field')
+    await fireEvent.click(srField.querySelector('.trigger'))
+    expect([...srField.querySelectorAll('.option')].map(option => option.textContent.trim())).toEqual([
+      'No preset', 'Driver default', 'Auto (mode-linked)', 'A', 'B', 'C', 'D', 'E', 'F', 'J', 'K', 'L', 'M'
+    ])
+
+    const rrField = screen.getByText('Ray reconstruction preset').closest('.field')
+    await fireEvent.click(rrField.querySelector('.trigger'))
+    expect([...rrField.querySelectorAll('.option')].map(option => option.textContent.trim())).toEqual([
+      'No preset', 'Driver default', 'A', 'B', 'C', 'D', 'E', 'F', 'J', 'K', 'L', 'M'
+    ])
+  })
+
   it('projects semantics, frame generation, and compatibility notices', async () => {
     const profile = {
       ...emptyProfile(),
@@ -94,12 +112,12 @@ describe('profile editor supported projections', () => {
     const frameField = screen.getByText('Frame generation').closest('.field')
     await fireEvent.click(frameField.querySelector('button'))
     await waitFor(() => expect(frameField.querySelectorAll('button').length).toBeGreaterThan(1))
-    await fireEvent.click([...frameField.querySelectorAll('button')].find(button => button.textContent.trim() === 'true'))
+    await fireEvent.click([...frameField.querySelectorAll('button')].find(button => button.textContent.trim() === 'Enabled'))
     expect(profile.fgOverride).toBe(true)
     expect(profile.fgEnabled).toBe(true)
     await fireEvent.click(frameField.querySelector('button'))
     await waitFor(() => expect(frameField.querySelectorAll('button').length).toBeGreaterThan(1))
-    await fireEvent.click([...frameField.querySelectorAll('button')].find(button => button.textContent.trim() === '(default)'))
+    await fireEvent.click([...frameField.querySelectorAll('button')].find(button => button.textContent.trim() === 'No override value'))
     expect(profile.fgOverride).toBe(false)
 
     desktop.VKD3DHeapCompatibilityNotice.mockRejectedValue(new Error('probe failed'))
@@ -117,8 +135,8 @@ describe('game detail supported persistence flows', () => {
     const desktop = {
       GetDefaultProfile: vi.fn().mockResolvedValue(null),
       GetProfile: vi.fn().mockResolvedValue(profile),
-      SaveDefaultProfile: vi.fn().mockResolvedValue(undefined),
-      SaveProfile: vi.fn().mockResolvedValue(undefined),
+      PatchDefaultProfile: vi.fn().mockResolvedValue(undefined),
+      PatchProfile: vi.fn().mockResolvedValue(undefined),
       GetGame: vi.fn().mockResolvedValue({ ...games[0], prefixPath: '/prefix' }),
       VKD3DHeapCompatibilityNotice: vi.fn().mockResolvedValue('')
     }
@@ -131,11 +149,15 @@ describe('game detail supported persistence flows', () => {
     const detail = render(GameDetail, { props: { game: games[0], profileMode: 'game', desktop } })
     await waitFor(() => expect(screen.getByText('Save profile')).toBeTruthy())
     await detail.component.focusPrimary()
+    await fireEvent.click(screen.getByLabelText('HDR'))
     await fireEvent.click(screen.getByText('Save profile'))
-    await waitFor(() => expect(desktop.SaveProfile).toHaveBeenCalledWith(1, profile))
-    expect(screen.getByText('Profile saved!')).toBeTruthy()
+    await waitFor(() => expect(desktop.PatchProfile).toHaveBeenCalledWith(1, [{
+      field: 'proton.enable_hdr', operation: 'set', value: true
+    }]))
+    await waitFor(() => expect(screen.getByText('Profile saved!')).toBeTruthy())
 
-    desktop.SaveProfile.mockRejectedValue('read-only')
+    desktop.PatchProfile.mockRejectedValue('read-only')
+    await fireEvent.click(screen.getByLabelText('HDR'))
     await fireEvent.click(screen.getByText('Save profile'))
     await waitFor(() => expect(screen.getByText('Failed to save: read-only')).toBeTruthy())
     await fireEvent.click(screen.getByText('Dismiss'))

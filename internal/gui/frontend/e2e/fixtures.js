@@ -1,4 +1,5 @@
 import { test as base } from '@playwright/test'
+import { profilePropertyByField } from '../src/lib/profileFieldOptions.js'
 
 export const games = [
   {
@@ -123,6 +124,12 @@ function createMockScript(mockData) {
     const cpuInfo = ${JSON.stringify(mockData.cpuInfo)};
     const profiles = ${JSON.stringify(mockData.profiles)};
     const defaultProfile = ${JSON.stringify(mockData.defaultProfile)};
+    const profileProperties = ${JSON.stringify(profilePropertyByField)};
+    const applyProfilePatch = (target, patch) => {
+      const property = profileProperties[patch.field];
+      target[property] = patch.operation === 'reset' ? (typeof target[property] === 'number' ? 0 : typeof target[property] === 'boolean' ? false : '') : patch.value;
+    };
+    window.__profilePatchCalls = [];
     let config = ${JSON.stringify(mockData.config)};
     const settingsCatalog = ${JSON.stringify(mockData.settingsCatalog)};
     const dllUpdates = ${JSON.stringify(mockData.dllUpdates)};
@@ -171,12 +178,17 @@ function createMockScript(mockData) {
           GetGame: async (appId) => games.find((g) => g.appId === appId) || null,
           ScanGames: async () => {},
           GetDefaultProfile: async () => defaultProfile,
-          SaveDefaultProfile: async (profile) => {
-            Object.assign(defaultProfile, profile);
+          PatchDefaultProfile: async (patches) => {
+            window.__profilePatchCalls.push({ scope: 'default', patches: structuredClone(patches) });
+            patches.forEach((patch) => applyProfilePatch(defaultProfile, patch));
+            return defaultProfile;
           },
           GetProfile: async (appId) => profiles[appId] || null,
-          SaveProfile: async (appId, profile) => {
-            profiles[appId] = profile;
+          PatchProfile: async (appId, patches) => {
+            window.__profilePatchCalls.push({ scope: 'game', appId, patches: structuredClone(patches) });
+            profiles[appId] ||= structuredClone(defaultProfile);
+            patches.forEach((patch) => applyProfilePatch(profiles[appId], patch));
+            return profiles[appId];
           },
           GetGPUInfo: async () => gpuInfo,
           GetCPUInfo: async () => cpuInfo,

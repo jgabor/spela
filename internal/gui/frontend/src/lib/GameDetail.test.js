@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const fixtures = vi.hoisted(() => ({
@@ -31,7 +31,9 @@ const fixtures = vi.hoisted(() => ({
       { field: 'dlss.sr_mode', source: 'override', impact: 'environment', restore: 'ephemeral_launch_environment' },
       { field: 'gpu.clock_offset', source: 'default', impact: 'system_state', restore: 'restorable_mutation' },
       { field: 'proton.enable_hdr', source: 'default', impact: 'compatibility', restore: 'ephemeral_launch_environment' },
-      { field: 'proton.vkd3d_heap', source: 'override', impact: 'compatibility', restore: 'ephemeral_launch_environment' }
+      { field: 'proton.vkd3d_heap', source: 'override', impact: 'compatibility', restore: 'ephemeral_launch_environment' },
+      { field: 'dlss.fg_enabled', source: 'default', impact: 'environment', restore: 'ephemeral_launch_environment' },
+      { field: 'dlss.fg_override', source: 'default', impact: 'environment', restore: 'ephemeral_launch_environment' }
     ]
   },
   defaultProfile: {
@@ -89,21 +91,24 @@ vi.mock('../../wailsjs/runtime/runtime', () => ({
 }))
 
 import GameDetail from './GameDetail.svelte'
+import {
+  clockOffsetOptions, frameGenerationOptions, multiFrameOptions, smtOptions, srModeOptions
+} from './profileFieldOptions.js'
 
 function desktop(overrides = {}) {
   return {
     CheckDLLUpdates: vi.fn().mockResolvedValue([{ dllType: 'dlss', currentVersion: '3.7.0', latestVersion: '3.8.10', hasUpdate: true }]),
     GetDefaultProfile: vi.fn().mockResolvedValue(null),
     GetGame: vi.fn().mockResolvedValue({ appId: 1091500, name: 'Cyberpunk 2077', installDir: '/games/cyberpunk', dlls: [] }),
-    GetProfile: vi.fn().mockResolvedValue(fixtures.profile),
+    GetProfile: vi.fn().mockImplementation(async () => structuredClone(fixtures.profile)),
     HasDLLBackup: vi.fn().mockResolvedValue(true),
     InstallDLL: vi.fn().mockResolvedValue(undefined),
     LaunchGame: vi.fn().mockResolvedValue(undefined),
     ListDLLInstallTypes: vi.fn().mockResolvedValue([]),
     ListDLLVersions: vi.fn().mockResolvedValue([]),
     RestoreDLLs: vi.fn().mockResolvedValue(undefined),
-    SaveDefaultProfile: vi.fn().mockResolvedValue(undefined),
-    SaveProfile: vi.fn().mockResolvedValue(undefined),
+    PatchDefaultProfile: vi.fn().mockResolvedValue(undefined),
+    PatchProfile: vi.fn().mockResolvedValue(undefined),
     SubscribeDLLProgress: vi.fn((handler) => progressEvents.subscribe(handler)),
     UpdateDLLs: vi.fn().mockResolvedValue({ updated: 1, unchanged: 0, failed: 0, failures: [] }),
     VKD3DHeapCompatibilityNotice: vi.fn().mockResolvedValue(''),
@@ -355,7 +360,7 @@ describe('GameDetail current behavior', () => {
 
   it('keeps profile save failures visible until dismissed', async () => {
     const replacementDesktop = desktop({
-      SaveProfile: vi.fn().mockRejectedValueOnce(new Error('permission denied'))
+      PatchProfile: vi.fn().mockRejectedValueOnce(new Error('permission denied'))
     })
 
     render(GameDetail, {
@@ -367,6 +372,7 @@ describe('GameDetail current behavior', () => {
     })
 
     await waitFor(() => expect(screen.getByText('Save profile')).toBeTruthy())
+    await fireEvent.click(screen.getByLabelText('HDR'))
     await fireEvent.click(screen.getByText('Save profile'))
 
     await waitFor(() => expect(screen.getByText('Failed to save: permission denied')).toBeTruthy())
@@ -378,5 +384,184 @@ describe('GameDetail current behavior', () => {
 
     await fireEvent.click(screen.getByText('Dismiss'))
     expect(screen.queryByText('Failed to save: permission denied')).toBeNull()
+  })
+
+  it('queues inherited pin and overridden boolean reset actions', async () => {
+    const replacementDesktop = desktop()
+    render(GameDetail, { props: {
+      desktop: replacementDesktop,
+      game: { appId: 1091500, name: 'Cyberpunk 2077', installDir: '/games/cyberpunk', dlls: [] },
+      profileMode: 'game'
+    } })
+    await waitFor(() => expect(screen.getByText('Save profile')).toBeTruthy())
+    await fireEvent.click(within(screen.getByLabelText('HDR').closest('.field')).getByRole('button', { name: 'Pin' }))
+    const heapField = screen.getByLabelText('VKD3D Heap').closest('.field')
+    await fireEvent.click(within(heapField).getByRole('button', { name: 'Reset' }))
+    await fireEvent.click(screen.getByText('Save profile'))
+    await waitFor(() => expect(replacementDesktop.PatchProfile).toHaveBeenCalledWith(1091500, [
+      { field: 'proton.enable_hdr', operation: 'pin' },
+      { field: 'proton.vkd3d_heap', operation: 'reset' }
+    ]))
+  })
+
+  it('uses explicit labels rather than calling persisted zero values defaults', () => {
+    const labels = [...clockOffsetOptions, ...frameGenerationOptions, ...multiFrameOptions, ...smtOptions, ...srModeOptions]
+      .map(option => option.label)
+    expect(labels).not.toContain('(default)')
+    expect(labels).toEqual(expect.arrayContaining(['0 MHz', '0 (off)', 'No SMT value', 'No mode', 'No override value']))
+  })
+
+  it('toggles pending actions and lets a later edit win over reset', async () => {
+    const replacementDesktop = desktop()
+    render(GameDetail, { props: {
+      desktop: replacementDesktop,
+      game: { appId: 1091500, name: 'Cyberpunk 2077', installDir: '/games/cyberpunk', dlls: [] },
+      profileMode: 'game'
+    } })
+    await waitFor(() => expect(screen.getByText('Save profile')).toBeTruthy())
+    const heapField = screen.getByLabelText('VKD3D Heap').closest('.field')
+    await fireEvent.click(within(heapField).getByRole('button', { name: 'Reset' }))
+    await fireEvent.click(within(heapField).getByRole('button', { name: 'Cancel Reset' }))
+    await fireEvent.click(within(heapField).getByRole('button', { name: 'Reset' }))
+    await fireEvent.click(screen.getByLabelText('VKD3D Heap'))
+    await fireEvent.click(screen.getByText('Save profile'))
+    await waitFor(() => expect(replacementDesktop.PatchProfile).toHaveBeenCalledWith(1091500, [
+      { field: 'proton.vkd3d_heap', operation: 'set', value: true }
+    ]))
+  })
+
+  it('pins and resets both frame generation backing fields as one action', async () => {
+    const replacementDesktop = desktop()
+    const view = render(GameDetail, { props: {
+      desktop: replacementDesktop,
+      game: { appId: 1091500, name: 'Cyberpunk 2077', installDir: '/games/cyberpunk', dlls: [] },
+      profileMode: 'game'
+    } })
+    await waitFor(() => expect(screen.getByText('Save profile')).toBeTruthy())
+    const frameField = screen.getByText('Frame generation').closest('.field')
+    await fireEvent.click(within(frameField).getByRole('button', { name: 'Pin' }))
+    await fireEvent.click(screen.getByText('Save profile'))
+    await waitFor(() => expect(replacementDesktop.PatchProfile).toHaveBeenCalledWith(1091500, [
+      { field: 'dlss.fg_enabled', operation: 'pin' },
+      { field: 'dlss.fg_override', operation: 'pin' }
+    ]))
+
+    const overridden = structuredClone(fixtures.profile)
+    overridden.fgEnabled = true
+    overridden.fgOverride = true
+    overridden.semantics = overridden.semantics.map(item =>
+      item.field.startsWith('dlss.fg_') ? { ...item, source: 'override' } : item
+    )
+    replacementDesktop.GetProfile.mockResolvedValue(overridden)
+    replacementDesktop.PatchProfile.mockClear()
+    await view.rerender({
+      desktop: replacementDesktop,
+      game: { appId: 292030, name: 'The Witcher 3', installDir: '/games/witcher', dlls: [] },
+      profileMode: 'game'
+    })
+    const overriddenFrame = screen.getByText('Frame generation').closest('.field')
+    await waitFor(() => expect(within(overriddenFrame).getByRole('button', { name: 'Reset' })).toBeTruthy())
+    await fireEvent.click(within(overriddenFrame).getByRole('button', { name: 'Reset' }))
+    await fireEvent.click(screen.getByText('Save profile'))
+    await waitFor(() => expect(replacementDesktop.PatchProfile).toHaveBeenCalledWith(292030, [
+      { field: 'dlss.fg_enabled', operation: 'reset' },
+      { field: 'dlss.fg_override', operation: 'reset' }
+    ]))
+  })
+
+  it('sends false and numeric zero as explicit sets in one atomic batch', async () => {
+    const replacementDesktop = desktop()
+    render(GameDetail, { props: {
+      desktop: replacementDesktop,
+      game: { appId: 1091500, name: 'Cyberpunk 2077', installDir: '/games/cyberpunk', dlls: [] },
+      profileMode: 'game'
+    } })
+    await waitFor(() => expect(screen.getByText('Save profile')).toBeTruthy())
+    await fireEvent.click(screen.getByLabelText('HDR'))
+    const clockField = screen.getByText('Clock offset').closest('.field')
+    await fireEvent.click(clockField.querySelector('.trigger'))
+    await fireEvent.click(within(clockField).getByRole('button', { name: '0 MHz' }))
+    await fireEvent.click(screen.getByText('Save profile'))
+    await waitFor(() => expect(replacementDesktop.PatchProfile).toHaveBeenCalledWith(1091500, [
+      { field: 'gpu.clock_offset', operation: 'set', value: 0 },
+      { field: 'proton.enable_hdr', operation: 'set', value: false }
+    ]))
+    expect(replacementDesktop.PatchProfile).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends optional SMT nil representation as an explicit set', async () => {
+    const profile = structuredClone(fixtures.profile)
+    profile.smt = 'true'
+    const replacementDesktop = desktop({ GetProfile: vi.fn().mockResolvedValue(profile) })
+    render(GameDetail, { props: {
+      desktop: replacementDesktop,
+      game: { appId: 1091500, name: 'Cyberpunk 2077', installDir: '/games/cyberpunk', dlls: [] },
+      profileMode: 'game'
+    } })
+    await waitFor(() => expect(screen.getByText('Save profile')).toBeTruthy())
+    const smtField = screen.getByText('SMT', { selector: 'label' }).closest('.field')
+    await fireEvent.click(smtField.querySelector('.trigger'))
+    await fireEvent.click(within(smtField).getByRole('button', { name: 'No SMT value' }))
+    await fireEvent.click(screen.getByText('Save profile'))
+    await waitFor(() => expect(replacementDesktop.PatchProfile).toHaveBeenCalledWith(1091500, [
+      { field: 'cpu.smt', operation: 'set', value: '' }
+    ]))
+  })
+
+  it('offers explicit unset for the defaults root', async () => {
+    const replacementDesktop = desktop({ GetDefaultProfile: vi.fn().mockResolvedValue(structuredClone(fixtures.defaultProfile)) })
+    render(GameDetail, { props: { desktop: replacementDesktop, game: null, profileMode: 'default' } })
+    await waitFor(() => expect(screen.getByText('Save default profile')).toBeTruthy())
+    await fireEvent.click(within(screen.getByLabelText('HDR').closest('.field')).getByRole('button', { name: 'Unset' }))
+    await fireEvent.click(screen.getByText('Save default profile'))
+    await waitFor(() => expect(replacementDesktop.PatchDefaultProfile).toHaveBeenCalledWith([
+      { field: 'proton.enable_hdr', operation: 'reset' }
+    ]))
+  })
+
+  it('snapshots the target app before awaiting the atomic save', async () => {
+    const pending = deferred()
+    const replacementDesktop = desktop({ PatchProfile: vi.fn().mockReturnValue(pending.promise) })
+    const view = render(GameDetail, { props: {
+      desktop: replacementDesktop,
+      game: { appId: 1091500, name: 'Cyberpunk 2077', installDir: '/games/cyberpunk', dlls: [] },
+      profileMode: 'game'
+    } })
+    await waitFor(() => expect(screen.getByText('Save profile')).toBeTruthy())
+    await fireEvent.click(screen.getByLabelText('HDR'))
+    void fireEvent.click(screen.getByText('Save profile'))
+    await waitFor(() => expect(replacementDesktop.PatchProfile).toHaveBeenCalledWith(1091500, expect.any(Array)))
+    await view.rerender({
+      desktop: replacementDesktop,
+      game: { appId: 292030, name: 'The Witcher 3', installDir: '/games/witcher', dlls: [] },
+      profileMode: 'game'
+    })
+    pending.resolve(structuredClone(fixtures.profile))
+    await waitFor(() => expect(replacementDesktop.GetProfile).toHaveBeenCalledWith(292030))
+    expect(replacementDesktop.PatchProfile).toHaveBeenCalledTimes(1)
+    expect(replacementDesktop.GetGame).not.toHaveBeenCalledWith(1091500)
+    expect(screen.queryByText('Profile saved!')).toBeNull()
+  })
+
+  it('does not show a stale save error after navigating away', async () => {
+    const pending = deferred()
+    const replacementDesktop = desktop({ PatchProfile: vi.fn().mockReturnValue(pending.promise) })
+    const view = render(GameDetail, { props: {
+      desktop: replacementDesktop,
+      game: { appId: 1091500, name: 'Cyberpunk 2077', installDir: '/games/cyberpunk', dlls: [] },
+      profileMode: 'game'
+    } })
+    await waitFor(() => expect(screen.getByText('Save profile')).toBeTruthy())
+    await fireEvent.click(screen.getByLabelText('HDR'))
+    void fireEvent.click(screen.getByText('Save profile'))
+    await waitFor(() => expect(replacementDesktop.PatchProfile).toHaveBeenCalled())
+    await view.rerender({
+      desktop: replacementDesktop,
+      game: { appId: 292030, name: 'The Witcher 3', installDir: '/games/witcher', dlls: [] },
+      profileMode: 'game'
+    })
+    pending.reject(new Error('old target failed'))
+    await waitFor(() => expect(replacementDesktop.GetProfile).toHaveBeenCalledWith(292030))
+    expect(screen.queryByText('Failed to save: old target failed')).toBeNull()
   })
 })

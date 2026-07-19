@@ -31,6 +31,7 @@ type App struct {
 	ctx                context.Context
 	database           *game.Database
 	configurationMutex sync.Mutex
+	profileMutex       sync.Mutex
 	dbMutex            sync.RWMutex
 	dllMutex           sync.Mutex
 }
@@ -227,40 +228,10 @@ func gameInfoFromGame(g *game.Game) GameInfo {
 	return info
 }
 
-type ProfileInfo struct {
-	SRMode               string                  `json:"srMode"`
-	SRPreset             string                  `json:"srPreset"`
-	SROverride           bool                    `json:"srOverride"`
-	RRMode               string                  `json:"rrMode"`
-	RRPreset             string                  `json:"rrPreset"`
-	RROverride           bool                    `json:"rrOverride"`
-	FGEnabled            bool                    `json:"fgEnabled"`
-	FGOverride           bool                    `json:"fgOverride"`
-	FGIndicator          bool                    `json:"fgIndicator"`
-	MultiFrame           int                     `json:"multiFrame"`
-	Indicator            bool                    `json:"indicator"`
-	ShaderCache          bool                    `json:"shaderCache"`
-	ShaderCachePath      string                  `json:"shaderCachePath"`
-	ThreadedOptimization bool                    `json:"threadedOptimization"`
-	PowerMizer           string                  `json:"powerMizer"`
-	ClockOffset          int                     `json:"clockOffset"`
-	MemoryOffset         int                     `json:"memoryOffset"`
-	Governor             string                  `json:"governor"`
-	SMT                  string                  `json:"smt"`
-	EnableHDR            bool                    `json:"enableHdr"`
-	EnableWayland        bool                    `json:"enableWayland"`
-	EnableNGXUpdater     bool                    `json:"enableNgxUpdater"`
-	VKD3DHeap            bool                    `json:"vkd3dHeap"`
-	OverlayEnabled       bool                    `json:"overlayEnabled"`
-	OverlayPosition      string                  `json:"overlayPosition"`
-	OverlayShowFPS       bool                    `json:"overlayShowFps"`
-	OverlayShowFrametime bool                    `json:"overlayShowFrametime"`
-	OverlayShowCPU       bool                    `json:"overlayShowCpu"`
-	OverlayShowGPU       bool                    `json:"overlayShowGpu"`
-	OverlayShowVRAM      bool                    `json:"overlayShowVram"`
-	OverlayToggleKey     string                  `json:"overlayToggleKey"`
-	InheritedFromDefault bool                    `json:"inheritedFromDefault"`
-	Semantics            []ProfileFieldSemantics `json:"semantics"`
+type ProfilePatch struct {
+	Field     string `json:"field"`
+	Operation string `json:"operation"`
+	Value     any    `json:"value"`
 }
 
 type ProfileFieldSemantics struct {
@@ -270,50 +241,33 @@ type ProfileFieldSemantics struct {
 	Restore string `json:"restore"`
 }
 
-func profileInfoFromProfile(p *profile.Profile, inheritedFromDefault bool) *ProfileInfo {
-	return profileInfoFromProfileWithSemantics(p, nil, inheritedFromDefault)
-}
-
-func profileInfoFromProfileWithSemantics(p *profile.Profile, semantics []profile.FieldExplanation, inheritedFromDefault bool) *ProfileInfo {
+func profileView(p *profile.Profile, semantics []profile.FieldExplanation, inheritedFromDefault bool) map[string]any {
 	if p == nil {
 		return nil
 	}
-
-	return &ProfileInfo{
-		SRMode:               string(p.DLSS.SRMode),
-		SRPreset:             string(p.DLSS.SRPreset),
-		SROverride:           p.DLSS.SROverride,
-		RRMode:               string(p.DLSS.RRMode),
-		RRPreset:             string(p.DLSS.RRPreset),
-		RROverride:           p.DLSS.RROverride,
-		FGEnabled:            p.DLSS.FGEnabled,
-		FGOverride:           p.DLSS.FGOverride,
-		FGIndicator:          p.DLSS.FGIndicator,
-		MultiFrame:           p.DLSS.MultiFrame,
-		Indicator:            p.DLSS.Indicator,
-		ShaderCache:          p.GPU.ShaderCache,
-		ShaderCachePath:      p.GPU.ShaderCachePath,
-		ThreadedOptimization: p.GPU.ThreadedOptimization,
-		PowerMizer:           p.GPU.PowerMizer,
-		ClockOffset:          p.GPU.ClockOffset,
-		MemoryOffset:         p.GPU.MemoryOffset,
-		Governor:             p.CPU.Governor,
-		SMT:                  boolPtrToString(p.CPU.SMT),
-		EnableHDR:            p.Proton.EnableHDR,
-		EnableWayland:        p.Proton.EnableWayland,
-		EnableNGXUpdater:     p.Proton.EnableNGXUpdater,
-		VKD3DHeap:            p.Proton.VKD3DHeap,
-		OverlayEnabled:       p.Overlay.Enabled,
-		OverlayPosition:      p.Overlay.Position,
-		OverlayShowFPS:       p.Overlay.ShowFPS,
-		OverlayShowFrametime: p.Overlay.ShowFrametime,
-		OverlayShowCPU:       p.Overlay.ShowCPU,
-		OverlayShowGPU:       p.Overlay.ShowGPU,
-		OverlayShowVRAM:      p.Overlay.ShowVRAM,
-		OverlayToggleKey:     p.Overlay.ToggleKey,
-		InheritedFromDefault: inheritedFromDefault,
-		Semantics:            profileFieldSemanticsFromExplanations(semantics),
+	view := map[string]any{
+		"inheritedFromDefault": inheritedFromDefault,
+		"semantics":            profileFieldSemanticsFromExplanations(semantics),
 	}
+	for _, descriptor := range profile.Fields() {
+		key := profileViewKey(descriptor)
+		if key == "" {
+			continue
+		}
+		value, err := profile.ReadField(p, descriptor.Key)
+		if err != nil {
+			continue
+		}
+		if descriptor.Kind == profile.PrimitiveOptionalBool {
+			if value == nil {
+				value = ""
+			} else {
+				value = fmt.Sprint(value)
+			}
+		}
+		view[key] = value
+	}
+	return view
 }
 
 func profileFieldSemanticsFromExplanations(explanations []profile.FieldExplanation) []ProfileFieldSemantics {
@@ -332,85 +286,26 @@ func profileFieldSemanticsFromExplanations(explanations []profile.FieldExplanati
 	return items
 }
 
-func profileFromInfo(info ProfileInfo) *profile.Profile {
-	return &profile.Profile{
-		DLSS: profile.DLSSSettings{
-			SRMode:      profile.DLSSMode(info.SRMode),
-			SRPreset:    profile.NormalizeSRPreset(info.SRPreset),
-			SROverride:  info.SROverride,
-			RRMode:      profile.DLSSMode(info.RRMode),
-			RRPreset:    profile.DLSSPreset(info.RRPreset),
-			RROverride:  info.RROverride,
-			FGEnabled:   info.FGEnabled,
-			FGOverride:  info.FGOverride,
-			FGIndicator: info.FGIndicator,
-			MultiFrame:  info.MultiFrame,
-			Indicator:   info.Indicator,
-		},
-		GPU: profile.GPUSettings{
-			ShaderCache:          info.ShaderCache,
-			ShaderCachePath:      info.ShaderCachePath,
-			ThreadedOptimization: info.ThreadedOptimization,
-			PowerMizer:           info.PowerMizer,
-			ClockOffset:          info.ClockOffset,
-			MemoryOffset:         info.MemoryOffset,
-		},
-		CPU: profile.CPUSettings{
-			Governor: info.Governor,
-			SMT:      stringToBoolPtr(info.SMT),
-		},
-		Proton: profile.ProtonSettings{
-			EnableHDR:        info.EnableHDR,
-			EnableWayland:    info.EnableWayland,
-			EnableNGXUpdater: info.EnableNGXUpdater,
-			VKD3DHeap:        info.VKD3DHeap,
-		},
-		Overlay: profile.OverlaySettings{
-			Enabled:       info.OverlayEnabled,
-			Position:      info.OverlayPosition,
-			ShowFPS:       info.OverlayShowFPS,
-			ShowFrametime: info.OverlayShowFrametime,
-			ShowCPU:       info.OverlayShowCPU,
-			ShowGPU:       info.OverlayShowGPU,
-			ShowVRAM:      info.OverlayShowVRAM,
-			ToggleKey:     info.OverlayToggleKey,
-		},
-	}
-}
-
-func boolPtrToString(b *bool) string {
-	if b == nil {
-		return ""
-	}
-	if *b {
-		return "true"
-	}
-	return "false"
-}
-
-func stringToBoolPtr(s string) *bool {
-	switch s {
-	case "true":
-		b := true
-		return &b
-	case "false":
-		b := false
-		return &b
-	default:
-		return nil
-	}
-}
-
-func (a *App) GetProfile(appID uint64) *ProfileInfo {
+func (a *App) GetProfile(appID uint64) map[string]any {
+	a.profileMutex.Lock()
+	defer a.profileMutex.Unlock()
 	return defaultGUIApplicationBoundary(a.databaseSnapshot()).getProfile(appID)
 }
 
-func (a *App) GetDefaultProfile() *ProfileInfo {
+func (a *App) GetDefaultProfile() map[string]any {
+	a.profileMutex.Lock()
+	defer a.profileMutex.Unlock()
 	return defaultGUIApplicationBoundary(a.databaseSnapshot()).getDefaultProfile()
 }
 
-func (a *App) SaveProfile(appID uint64, info ProfileInfo) error {
-	return defaultGUIApplicationBoundary(a.databaseSnapshot()).saveGameProfile(appID, info)
+func (a *App) PatchProfile(appID uint64, patches []ProfilePatch) (map[string]any, error) {
+	a.profileMutex.Lock()
+	defer a.profileMutex.Unlock()
+	boundary := defaultGUIApplicationBoundary(a.databaseSnapshot())
+	if err := boundary.patchGameProfile(appID, patches); err != nil {
+		return nil, err
+	}
+	return boundary.getProfile(appID), nil
 }
 
 // VKD3DHeapCompatibilityNotice returns a human-readable inline notice
@@ -421,8 +316,14 @@ func (a *App) VKD3DHeapCompatibilityNotice(appID uint64) string {
 	return defaultGUIApplicationBoundary(a.databaseSnapshot()).vkd3dHeapCompatibilityNotice(appID)
 }
 
-func (a *App) SaveDefaultProfile(info ProfileInfo) error {
-	return defaultGUIApplicationBoundary(a.databaseSnapshot()).saveDefault(info)
+func (a *App) PatchDefaultProfile(patches []ProfilePatch) (map[string]any, error) {
+	a.profileMutex.Lock()
+	defer a.profileMutex.Unlock()
+	boundary := defaultGUIApplicationBoundary(a.databaseSnapshot())
+	if err := boundary.patchDefaultProfile(patches); err != nil {
+		return nil, err
+	}
+	return boundary.getDefaultProfile(), nil
 }
 
 type GPUInfo struct {

@@ -84,59 +84,8 @@ func init() {
 	ProtonCmd.AddCommand(protonResetCmd)
 }
 
-// protonFieldAliases maps the short CLI names users type at the command line
-// to the canonical dot-path keys used by the inheritance layer.
-var protonFieldAliases = map[string]string{
-	"hdr":                profile.FieldProtonEnableHDR,
-	"wayland":            profile.FieldProtonEnableWayland,
-	"ngx_updater":        profile.FieldProtonEnableNGXUpdater,
-	"ngx-updater":        profile.FieldProtonEnableNGXUpdater,
-	"vkd3d_heap":         profile.FieldProtonVKD3DHeap,
-	"vkd3d-heap":         profile.FieldProtonVKD3DHeap,
-	"enable_hdr":         profile.FieldProtonEnableHDR,
-	"enable_wayland":     profile.FieldProtonEnableWayland,
-	"enable_ngx_updater": profile.FieldProtonEnableNGXUpdater,
-}
-
-func runProtonReset(cmd *cobra.Command, args []string) error {
-	db, err := game.LoadDatabase()
-	if err != nil {
-		return err
-	}
-
-	g := db.FindGame(args[0])
-	if g == nil {
-		return fmt.Errorf("game not found: %s", args[0])
-	}
-
-	key, ok := protonFieldAliases[args[1]]
-	if !ok {
-		return fmt.Errorf("unknown proton field %q (valid: hdr, wayland, ngx_updater, vkd3d_heap)", args[1])
-	}
-
-	p, err := profile.Load(g.AppID)
-	if err != nil {
-		return err
-	}
-	if p == nil {
-		fmt.Printf("No profile for %s; field is already inherited.\n", g.Name)
-		return nil
-	}
-
-	if !p.IsOverridden(key) {
-		fmt.Printf("%s: %s is already inherited.\n", g.Name, args[1])
-		return nil
-	}
-
-	if err := p.Reset(key); err != nil {
-		return err
-	}
-	if err := profile.Save(g.AppID, p); err != nil {
-		return err
-	}
-
-	fmt.Printf("Reset %s on %s to inherited.\n", args[1], g.Name)
-	return nil
+func runProtonReset(_ *cobra.Command, args []string) error {
+	return resetProfileField(args, "proton", "proton", " (valid: hdr, wayland, ngx_updater, vkd3d_heap)")
 }
 
 func runProtonSet(cmd *cobra.Command, args []string) error {
@@ -158,16 +107,14 @@ func runProtonSet(cmd *cobra.Command, args []string) error {
 		p = &profile.Profile{Name: g.Name}
 	}
 
-	changed := false
+	changes := profileChanges{profile: p}
 
 	if protonSetHDR != "" {
 		b, err := parseBoolFlag(protonSetHDR)
 		if err != nil {
 			return fmt.Errorf("--hdr: %w", err)
 		}
-		p.Proton.EnableHDR = b
-		p.MarkOverride(profile.FieldProtonEnableHDR)
-		changed = true
+		changes.set(profile.FieldProtonEnableHDR, b)
 	}
 
 	if protonSetWayland != "" {
@@ -175,9 +122,7 @@ func runProtonSet(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("--wayland: %w", err)
 		}
-		p.Proton.EnableWayland = b
-		p.MarkOverride(profile.FieldProtonEnableWayland)
-		changed = true
+		changes.set(profile.FieldProtonEnableWayland, b)
 	}
 
 	if protonSetNGXUpdater != "" {
@@ -185,9 +130,7 @@ func runProtonSet(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("--ngx-updater: %w", err)
 		}
-		p.Proton.EnableNGXUpdater = b
-		p.MarkOverride(profile.FieldProtonEnableNGXUpdater)
-		changed = true
+		changes.set(profile.FieldProtonEnableNGXUpdater, b)
 	}
 
 	if protonSetVKD3DHeap != "" {
@@ -195,12 +138,13 @@ func runProtonSet(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("--vkd3d-heap: %w", err)
 		}
-		p.Proton.VKD3DHeap = b
-		p.MarkOverride(profile.FieldProtonVKD3DHeap)
-		changed = true
+		changes.set(profile.FieldProtonVKD3DHeap, b)
 	}
 
-	if !changed {
+	if changes.err != nil {
+		return changes.err
+	}
+	if !changes.changed {
 		fmt.Println("No changes specified. Use --help to see available options.")
 		return nil
 	}

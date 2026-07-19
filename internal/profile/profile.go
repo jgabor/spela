@@ -114,3 +114,23 @@ type ProtonSettings struct {
 	EnableNGXUpdater bool `yaml:"enable_ngx_updater,omitempty"`
 	VKD3DHeap        bool `yaml:"vkd3d_heap,omitempty"`
 }
+
+// Clone returns an independent profile copy, including pointer and override state.
+func (p *Profile) Clone() *Profile {
+	if p == nil {
+		return &Profile{}
+	}
+	clone := *p
+	if p.CPU.SMT != nil {
+		value := *p.CPU.SMT
+		clone.CPU.SMT = &value
+	}
+	clone.Overrides = make(map[string]bool, len(p.Overrides))
+	for field, overridden := range p.Overrides {
+		clone.Overrides[field] = overridden
+	}
+	if p.Overrides == nil {
+		clone.Overrides = nil
+	}
+	return &clone
+}

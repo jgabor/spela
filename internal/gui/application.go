@@ -4,7 +4,7 @@ package gui
 
 import (
 	"fmt"
-	"reflect"
+	"strings"
 
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/dll"
@@ -58,7 +58,7 @@ func newGUIApplicationBoundary(db *game.Database, emitDLLProgress func(string)) 
 	return boundary
 }
 
-func (b guiApplicationBoundary) getProfile(appID uint64) *ProfileInfo {
+func (b guiApplicationBoundary) getProfile(appID uint64) map[string]any {
 	perGameProfile, err := b.loadProfile(appID)
 	if err != nil {
 		return nil
@@ -72,7 +72,7 @@ func (b guiApplicationBoundary) getProfile(appID uint64) *ProfileInfo {
 		if err != nil {
 			return nil
 		}
-		return profileInfoFromProfileWithSemantics(perGameProfile.ResolveForApply(defaultProfile), explanations, false)
+		return profileView(perGameProfile.ResolveForApply(defaultProfile), explanations, false)
 	}
 
 	if defaultProfile == nil {
@@ -82,10 +82,10 @@ func (b guiApplicationBoundary) getProfile(appID uint64) *ProfileInfo {
 	if err != nil {
 		return nil
 	}
-	return profileInfoFromProfileWithSemantics(defaultProfile, explanations, true)
+	return profileView(defaultProfile, explanations, true)
 }
 
-func (b guiApplicationBoundary) getDefaultProfile() *ProfileInfo {
+func (b guiApplicationBoundary) getDefaultProfile() map[string]any {
 	defaultProfile, err := b.loadDefaultProfile()
 	if err != nil {
 		return nil
@@ -94,92 +94,75 @@ func (b guiApplicationBoundary) getDefaultProfile() *ProfileInfo {
 	if err != nil {
 		return nil
 	}
-	return profileInfoFromProfileWithSemantics(defaultProfile, explanations, true)
+	return profileView(defaultProfile, explanations, true)
 }
 
-func (b guiApplicationBoundary) saveGameProfile(appID uint64, info ProfileInfo) error {
+func (b guiApplicationBoundary) patchGameProfile(appID uint64, patches []ProfilePatch) error {
 	current, err := b.loadProfile(appID)
 	if err != nil {
 		return err
 	}
+	current = current.Clone()
 	defaults, err := b.loadDefaultProfile()
 	if err != nil {
 		return fmt.Errorf("load default profile: %w", err)
 	}
-	return b.saveProfile(appID, profileFromInfoPreservingIntent(info, current, defaults))
-}
-
-func (b guiApplicationBoundary) saveDefault(info ProfileInfo) error {
-	return b.saveDefaultProfile(profileFromInfo(info))
-}
-
-var guiProfileFields = []string{
-	profile.FieldDLSSSRMode,
-	profile.FieldDLSSSRPreset,
-	profile.FieldDLSSSROverride,
-	profile.FieldDLSSRRMode,
-	profile.FieldDLSSRRPreset,
-	profile.FieldDLSSRROverride,
-	profile.FieldDLSSFGEnabled,
-	profile.FieldDLSSFGOverride,
-	profile.FieldDLSSFGIndicator,
-	profile.FieldDLSSMultiFrame,
-	profile.FieldDLSSIndicator,
-	profile.FieldGPUShaderCache,
-	profile.FieldGPUShaderCachePath,
-	profile.FieldGPUThreadedOptimization,
-	profile.FieldGPUClockOffset,
-	profile.FieldGPUMemoryOffset,
-	profile.FieldGPUPowerMizer,
-	profile.FieldCPUGovernor,
-	profile.FieldCPUSMT,
-	profile.FieldProtonEnableHDR,
-	profile.FieldProtonEnableWayland,
-	profile.FieldProtonEnableNGXUpdater,
-	profile.FieldProtonVKD3DHeap,
-	profile.FieldOverlayEnabled,
-	profile.FieldOverlayPosition,
-	profile.FieldOverlayShowFPS,
-	profile.FieldOverlayShowFrametime,
-	profile.FieldOverlayShowCPU,
-	profile.FieldOverlayShowGPU,
-	profile.FieldOverlayShowVRAM,
-	profile.FieldOverlayToggleKey,
-}
-
-func profileFromInfoPreservingIntent(info ProfileInfo, current *profile.Profile, defaults *profile.Profile) *profile.Profile {
-	next := &profile.Profile{}
-	if current != nil {
-		next.Name = current.Name
-		for _, field := range profile.AllFields() {
-			if current.IsOverridden(field) {
-				_ = profile.CopyField(next, current, field)
-				next.MarkOverride(field)
-			}
+	for _, patch := range patches {
+		if err := applyProfilePatch(current, defaults, patch, false); err != nil {
+			return err
 		}
 	}
-	incoming := profileFromInfo(info)
-	for _, field := range guiProfileFields {
-		incoming.MarkOverride(field)
-	}
+	return b.saveProfile(appID, current)
+}
 
-	if current == nil {
-		current = &profile.Profile{}
+func (b guiApplicationBoundary) patchDefaultProfile(patches []ProfilePatch) error {
+	current, err := b.loadDefaultProfile()
+	if err != nil {
+		return err
 	}
-	for _, field := range guiProfileFields {
-		previous, previousErr := current.ExplainField(field, defaults)
-		incomingField, incomingErr := incoming.ExplainField(field, nil)
-		if previousErr != nil || incomingErr != nil {
-			continue
+	current = current.Clone()
+	for _, patch := range patches {
+		if err := applyProfilePatch(current, nil, patch, true); err != nil {
+			return err
 		}
-		if previous.Source == profile.ExplanationSourceOverride || !reflect.DeepEqual(previous.Value, incomingField.Value) {
-			_ = profile.CopyField(next, incoming, field)
-			next.MarkOverride(field)
-			continue
-		}
-		_ = next.Reset(field)
 	}
-	return next
+	return b.saveDefaultProfile(current)
+}
+
+func applyProfilePatch(current, defaults *profile.Profile, patch ProfilePatch, root bool) error {
+	if _, ok := profile.Field(patch.Field); !ok {
+		return fmt.Errorf("unknown profile field: %q", patch.Field)
+	}
+	switch patch.Operation {
+	case "set":
+		return current.Set(patch.Field, patch.Value)
+	case "pin":
+		if root {
+			return fmt.Errorf("cannot pin a default profile field")
+		}
+		return current.PinField(patch.Field, defaults)
+	case "reset":
+		return current.Reset(patch.Field)
+	default:
+		return fmt.Errorf("unknown profile patch operation %q (valid: set, pin, reset)", patch.Operation)
+	}
+	return nil
+}
+
+func profileViewKey(descriptor profile.FieldDescriptor) string {
+	if descriptor.Key == profile.FieldGPUPowerLimit || descriptor.Key == profile.FieldGPUFanSpeed || descriptor.Key == profile.FieldCPUAffinity {
+		return "" // These fields have no current GUI control.
+	}
+	leaf := strings.TrimPrefix(descriptor.Key, descriptor.Subsystem+".")
+	parts := strings.Split(leaf, "_")
+	for index := 1; index < len(parts); index++ {
+		parts[index] = strings.ToUpper(parts[index][:1]) + parts[index][1:]
+	}
+	key := strings.Join(parts, "")
+	if descriptor.Subsystem == "overlay" {
+		key = "overlay" + strings.ToUpper(key[:1]) + key[1:]
+	}
+	return key
 }
 
 func (b guiApplicationBoundary) vkd3dHeapCompatibilityNotice(appID uint64) string {

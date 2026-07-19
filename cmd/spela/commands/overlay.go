@@ -69,56 +69,8 @@ var overlayResetCmd = &cobra.Command{
 	RunE: runOverlayReset,
 }
 
-var overlayFieldAliases = map[string]string{
-	"enabled":        profile.FieldOverlayEnabled,
-	"position":       profile.FieldOverlayPosition,
-	"show_fps":       profile.FieldOverlayShowFPS,
-	"show-fps":       profile.FieldOverlayShowFPS,
-	"show_frametime": profile.FieldOverlayShowFrametime,
-	"show-frametime": profile.FieldOverlayShowFrametime,
-	"show_cpu":       profile.FieldOverlayShowCPU,
-	"show-cpu":       profile.FieldOverlayShowCPU,
-	"show_gpu":       profile.FieldOverlayShowGPU,
-	"show-gpu":       profile.FieldOverlayShowGPU,
-	"show_vram":      profile.FieldOverlayShowVRAM,
-	"show-vram":      profile.FieldOverlayShowVRAM,
-	"toggle_key":     profile.FieldOverlayToggleKey,
-	"toggle-key":     profile.FieldOverlayToggleKey,
-}
-
-func runOverlayReset(cmd *cobra.Command, args []string) error {
-	db, err := game.LoadDatabase()
-	if err != nil {
-		return err
-	}
-	g := db.FindGame(args[0])
-	if g == nil {
-		return fmt.Errorf("game not found: %s", args[0])
-	}
-	key, ok := overlayFieldAliases[args[1]]
-	if !ok {
-		return fmt.Errorf("unknown overlay field %q", args[1])
-	}
-	p, err := profile.Load(g.AppID)
-	if err != nil {
-		return err
-	}
-	if p == nil {
-		fmt.Printf("No profile for %s; field is already inherited.\n", g.Name)
-		return nil
-	}
-	if !p.IsOverridden(key) {
-		fmt.Printf("%s: %s is already inherited.\n", g.Name, args[1])
-		return nil
-	}
-	if err := p.Reset(key); err != nil {
-		return err
-	}
-	if err := profile.Save(g.AppID, p); err != nil {
-		return err
-	}
-	fmt.Printf("Reset %s on %s to inherited.\n", args[1], g.Name)
-	return nil
+func runOverlayReset(_ *cobra.Command, args []string) error {
+	return resetProfileField(args, "overlay", "overlay", "")
 }
 
 func runOverlaySet(cmd *cobra.Command, args []string) error {
@@ -140,22 +92,18 @@ func runOverlaySet(cmd *cobra.Command, args []string) error {
 		p = &profile.Profile{Name: g.Name}
 	}
 
-	changed := false
+	changes := profileChanges{profile: p}
 
 	if overlaySetEnabled != "" {
 		b, err := parseBoolFlag(overlaySetEnabled)
 		if err != nil {
 			return fmt.Errorf("--enabled: %w", err)
 		}
-		p.Overlay.Enabled = b
-		p.MarkOverride(profile.FieldOverlayEnabled)
-		changed = true
+		changes.set(profile.FieldOverlayEnabled, b)
 	}
 
 	if overlaySetPosition != "" {
-		p.Overlay.Position = overlaySetPosition
-		p.MarkOverride(profile.FieldOverlayPosition)
-		changed = true
+		changes.set(profile.FieldOverlayPosition, overlaySetPosition)
 	}
 
 	if overlaySetShowFPS != "" {
@@ -163,9 +111,7 @@ func runOverlaySet(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("--show-fps: %w", err)
 		}
-		p.Overlay.ShowFPS = b
-		p.MarkOverride(profile.FieldOverlayShowFPS)
-		changed = true
+		changes.set(profile.FieldOverlayShowFPS, b)
 	}
 
 	if overlaySetShowFrametime != "" {
@@ -173,9 +119,7 @@ func runOverlaySet(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("--show-frametime: %w", err)
 		}
-		p.Overlay.ShowFrametime = b
-		p.MarkOverride(profile.FieldOverlayShowFrametime)
-		changed = true
+		changes.set(profile.FieldOverlayShowFrametime, b)
 	}
 
 	if overlaySetShowCPU != "" {
@@ -183,9 +127,7 @@ func runOverlaySet(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("--show-cpu: %w", err)
 		}
-		p.Overlay.ShowCPU = b
-		p.MarkOverride(profile.FieldOverlayShowCPU)
-		changed = true
+		changes.set(profile.FieldOverlayShowCPU, b)
 	}
 
 	if overlaySetShowGPU != "" {
@@ -193,9 +135,7 @@ func runOverlaySet(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("--show-gpu: %w", err)
 		}
-		p.Overlay.ShowGPU = b
-		p.MarkOverride(profile.FieldOverlayShowGPU)
-		changed = true
+		changes.set(profile.FieldOverlayShowGPU, b)
 	}
 
 	if overlaySetShowVRAM != "" {
@@ -203,18 +143,17 @@ func runOverlaySet(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("--show-vram: %w", err)
 		}
-		p.Overlay.ShowVRAM = b
-		p.MarkOverride(profile.FieldOverlayShowVRAM)
-		changed = true
+		changes.set(profile.FieldOverlayShowVRAM, b)
 	}
 
 	if overlaySetToggleKey != "" {
-		p.Overlay.ToggleKey = overlaySetToggleKey
-		p.MarkOverride(profile.FieldOverlayToggleKey)
-		changed = true
+		changes.set(profile.FieldOverlayToggleKey, overlaySetToggleKey)
 	}
 
-	if !changed {
+	if changes.err != nil {
+		return changes.err
+	}
+	if !changes.changed {
 		fmt.Println("No changes specified. Use --help to see available options.")
 		return nil
 	}

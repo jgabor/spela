@@ -3,7 +3,6 @@ package tui
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -21,50 +20,6 @@ var detailSectionTitle = map[string]string{
 	"gpu":     "GPU",
 	"cpu":     "CPU",
 	"overlay": "Overlay",
-}
-
-// fieldLabels maps each tracked field key to its display label. Kept close to
-// the CLI labels so a user reading `spela proton show` sees the same text in
-// the TUI. New fields added to profile.AllFields() need an entry here.
-var fieldLabels = map[string]string{
-	profile.FieldProtonEnableHDR:        "HDR",
-	profile.FieldProtonEnableWayland:    "Wayland",
-	profile.FieldProtonEnableNGXUpdater: "NGX updater",
-	profile.FieldProtonVKD3DHeap:        "VKD3D heap",
-
-	profile.FieldDLSSSRMode:      "SR mode",
-	profile.FieldDLSSSRPreset:    "SR preset",
-	profile.FieldDLSSSROverride:  "SR override",
-	profile.FieldDLSSRRMode:      "RR mode",
-	profile.FieldDLSSRRPreset:    "RR preset",
-	profile.FieldDLSSRROverride:  "RR override",
-	profile.FieldDLSSFGEnabled:   "FG enabled",
-	profile.FieldDLSSFGOverride:  "FG override",
-	profile.FieldDLSSMultiFrame:  "Multi-frame",
-	profile.FieldDLSSIndicator:   "SR indicator",
-	profile.FieldDLSSFGIndicator: "FG indicator",
-
-	profile.FieldGPUClockOffset:          "Clock offset",
-	profile.FieldGPUMemoryOffset:         "Memory offset",
-	profile.FieldGPUPowerLimit:           "Power limit",
-	profile.FieldGPUFanSpeed:             "Fan speed",
-	profile.FieldGPUPowerMizer:           "Power mode",
-	profile.FieldGPUShaderCache:          "Shader cache",
-	profile.FieldGPUShaderCachePath:      "Shader cache path",
-	profile.FieldGPUThreadedOptimization: "Threaded opt",
-
-	profile.FieldCPUGovernor: "Governor",
-	profile.FieldCPUSMT:      "SMT",
-	profile.FieldCPUAffinity: "Affinity",
-
-	profile.FieldOverlayEnabled:       "Enabled",
-	profile.FieldOverlayPosition:      "Position",
-	profile.FieldOverlayShowFPS:       "Show FPS",
-	profile.FieldOverlayShowFrametime: "Show frametime",
-	profile.FieldOverlayShowCPU:       "Show CPU",
-	profile.FieldOverlayShowGPU:       "Show GPU",
-	profile.FieldOverlayShowVRAM:      "Show VRAM",
-	profile.FieldOverlayToggleKey:     "Toggle key",
 }
 
 // detailRow is one row in the flattened detail list. Either a group header
@@ -187,10 +142,8 @@ func buildDetailRowsFiltered(sectionKey string) ([]detailRow, []int) {
 		}
 		rows = append(rows, detailRow{headerLabel: title})
 		for _, field := range profile.SectionFields(section) {
-			label := fieldLabels[field]
-			if label == "" {
-				label = field
-			}
+			descriptor, _ := profile.Field(field)
+			label := descriptor.Label
 			focusable = append(focusable, len(rows))
 			rows = append(rows, detailRow{field: field, label: label})
 		}
@@ -462,11 +415,13 @@ func (m DetailModel) View() string {
 			continue
 		}
 
+		overridden := !m.isRoot && m.raw != nil && m.raw.IsOverridden(row.field)
 		value := formatFieldValue(m.resolved, row.field)
 		if m.isRoot {
 			value = formatRootFieldValue(m.resolved, row.field)
+		} else if overridden {
+			value = formatExplicitFieldValue(m.raw, row.field)
 		}
-		overridden := !m.isRoot && m.raw != nil && m.raw.IsOverridden(row.field)
 		semantics := m.formatFieldSemantics(row.field)
 
 		marker := "  "
@@ -512,13 +467,12 @@ func (m DetailModel) View() string {
 }
 
 func (m DetailModel) formatFieldSemantics(field string) string {
-	impact, impactErr := profile.FieldLaunchImpact(field)
-	restore, restoreErr := profile.FieldRestoreCoverage(field)
-	if impactErr != nil || restoreErr != nil {
+	descriptor, ok := profile.Field(field)
+	if !ok {
 		return ""
 	}
 	if m.isRoot {
-		return fmt.Sprintf("impact %s · restore %s", impact, restore)
+		return fmt.Sprintf("impact %s · restore %s", descriptor.Impact, descriptor.Restore)
 	}
 	raw := m.raw
 	if raw == nil {
@@ -526,34 +480,36 @@ func (m DetailModel) formatFieldSemantics(field string) string {
 	}
 	explanation, err := raw.ExplainField(field, m.defaults)
 	if err != nil {
-		return fmt.Sprintf("impact %s · restore %s", impact, restore)
+		return fmt.Sprintf("impact %s · restore %s", descriptor.Impact, descriptor.Restore)
 	}
 	return fmt.Sprintf("source %s · impact %s · restore %s", explanation.Source, explanation.Impact, explanation.Restore)
 }
 
 func rootFieldOptions(field string) []string {
-	if profile.IsBoolField(field) {
+	if descriptor, ok := profile.Field(field); ok && descriptor.Kind == profile.PrimitiveBool {
 		return []string{"(default)", "true", "false"}
 	}
 	return nil
 }
 
 func applyRootFieldValue(p *profile.Profile, field, value string) bool {
-	if !profile.IsBoolField(field) {
+	descriptor, ok := profile.Field(field)
+	if !ok || descriptor.Kind != profile.PrimitiveBool {
 		return false
 	}
 	if value == "(default)" {
 		return p.Reset(field) == nil
 	}
-	return profile.SetBoolField(p, field, value == "true")
+	return p.Set(field, value == "true") == nil
 }
 
 func formatRootBoolField(p *profile.Profile, field string) string {
 	if p == nil {
 		return "(default)"
 	}
-	val, isBool := profile.BoolFieldValue(p, field)
-	if !isBool {
+	value, err := profile.ReadField(p, field)
+	val, isBool := value.(bool)
+	if err != nil || !isBool {
 		return "(default)"
 	}
 	if !p.IsOverridden(field) {
@@ -590,48 +546,36 @@ func (m DetailModel) rootProfileAtDefault() bool {
 // formatRootFieldValue renders defaults-profile field values. Bool fields
 // distinguish "(default)" (unset/zero) from explicit "true"/"false".
 func formatRootFieldValue(p *profile.Profile, field string) string {
-	if profile.IsBoolField(field) {
+	if p != nil && p.IsOverridden(field) {
+		return formatExplicitFieldValue(p, field)
+	}
+	if descriptor, ok := profile.Field(field); ok && descriptor.Kind == profile.PrimitiveBool {
 		return formatRootBoolField(p, field)
 	}
 	return formatFieldValue(p, field)
 }
 
-func srPresetValue(preset profile.DLSSPreset) string {
-	if preset == "" {
-		return "default"
+func formatExplicitFieldValue(p *profile.Profile, field string) string {
+	value, err := profile.ReadField(p, field)
+	if err != nil {
+		return "(unset)"
 	}
-	if preset == profile.DLSSPresetAuto {
-		return "auto"
-	}
-	return string(preset)
-}
-
-func displayValue(value string) string {
-	if value == "" || value == "default" || value == "auto" {
-		return "(default)"
-	}
-	return value
-}
-
-func displayBool(value bool) string {
-	if !value {
-		return "(default)"
-	}
-	return "true"
-}
-
-func displayBoolPtr(value *bool) string {
 	if value == nil {
-		return "(default)"
+		return "(no value)"
 	}
-	return strconv.FormatBool(*value)
-}
-
-func displayInt(value int) string {
-	if value == 0 {
-		return "(default)"
+	switch value := value.(type) {
+	case bool:
+		return fmt.Sprint(value)
+	case int:
+		return fmt.Sprint(value)
+	case string:
+		if value == "" {
+			return "(empty)"
+		}
+		return value
+	default:
+		return fmt.Sprint(value)
 	}
-	return strconv.Itoa(value)
 }
 
 // formatFieldValue returns a display string for the given field on the
@@ -642,79 +586,33 @@ func formatFieldValue(p *profile.Profile, field string) string {
 	if p == nil {
 		return "(default)"
 	}
-	switch field {
-	case profile.FieldProtonEnableHDR:
-		return displayBool(p.Proton.EnableHDR)
-	case profile.FieldProtonEnableWayland:
-		return displayBool(p.Proton.EnableWayland)
-	case profile.FieldProtonEnableNGXUpdater:
-		return displayBool(p.Proton.EnableNGXUpdater)
-	case profile.FieldProtonVKD3DHeap:
-		return displayBool(p.Proton.VKD3DHeap)
-
-	case profile.FieldDLSSSRMode:
-		return displayValue(string(p.DLSS.SRMode))
-	case profile.FieldDLSSSRPreset:
-		return displayValue(srPresetValue(p.DLSS.SRPreset))
-	case profile.FieldDLSSSROverride:
-		return displayBool(p.DLSS.SROverride)
-	case profile.FieldDLSSRRMode:
-		return displayValue(string(p.DLSS.RRMode))
-	case profile.FieldDLSSRRPreset:
-		return displayValue(string(p.DLSS.RRPreset))
-	case profile.FieldDLSSRROverride:
-		return displayBool(p.DLSS.RROverride)
-	case profile.FieldDLSSFGEnabled:
-		return displayBool(p.DLSS.FGEnabled)
-	case profile.FieldDLSSFGOverride:
-		return displayBool(p.DLSS.FGOverride)
-	case profile.FieldDLSSMultiFrame:
-		return displayInt(p.DLSS.MultiFrame)
-	case profile.FieldDLSSIndicator:
-		return displayBool(p.DLSS.Indicator)
-	case profile.FieldDLSSFGIndicator:
-		return displayBool(p.DLSS.FGIndicator)
-
-	case profile.FieldGPUClockOffset:
-		return displayInt(p.GPU.ClockOffset)
-	case profile.FieldGPUMemoryOffset:
-		return displayInt(p.GPU.MemoryOffset)
-	case profile.FieldGPUPowerLimit:
-		return displayInt(p.GPU.PowerLimit)
-	case profile.FieldGPUFanSpeed:
-		return displayInt(p.GPU.FanSpeed)
-	case profile.FieldGPUPowerMizer:
-		return displayValue(p.GPU.PowerMizer)
-	case profile.FieldGPUShaderCache:
-		return displayBool(p.GPU.ShaderCache)
-	case profile.FieldGPUShaderCachePath:
-		return displayValue(p.GPU.ShaderCachePath)
-	case profile.FieldGPUThreadedOptimization:
-		return displayBool(p.GPU.ThreadedOptimization)
-
-	case profile.FieldCPUGovernor:
-		return displayValue(p.CPU.Governor)
-	case profile.FieldCPUSMT:
-		return displayBoolPtr(p.CPU.SMT)
-	case profile.FieldCPUAffinity:
-		return displayValue(p.CPU.Affinity)
-
-	case profile.FieldOverlayEnabled:
-		return displayBool(p.Overlay.Enabled)
-	case profile.FieldOverlayPosition:
-		return displayValue(p.Overlay.Position)
-	case profile.FieldOverlayShowFPS:
-		return displayBool(p.Overlay.ShowFPS)
-	case profile.FieldOverlayShowFrametime:
-		return displayBool(p.Overlay.ShowFrametime)
-	case profile.FieldOverlayShowCPU:
-		return displayBool(p.Overlay.ShowCPU)
-	case profile.FieldOverlayShowGPU:
-		return displayBool(p.Overlay.ShowGPU)
-	case profile.FieldOverlayShowVRAM:
-		return displayBool(p.Overlay.ShowVRAM)
-	case profile.FieldOverlayToggleKey:
-		return displayValue(p.Overlay.ToggleKey)
+	descriptor, ok := profile.Field(field)
+	if !ok {
+		return "(default)"
+	}
+	value, err := profile.ReadField(p, descriptor.Key)
+	if err != nil || value == nil {
+		return "(default)"
+	}
+	switch value := value.(type) {
+	case bool:
+		if descriptor.Kind == profile.PrimitiveOptionalBool {
+			return fmt.Sprint(value)
+		}
+		if !value {
+			return "(default)"
+		}
+		return "true"
+	case int:
+		if value == 0 {
+			return "(default)"
+		}
+		return fmt.Sprint(value)
+	case string:
+		if value == "" || value == "default" || value == "auto" {
+			return "(default)"
+		}
+		return value
 	}
 	return "(default)"
 }

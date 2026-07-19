@@ -1,7 +1,7 @@
 <script>
   import { onMount, createEventDispatcher, tick } from 'svelte'
   import { desktopCommands } from './desktop'
-  import { emptyProfile } from './profileFieldOptions.js'
+  import { emptyProfile, profileFieldDefinitions } from './profileFieldOptions.js'
   import GameDLLPane from './GameDLLPane.svelte'
   import GameProfilePane from './GameProfilePane.svelte'
 
@@ -17,6 +17,8 @@
   const dispatch = createEventDispatcher()
 
   let profile = null
+  let savedProfile = null
+  let pendingOperations = {}
   let saving = false
   let message = ''
   let messageType = 'info'
@@ -43,21 +45,19 @@
   }
 
   async function loadProfile() {
-    if (profileMode === 'default') {
-      profile = await desktop.GetDefaultProfile()
-      if (!profile) {
-        profile = emptyProfile()
-      }
-      return
-    }
-    if (!game) {
+    const targetMode = profileMode
+    const targetAppID = game?.appId
+    if (targetMode === 'game' && !targetAppID) {
       profile = null
       return
     }
-    profile = await desktop.GetProfile(game.appId)
-    if (!profile) {
-      profile = emptyProfile()
-    }
+    const loaded = targetMode === 'default'
+      ? await desktop.GetDefaultProfile()
+      : await desktop.GetProfile(targetAppID)
+    if (profileMode !== targetMode || (targetMode === 'game' && game?.appId !== targetAppID)) return
+    profile = loaded || emptyProfile()
+    savedProfile = structuredClone(profile)
+    pendingOperations = {}
   }
 
   function formatError(e) {
@@ -91,29 +91,68 @@
   }
 
   async function save() {
+    const targetMode = profileMode
+    const targetAppID = game?.appId
+    const patches = profilePatches(savedProfile, profile, pendingOperations)
     saving = true
     try {
-      if (profileMode === 'default') {
-        await desktop.SaveDefaultProfile(profile)
-        setMessage('Default profile saved!', 'success')
-      } else if (game) {
-        await desktop.SaveProfile(game.appId, profile)
-        profile.inheritedFromDefault = false
-        await refreshGameDetails()
-        setMessage('Profile saved!', 'success')
+      const updated = targetMode === 'default'
+        ? await desktop.PatchDefaultProfile(patches)
+        : await desktop.PatchProfile(targetAppID, patches)
+      const stillCurrent = isCurrentTarget(targetMode, targetAppID)
+      if (stillCurrent) {
+        profile = updated || profile
+        savedProfile = structuredClone(profile)
+        pendingOperations = {}
+        if (targetMode === 'default') {
+          setMessage('Default profile saved!', 'success')
+        } else {
+          await refreshGameDetails(targetAppID)
+          if (isCurrentTarget(targetMode, targetAppID)) setMessage('Profile saved!', 'success')
+        }
       }
     } catch (e) {
-      setError('Failed to save: ' + formatError(e))
+      if (isCurrentTarget(targetMode, targetAppID)) setError('Failed to save: ' + formatError(e))
     }
     saving = false
   }
 
-  async function refreshGameDetails() {
-    if (!game) {
-      return
+  function isCurrentTarget(mode, appID) {
+    return profileMode === mode && (mode === 'default' || game?.appId === appID)
+  }
+
+  function queuePatchAction(event) {
+    const { fields, operation } = event.detail
+    const next = { ...pendingOperations }
+    const cancel = fields.every(field => next[field] === operation)
+    for (const field of fields) {
+      if (cancel) delete next[field]
+      else next[field] = operation
     }
-    const updated = await desktop.GetGame(game.appId)
-    if (updated) {
+    pendingOperations = next
+  }
+
+  function clearPendingActions(event) {
+    const next = { ...pendingOperations }
+    for (const field of event.detail.fields) delete next[field]
+    pendingOperations = next
+  }
+
+  function profilePatches(before, after, operations) {
+    if (!before || !after) return []
+    const patches = new Map()
+    for (const [property, field, defaultValue] of profileFieldDefinitions) {
+      const previous = before[property] ?? defaultValue
+      const value = after[property] ?? defaultValue
+      if (!Object.is(previous, value)) patches.set(field, { field, operation: 'set', value })
+    }
+    for (const [field, operation] of Object.entries(operations)) patches.set(field, { field, operation })
+    return [...patches.values()]
+  }
+
+  async function refreshGameDetails(appID) {
+    const updated = await desktop.GetGame(appID)
+    if (updated && game?.appId === appID) {
       game = updated
       dispatch('gameUpdate', updated)
     }
@@ -194,6 +233,9 @@
       {profileSubsystem}
       {game}
       {desktop}
+      {pendingOperations}
+      on:patchAction={queuePatchAction}
+      on:fieldChange={clearPendingActions}
     />
 
     <div class="actions">

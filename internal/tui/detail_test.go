@@ -52,8 +52,8 @@ func TestDetail_FieldEnumeration_GroupOrder(t *testing.T) {
 func TestDetail_FieldEnumeration_AllFieldsHaveLabels(t *testing.T) {
 	displayProfile := profileWithAllDisplayValues()
 	for _, field := range profile.AllFields() {
-		if label, ok := fieldLabels[field]; !ok || label == "" {
-			t.Errorf("field %q is missing a display label in fieldLabels", field)
+		if descriptor, ok := profile.Field(field); !ok || descriptor.Label == "" {
+			t.Errorf("field %q is missing a display label", field)
 		}
 		if value := formatFieldValue(displayProfile, field); value == "(default)" || value == "" {
 			t.Errorf("field %q is missing a value display", field)

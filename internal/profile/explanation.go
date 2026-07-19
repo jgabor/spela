@@ -66,19 +66,12 @@ func (p *Profile) ExplainField(field string, defaults *Profile) (FieldExplanatio
 		return FieldExplanation{}, fmt.Errorf("unknown profile field: %q", field)
 	}
 
-	impact, err := FieldLaunchImpact(field)
-	if err != nil {
-		return FieldExplanation{}, err
-	}
-	restore, err := FieldRestoreCoverage(field)
-	if err != nil {
-		return FieldExplanation{}, err
-	}
+	descriptor, _ := Field(field)
 
 	item := FieldExplanation{
 		Field:   field,
-		Impact:  impact,
-		Restore: restore,
+		Impact:  descriptor.Impact,
+		Restore: descriptor.Restore,
 		Source:  ExplanationSourceUnset,
 	}
 
@@ -115,44 +108,20 @@ func (p *Profile) ExplainField(field string, defaults *Profile) (FieldExplanatio
 
 // FieldLaunchImpact returns the launch impact category for a profile field.
 func FieldLaunchImpact(field string) (LaunchImpact, error) {
-	switch field {
-	case FieldProtonEnableWayland, FieldProtonEnableHDR, FieldProtonEnableNGXUpdater, FieldProtonVKD3DHeap:
-		return LaunchImpactCompatibility, nil
-	case FieldDLSSSRMode, FieldDLSSSRPreset, FieldDLSSSROverride,
-		FieldDLSSRRMode, FieldDLSSRRPreset, FieldDLSSRROverride, FieldDLSSFGEnabled,
-		FieldDLSSFGOverride, FieldDLSSMultiFrame, FieldDLSSIndicator, FieldDLSSFGIndicator,
-		FieldGPUShaderCache, FieldGPUShaderCachePath, FieldGPUThreadedOptimization:
-		return LaunchImpactEnvironment, nil
-	case FieldGPUClockOffset, FieldGPUMemoryOffset, FieldGPUPowerLimit, FieldGPUPowerMizer,
-		FieldGPUFanSpeed, FieldCPUGovernor, FieldCPUSMT, FieldCPUAffinity:
-		return LaunchImpactSystemState, nil
-	case FieldOverlayEnabled, FieldOverlayPosition, FieldOverlayShowFPS, FieldOverlayShowFrametime,
-		FieldOverlayShowCPU, FieldOverlayShowGPU, FieldOverlayShowVRAM, FieldOverlayToggleKey:
-		return LaunchImpactOverlay, nil
-	default:
+	descriptor, ok := Field(field)
+	if !ok {
 		return "", fmt.Errorf("unknown profile field: %q", field)
 	}
+	return descriptor.Impact, nil
 }
 
 // FieldRestoreCoverage returns the cleanup category for a profile field.
 func FieldRestoreCoverage(field string) (RestoreCoverage, error) {
-	switch field {
-	case FieldGPUClockOffset, FieldGPUMemoryOffset, FieldGPUPowerLimit, FieldGPUFanSpeed,
-		FieldCPUGovernor, FieldCPUSMT:
-		return RestoreCoverageRestorableMutation, nil
-	case FieldProtonEnableWayland, FieldProtonEnableHDR, FieldProtonEnableNGXUpdater, FieldProtonVKD3DHeap,
-		FieldDLSSSRMode, FieldDLSSSRPreset, FieldDLSSSROverride,
-		FieldDLSSRRMode, FieldDLSSRRPreset, FieldDLSSRROverride, FieldDLSSFGEnabled,
-		FieldDLSSFGOverride, FieldDLSSMultiFrame, FieldDLSSIndicator, FieldDLSSFGIndicator,
-		FieldGPUShaderCache, FieldGPUShaderCachePath, FieldGPUThreadedOptimization:
-		return RestoreCoverageEphemeralLaunch, nil
-	case FieldGPUPowerMizer, FieldCPUAffinity, FieldOverlayEnabled, FieldOverlayPosition,
-		FieldOverlayShowFPS, FieldOverlayShowFrametime, FieldOverlayShowCPU, FieldOverlayShowGPU,
-		FieldOverlayShowVRAM, FieldOverlayToggleKey:
-		return RestoreCoverageNotApplicable, nil
-	default:
+	descriptor, ok := Field(field)
+	if !ok {
 		return "", fmt.Errorf("unknown profile field: %q", field)
 	}
+	return descriptor.Restore, nil
 }
 
 func explanationValue(v reflect.Value) any {

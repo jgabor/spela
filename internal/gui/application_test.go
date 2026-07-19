@@ -37,8 +37,8 @@ func TestGUIBoundaryProfilePassUsesGameProfile(t *testing.T) {
 	if info == nil {
 		t.Fatal("expected profile info")
 	}
-	if !info.EnableHDR || info.InheritedFromDefault {
-		t.Fatalf("expected game profile HDR override, got %+v", *info)
+	if info["enableHdr"] != true || info["inheritedFromDefault"] != false {
+		t.Fatalf("expected game profile HDR override, got %+v", info)
 	}
 }
 
@@ -49,7 +49,7 @@ func TestGUIBoundaryProfileFailReturnsNil(t *testing.T) {
 	}
 
 	if info := boundary.getProfile(1091500); info != nil {
-		t.Fatalf("expected nil profile on load failure, got %+v", *info)
+		t.Fatalf("expected nil profile on load failure, got %+v", info)
 	}
 }
 
@@ -69,10 +69,10 @@ func TestGUIBoundaryProfileSemanticsPassResolvesInheritedValues(t *testing.T) {
 	if info == nil {
 		t.Fatal("expected profile info")
 	}
-	if !info.EnableHDR || info.VKD3DHeap {
-		t.Fatalf("expected resolved HDR default and VKD3D override, got %+v", *info)
+	if info["enableHdr"] != true || info["vkd3dHeap"] != false {
+		t.Fatalf("expected resolved HDR default and VKD3D override, got %+v", info)
 	}
-	semantics := semanticsByField(info.Semantics)
+	semantics := semanticsByField(info["semantics"].([]ProfileFieldSemantics))
 	assertProfileSemantic(t, semantics[profile.FieldProtonEnableHDR], "default", "compatibility", "ephemeral_launch_environment")
 	assertProfileSemantic(t, semantics[profile.FieldProtonVKD3DHeap], "override", "compatibility", "ephemeral_launch_environment")
 	assertProfileSemantic(t, semantics[profile.FieldGPUClockOffset], "default", "system_state", "restorable_mutation")
@@ -81,10 +81,10 @@ func TestGUIBoundaryProfileSemanticsPassResolvesInheritedValues(t *testing.T) {
 		return &profile.Profile{Proton: profile.ProtonSettings{EnableHDR: false, VKD3DHeap: true}}, nil
 	}
 	reloaded := boundary.getProfile(1091500)
-	if reloaded == nil || reloaded.EnableHDR {
+	if reloaded == nil || reloaded["enableHdr"] != false {
 		t.Fatalf("expected live inherited HDR default to reload as false, got %+v", reloaded)
 	}
-	assertProfileSemantic(t, semanticsByField(reloaded.Semantics)[profile.FieldProtonEnableHDR], "default", "compatibility", "ephemeral_launch_environment")
+	assertProfileSemantic(t, semanticsByField(reloaded["semantics"].([]ProfileFieldSemantics))[profile.FieldProtonEnableHDR], "default", "compatibility", "ephemeral_launch_environment")
 }
 
 func TestGUIBoundaryDefaultProfileSemanticsPass(t *testing.T) {
@@ -100,22 +100,25 @@ func TestGUIBoundaryDefaultProfileSemanticsPass(t *testing.T) {
 	if info == nil {
 		t.Fatal("expected default profile info")
 	}
-	if len(info.Semantics) == 0 {
+	items := info["semantics"].([]ProfileFieldSemantics)
+	if len(items) == 0 {
 		t.Fatal("expected default profile semantics")
 	}
-	semantics := semanticsByField(info.Semantics)
+	semantics := semanticsByField(items)
 	assertProfileSemantic(t, semantics[profile.FieldProtonEnableHDR], "default", "compatibility", "ephemeral_launch_environment")
 	assertProfileSemantic(t, semantics[profile.FieldGPUClockOffset], "default", "system_state", "restorable_mutation")
 }
 
-func TestGUIBoundaryProfileSemanticsFailPreservesInheritedIntentOnSave(t *testing.T) {
+func TestGUIBoundaryOneFieldPatchPreservesHiddenOverrides(t *testing.T) {
 	boundary := defaultGUIApplicationBoundary(nil)
 	defaults := &profile.Profile{Proton: profile.ProtonSettings{EnableHDR: true, VKD3DHeap: true}}
 	current := &profile.Profile{
 		Proton:  profile.ProtonSettings{VKD3DHeap: false},
+		GPU:     profile.GPUSettings{PowerLimit: 275},
 		Overlay: profile.OverlaySettings{Enabled: true},
 	}
 	current.MarkOverride(profile.FieldProtonVKD3DHeap)
+	current.MarkOverride(profile.FieldGPUPowerLimit)
 	current.MarkOverride(profile.FieldOverlayEnabled)
 	boundary.loadProfile = func(uint64) (*profile.Profile, error) { return current, nil }
 	boundary.loadDefaultProfile = func() (*profile.Profile, error) { return defaults, nil }
@@ -128,9 +131,7 @@ func TestGUIBoundaryProfileSemanticsFailPreservesInheritedIntentOnSave(t *testin
 		return nil
 	}
 
-	info := boundary.getProfile(1091500)
-	info.EnableHDR = false
-	if err := boundary.saveGameProfile(1091500, *info); err != nil {
+	if err := boundary.patchGameProfile(1091500, []ProfilePatch{{Field: profile.FieldProtonEnableHDR, Operation: "set", Value: false}}); err != nil {
 		t.Fatal(err)
 	}
 	if saved == nil {
@@ -142,6 +143,9 @@ func TestGUIBoundaryProfileSemanticsFailPreservesInheritedIntentOnSave(t *testin
 	if saved.IsOverridden(profile.FieldGPUClockOffset) {
 		t.Fatalf("unchanged inherited clock offset should not become an override: %+v", saved.Overrides)
 	}
+	if !saved.IsOverridden(profile.FieldGPUPowerLimit) || saved.GPU.PowerLimit != 275 {
+		t.Fatalf("hidden power limit changed: value=%d overrides=%+v", saved.GPU.PowerLimit, saved.Overrides)
+	}
 	if !saved.IsOverridden(profile.FieldOverlayEnabled) {
 		t.Fatalf("unrendered existing overlay override should be preserved: %+v", saved.Overrides)
 	}
@@ -151,6 +155,78 @@ func TestGUIBoundaryProfileSemanticsFailPreservesInheritedIntentOnSave(t *testin
 	}
 	if !resolved.Overlay.Enabled {
 		t.Fatal("expected unrendered overlay override to remain effective")
+	}
+}
+
+func TestGUIProfilePatchSetPinResetAndErrors(t *testing.T) {
+	current := &profile.Profile{}
+	defaults := &profile.Profile{GPU: profile.GPUSettings{ClockOffset: 100}}
+	if err := applyProfilePatch(current, defaults, ProfilePatch{Field: profile.FieldGPUClockOffset, Operation: "pin"}, false); err != nil {
+		t.Fatal(err)
+	}
+	if current.GPU.ClockOffset != 100 || !current.IsOverridden(profile.FieldGPUClockOffset) {
+		t.Fatalf("pin = %+v", current)
+	}
+	if err := applyProfilePatch(current, defaults, ProfilePatch{Field: profile.FieldGPUClockOffset, Operation: "set", Value: float64(0)}, false); err != nil {
+		t.Fatal(err)
+	}
+	if current.GPU.ClockOffset != 0 || !current.IsOverridden(profile.FieldGPUClockOffset) {
+		t.Fatal("explicit zero set changed")
+	}
+	if err := applyProfilePatch(current, defaults, ProfilePatch{Field: profile.FieldGPUClockOffset, Operation: "reset"}, false); err != nil {
+		t.Fatal(err)
+	}
+	if current.IsOverridden(profile.FieldGPUClockOffset) {
+		t.Fatal("reset retained override")
+	}
+	for _, patch := range []ProfilePatch{{Field: "unknown", Operation: "set"}, {Field: profile.FieldGPUClockOffset, Operation: "unknown"}} {
+		if err := applyProfilePatch(current, defaults, patch, false); err == nil {
+			t.Fatalf("patch %+v succeeded", patch)
+		}
+	}
+	if err := applyProfilePatch(current, defaults, ProfilePatch{Field: profile.FieldGPUClockOffset, Operation: "pin"}, true); err == nil {
+		t.Fatal("root pin succeeded")
+	}
+}
+
+func TestGUIProfilePatchBatchIsAtomicOnLateFailure(t *testing.T) {
+	original := &profile.Profile{Proton: profile.ProtonSettings{EnableHDR: true}}
+	original.MarkOverride(profile.FieldProtonEnableHDR)
+	boundary := defaultGUIApplicationBoundary(nil)
+	boundary.loadProfile = func(uint64) (*profile.Profile, error) { return original, nil }
+	boundary.loadDefaultProfile = func() (*profile.Profile, error) { return &profile.Profile{}, nil }
+	saves := 0
+	boundary.saveProfile = func(uint64, *profile.Profile) error { saves++; return nil }
+	err := boundary.patchGameProfile(1, []ProfilePatch{
+		{Field: profile.FieldProtonEnableHDR, Operation: "set", Value: false},
+		{Field: profile.FieldDLSSSRMode, Operation: "set", Value: "invalid"},
+	})
+	if err == nil {
+		t.Fatal("invalid late patch succeeded")
+	}
+	if saves != 0 {
+		t.Fatalf("atomic failure saved %d times", saves)
+	}
+	if !original.Proton.EnableHDR || !original.IsOverridden(profile.FieldProtonEnableHDR) {
+		t.Fatalf("atomic failure mutated loaded profile: %+v", original)
+	}
+}
+
+func TestGUIProfilePatchBatchSavesAllFieldsOnce(t *testing.T) {
+	boundary := defaultGUIApplicationBoundary(nil)
+	boundary.loadProfile = func(uint64) (*profile.Profile, error) { return &profile.Profile{}, nil }
+	boundary.loadDefaultProfile = func() (*profile.Profile, error) { return &profile.Profile{}, nil }
+	saves := 0
+	var saved *profile.Profile
+	boundary.saveProfile = func(_ uint64, value *profile.Profile) error { saves++; saved = value; return nil }
+	if err := boundary.patchGameProfile(1, []ProfilePatch{
+		{Field: profile.FieldProtonEnableHDR, Operation: "set", Value: false},
+		{Field: profile.FieldGPUClockOffset, Operation: "set", Value: float64(0)},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if saves != 1 || saved == nil || !saved.IsOverridden(profile.FieldProtonEnableHDR) || !saved.IsOverridden(profile.FieldGPUClockOffset) {
+		t.Fatalf("batch save = count %d, profile %+v", saves, saved)
 	}
 }
 

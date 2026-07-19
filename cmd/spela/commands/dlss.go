@@ -57,7 +57,7 @@ func init() {
 	dlssSetCmd.Flags().StringVar(&dlssSetFGEnabled, "fg", "", "Frame generation (true/false)")
 	dlssSetCmd.Flags().StringVar(&dlssSetFGOverride, "fg-override", "", "Force frame generation override (true/false)")
 	dlssSetCmd.Flags().BoolVar(&dlssSetFGIndicator, "fg-indicator", false, "Enable frame generation indicator")
-	dlssSetCmd.Flags().IntVar(&dlssSetMultiFrame, "multi-frame", -1, "Multi-frame count (0-3)")
+	dlssSetCmd.Flags().IntVar(&dlssSetMultiFrame, "multi-frame", -1, "Multi-frame count (0-4)")
 	dlssSetCmd.Flags().BoolVar(&dlssSetIndicator, "indicator", false, "Enable DLSS indicator")
 
 	dlssShowCmd.Flags().BoolVar(&dlssShowJSON, "json", false, "Output as JSON")
@@ -78,66 +78,8 @@ var dlssResetCmd = &cobra.Command{
 	RunE: runDLSSReset,
 }
 
-// dlssFieldAliases accepts both dash and underscore forms so
-// 'sr-mode' and 'sr_mode' both work.
-var dlssFieldAliases = map[string]string{
-	"sr_mode":      profile.FieldDLSSSRMode,
-	"sr-mode":      profile.FieldDLSSSRMode,
-	"sr_preset":    profile.FieldDLSSSRPreset,
-	"sr-preset":    profile.FieldDLSSSRPreset,
-	"sr_override":  profile.FieldDLSSSROverride,
-	"sr-override":  profile.FieldDLSSSROverride,
-	"rr_mode":      profile.FieldDLSSRRMode,
-	"rr-mode":      profile.FieldDLSSRRMode,
-	"rr_preset":    profile.FieldDLSSRRPreset,
-	"rr-preset":    profile.FieldDLSSRRPreset,
-	"rr_override":  profile.FieldDLSSRROverride,
-	"rr-override":  profile.FieldDLSSRROverride,
-	"fg_enabled":   profile.FieldDLSSFGEnabled,
-	"fg-enabled":   profile.FieldDLSSFGEnabled,
-	"fg":           profile.FieldDLSSFGEnabled,
-	"fg_override":  profile.FieldDLSSFGOverride,
-	"fg-override":  profile.FieldDLSSFGOverride,
-	"multi_frame":  profile.FieldDLSSMultiFrame,
-	"multi-frame":  profile.FieldDLSSMultiFrame,
-	"indicator":    profile.FieldDLSSIndicator,
-	"fg_indicator": profile.FieldDLSSFGIndicator,
-	"fg-indicator": profile.FieldDLSSFGIndicator,
-}
-
-func runDLSSReset(cmd *cobra.Command, args []string) error {
-	db, err := game.LoadDatabase()
-	if err != nil {
-		return err
-	}
-	g := db.FindGame(args[0])
-	if g == nil {
-		return fmt.Errorf("game not found: %s", args[0])
-	}
-	key, ok := dlssFieldAliases[args[1]]
-	if !ok {
-		return fmt.Errorf("unknown DLSS field %q", args[1])
-	}
-	p, err := profile.Load(g.AppID)
-	if err != nil {
-		return err
-	}
-	if p == nil {
-		fmt.Printf("No profile for %s; field is already inherited.\n", g.Name)
-		return nil
-	}
-	if !p.IsOverridden(key) {
-		fmt.Printf("%s: %s is already inherited.\n", g.Name, args[1])
-		return nil
-	}
-	if err := p.Reset(key); err != nil {
-		return err
-	}
-	if err := profile.Save(g.AppID, p); err != nil {
-		return err
-	}
-	fmt.Printf("Reset %s on %s to inherited.\n", args[1], g.Name)
-	return nil
+func runDLSSReset(_ *cobra.Command, args []string) error {
+	return resetProfileField(args, "dlss", "DLSS", "")
 }
 
 func runDLSSShow(cmd *cobra.Command, args []string) error {
@@ -217,47 +159,32 @@ func runDLSSSet(cmd *cobra.Command, args []string) error {
 		p = &profile.Profile{Name: g.Name}
 	}
 
-	changed := false
+	changes := profileChanges{profile: p}
 
 	if dlssSetSRMode != "" {
-		p.DLSS.SRMode = profile.DLSSMode(dlssSetSRMode)
-		p.DLSS.SROverride = true
-		p.MarkOverride(profile.FieldDLSSSRMode)
-		p.MarkOverride(profile.FieldDLSSSROverride)
-		changed = true
+		changes.set(profile.FieldDLSSSRMode, dlssSetSRMode)
+		changes.set(profile.FieldDLSSSROverride, true)
 	}
 
 	if dlssSetSRPreset != "" {
-		p.DLSS.SRPreset = profile.NormalizeSRPreset(dlssSetSRPreset)
-		p.DLSS.SROverride = true
-		p.MarkOverride(profile.FieldDLSSSRPreset)
-		p.MarkOverride(profile.FieldDLSSSROverride)
-		changed = true
+		changes.set(profile.FieldDLSSSRPreset, string(profile.NormalizeSRPreset(dlssSetSRPreset)))
+		changes.set(profile.FieldDLSSSROverride, true)
 	}
 
 	if dlssSetSRModelPreset != "" {
 		fmt.Fprintf(os.Stderr, "warning: --sr-model-preset is deprecated; use --sr-preset instead\n")
-		p.DLSS.SRPreset = profile.NormalizeSRPreset(dlssSetSRModelPreset)
-		p.DLSS.SROverride = true
-		p.MarkOverride(profile.FieldDLSSSRPreset)
-		p.MarkOverride(profile.FieldDLSSSROverride)
-		changed = true
+		changes.set(profile.FieldDLSSSRPreset, string(profile.NormalizeSRPreset(dlssSetSRModelPreset)))
+		changes.set(profile.FieldDLSSSROverride, true)
 	}
 
 	if dlssSetRRMode != "" {
-		p.DLSS.RRMode = profile.DLSSMode(dlssSetRRMode)
-		p.DLSS.RROverride = true
-		p.MarkOverride(profile.FieldDLSSRRMode)
-		p.MarkOverride(profile.FieldDLSSRROverride)
-		changed = true
+		changes.set(profile.FieldDLSSRRMode, dlssSetRRMode)
+		changes.set(profile.FieldDLSSRROverride, true)
 	}
 
 	if dlssSetRRPreset != "" {
-		p.DLSS.RRPreset = profile.DLSSPreset(dlssSetRRPreset)
-		p.DLSS.RROverride = true
-		p.MarkOverride(profile.FieldDLSSRRPreset)
-		p.MarkOverride(profile.FieldDLSSRROverride)
-		changed = true
+		changes.set(profile.FieldDLSSRRPreset, string(profile.NormalizeSRPreset(dlssSetRRPreset)))
+		changes.set(profile.FieldDLSSRROverride, true)
 	}
 
 	if dlssSetRROverride != "" {
@@ -265,9 +192,7 @@ func runDLSSSet(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("--rr-override: %w", err)
 		}
-		p.DLSS.RROverride = b
-		p.MarkOverride(profile.FieldDLSSRROverride)
-		changed = true
+		changes.set(profile.FieldDLSSRROverride, b)
 	}
 
 	if dlssSetFGEnabled != "" {
@@ -275,11 +200,8 @@ func runDLSSSet(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("--fg: %w", err)
 		}
-		p.DLSS.FGEnabled = b
-		p.DLSS.FGOverride = true
-		p.MarkOverride(profile.FieldDLSSFGEnabled)
-		p.MarkOverride(profile.FieldDLSSFGOverride)
-		changed = true
+		changes.set(profile.FieldDLSSFGEnabled, b)
+		changes.set(profile.FieldDLSSFGOverride, true)
 	}
 
 	if dlssSetFGOverride != "" {
@@ -287,32 +209,26 @@ func runDLSSSet(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("--fg-override: %w", err)
 		}
-		p.DLSS.FGOverride = b
-		p.MarkOverride(profile.FieldDLSSFGOverride)
-		changed = true
+		changes.set(profile.FieldDLSSFGOverride, b)
 	}
 
 	if dlssSetMultiFrame >= 0 {
-		p.DLSS.MultiFrame = dlssSetMultiFrame
-		p.DLSS.FGOverride = true
-		p.MarkOverride(profile.FieldDLSSMultiFrame)
-		p.MarkOverride(profile.FieldDLSSFGOverride)
-		changed = true
+		changes.set(profile.FieldDLSSMultiFrame, dlssSetMultiFrame)
+		changes.set(profile.FieldDLSSFGOverride, true)
 	}
 
 	if cmd.Flags().Changed("fg-indicator") {
-		p.DLSS.FGIndicator = dlssSetFGIndicator
-		p.MarkOverride(profile.FieldDLSSFGIndicator)
-		changed = true
+		changes.set(profile.FieldDLSSFGIndicator, dlssSetFGIndicator)
 	}
 
 	if cmd.Flags().Changed("indicator") {
-		p.DLSS.Indicator = dlssSetIndicator
-		p.MarkOverride(profile.FieldDLSSIndicator)
-		changed = true
+		changes.set(profile.FieldDLSSIndicator, dlssSetIndicator)
 	}
 
-	if !changed {
+	if changes.err != nil {
+		return changes.err
+	}
+	if !changes.changed {
 		fmt.Println("No changes specified. Use --help to see available options.")
 		return nil
 	}

@@ -64,60 +64,8 @@ var gpuProfileResetCmd = &cobra.Command{
 	RunE: runGPUProfileReset,
 }
 
-var gpuFieldAliases = map[string]string{
-	"clock_offset":          profile.FieldGPUClockOffset,
-	"clock-offset":          profile.FieldGPUClockOffset,
-	"memory_offset":         profile.FieldGPUMemoryOffset,
-	"memory-offset":         profile.FieldGPUMemoryOffset,
-	"power_limit":           profile.FieldGPUPowerLimit,
-	"power-limit":           profile.FieldGPUPowerLimit,
-	"fan_speed":             profile.FieldGPUFanSpeed,
-	"fan-speed":             profile.FieldGPUFanSpeed,
-	"power_mizer":           profile.FieldGPUPowerMizer,
-	"power-mizer":           profile.FieldGPUPowerMizer,
-	"shader_cache":          profile.FieldGPUShaderCache,
-	"shader-cache":          profile.FieldGPUShaderCache,
-	"shader_cache_path":     profile.FieldGPUShaderCachePath,
-	"shader-cache-path":     profile.FieldGPUShaderCachePath,
-	"threaded_optimization": profile.FieldGPUThreadedOptimization,
-	"threaded-optimization": profile.FieldGPUThreadedOptimization,
-	"threaded_opt":          profile.FieldGPUThreadedOptimization,
-	"threaded-opt":          profile.FieldGPUThreadedOptimization,
-}
-
-func runGPUProfileReset(cmd *cobra.Command, args []string) error {
-	db, err := game.LoadDatabase()
-	if err != nil {
-		return err
-	}
-	g := db.FindGame(args[0])
-	if g == nil {
-		return fmt.Errorf("game not found: %s", args[0])
-	}
-	key, ok := gpuFieldAliases[args[1]]
-	if !ok {
-		return fmt.Errorf("unknown GPU field %q", args[1])
-	}
-	p, err := profile.Load(g.AppID)
-	if err != nil {
-		return err
-	}
-	if p == nil {
-		fmt.Printf("No profile for %s; field is already inherited.\n", g.Name)
-		return nil
-	}
-	if !p.IsOverridden(key) {
-		fmt.Printf("%s: %s is already inherited.\n", g.Name, args[1])
-		return nil
-	}
-	if err := p.Reset(key); err != nil {
-		return err
-	}
-	if err := profile.Save(g.AppID, p); err != nil {
-		return err
-	}
-	fmt.Printf("Reset %s on %s to inherited.\n", args[1], g.Name)
-	return nil
+func runGPUProfileReset(_ *cobra.Command, args []string) error {
+	return resetProfileField(args, "gpu", "GPU", "")
 }
 
 func runGPUSet(cmd *cobra.Command, args []string) error {
@@ -139,40 +87,30 @@ func runGPUSet(cmd *cobra.Command, args []string) error {
 		p = &profile.Profile{Name: g.Name}
 	}
 
-	changed := false
+	changes := profileChanges{profile: p}
 
 	if cmd.Flags().Changed("clock-offset") {
-		p.GPU.ClockOffset = gpuSetClockOffset
-		p.MarkOverride(profile.FieldGPUClockOffset)
-		changed = true
+		changes.set(profile.FieldGPUClockOffset, gpuSetClockOffset)
 	}
 
 	if cmd.Flags().Changed("memory-offset") {
-		p.GPU.MemoryOffset = gpuSetMemoryOffset
-		p.MarkOverride(profile.FieldGPUMemoryOffset)
-		changed = true
+		changes.set(profile.FieldGPUMemoryOffset, gpuSetMemoryOffset)
 	}
 
 	if cmd.Flags().Changed("power-limit") {
-		p.GPU.PowerLimit = gpuSetPowerLimit
-		p.MarkOverride(profile.FieldGPUPowerLimit)
-		changed = true
+		changes.set(profile.FieldGPUPowerLimit, gpuSetPowerLimit)
 	}
 
 	if cmd.Flags().Changed("fan-speed") {
-		p.GPU.FanSpeed = gpuSetFanSpeed
-		p.MarkOverride(profile.FieldGPUFanSpeed)
-		changed = true
+		changes.set(profile.FieldGPUFanSpeed, gpuSetFanSpeed)
 	}
 
 	if gpuSetPowerMizer != "" {
-		if gpuSetPowerMizer == "default" {
-			p.GPU.PowerMizer = ""
-		} else {
-			p.GPU.PowerMizer = gpuSetPowerMizer
+		value := gpuSetPowerMizer
+		if value == "default" {
+			value = ""
 		}
-		p.MarkOverride(profile.FieldGPUPowerMizer)
-		changed = true
+		changes.set(profile.FieldGPUPowerMizer, value)
 	}
 
 	if gpuSetShaderCache != "" {
@@ -180,19 +118,15 @@ func runGPUSet(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("--shader-cache: %w", err)
 		}
-		p.GPU.ShaderCache = b
-		p.MarkOverride(profile.FieldGPUShaderCache)
-		changed = true
+		changes.set(profile.FieldGPUShaderCache, b)
 	}
 
 	if gpuSetCachePath != "" {
-		if gpuSetCachePath == "default" {
-			p.GPU.ShaderCachePath = ""
-		} else {
-			p.GPU.ShaderCachePath = gpuSetCachePath
+		value := gpuSetCachePath
+		if value == "default" {
+			value = ""
 		}
-		p.MarkOverride(profile.FieldGPUShaderCachePath)
-		changed = true
+		changes.set(profile.FieldGPUShaderCachePath, value)
 	}
 
 	if gpuSetThreadedOpt != "" {
@@ -200,12 +134,13 @@ func runGPUSet(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("--threaded-opt: %w", err)
 		}
-		p.GPU.ThreadedOptimization = b
-		p.MarkOverride(profile.FieldGPUThreadedOptimization)
-		changed = true
+		changes.set(profile.FieldGPUThreadedOptimization, b)
 	}
 
-	if !changed {
+	if changes.err != nil {
+		return changes.err
+	}
+	if !changes.changed {
 		fmt.Println("No changes specified. Use --help to see available options.")
 		return nil
 	}

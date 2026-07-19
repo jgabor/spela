@@ -52,45 +52,8 @@ var cpuProfileResetCmd = &cobra.Command{
 	RunE: runCPUProfileReset,
 }
 
-var cpuFieldAliases = map[string]string{
-	"governor": profile.FieldCPUGovernor,
-	"smt":      profile.FieldCPUSMT,
-	"affinity": profile.FieldCPUAffinity,
-}
-
-func runCPUProfileReset(cmd *cobra.Command, args []string) error {
-	db, err := game.LoadDatabase()
-	if err != nil {
-		return err
-	}
-	g := db.FindGame(args[0])
-	if g == nil {
-		return fmt.Errorf("game not found: %s", args[0])
-	}
-	key, ok := cpuFieldAliases[args[1]]
-	if !ok {
-		return fmt.Errorf("unknown CPU field %q", args[1])
-	}
-	p, err := profile.Load(g.AppID)
-	if err != nil {
-		return err
-	}
-	if p == nil {
-		fmt.Printf("No profile for %s; field is already inherited.\n", g.Name)
-		return nil
-	}
-	if !p.IsOverridden(key) {
-		fmt.Printf("%s: %s is already inherited.\n", g.Name, args[1])
-		return nil
-	}
-	if err := p.Reset(key); err != nil {
-		return err
-	}
-	if err := profile.Save(g.AppID, p); err != nil {
-		return err
-	}
-	fmt.Printf("Reset %s on %s to inherited.\n", args[1], g.Name)
-	return nil
+func runCPUProfileReset(_ *cobra.Command, args []string) error {
+	return resetProfileField(args, "cpu", "CPU", "")
 }
 
 func runCPUSet(cmd *cobra.Command, args []string) error {
@@ -112,42 +75,38 @@ func runCPUSet(cmd *cobra.Command, args []string) error {
 		p = &profile.Profile{Name: g.Name}
 	}
 
-	changed := false
+	changes := profileChanges{profile: p}
 
 	if cpuSetGovernor != "" {
 		if err := validateCPUGovernorFlag("governor", cpuSetGovernor); err != nil {
 			return err
 		}
 		if cpuSetGovernor == "default" {
-			p.CPU.Governor = ""
-			delete(p.Overrides, profile.FieldCPUGovernor)
+			changes.changed = true
+			changes.err = p.Reset(profile.FieldCPUGovernor)
 		} else {
-			p.CPU.Governor = cpuSetGovernor
-			p.MarkOverride(profile.FieldCPUGovernor)
+			changes.set(profile.FieldCPUGovernor, cpuSetGovernor)
 		}
-		changed = true
 	}
 
 	if cpuSetSMT != "" {
 		switch cpuSetSMT {
 		case "on", "true":
-			b := true
-			p.CPU.SMT = &b
-			p.MarkOverride(profile.FieldCPUSMT)
+			changes.set(profile.FieldCPUSMT, true)
 		case "off", "false":
-			b := false
-			p.CPU.SMT = &b
-			p.MarkOverride(profile.FieldCPUSMT)
+			changes.set(profile.FieldCPUSMT, false)
 		case "default":
-			p.CPU.SMT = nil
-			delete(p.Overrides, profile.FieldCPUSMT)
+			changes.changed = true
+			changes.err = p.Reset(profile.FieldCPUSMT)
 		default:
 			return fmt.Errorf("invalid SMT value: %s (use on, off, or default)", cpuSetSMT)
 		}
-		changed = true
 	}
 
-	if !changed {
+	if changes.err != nil {
+		return changes.err
+	}
+	if !changes.changed {
 		fmt.Println("No changes specified. Use --help to see available options.")
 		return nil
 	}

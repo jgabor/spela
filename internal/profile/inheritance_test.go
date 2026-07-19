@@ -432,6 +432,17 @@ func TestPinField_Pass_CopiesDefaultsValue(t *testing.T) {
 	}
 }
 
+func TestPinField_ReplacesStaleRawValueWithDisplayedDefault(t *testing.T) {
+	p := &profile.Profile{GPU: profile.GPUSettings{PowerLimit: 200}}
+	defaults := &profile.Profile{GPU: profile.GPUSettings{PowerLimit: 350}}
+	if err := p.PinField(profile.FieldGPUPowerLimit, defaults); err != nil {
+		t.Fatal(err)
+	}
+	if p.GPU.PowerLimit != 350 {
+		t.Fatalf("pinned raw value = %d, want displayed default 350", p.GPU.PowerLimit)
+	}
+}
+
 // Fail (negative) path: pinning an unknown field returns an error and does
 // NOT mutate the profile.
 func TestPinField_Fail_UnknownField(t *testing.T) {

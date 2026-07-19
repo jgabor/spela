@@ -182,7 +182,7 @@ func SetupTestEnvironment(t *testing.T) (*TestEnvironment, func()) {
 	defaultProfileData := map[string]interface{}{
 		"dlss": map[string]interface{}{
 			"sr_mode":     "balanced",
-			"sr_preset":   "balanced",
+			"sr_preset":   "default",
 			"sr_override": false,
 			"fg_enabled":  false,
 			"fg_override": false,

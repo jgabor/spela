@@ -98,21 +98,6 @@ func TestAppSerializesDLLOperationThroughSnapshotApply(t *testing.T) {
 	}
 }
 
-func fullProfileInfo() ProfileInfo {
-	return ProfileInfo{
-		SRMode: "quality", SRPreset: "K", SROverride: true,
-		RRMode: "dlaa", RRPreset: "L", RROverride: true,
-		FGEnabled: true, FGOverride: true, FGIndicator: true, MultiFrame: 4, Indicator: true,
-		ShaderCache: true, ShaderCachePath: "/shader", ThreadedOptimization: true,
-		PowerMizer: "prefer_maximum_performance", ClockOffset: 150, MemoryOffset: 500,
-		Governor: "performance", SMT: "false",
-		EnableHDR: true, EnableWayland: true, EnableNGXUpdater: true, VKD3DHeap: true,
-		OverlayEnabled: true, OverlayPosition: "top-right", OverlayShowFPS: true,
-		OverlayShowFrametime: true, OverlayShowCPU: true, OverlayShowGPU: true,
-		OverlayShowVRAM: true, OverlayToggleKey: "F12",
-	}
-}
-
 func TestAppSupportedConfigProfileGameAndNavigationFlows(t *testing.T) {
 	isolateGUIState(t)
 	app := NewApp()
@@ -177,23 +162,23 @@ func TestAppSupportedConfigProfileGameAndNavigationFlows(t *testing.T) {
 		})
 	}
 
-	defaultInfo := fullProfileInfo()
-	defaultInfo.SMT = "true"
-	if err := app.SaveDefaultProfile(defaultInfo); err != nil {
+	if _, err := app.PatchDefaultProfile([]ProfilePatch{{Field: profile.FieldCPUSMT, Operation: "set", Value: true}}); err != nil {
 		t.Fatal(err)
 	}
-	if got := app.GetDefaultProfile(); got == nil || got.SMT != "true" || !got.EnableHDR {
+	if _, err := app.PatchDefaultProfile([]ProfilePatch{{Field: profile.FieldProtonEnableHDR, Operation: "set", Value: true}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := app.GetDefaultProfile(); got == nil || got["smt"] != "true" || got["enableHdr"] != true {
 		t.Fatalf("default profile projection = %+v", got)
 	}
-	gameInfo := fullProfileInfo()
-	if err := app.SaveProfile(1091500, gameInfo); err != nil {
+	if _, err := app.PatchProfile(1091500, []ProfilePatch{{Field: profile.FieldCPUSMT, Operation: "set", Value: false}}); err != nil {
 		t.Fatal(err)
 	}
-	if got := app.GetProfile(1091500); got == nil || got.SMT != "false" || got.SRMode != "quality" {
-		t.Fatalf("game profile projection = %+v", got)
+	if _, err := app.PatchProfile(1091500, []ProfilePatch{{Field: profile.FieldDLSSSRMode, Operation: "set", Value: "quality"}}); err != nil {
+		t.Fatal(err)
 	}
-	if stringToBoolPtr("") != nil || boolPtrToString(nil) != "" {
-		t.Fatal("unset SMT projection changed")
+	if got := app.GetProfile(1091500); got == nil || got["smt"] != "false" || got["srMode"] != "quality" {
+		t.Fatalf("game profile projection = %+v", got)
 	}
 
 	entry := &game.Game{
@@ -442,16 +427,9 @@ func TestAppDLLMutationInterleavesSafelyWithReaders(t *testing.T) {
 }
 
 func TestAppProjectionAndHostReadBranches(t *testing.T) {
-	if profileInfoFromProfile(nil, false) != nil || profileFieldSemanticsFromExplanations(nil) != nil {
+	if profileView(nil, nil, false) != nil || profileFieldSemanticsFromExplanations(nil) != nil {
 		t.Fatal("nil profile/semantics projections changed")
 	}
-	if got := boolPtrToString(stringToBoolPtr("true")); got != "true" {
-		t.Fatalf("true SMT round trip = %q", got)
-	}
-	if got := boolPtrToString(stringToBoolPtr("false")); got != "false" {
-		t.Fatalf("false SMT round trip = %q", got)
-	}
-
 	app := NewApp()
 	cpuInfo := app.GetCPUInfo()
 	if cpuInfo == nil || cpuInfo.Cores <= 0 || cpuInfo.Model == "" {
@@ -468,10 +446,10 @@ func TestGUIBoundaryProfileFallbackAndErrorContracts(t *testing.T) {
 	boundary.loadDefaultProfile = func() (*profile.Profile, error) {
 		return &profile.Profile{Proton: profile.ProtonSettings{EnableHDR: true}}, nil
 	}
-	if info := boundary.getProfile(1); info == nil || !info.InheritedFromDefault || !info.EnableHDR {
+	if info := boundary.getProfile(1); info == nil || info["inheritedFromDefault"] != true || info["enableHdr"] != true {
 		t.Fatalf("default fallback profile = %+v", info)
 	}
-	if info := boundary.getDefaultProfile(); info == nil || !info.EnableHDR {
+	if info := boundary.getDefaultProfile(); info == nil || info["enableHdr"] != true {
 		t.Fatalf("default profile = %+v", info)
 	}
 	boundary.loadDefaultProfile = func() (*profile.Profile, error) { return nil, errors.New("invalid defaults") }
@@ -479,12 +457,12 @@ func TestGUIBoundaryProfileFallbackAndErrorContracts(t *testing.T) {
 		t.Fatal("default profile load errors did not return nil")
 	}
 	boundary.loadProfile = func(uint64) (*profile.Profile, error) { return nil, errors.New("invalid game profile") }
-	if err := boundary.saveGameProfile(1, ProfileInfo{}); err == nil || !strings.Contains(err.Error(), "invalid game profile") {
+	if err := boundary.patchGameProfile(1, []ProfilePatch{{Field: profile.FieldProtonEnableHDR, Operation: "set", Value: true}}); err == nil || !strings.Contains(err.Error(), "invalid game profile") {
 		t.Fatalf("save profile load error = %v", err)
 	}
 	boundary.loadProfile = func(uint64) (*profile.Profile, error) { return nil, nil }
 	boundary.loadDefaultProfile = func() (*profile.Profile, error) { return nil, errors.New("invalid defaults") }
-	if err := boundary.saveGameProfile(1, ProfileInfo{}); err == nil || !strings.Contains(err.Error(), "load default profile") {
+	if err := boundary.patchGameProfile(1, []ProfilePatch{{Field: profile.FieldProtonEnableHDR, Operation: "set", Value: true}}); err == nil || !strings.Contains(err.Error(), "load default profile") {
 		t.Fatalf("save profile defaults error = %v", err)
 	}
 	if err := boundary.rejectDirectLaunch(1); !errors.Is(err, ErrDatabaseNotLoaded) {
@@ -493,5 +471,49 @@ func TestGUIBoundaryProfileFallbackAndErrorContracts(t *testing.T) {
 	boundary.db = &game.Database{Games: map[uint64]*game.Game{}}
 	if err := boundary.rejectDirectLaunch(1); !errors.Is(err, ErrGameNotFound) {
 		t.Fatalf("missing game launch error = %v", err)
+	}
+}
+
+func TestAppConcurrentProfileTransactionsPreserveEveryCaller(t *testing.T) {
+	isolateGUIState(t)
+	app := NewApp()
+	patches := []ProfilePatch{
+		{Field: profile.FieldProtonEnableHDR, Operation: "set", Value: true},
+		{Field: profile.FieldProtonEnableWayland, Operation: "set", Value: true},
+		{Field: profile.FieldDLSSSRMode, Operation: "set", Value: "quality"},
+		{Field: profile.FieldDLSSMultiFrame, Operation: "set", Value: float64(0)},
+		{Field: profile.FieldGPUClockOffset, Operation: "set", Value: float64(0)},
+		{Field: profile.FieldGPUShaderCachePath, Operation: "set", Value: ""},
+		{Field: profile.FieldCPUSMT, Operation: "set", Value: nil},
+		{Field: profile.FieldOverlayEnabled, Operation: "set", Value: false},
+	}
+	start := make(chan struct{})
+	errors := make(chan error, len(patches))
+	var wait sync.WaitGroup
+	for _, patch := range patches {
+		wait.Add(1)
+		go func(patch ProfilePatch) {
+			defer wait.Done()
+			<-start
+			_, err := app.PatchProfile(1091500, []ProfilePatch{patch})
+			errors <- err
+		}(patch)
+	}
+	close(start)
+	wait.Wait()
+	close(errors)
+	for err := range errors {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	stored, err := profile.Load(1091500)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, patch := range patches {
+		if !stored.IsOverridden(patch.Field) {
+			t.Errorf("concurrent patch lost %s", patch.Field)
+		}
 	}
 }

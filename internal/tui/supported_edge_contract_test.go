@@ -180,21 +180,20 @@ func TestResourcePaneSupportedDestinationsScopesAndDefaultMutations(t *testing.T
 func TestProfileDisplaySupportedDefaultsAndOverrides(t *testing.T) {
 	valueTrue, valueFalse := true, false
 	checks := []struct{ got, want string }{
-		{srPresetValue(""), "default"},
-		{srPresetValue(profile.DLSSPresetAuto), "auto"},
-		{srPresetValue(profile.DLSSPresetK), "K"},
+		{formatFieldValue(&profile.Profile{}, profile.FieldDLSSSRPreset), "(default)"},
+		{formatFieldValue(&profile.Profile{DLSS: profile.DLSSSettings{SRPreset: profile.DLSSPresetAuto}}, profile.FieldDLSSSRPreset), "(default)"},
+		{formatFieldValue(&profile.Profile{DLSS: profile.DLSSSettings{SRPreset: profile.DLSSPresetK}}, profile.FieldDLSSSRPreset), "K"},
 		{formatFieldValue(&profile.Profile{}, profile.FieldGPUPowerMizer), "(default)"},
 		{formatFieldValue(&profile.Profile{GPU: profile.GPUSettings{PowerMizer: "max"}}, profile.FieldGPUPowerMizer), "max"},
-		{displayValue("default"), "(default)"},
-		{displayValue("quality"), "quality"},
-		{displayBool(false), "(default)"},
-		{displayBool(true), "true"},
-		{displayBoolPtr(nil), "(default)"},
-		{displayBoolPtr(&valueTrue), "true"},
-		{displayBoolPtr(&valueFalse), "false"},
+		{formatFieldValue(&profile.Profile{DLSS: profile.DLSSSettings{SRMode: "quality"}}, profile.FieldDLSSSRMode), "quality"},
+		{formatFieldValue(&profile.Profile{}, profile.FieldProtonEnableHDR), "(default)"},
+		{formatFieldValue(&profile.Profile{Proton: profile.ProtonSettings{EnableHDR: true}}, profile.FieldProtonEnableHDR), "true"},
+		{formatFieldValue(&profile.Profile{}, profile.FieldCPUSMT), "(default)"},
+		{formatFieldValue(&profile.Profile{CPU: profile.CPUSettings{SMT: &valueTrue}}, profile.FieldCPUSMT), "true"},
+		{formatFieldValue(&profile.Profile{CPU: profile.CPUSettings{SMT: &valueFalse}}, profile.FieldCPUSMT), "false"},
 		{formatFieldValue(&profile.Profile{}, profile.FieldDLSSFGEnabled), "(default)"},
-		{displayInt(0), "(default)"},
-		{displayInt(42), "42"},
+		{formatFieldValue(&profile.Profile{}, profile.FieldGPUClockOffset), "(default)"},
+		{formatFieldValue(&profile.Profile{GPU: profile.GPUSettings{ClockOffset: 42}}, profile.FieldGPUClockOffset), "42"},
 	}
 	for _, check := range checks {
 		if check.got != check.want {
