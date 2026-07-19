@@ -9,8 +9,27 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  validate-tag:
     runs-on: ubuntu-24.04
+    outputs:
+      release_tag: ${{ steps.validate.outputs.release_tag }}
+    steps:
+      - name: Validate release tag
+        id: validate
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if ! [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            printf 'Invalid release tag: %q\n' "$RELEASE_TAG" >&2
+            exit 1
+          fi
+          printf 'release_tag=%s\n' "$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: validate-tag
+    runs-on: ubuntu-24.04
+    env:
+      RELEASE_TAG: ${{ needs.validate-tag.outputs.release_tag }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
@@ -46,7 +65,7 @@ jobs:
         run: sha256sum spela-linux-amd64 > checksums.txt
 
       - name: Extract release notes from CHANGELOG.md
-        run: sh scripts/release-notes.sh "${{ github.ref_name }}" > release_notes.md
+        run: sh scripts/release-notes.sh "$RELEASE_TAG" > release_notes.md
 
       - name: Create Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
@@ -57,8 +76,10 @@ jobs:
           body_path: release_notes.md
 
   aur-publish:
-    needs: build
+    needs: [validate-tag, build]
     runs-on: ubuntu-24.04
+    env:
+      RELEASE_TAG: ${{ needs.validate-tag.outputs.release_tag }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
@@ -69,7 +90,7 @@ jobs:
           cache: true
 
       - name: Update PKGBUILD version and checksum
-        run: go tool mage aur:updateVersion ${{ github.ref_name }}
+        run: go tool mage aur:updateVersion "$RELEASE_TAG"
 
       - name: Publish spela to AUR
         uses: KSXGitHub/github-actions-deploy-aur@a97f56a8425a7a7f3b8c58607f769c69b089cadb # v3.0.1
@@ -79,7 +100,7 @@ jobs:
           commit_username: ${{ secrets.AUR_USERNAME }}
           commit_email: ${{ secrets.AUR_EMAIL }}
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message: "Update to ${{ github.ref_name }}"
+          commit_message: "Update to ${{ env.RELEASE_TAG }}"
 
       - name: Publish spela-git to AUR
         uses: KSXGitHub/github-actions-deploy-aur@a97f56a8425a7a7f3b8c58607f769c69b089cadb # v3.0.1
@@ -89,4 +110,4 @@ jobs:
           commit_username: ${{ secrets.AUR_USERNAME }}
           commit_email: ${{ secrets.AUR_EMAIL }}
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message: "Update to ${{ github.ref_name }}"
+          commit_message: "Update to ${{ env.RELEASE_TAG }}"

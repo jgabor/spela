@@ -17,15 +17,24 @@ import (
 )
 
 type releaseWorkflow struct {
-	Permissions map[string]string `yaml:"permissions"`
-	Jobs        map[string]struct {
-		Steps []struct {
-			Name string            `yaml:"name"`
-			Uses string            `yaml:"uses"`
-			Run  string            `yaml:"run"`
-			With map[string]string `yaml:"with"`
-		} `yaml:"steps"`
-	} `yaml:"jobs"`
+	Permissions map[string]string             `yaml:"permissions"`
+	Jobs        map[string]releaseWorkflowJob `yaml:"jobs"`
+}
+
+type releaseWorkflowJob struct {
+	Needs   yaml.Node             `yaml:"needs"`
+	Env     map[string]string     `yaml:"env"`
+	Outputs map[string]string     `yaml:"outputs"`
+	Steps   []releaseWorkflowStep `yaml:"steps"`
+}
+
+type releaseWorkflowStep struct {
+	Name string            `yaml:"name"`
+	ID   string            `yaml:"id"`
+	Uses string            `yaml:"uses"`
+	Run  string            `yaml:"run"`
+	Env  map[string]string `yaml:"env"`
+	With map[string]string `yaml:"with"`
 }
 
 func TestReleaseWorkflowArtifactContract(t *testing.T) {
@@ -56,17 +65,9 @@ func TestReleaseWorkflowArtifactContract(t *testing.T) {
 	if !ok {
 		t.Fatal("release workflow has no build job")
 	}
-	steps := make(map[string]struct {
-		Uses string
-		Run  string
-		With map[string]string
-	}, len(build.Steps))
+	steps := make(map[string]releaseWorkflowStep, len(build.Steps))
 	for _, step := range build.Steps {
-		steps[step.Name] = struct {
-			Uses string
-			Run  string
-			With map[string]string
-		}{step.Uses, step.Run, step.With}
+		steps[step.Name] = step
 	}
 	if got := nonemptyLines(steps["Build unified binary"].Run); !equalStrings(got, []string{"go tool mage build", "mv spela spela-linux-amd64"}) {
 		t.Fatalf("release build commands = %q", got)
@@ -84,7 +85,7 @@ func TestReleaseWorkflowArtifactContract(t *testing.T) {
 	if release.With["body_path"] != "release_notes.md" {
 		t.Fatalf("release body path = %q", release.With["body_path"])
 	}
-	if got := strings.TrimSpace(steps["Extract release notes from CHANGELOG.md"].Run); got != `sh scripts/release-notes.sh "${{ github.ref_name }}" > release_notes.md` {
+	if got := strings.TrimSpace(steps["Extract release notes from CHANGELOG.md"].Run); got != `sh scripts/release-notes.sh "$RELEASE_TAG" > release_notes.md` {
 		t.Fatalf("release notes command = %q", got)
 	}
 	aur, ok := workflow.Jobs["aur-publish"]
@@ -100,6 +101,162 @@ func TestReleaseWorkflowArtifactContract(t *testing.T) {
 	if !equalStrings(published, []string{"spela:pkg/aur/PKGBUILD", "spela-git:pkg/aur/PKGBUILD-git"}) {
 		t.Fatalf("AUR publications = %q", published)
 	}
+}
+
+func TestReleaseTagIsValidatedBeforeUse(t *testing.T) {
+	workflow := readReleaseWorkflow(t)
+	data, err := os.ReadFile(filepath.Join(contractRepositoryRoot(t), ".github", "workflows", "release.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Count(string(data), "${{ github.ref_name }}"); got != 1 {
+		t.Fatalf("direct github.ref_name references = %d, want only the validation environment", got)
+	}
+	validationJob, ok := workflow.Jobs["validate-tag"]
+	if !ok {
+		t.Fatal("release workflow has no validate-tag job")
+	}
+	if len(validationJob.Steps) != 1 {
+		t.Fatalf("validate-tag steps = %d, want 1", len(validationJob.Steps))
+	}
+	validation := validationJob.Steps[0]
+	if validation.ID != "validate" {
+		t.Fatalf("validation step id = %q, want validate", validation.ID)
+	}
+	if got := validation.Env["RELEASE_TAG"]; got != "${{ github.ref_name }}" {
+		t.Fatalf("validation RELEASE_TAG environment = %q", got)
+	}
+	if got := validationJob.Outputs["release_tag"]; got != "${{ steps.validate.outputs.release_tag }}" {
+		t.Fatalf("validated release tag output = %q", got)
+	}
+	if !strings.Contains(validation.Run, `^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`) {
+		t.Fatalf("validation command does not enforce exact stable SemVer:\n%s", validation.Run)
+	}
+
+	build := workflow.Jobs["build"]
+	if build.Needs.Kind != yaml.ScalarNode || build.Needs.Value != "validate-tag" {
+		t.Errorf("build needs = %v, want validate-tag", build.Needs.Value)
+	}
+	aur := workflow.Jobs["aur-publish"]
+	if got := yamlNodeValues(&aur.Needs); !equalStrings(got, []string{"validate-tag", "build"}) {
+		t.Errorf("aur-publish needs = %q, want validate-tag and build", got)
+	}
+
+	for jobName, job := range workflow.Jobs {
+		for _, step := range job.Steps {
+			if strings.Contains(step.Run, "${{ github.ref_name }}") {
+				t.Errorf("%s/%s interpolates github.ref_name directly into shell source", jobName, step.Name)
+			}
+			if strings.Contains(step.Uses, "github.ref_name") {
+				t.Errorf("%s/%s uses untrusted tag text as an action path", jobName, step.Name)
+			}
+		}
+	}
+	for _, jobName := range []string{"build", "aur-publish"} {
+		job := workflow.Jobs[jobName]
+		if got := job.Env["RELEASE_TAG"]; got != "${{ needs.validate-tag.outputs.release_tag }}" {
+			t.Errorf("%s RELEASE_TAG environment = %q", jobName, got)
+		}
+	}
+
+	var update releaseWorkflowStep
+	for _, step := range aur.Steps {
+		if step.Name == "Update PKGBUILD version and checksum" {
+			update = step
+		}
+		if strings.HasPrefix(step.Uses, "KSXGitHub/github-actions-deploy-aur@") {
+			if strings.Contains(step.With["pkgname"], "RELEASE_TAG") || strings.Contains(step.With["pkgbuild"], "RELEASE_TAG") {
+				t.Errorf("%s allows release tag text in an AUR package argument", step.Name)
+			}
+			if step.With["commit_message"] != "Update to ${{ env.RELEASE_TAG }}" {
+				t.Errorf("%s commit message = %q", step.Name, step.With["commit_message"])
+			}
+		}
+	}
+	if got := strings.TrimSpace(update.Run); got != `go tool mage aur:updateVersion "$RELEASE_TAG"` {
+		t.Fatalf("AUR version command = %q", got)
+	}
+}
+
+func TestReleaseTagValidationRejectsShellSyntax(t *testing.T) {
+	workflow := readReleaseWorkflow(t)
+	validationJob, ok := workflow.Jobs["validate-tag"]
+	if !ok || len(validationJob.Steps) != 1 {
+		t.Fatal("release workflow must contain one validation step")
+	}
+	validation := validationJob.Steps[0]
+	for _, test := range []struct {
+		tag   string
+		valid bool
+	}{
+		{tag: "v1.2.3", valid: true},
+		{tag: "v0.0.0", valid: true},
+		{tag: "v01.2.3"},
+		{tag: "v1.2.3-rc1"},
+	} {
+		t.Run(test.tag, func(t *testing.T) {
+			output := filepath.Join(t.TempDir(), "github-output")
+			command := exec.Command("bash", "-e", "-c", validation.Run)
+			command.Env = append(os.Environ(), "RELEASE_TAG="+test.tag, "GITHUB_OUTPUT="+output)
+			err := command.Run()
+			if test.valid {
+				if err != nil {
+					t.Fatalf("valid tag rejected: %v", err)
+				}
+				data, readErr := os.ReadFile(output)
+				if readErr != nil || string(data) != "release_tag="+test.tag+"\n" {
+					t.Fatalf("validation output = %q, error = %v", data, readErr)
+				}
+			} else if err == nil {
+				t.Fatal("invalid tag accepted")
+			}
+		})
+	}
+
+	for _, quoted := range []bool{false, true} {
+		name := "substitution"
+		if quoted {
+			name = "quotes-and-substitution"
+		}
+		t.Run(name, func(t *testing.T) {
+			state := t.TempDir()
+			marker := filepath.Join(state, "injected")
+			payload := "v1.2.3$(touch${IFS}" + marker + ")"
+			if quoted {
+				payload = `v1.2.3"$(touch${IFS}` + marker + `)"`
+			}
+			check := exec.Command("git", "check-ref-format", "refs/tags/"+payload)
+			if output, err := check.CombinedOutput(); err != nil {
+				t.Fatalf("malicious fixture is not a valid Git ref: %v: %s", err, output)
+			}
+
+			output := filepath.Join(state, "github-output")
+			command := exec.Command("bash", "-e", "-c", validation.Run)
+			command.Env = append(os.Environ(), "RELEASE_TAG="+payload, "GITHUB_OUTPUT="+output)
+			if err := command.Run(); err == nil {
+				t.Fatal("malicious tag accepted")
+			}
+			if _, err := os.Stat(marker); !os.IsNotExist(err) {
+				t.Fatalf("shell substitution executed; marker stat error = %v", err)
+			}
+			if _, err := os.Stat(output); !os.IsNotExist(err) {
+				t.Fatalf("rejected tag reached workflow output; stat error = %v", err)
+			}
+		})
+	}
+}
+
+func readReleaseWorkflow(t *testing.T) releaseWorkflow {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(contractRepositoryRoot(t), ".github", "workflows", "release.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow releaseWorkflow
+	if err := yaml.Unmarshal(data, &workflow); err != nil {
+		t.Fatalf("parse release workflow: %v", err)
+	}
+	return workflow
 }
 
 func TestWorkflowSyntax(t *testing.T) {
