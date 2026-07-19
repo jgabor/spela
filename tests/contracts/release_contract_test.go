@@ -97,7 +97,7 @@ func TestReleaseWorkflowArtifactContract(t *testing.T) {
 	for _, step := range aur.Steps {
 		if step.Name == "Update PKGBUILD version and checksum" {
 			updateTargetFound = true
-			if strings.TrimSpace(step.Run) != "go tool mage aur:updateVersion ${{ github.ref_name }}" {
+			if strings.TrimSpace(step.Run) != `go tool mage aur:updateVersion "$RELEASE_TAG"` {
 				t.Fatalf("AUR version update command = %q", step.Run)
 			}
 		}
