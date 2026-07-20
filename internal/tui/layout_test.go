@@ -70,18 +70,18 @@ func TestLayout_HelpBlocksOtherKeys(t *testing.T) {
 	layout := result.(LayoutModel)
 
 	// Tab should NOT toggle focus while help is shown.
-	focused := layout.navState.Zone
+	focused := layout.focus
 	result, _ = sendKey(&layout, "tab")
 	layout = result.(LayoutModel)
-	if layout.navState.Zone != focused {
+	if layout.focus != focused {
 		t.Error("expected help to block tab from toggling focus")
 	}
 
 	// 1-4 rail hotkeys should NOT activate while help is shown.
-	activeBefore := layout.rail.Active()
+	activeBefore := layout.navState.Destination
 	result, _ = sendKey(&layout, "3")
 	layout = result.(LayoutModel)
-	if layout.rail.Active() != activeBefore {
+	if layout.navState.Destination != activeBefore {
 		t.Error("expected help to block rail hotkeys")
 	}
 }
@@ -89,7 +89,7 @@ func TestLayout_HelpBlocksOtherKeys(t *testing.T) {
 func TestLayout_SettingsPathInputReceivesQuestionMark(t *testing.T) {
 	m := testLayout()
 	*m.navState = m.navState.SelectDestination(nav.DestinationSettings)
-	m.navState.Zone = nav.ZoneContent
+	m.focus = FocusDetail
 	m.syncNavToComponents()
 	for sectionIndex, section := range m.pane.settings.sections {
 		for optionIndex, option := range section.Options {
@@ -115,38 +115,38 @@ func TestLayout_SettingsPathInputReceivesQuestionMark(t *testing.T) {
 
 func TestLayout_TabTogglesFocus(t *testing.T) {
 	m := testLayout()
-	if m.navState.Zone != nav.ZonePrimary {
-		t.Fatal("precondition: primary zone should be focused initially")
+	if m.focus != FocusList {
+		t.Fatal("precondition: List should be focused initially")
 	}
 
 	result, _ := sendKey(&m, "tab")
 	layout := result.(LayoutModel)
-	if layout.navState.Zone != nav.ZoneContext {
-		t.Error("expected tab to move focus to context zone")
+	if layout.focus != FocusDetail {
+		t.Error("expected tab to move focus to Detail")
 	}
 
 	result, _ = sendKey(&layout, "tab")
 	layout = result.(LayoutModel)
-	if layout.navState.Zone != nav.ZoneContent {
-		t.Error("second tab should move focus to content zone")
+	if layout.focus != FocusList {
+		t.Error("second tab should move focus to List")
 	}
 }
 
 func TestLayout_TabTogglesFocus_NonGamesResource(t *testing.T) {
 	m := testLayout()
 	m, _, _ = m.handleGlobalKeys(tea.KeyPressMsg{Code: '2', Text: "2"})
-	if m.rail.Active() != nav.DestinationDLLCatalog {
-		t.Fatalf("precondition: expected DLL Catalog active, got %v", m.rail.Active())
+	if m.navState.Destination != nav.DestinationDLLCatalog {
+		t.Fatalf("precondition: expected DLL Catalog active, got %v", m.navState.Destination)
 	}
 	result, _ := sendKey(&m, "tab")
 	layout := result.(LayoutModel)
-	if layout.navState.Zone != nav.ZoneContext {
-		t.Error("tab should move to context zone")
+	if layout.focus != FocusDetail {
+		t.Error("tab should move to Detail")
 	}
 	result, _ = sendKey(&layout, "tab")
 	layout = result.(LayoutModel)
-	if layout.navState.Zone != nav.ZoneContent {
-		t.Error("second tab should move to content zone")
+	if layout.focus != FocusList {
+		t.Error("second tab should move to List")
 	}
 }
 
@@ -212,10 +212,10 @@ func TestLayout_CtrlFActivatesSearch(t *testing.T) {
 
 	result, _ := sendKey(&m, "ctrl+f")
 	layout := result.(LayoutModel)
-	if layout.navState.Zone == nav.ZonePrimary {
-		t.Error("expected ctrl+f to drop rail focus")
+	if layout.focus != FocusList || layout.inputMode != ModeSearch {
+		t.Error("expected ctrl+f to focus Library search")
 	}
-	if !layout.contextNav.sidebar.search.Focused() {
+	if !layout.listPane.sidebar.search.Focused() {
 		t.Error("expected ctrl+f to activate search input")
 	}
 }
@@ -224,8 +224,8 @@ func TestLayout_SettingsDestination(t *testing.T) {
 	m := testLayout()
 	result, _ := sendKey(&m, "4")
 	layout := result.(LayoutModel)
-	if layout.rail.Active() != nav.DestinationSettings {
-		t.Fatalf("expected Settings destination, got %v", layout.rail.Active())
+	if layout.navState.Destination != nav.DestinationSettings {
+		t.Fatalf("expected Settings destination, got %v", layout.navState.Destination)
 	}
 	if layout.pane.settings.config == nil || layout.pane.settings.renderOptionsBody() == "" {
 		t.Error("expected settings destination content")
@@ -277,50 +277,47 @@ func TestLayout_RailHotkeysWithoutGame(t *testing.T) {
 		t.Run(tc.key, func(t *testing.T) {
 			result, _ := sendKey(&m, tc.key)
 			layout := result.(LayoutModel)
-			if layout.rail.Active() != tc.want {
-				t.Errorf("[iter %d] after %q: active = %v, want %v", i, tc.key, layout.rail.Active(), tc.want)
+			if layout.navState.Destination != tc.want {
+				t.Errorf("[iter %d] after %q: active = %v, want %v", i, tc.key, layout.navState.Destination, tc.want)
 			}
-			if layout.navState.Zone != nav.ZonePrimary {
-				t.Errorf("[iter %d] expected rail focus preserved after %q", i, tc.key)
+			if layout.focus != FocusList {
+				t.Errorf("[iter %d] expected List focus after %q", i, tc.key)
 			}
 			m = layout
 		})
 	}
 }
 
-func TestLayout_RailHotkeyFromDeepFocus(t *testing.T) {
+func TestLayout_DestinationHotkeyFromDeepFocus(t *testing.T) {
 	g := testGame("Cyberpunk 2077")
 	m := testLayoutWithGame(g)
-	if m.rail.Active() != nav.DestinationLibrary {
-		t.Fatalf("precondition: expected Library, got %v", m.rail.Active())
+	if m.navState.Destination != nav.DestinationLibrary {
+		t.Fatalf("precondition: expected Library, got %v", m.navState.Destination)
 	}
-	if m.navState.Zone != nav.ZoneContent {
-		t.Fatalf("precondition: expected content zone after game confirm, got %v", m.navState.Zone)
+	if m.focus != FocusDetail {
+		t.Fatalf("precondition: expected Detail after game confirm, got %v", m.focus)
 	}
 
 	result, _ := sendKey(&m, "3")
 	layout := result.(LayoutModel)
-	if layout.rail.Active() != nav.DestinationLibrary {
-		t.Errorf("destination hotkeys must not fire outside Primary zone, got %v", layout.rail.Active())
+	if layout.navState.Destination != nav.DestinationMonitor {
+		t.Errorf("global destination hotkey did not select Monitor, got %v", layout.navState.Destination)
 	}
-	if layout.navState.Zone != nav.ZoneContent {
-		t.Error("expected content zone unchanged when hotkey blocked")
+	if layout.focus != FocusList {
+		t.Error("destination selection did not enter List")
 	}
 }
 
-func TestLayout_ContextAspectHotkeyInContextZone(t *testing.T) {
+func TestLayout_DestinationHotkeyFromList(t *testing.T) {
 	g := testGame("Cyberpunk 2077")
 	m := testLayoutWithGame(g)
-	m.navState.Zone = nav.ZoneContext
-	m.contextNav.SetState(*m.navState)
+	m.focus = FocusList
+	m.listPane.SetState(*m.navState)
 
 	result, _ := sendKey(&m, "2")
 	layout := result.(LayoutModel)
-	if layout.rail.Active() != nav.DestinationLibrary {
-		t.Errorf("expected Library destination, got %v", layout.rail.Active())
-	}
-	if layout.navState.Aspect != nav.AspectProfile {
-		t.Errorf("expected Profile aspect, got %v", layout.navState.Aspect)
+	if layout.navState.Destination != nav.DestinationDLLCatalog {
+		t.Errorf("expected DLL Catalog destination, got %v", layout.navState.Destination)
 	}
 }
 
@@ -353,33 +350,27 @@ func TestLayout_ResourceKeysStayScopedToActiveResource(t *testing.T) {
 
 	result, _ := sendKey(&m, "2")
 	m = result.(LayoutModel)
-	result, _ = sendKey(&m, "tab")
+	result, _ = sendKey(&m, "right")
 	m = result.(LayoutModel)
-	result, _ = sendKey(&m, "tab")
-	m = result.(LayoutModel)
-	railCursor := m.rail.Cursor()
+	listCursor := m.pane.dllsResource.gameRowCursor
 	result, _ = sendKey(&m, "j")
 	m = result.(LayoutModel)
-	if m.rail.Cursor() != railCursor {
-		t.Errorf("DLLs j should not move rail cursor: got %d want %d", m.rail.Cursor(), railCursor)
-	}
 	if got := m.pane.dllsResource.gameRowCursor; got != 1 {
-		t.Errorf("DLLs j should move deployment cursor to 1, got %d", got)
+		t.Errorf("DLL List j should move deployment cursor from %d to 1, got %d", listCursor, got)
+	}
+	result, _ = sendKey(&m, "tab")
+	m = result.(LayoutModel)
+	result, _ = sendKey(&m, "j")
+	m = result.(LayoutModel)
+	if m.pane.dllsResource.gameRowCursor != 1 {
+		t.Error("DLL Detail j moved hidden List cursor")
 	}
 
 	result, _ = sendKey(&m, "1")
 	m = result.(LayoutModel)
-	if m.navState.Zone != nav.ZonePrimary {
-		for i := 0; i < 3 && m.navState.Zone != nav.ZonePrimary; i++ {
-			result, _ = sendKey(&m, "esc")
-			m = result.(LayoutModel)
-		}
-		result, _ = sendKey(&m, "1")
-		m = result.(LayoutModel)
-	}
 	m.pane.loadGlobalScope()
 	*m.navState = m.pane.State()
-	m.navState.Zone = nav.ZoneContent
+	m.focus = FocusDetail
 	m.syncNavToComponents()
 	defaultCursor := m.pane.defaultsDetail.Cursor()
 	result, _ = sendKey(&m, "j")
@@ -396,8 +387,8 @@ func TestLayout_DLLUpdateAllMessageReachesDLLsWhenMetricsActive(t *testing.T) {
 	m := testLayout(testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.7.0")))
 	result, _ := sendKey(&m, "2")
 	m = result.(LayoutModel)
-	if m.rail.Active() != nav.DestinationDLLCatalog {
-		t.Fatalf("precondition: expected DLL Catalog active, got %v", m.rail.Active())
+	if m.navState.Destination != nav.DestinationDLLCatalog {
+		t.Fatalf("precondition: expected DLL Catalog active, got %v", m.navState.Destination)
 	}
 
 	updated, _ := m.Update(dllsUpdateAllCompleteMsg{
@@ -415,30 +406,32 @@ func TestLayout_DLLUpdateAllMessageReachesDLLsWhenMetricsActive(t *testing.T) {
 // Navigation — q / esc
 // ---------------------------------------------------------------------------
 
-func TestLayout_QFromContent_StepsBackToContext(t *testing.T) {
+func TestLayout_QFromContent_QuitsWithoutChangingFocus(t *testing.T) {
 	g := testGame("Cyberpunk 2077")
 	m := testLayoutWithGame(g)
-	if m.navState.Zone != nav.ZoneContent {
-		t.Fatalf("precondition: expected content zone, got %v", m.navState.Zone)
+	if m.focus != FocusDetail {
+		t.Fatalf("precondition: expected Detail, got %v", m.focus)
 	}
 
-	result, _ := sendKey(&m, "q")
+	result, command := sendKey(&m, "q")
 	layout := result.(LayoutModel)
-	if layout.navState.Zone != nav.ZoneContext {
-		t.Error("expected q from content to return to context zone")
+	if command == nil {
+		t.Fatal("q did not return the quit command")
+	}
+	if layout.focus != FocusDetail {
+		t.Error("q changed focus while quitting")
 	}
 }
 
-func TestLayout_EscFromContext_StepsBackToPrimary(t *testing.T) {
+func TestLayout_EscInBrowseDoesNotChangePaneFocus(t *testing.T) {
 	g := testGame("Cyberpunk 2077")
 	m := testLayoutWithGame(g)
-	m.navState.Zone = nav.ZoneContext
-	m.syncNavToComponents()
+	m.focus = FocusList
 
 	result, _ := sendKey(&m, "esc")
 	layout := result.(LayoutModel)
-	if layout.navState.Zone != nav.ZonePrimary {
-		t.Error("expected esc from context to return to primary zone")
+	if layout.focus != FocusList {
+		t.Error("Browse Escape changed pane focus")
 	}
 }
 
@@ -449,13 +442,13 @@ func TestLayout_EscFromContext_StepsBackToPrimary(t *testing.T) {
 func TestLayout_ModalInterceptsInput(t *testing.T) {
 	m := testLayout()
 	m.pane.content.pendingAction = PendingDLLUpdate
-	m.navState.Zone = nav.ZoneContent
+	m.focus = FocusDetail
 
-	focused := m.navState.Zone
+	focused := m.focus
 	result, _ := sendKey(&m, "tab")
 	layout := result.(LayoutModel)
-	if layout.navState.Zone != focused {
-		t.Error("expected pending DLL confirm to block tab zone change")
+	if layout.focus != focused {
+		t.Error("expected pending DLL confirm to block pane focus change")
 	}
 }
 
@@ -465,7 +458,7 @@ func TestLayout_ModalClosesOnCancel(t *testing.T) {
 	m.navState.Aspect = nav.AspectDLLs
 	m.pane.SetState(*m.navState)
 	m.pane.content.pendingAction = PendingDLLUpdate
-	m.navState.Zone = nav.ZoneContent
+	m.focus = FocusDetail
 
 	result, _ := sendKey(&m, "esc")
 	layout := result.(LayoutModel)
@@ -648,24 +641,24 @@ func TestLayout_SlashOpensSearchFromPrimary(t *testing.T) {
 	m := testLayout()
 	result, _ := sendKey(&m, "/")
 	layout := result.(LayoutModel)
-	if layout.navState.Zone != nav.ZoneContext {
-		t.Fatalf("expected context zone after /, got %v", layout.navState.Zone)
+	if layout.focus != FocusList || layout.inputMode != ModeSearch {
+		t.Fatalf("expected List Search after /, got focus=%v mode=%v", layout.focus, layout.inputMode)
 	}
-	if !layout.contextNav.sidebar.search.Focused() {
+	if !layout.listPane.sidebar.search.Focused() {
 		t.Error("expected sidebar search to be focused after /")
 	}
 }
 
-func TestLayout_AspectHotkeyFromContent(t *testing.T) {
+func TestLayout_DestinationHotkeyTakesPrecedenceFromContent(t *testing.T) {
 	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.7.0"))
 	m := testLayoutWithGame(g)
-	m.navState.Zone = nav.ZoneContent
+	m.focus = FocusDetail
 	m.navState.Aspect = nav.AspectProfile
 	m.syncNavToComponents()
 
 	result, _ := sendKey(&m, "3")
 	layout := result.(LayoutModel)
-	if layout.navState.Aspect != nav.AspectDLLs {
-		t.Fatalf("expected DLL aspect after 3 from content, got %v", layout.navState.Aspect)
+	if layout.navState.Destination != nav.DestinationMonitor {
+		t.Fatalf("expected Monitor after 3 from content, got %v", layout.navState.Destination)
 	}
 }

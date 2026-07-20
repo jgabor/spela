@@ -14,7 +14,9 @@ import (
 
 type OptionsModalModel struct {
 	styles        *Styles
-	config        *config.Config
+	config        *config.Config // last successfully persisted/live value
+	draft         *config.Config
+	saveConfig    func(*config.Config) error
 	sections      []config.Section
 	sectionCursor int
 	optionCursor  int
@@ -22,12 +24,14 @@ type OptionsModalModel struct {
 	saving        bool
 	editingPath   bool
 	pathInput     textinput.Model
+	editor        EditorHost
 	width         int
+	saveError     error
 }
 
 func (m *OptionsModalModel) SetSize(width, _ int) { m.width = width }
 
-type optionsSavedMsg struct{}
+type optionsSavedMsg struct{ config *config.Config }
 
 type optionsSaveErrorMsg struct {
 	err error
@@ -40,9 +44,16 @@ func NewOptionsModal(styles *Styles) OptionsModalModel {
 	ti.SetWidth(40)
 
 	return OptionsModalModel{
-		styles:    styles,
-		sections:  config.Sections(config.VisibilityTUI),
-		pathInput: ti,
+		styles:     styles,
+		sections:   config.Sections(config.VisibilityTUI),
+		pathInput:  ti,
+		saveConfig: func(configuration *config.Config) error { return configuration.Save() },
+	}
+}
+
+func (m *OptionsModalModel) SetSaveConfig(save func(*config.Config) error) {
+	if save != nil {
+		m.saveConfig = save
 	}
 }
 
@@ -59,9 +70,14 @@ func (m *OptionsModalModel) SyncNavSection(section nav.SettingsSection) {
 
 // OpenEmbedded activates settings as a full destination (not a modal overlay).
 func (m *OptionsModalModel) OpenEmbedded(cfg *config.Config) {
-	m.config = cfg
-	if !m.saving {
+	if cfg == nil {
+		cfg = config.Default()
+	}
+	if m.config == nil || (!m.modified && !m.saving) {
+		m.config = cfg.Clone()
+		m.draft = cfg.Clone()
 		m.modified = false
+		m.saveError = nil
 	}
 	m.editingPath = false
 }
@@ -112,6 +128,7 @@ func (m *OptionsModalModel) startPathEditing() {
 
 	m.pathInput.SetValue(currentValue)
 	m.pathInput.Focus()
+	m.editor.Begin(EditorSpec{Key: opt.Key, Kind: EditorPath}, currentValue)
 	m.editingPath = true
 }
 
@@ -122,7 +139,11 @@ func (m OptionsModalModel) updatePathEditing(msg tea.Msg) (OptionsModalModel, te
 		case "enter":
 			opt := m.getCurrentOption()
 			if opt != nil {
-				value := m.pathInput.Value()
+				m.editor.Set(m.pathInput.Value())
+				value, err := m.editor.Commit()
+				if err != nil {
+					return m, nil
+				}
 				if value == "" {
 					value = "(default)"
 				}
@@ -133,6 +154,7 @@ func (m OptionsModalModel) updatePathEditing(msg tea.Msg) (OptionsModalModel, te
 			m.pathInput.Blur()
 			return m, nil
 		case "esc":
+			m.editor.Cancel()
 			m.editingPath = false
 			m.pathInput.Blur()
 			return m, nil
@@ -141,6 +163,7 @@ func (m OptionsModalModel) updatePathEditing(msg tea.Msg) (OptionsModalModel, te
 
 	var cmd tea.Cmd
 	m.pathInput, cmd = m.pathInput.Update(msg)
+	m.editor.Set(m.pathInput.Value())
 	return m, cmd
 }
 
@@ -152,26 +175,104 @@ func (m *OptionsModalModel) moveCursor(direction int) {
 	m.optionCursor = (m.optionCursor + direction + len(section.Options)) % len(section.Options)
 }
 
+func (m *OptionsModalModel) UpdateList(key tea.KeyPressMsg) bool {
+	switch key.String() {
+	case "up", "k":
+		m.moveCursor(-1)
+		return true
+	case "down", "j":
+		m.moveCursor(1)
+		return true
+	}
+	return false
+}
+
+func (m OptionsModalModel) ListView(focused bool) string {
+	if m.sectionCursor < 0 || m.sectionCursor >= len(m.sections) {
+		return m.styles.Dim.Render("No settings")
+	}
+	section := m.sections[m.sectionCursor]
+	var builder strings.Builder
+	builder.WriteString(m.styles.Title.Render(section.Title))
+	builder.WriteString("\n")
+	builder.WriteString(m.styles.Dim.Render("←/→ group"))
+	builder.WriteString("\n\n")
+	for index, option := range section.Options {
+		style := m.styles.Dim
+		prefix := "  "
+		if index == m.optionCursor {
+			prefix = "> "
+			if focused {
+				style = m.styles.FocusStyle()
+			} else {
+				style = m.styles.Selected
+			}
+		}
+		builder.WriteString(style.Render(prefix + option.Label))
+		builder.WriteString("\n")
+	}
+	return builder.String()
+}
+
+func (m OptionsModalModel) DetailView() string {
+	option := m.getCurrentOption()
+	if option == nil {
+		return m.styles.Dim.Render("No setting selected")
+	}
+	var builder strings.Builder
+	builder.WriteString(m.styles.Title.Render(option.Label))
+	builder.WriteString("\n\n")
+	builder.WriteString(option.Description)
+	builder.WriteString("\n\n")
+	builder.WriteString(m.styles.Dim.Render("Saved value"))
+	builder.WriteString("\n")
+	value := m.getConfigValue(option.Key)
+	if m.editingPath {
+		value = m.pathInput.View()
+	}
+	builder.WriteString(m.styles.DLSS.Render(value))
+	builder.WriteString("\n\n")
+	if m.saving {
+		builder.WriteString(m.styles.Dim.Render("Saving…"))
+	} else if m.saveError != nil {
+		builder.WriteString(m.styles.Error.Render("Save failed: " + m.saveError.Error()))
+		builder.WriteString("\n")
+		builder.WriteString(m.styles.Selected.Render("Draft retained  s:retry  Esc:cancel"))
+	} else if m.modified {
+		builder.WriteString(m.styles.Selected.Render("Unsaved changes  s:save"))
+	} else {
+		builder.WriteString(m.styles.Dim.Render("Enter:edit  ←/→:change"))
+	}
+	return builder.String()
+}
+
 func (m *OptionsModalModel) cycleValue(direction int) {
 	opt := m.getCurrentOption()
 	if opt == nil || opt.Kind == config.KindPath || len(opt.Choices) == 0 {
 		return
 	}
-	currentIndex := max(slices.Index(opt.Choices, m.getConfigValue(opt.Key)), 0)
+	current := m.getConfigValue(opt.Key)
+	currentIndex := max(slices.Index(opt.Choices, current), 0)
 	newIndex := (currentIndex + direction + len(opt.Choices)) % len(opt.Choices)
-	m.setConfigValue(opt.Key, opt.Choices[newIndex])
+	m.editor.Begin(EditorSpec{Key: opt.Key, Kind: EditorChoice, Choices: append([]string(nil), opt.Choices...)}, current)
+	m.editor.Set(opt.Choices[newIndex])
+	value, err := m.editor.Commit()
+	if err != nil {
+		return
+	}
+	m.setConfigValue(opt.Key, value)
 	m.modified = true
 }
 
 func (m OptionsModalModel) getConfigValue(key string) string {
-	if m.config == nil {
+	if m.draft == nil {
 		return ""
 	}
 	option := config.OptionByKey(key)
 	if option == nil || !option.Visibility.Includes(config.VisibilityTUI) {
 		return ""
 	}
-	value := option.Get(m.config)
+	value := option.Get(m.draft)
 	if value == "" && option.Kind == config.KindPath {
 		return "(default)"
 	}
@@ -182,7 +283,7 @@ func (m OptionsModalModel) getConfigValue(key string) string {
 }
 
 func (m *OptionsModalModel) setConfigValue(key, value string) {
-	if m.config == nil {
+	if m.draft == nil {
 		return
 	}
 	option := config.OptionByKey(key)
@@ -192,23 +293,63 @@ func (m *OptionsModalModel) setConfigValue(key, value string) {
 	if value == "(default)" && option.Kind == config.KindPath {
 		value = ""
 	}
-	if option.Set(m.config, value) != nil {
+	if option.Set(m.draft, value) != nil {
 		return
 	}
-	if key == "show_hints" {
-		m.styles.SetShowHints(m.config.ShowHints)
-	}
+	m.modified = m.config == nil || !configsEqual(m.config, m.draft)
+	m.saveError = nil
 }
 
 func (m OptionsModalModel) save() (OptionsModalModel, tea.Cmd) {
-	cfg := m.config.Clone()
+	if m.draft == nil || !m.modified {
+		return m, nil
+	}
+	cfg := m.draft.Clone()
+	saveConfig := m.saveConfig
 	m.saving = true
+	m.saveError = nil
 	return m, func() tea.Msg {
-		if err := cfg.Save(); err != nil {
+		if err := saveConfig(cfg); err != nil {
 			return optionsSaveErrorMsg{err: err}
 		}
-		return optionsSavedMsg{}
+		return optionsSavedMsg{config: cfg}
 	}
+}
+
+func (m *OptionsModalModel) CancelDraft() {
+	if m.config != nil {
+		m.draft = m.config.Clone()
+	}
+	m.modified = false
+	m.editingPath = false
+	m.pathInput.Blur()
+	m.saveError = nil
+}
+
+func (m *OptionsModalModel) CompleteSave(configuration *config.Config) {
+	if configuration == nil {
+		return
+	}
+	m.config = configuration.Clone()
+	m.draft = configuration.Clone()
+	m.modified = false
+	m.saving = false
+	m.saveError = nil
+}
+
+func configsEqual(left, right *config.Config) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	for _, option := range config.Options() {
+		if !option.Visibility.Includes(config.VisibilityTUI) {
+			continue
+		}
+		if option.Get(left) != option.Get(right) {
+			return false
+		}
+	}
+	return true
 }
 
 func (m *OptionsModalModel) renderOptionsBody() string {

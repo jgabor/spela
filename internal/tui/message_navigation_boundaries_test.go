@@ -41,27 +41,27 @@ func TestMessageBarSupportedTypesFlashAndStaleTimerContracts(t *testing.T) {
 	}
 }
 
-func TestContextNavigationUnsupportedAndGlobalBoundaryContracts(t *testing.T) {
+func TestListPaneUnsupportedAndGlobalBoundaryContracts(t *testing.T) {
 	styles := NewStyles(DefaultTheme, true)
-	context := NewContextNav(styles, testSidebar(), nil)
-	context.SetSize(30, 10)
-	if _, _, handled := context.Update(keyMsg("1")); handled {
-		t.Fatal("nil-state context handled library input")
+	list := NewListPane(styles, testSidebar(), nil)
+	list.SetSize(30, 10)
+	if _, _, handled := list.Update(keyMsg("1")); handled {
+		t.Fatal("nil-state List handled unsupported input")
 	}
-	context.applySectionCursor()
-	context.syncCursorFromState()
-	if context.cursor != 0 {
-		t.Fatalf("nil-state cursor = %d", context.cursor)
+	list.applySectionCursor()
+	list.syncCursorFromState()
+	if list.cursor != 0 {
+		t.Fatalf("nil-state cursor = %d", list.cursor)
 	}
 	state := nav.DefaultState()
-	context.navState = &state
+	list.navState = &state
 	for _, key := range []string{"1", "3", "unknown"} {
-		if _, _, handled := context.Update(keyMsg(key)); handled {
+		if _, _, handled := list.Update(keyMsg(key)); handled {
 			t.Errorf("global key %q was unexpectedly handled", key)
 		}
 	}
 	state.Destination = nav.Destination(99)
-	if _, _, handled := context.Update(keyMsg("down")); handled {
+	if _, _, handled := list.Update(keyMsg("down")); handled {
 		t.Fatal("unknown destination handled input")
 	}
 }

@@ -462,10 +462,7 @@ func TestResourcePane_RootMutationPersistsAndRetainsSelection(t *testing.T) {
 	services := testServices()
 	services.LoadDefaultProfile = profile.LoadDefault
 	styles := NewStyles(DefaultTheme, true)
-	state := nav.DefaultState().
-		SelectAspect(nav.AspectProfile).
-		SelectProfileSubsystem(nav.SubsystemDLSS)
-	state.Zone = nav.ZoneContent
+	state := nav.DefaultState().SelectAspect(nav.AspectProfile)
 	pane := newResourcePane(styles, NewContent(styles, true, services))
 	pane.BindNavState(&state)
 	pane.setServices(services)
@@ -474,7 +471,10 @@ func TestResourcePane_RootMutationPersistsAndRetainsSelection(t *testing.T) {
 	wantField := pane.defaultsDetail.FocusedField()
 	wantCursor := pane.defaultsDetail.Cursor()
 
-	mutated, saveCommand := pane.Update(keyMsg("right"))
+	mutated, _ := pane.Update(keyMsg("enter"))
+	mutated, _ = mutated.Update(keyMsg("right"))
+	mutated, _ = mutated.Update(keyMsg("enter"))
+	mutated, saveCommand := mutated.Update(keyMsg("s"))
 	if saveCommand == nil {
 		t.Fatal("root mutation returned no save command")
 	}
@@ -503,9 +503,6 @@ func TestResourcePane_RootMutationPersistsAndRetainsSelection(t *testing.T) {
 	if got := updated.pane.defaultsDetail.Cursor(); got != wantCursor {
 		t.Fatalf("cursor after save = %d, want %d", got, wantCursor)
 	}
-	if got := updated.pane.defaultsDetail.activeSubsystem; got != nav.SubsystemDLSS.Key() {
-		t.Fatalf("active subsystem after save = %q, want %q", got, nav.SubsystemDLSS.Key())
-	}
 }
 
 // TestResourcePane_GamesSidebarPlusDetail verifies the Games resource
@@ -531,13 +528,13 @@ func TestLayoutHandlers_TabIntoLibraryProfile(t *testing.T) {
 	m := testLayout()
 	result, _ := sendKey(&m, "tab")
 	m = result.(LayoutModel)
-	if m.navState.Zone != nav.ZoneContext {
-		t.Fatalf("after tab: expected context zone, got %v", m.navState.Zone)
+	if m.focus != FocusDetail {
+		t.Fatalf("after tab: expected Detail focus, got %v", m.focus)
 	}
 	result, _ = sendKey(&m, "tab")
 	m = result.(LayoutModel)
-	if m.navState.Zone != nav.ZoneContent {
-		t.Errorf("after second tab: expected content zone, got %v", m.navState.Zone)
+	if m.focus != FocusList {
+		t.Errorf("after second tab: expected List focus, got %v", m.focus)
 	}
 }
 
@@ -739,48 +736,6 @@ func TestDetail_ResetAll_NoOverrides_Fail(t *testing.T) {
 	}
 }
 
-// TestDetail_PinFocused_Inherited_Pass — pressing p on an inherited field
-// copies the currently-resolved value and marks the override.
-func TestDetail_PinFocused_Inherited_Pass(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
-	defaults := &profile.Profile{GPU: profile.GPUSettings{PowerLimit: 350}}
-	raw := &profile.Profile{Name: "Cyberpunk 2077"}
-	d := NewDetail(styles, raw, defaults)
-
-	focusField(t, &d, profile.FieldGPUPowerLimit)
-	changed, err := d.PinFocused()
-	if err != nil {
-		t.Fatalf("PinFocused: %v", err)
-	}
-	if !changed {
-		t.Fatal("PinFocused on inherited field: expected changed=true")
-	}
-	if !raw.IsOverridden(profile.FieldGPUPowerLimit) {
-		t.Error("PinFocused: expected override flag set")
-	}
-	if raw.GPU.PowerLimit != 350 {
-		t.Errorf("PinFocused: expected resolved value 350 copied, got %d", raw.GPU.PowerLimit)
-	}
-}
-
-// TestDetail_PinFocused_AlreadyOverridden_Fail (fail pair) — pressing p on
-// a field that is already overridden is a no-op (idempotent).
-func TestDetail_PinFocused_AlreadyOverridden_Fail(t *testing.T) {
-	d, raw, _ := newGameDetailForTask5(t)
-	focusField(t, &d, profile.FieldGPUPowerLimit)
-
-	changed, err := d.PinFocused()
-	if err != nil {
-		t.Fatalf("PinFocused: %v", err)
-	}
-	if changed {
-		t.Error("PinFocused on already-overridden field: expected changed=false")
-	}
-	if raw.GPU.PowerLimit != 400 {
-		t.Errorf("PinFocused on overridden: expected value preserved (400), got %d", raw.GPU.PowerLimit)
-	}
-}
-
 // TestDetail_RootResetFocused_ClearsValue — reset on the root defaults view
 // clears a non-default field back to "(default)".
 func TestDetail_RootResetFocused_ClearsValue(t *testing.T) {
@@ -843,19 +798,6 @@ func TestDetail_RootCycleBoolField_ThreeStates(t *testing.T) {
 	}
 	if got := formatRootBoolField(root, profile.FieldProtonVKD3DHeap); got != "(default)" {
 		t.Errorf("expected display (default), got %q", got)
-	}
-}
-
-// TestDetail_RootPinFocused_NoOp — pin is a game-profile binding; root fields
-// are edited directly and PinFocused remains a no-op there.
-func TestDetail_RootPinFocused_NoOp(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
-	root := &profile.Profile{GPU: profile.GPUSettings{PowerLimit: 350}}
-	d := NewRootDetail(styles, root)
-	focusField(t, &d, profile.FieldGPUPowerLimit)
-
-	if changed, _ := d.PinFocused(); changed {
-		t.Error("root PinFocused must be no-op")
 	}
 }
 

@@ -82,15 +82,12 @@ func TestSidebarSupportedConfirmationAndNilItemContracts(t *testing.T) {
 func TestDetailSupportedNilAndFocusBoundaryContracts(t *testing.T) {
 	styles := NewStyles(DefaultTheme, true)
 	detail := NewDetail(styles, nil, nil)
-	detail.SetActiveSubsystem("missing")
+	detail.rows, detail.focusableRows = nil, nil
 	if detail.FocusedField() != "" || detail.CycleFocusedField(1) {
 		t.Fatal("empty subsystem exposed a focusable field")
 	}
 	if changed, err := detail.ResetFocused(); err != nil || changed {
 		t.Fatalf("empty reset = %v, %v", changed, err)
-	}
-	if changed, err := detail.PinFocused(); err != nil || changed {
-		t.Fatalf("empty pin = %v, %v", changed, err)
 	}
 	detail.raw = nil
 	detail.rebuildResolved()

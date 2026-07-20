@@ -46,7 +46,7 @@ func TestRenderContextBar_Truncation(t *testing.T) {
 		{Key: "↑↓", Action: "navigate", Enabled: true},
 		{Key: "/", Action: "search", Enabled: true},
 		{Key: "d", Action: "DLLs", Enabled: true},
-		{Key: "P", Action: "profile", Enabled: true},
+		{Key: "p", Action: "profile", Enabled: true},
 		{Key: "s", Action: "sort", Enabled: true},
 		{Key: "ctrl+r", Action: "rescan", Enabled: true},
 		{Key: "enter", Action: "select", Enabled: true},
@@ -82,16 +82,21 @@ func TestRenderContextBar_EnabledVsDisabledStyling(t *testing.T) {
 
 func TestRenderContextBar_GlobalKeysOnly(t *testing.T) {
 	result := RenderContextBar(globalKeys, 200, &DefaultTheme)
-	if result == "" || !strings.Contains(result, "help") || !strings.Contains(result, "quit") {
+	if result == "" || !strings.Contains(result, "shortcuts") || !strings.Contains(result, "quit") {
 		t.Errorf("global-only bar = %q", result)
 	}
 }
 
-func TestHelp_DocumentsDisplacedBindings(t *testing.T) {
+func TestHelp_UsesCanonicalShellWithoutLegacyNavigation(t *testing.T) {
 	out := strings.ToLower(NewHelp(NewStyles(DefaultTheme, true)).View())
-	for _, want := range []string{"displaced", "ctrl+r", "rescan", "pin"} {
+	for _, want := range []string{"library", "dll catalog", "next pane", "keyboard shortcuts"} {
 		if !strings.Contains(out, want) {
-			t.Errorf("help view missing %q — keymap displacement must be documented:\n%s", want, out)
+			t.Errorf("canonical help missing %q:\n%s", want, out)
+		}
+	}
+	for _, forbidden := range []string{"rail", "primary", "context", "three-zone", "deferred"} {
+		if strings.Contains(out, forbidden) {
+			t.Errorf("help retains legacy term %q:\n%s", forbidden, out)
 		}
 	}
 }

@@ -37,8 +37,8 @@ func TestLayoutApplicationMessagesMaintainCrossComponentState(t *testing.T) {
 
 	configuration := updated.config
 	updated.pane.settings.saving, updated.pane.settings.modified = true, true
-	updated, commands = updated.handleAppMessages(optionsSavedMsg{}, nil)
-	if updated.config != configuration || updated.pane.settings.config != configuration || updated.pane.settings.saving || updated.pane.settings.modified || len(commands) == 0 {
+	updated, commands = updated.handleAppMessages(optionsSavedMsg{config: configuration.Clone()}, nil)
+	if !configsEqual(updated.config, configuration) || !configsEqual(updated.pane.settings.config, configuration) || updated.pane.settings.saving || updated.pane.settings.modified || len(commands) == 0 {
 		t.Fatal("options save did not preserve config ownership, reset state, and announce success")
 	}
 	updated.pane.settings.saving, updated.pane.settings.modified = true, true
@@ -98,12 +98,12 @@ func TestLayoutApplicationMessagesMaintainCrossComponentState(t *testing.T) {
 		t.Fatal("default profile selection did not restore global context scope")
 	}
 	updated, _ = updated.handleAppMessages(defaultProfileConfirmedMsg{}, nil)
-	if updated.navState.Zone != nav.ZoneContent {
-		t.Fatal("default profile confirmation did not focus content")
+	if updated.focus != FocusDetail {
+		t.Fatal("default profile confirmation did not focus Detail")
 	}
 	updated, commands = updated.handleAppMessages(gameSelectedMsg{game: entry}, nil)
 	updated, _ = updated.handleAppMessages(gameConfirmedMsg{game: entry}, commands)
-	if updated.navState.Zone != nav.ZoneContent || updated.pane.content.game != entry {
+	if updated.focus != FocusDetail || updated.pane.content.game != entry {
 		t.Fatal("game messages did not synchronize selected content")
 	}
 	updated.pane.content.dllInstallState = DLLInstallSelectType

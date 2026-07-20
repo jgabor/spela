@@ -41,16 +41,171 @@ func (m LayoutModel) handleHelpKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, 
 }
 
 func (m LayoutModel) handleGlobalKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, bool) {
+	context := m.bindingContext()
+	resolution := CanonicalKeymap.Lookup(context, msg.String())
+	if resolution.Supported && resolution.Available {
+		switch resolution.Binding.Action {
+		case ActionSearchInput, ActionSearchDelete:
+			var command tea.Cmd
+			m.listPane, command, _ = m.listPane.Update(msg)
+			m.pane.SetState(*m.navState)
+			return m, command, true
+		case ActionEditInput, ActionEditDelete, ActionEditCommit, ActionEditCancel:
+			var command tea.Cmd
+			m.pane, command = m.pane.Update(msg)
+			return m, command, true
+		}
+	}
+	if context.Mode == ModeSearch && (!resolution.Supported || !resolution.Available) {
+		var command tea.Cmd
+		m.listPane, command, _ = m.listPane.Update(msg)
+		m.pane.SetState(*m.navState)
+		return m, command, true
+	}
+	if context.Mode == ModeEdit && (!resolution.Supported || !resolution.Available) {
+		var command tea.Cmd
+		m.pane, command = m.pane.Update(msg)
+		return m, command, true
+	}
+	if resolution.Supported && resolution.Available {
+		switch resolution.Binding.Action {
+		case ActionQuit:
+			return m, tea.Quit, true
+		case ActionShowHelp:
+			m.help = NewHelpForContext(m.styles, m.bindingContext())
+			m.showHelp = true
+			return m, nil, true
+		case ActionFocusNext:
+			return m.handleTabKey(false), nil, true
+		case ActionFocusPrevious:
+			return m.handleTabKey(true), nil, true
+		case ActionToggleCompact:
+			if m.densityMode == DensityCompact {
+				m.densityMode = DensityStandard
+			} else {
+				m.densityMode = DensityCompact
+			}
+			m.calculateDimensions()
+			return m, nil, true
+		case ActionToggleFocused:
+			if m.densityMode == DensityFocused {
+				m.densityMode = DensityStandard
+			} else {
+				m.densityMode = DensityFocused
+			}
+			m.calculateDimensions()
+			return m, nil, true
+		case ActionRescanLibrary:
+			messageCommand := m.messageBar.SetMessage("Rescanning games...", MessageInfo)
+			return m, tea.Batch(messageCommand, m.rescanGames()), true
+		case ActionStartSearch:
+			if m.navState.Destination == nav.DestinationLibrary {
+				m.focus = FocusList
+				m.inputMode = ModeSearch
+				sidebar, command := m.listPane.sidebar.FocusSearch()
+				m.listPane.sidebar = sidebar
+				return m, command, true
+			}
+		case ActionSearchCancel:
+			m.listPane.sidebar.search.SetValue("")
+			m.listPane.sidebar.search.Blur()
+			m.listPane.sidebar.applyFiltersAndSort()
+			m.inputMode = ModeBrowse
+			return m, m.listPane.sidebar.selectCurrentItem(), true
+		case ActionSearchAccept:
+			m.listPane.sidebar.search.Blur()
+			m.inputMode = ModeBrowse
+			return m, nil, true
+		case ActionDetailPrevious:
+			return m.selectAdjacentLibraryAspect(-1), nil, true
+		case ActionDetailNext:
+			return m.selectAdjacentLibraryAspect(1), nil, true
+		case ActionEditCancel, ActionCancelDraft:
+			if m.navState.Destination == nav.DestinationSettings {
+				m.pane.settings.CancelDraft()
+				m.inputMode = ModeBrowse
+				return m, nil, true
+			}
+		case ActionEditSave:
+			if m.navState.Destination == nav.DestinationSettings {
+				m.inputMode = ModeBrowse
+				var command tea.Cmd
+				m.pane.settings, command = m.pane.settings.save()
+				return m, command, true
+			}
+		case ActionDestinationLibrary, ActionDestinationDLLs, ActionDestinationMonitor, ActionDestinationSettings:
+			if m.pane.HasModalOpen() {
+				return m, nil, false
+			}
+			destination := map[KeyAction]nav.Destination{
+				ActionDestinationLibrary:  nav.DestinationLibrary,
+				ActionDestinationDLLs:     nav.DestinationDLLCatalog,
+				ActionDestinationMonitor:  nav.DestinationMonitor,
+				ActionDestinationSettings: nav.DestinationSettings,
+			}[resolution.Binding.Action]
+			m.selectDestination(destination)
+			return m, nil, true
+		}
+		if resolution.Binding.Scope == ScopeList {
+			var command tea.Cmd
+			var handled bool
+			m, command, handled = m.updateVisibleList(msg)
+			m.pane.SetState(*m.navState)
+			return m, command, handled
+		}
+		if resolution.Binding.Scope == ScopeDetail {
+			var command tea.Cmd
+			m.pane, command = m.pane.Update(msg)
+			return m, command, true
+		}
+	}
+	if context.Mode == ModeBrowse {
+		return m, nil, true
+	}
 	if next, cmd, handled := m.handleSystemKey(msg); handled {
 		return next, cmd, true
 	}
-	if next, cmd, handled := m.handleRailHotkey(msg); handled {
-		return next, cmd, true
-	}
-	if next, cmd, handled := m.handleAspectHotkey(msg); handled {
-		return next, cmd, true
-	}
 	return m.handleFocusAndResourceKey(msg)
+}
+
+func (m LayoutModel) selectAdjacentLibraryAspect(delta int) LayoutModel {
+	if m.navState.Destination != nav.DestinationLibrary || m.navState.Scope.Kind != nav.ScopeGame {
+		return m
+	}
+	aspects := []nav.Aspect{nav.AspectOverview, nav.AspectProfile, nav.AspectDLLs}
+	index := 0
+	for candidate, aspect := range aspects {
+		if aspect == m.navState.Aspect {
+			index = candidate
+			break
+		}
+	}
+	index = (index + delta + len(aspects)) % len(aspects)
+	*m.navState = m.navState.SelectAspect(aspects[index])
+	m.pane.SetState(*m.navState)
+	return m
+}
+
+func (m LayoutModel) bindingContext() BindingContext {
+	context := BindingContext{
+		Mode: m.inputMode, Focus: m.focus, Destination: m.navState.Destination, GameScope: m.navState.Scope.Kind == nav.ScopeGame, Aspect: m.navState.Aspect,
+	}
+	if m.pane.Editing() {
+		context.Mode = ModeEdit
+		return context
+	}
+	if m.showHelp || m.showBatchMenu || m.pane.content.HasModalOpen() {
+		context.Mode = ModeOverlay
+		return context
+	}
+	if m.navState.Destination == nav.DestinationSettings && m.pane.settings.editingPath {
+		context.Mode = ModeEdit
+		return context
+	}
+	if m.navState.Destination == nav.DestinationLibrary && m.listPane.sidebar.search.Focused() {
+		context.Mode = ModeSearch
+	}
+	return context
 }
 
 func (m LayoutModel) handleSystemKey(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, bool) {
@@ -83,117 +238,50 @@ func (m LayoutModel) handleSystemKey(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd,
 	return m, nil, false
 }
 
-func (m LayoutModel) handleRailHotkey(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, bool) {
-	if m.navState.Zone != nav.ZonePrimary {
-		return m, nil, false
-	}
-	switch msg.String() {
-	case "1", "2", "3", "4":
-		if m.pane.HasModalOpen() {
-			return m, nil, false
-		}
-		rail := m.rail
-		if rail.SelectHotkey(msg.String()) {
-			m.rail = rail
-			m.syncNavFromRail()
-			m.navState.Zone = nav.ZonePrimary
-			return m, nil, true
-		}
-	}
-	return m, nil, false
-}
-
-func (m LayoutModel) handleAspectHotkey(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, bool) {
-	if m.navState.Zone != nav.ZoneContent {
-		return m, nil, false
-	}
-	if m.navState.Destination != nav.DestinationLibrary || m.navState.Scope.Kind != nav.ScopeGame {
-		return m, nil, false
-	}
-	if m.pane.HasModalOpen() {
-		return m, nil, false
-	}
-	switch msg.String() {
-	case "1":
-		if m.navState.Scope.Kind == nav.ScopeGlobal {
-			return m, nil, false
-		}
-		*m.navState = m.navState.SelectAspect(nav.AspectOverview)
-		m.syncNavToComponents()
-		return m, nil, true
-	case "2":
-		*m.navState = m.navState.SelectAspect(nav.AspectProfile)
-		m.syncNavToComponents()
-		return m, nil, true
-	case "3":
-		*m.navState = m.navState.SelectAspect(nav.AspectDLLs)
-		m.syncNavToComponents()
-		return m, nil, true
-	}
-	return m, nil, false
-}
-
 func (m LayoutModel) handleFocusAndResourceKey(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, bool) {
 	switch msg.String() {
 	case "ctrl+f", "/":
 		if m.navState.Destination == nav.DestinationLibrary {
-			m.navState.Zone = nav.ZoneContext
-			sidebar, cmd := m.contextNav.sidebar.FocusSearch()
-			m.contextNav.sidebar = sidebar
+			m.focus = FocusList
+			m.inputMode = ModeSearch
+			sidebar, cmd := m.listPane.sidebar.FocusSearch()
+			m.listPane.sidebar = sidebar
 			return m, cmd, true
 		}
 	case "ctrl+r":
 		messageCmd := m.messageBar.SetMessage("Rescanning games...", MessageInfo)
 		return m, tea.Batch(messageCmd, m.rescanGames()), true
-	case "q":
-		return m.handleBackOrQuitKey()
 	case "esc":
 		if m.pane.HasModalOpen() {
 			pane, cmd := m.pane.Update(msg)
 			m.pane = pane
 			return m, cmd, true
 		}
-		return m.handleBackKey()
-	case "tab":
-		return m.handleTabKey(), nil, true
-	}
-	return m, nil, false
-}
-
-func (m LayoutModel) handleBackOrQuitKey() (LayoutModel, tea.Cmd, bool) {
-	if m.navState.Zone == nav.ZonePrimary {
-		return m, tea.Quit, true
-	}
-	return m.handleBackKey()
-}
-
-func (m LayoutModel) handleBackKey() (LayoutModel, tea.Cmd, bool) {
-	if m.pane.HasModalOpen() {
+		if m.inputMode == ModeSearch {
+			m.listPane.sidebar.search.SetValue("")
+			m.listPane.sidebar.search.Blur()
+			m.listPane.sidebar.applyFiltersAndSort()
+			m.inputMode = ModeBrowse
+			return m, nil, true
+		}
 		return m, nil, false
-	}
-	if m.navState.Zone == nav.ZoneContent {
-		*m.navState = m.navState.PrevZone()
-		m.contextNav.SetState(*m.navState)
-		m.pane.SetState(*m.navState)
-		return m, nil, true
-	}
-	if m.navState.Zone == nav.ZoneContext {
-		*m.navState = m.navState.PrevZone()
-		m.contextNav.SetState(*m.navState)
-		return m, nil, true
+	case "tab":
+		return m.handleTabKey(false), nil, true
+	case "shift+tab":
+		return m.handleTabKey(true), nil, true
 	}
 	return m, nil, false
 }
 
-func (m LayoutModel) handleTabKey() LayoutModel {
+func (m LayoutModel) handleTabKey(_ bool) LayoutModel {
 	if m.pane.HasModalOpen() {
 		return m
 	}
-	*m.navState = m.navState.NextZone()
-	if m.navState.Zone == nav.ZoneContext {
-		m.contextNav.SetState(*m.navState)
+	if m.focus == FocusList {
+		m.focus = FocusDetail
+	} else {
+		m.focus = FocusList
 	}
-	m.pane.SetState(*m.navState)
 	return m
 }
 
@@ -207,7 +295,7 @@ func (m LayoutModel) handleAppMessages(msg tea.Msg, cmds []tea.Cmd) (LayoutModel
 
 	case gameConfirmedMsg:
 		m.pane.loadGameScope(msg.game)
-		m.navState.Zone = nav.ZoneContent
+		m.focus = FocusDetail
 		m.syncNavToComponents()
 		cmds = append(cmds, m.pane.content.LoadDLLUpdates())
 
@@ -217,7 +305,7 @@ func (m LayoutModel) handleAppMessages(msg tea.Msg, cmds []tea.Cmd) (LayoutModel
 
 	case defaultProfileConfirmedMsg:
 		m.pane.loadGlobalScope()
-		m.navState.Zone = nav.ZoneContent
+		m.focus = FocusDetail
 		m.syncNavToComponents()
 
 	case batchActionRequestMsg:
@@ -233,7 +321,7 @@ func (m LayoutModel) handleAppMessages(msg tea.Msg, cmds []tea.Cmd) (LayoutModel
 		if m.db != nil {
 			games := m.db.List()
 			m.pane.dllsResource = m.pane.dllsResource.SetGames(games)
-			m.contextNav.sidebar = m.contextNav.sidebar.SetGames(games)
+			m.listPane.sidebar = m.listPane.sidebar.SetGames(games)
 		}
 		m.batchMessage = msg.message
 		messageType := MessageSuccess
@@ -301,12 +389,19 @@ func (m LayoutModel) handleAppMessages(msg tea.Msg, cmds []tea.Cmd) (LayoutModel
 		m, cmds = m.handleProfileSaveMsg(msg, cmds)
 
 	case optionsSavedMsg:
-		m.pane.settings.saving = false
-		m.pane.settings.modified = false
+		if msg.config == nil {
+			break
+		}
+		m.pane.settings.CompleteSave(msg.config)
+		m.config = msg.config.Clone()
+		if m.styles != nil {
+			m.styles.SetShowHints(m.config.ShowHints)
+		}
 		cmds = append(cmds, m.messageBar.SetMessage("Settings saved!", MessageSuccess))
 
 	case optionsSaveErrorMsg:
 		m.pane.settings.saving = false
+		m.pane.settings.saveError = msg.err
 		cmds = append(cmds, m.messageBar.SetMessage(fmt.Sprintf("Failed to save settings: %v", msg.err), MessageError))
 
 	}
@@ -383,7 +478,7 @@ func (m LayoutModel) handleRescanGamesMsg(msg rescanGamesMsg, cmds []tea.Cmd) (L
 	m.pane.content.database = msg.db
 	m.pane.dllsResource.database = msg.db
 	games := msg.db.List()
-	m.contextNav.sidebar = m.contextNav.sidebar.SetGames(games)
+	m.listPane.sidebar = m.listPane.sidebar.SetGames(games)
 	manifest, _ := dll.LoadManifest()
 	m.pane.SetDLLsData(games, manifest)
 	cmds = append(cmds, m.messageBar.SetMessage(

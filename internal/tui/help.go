@@ -4,8 +4,6 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
-
-	"github.com/jgabor/spela/internal/nav"
 )
 
 type HelpSection struct {
@@ -24,123 +22,33 @@ type HelpModel struct {
 }
 
 func NewHelp(styles *Styles) HelpModel {
+	return NewHelpForContext(styles, BindingContext{Mode: ModeBrowse, Focus: FocusList})
+}
+
+func NewHelpForContext(styles *Styles, context BindingContext) HelpModel {
 	return HelpModel{
-		styles: styles,
-		sections: []HelpSection{
-			{
-				Title: "Navigation zones",
-				Bindings: []HelpBinding{
-					{"Tab", "Advance focus: Primary → Context → Content"},
-					{"Esc", "Move focus back one zone (Content → Context → Primary)"},
-					{"1-4", "Jump primary destination (Primary zone only)"},
-					{"q", "Quit from Primary zone; back from other zones"},
-				},
-			},
-			{
-				Title: "Primary (Navigate)",
-				Bindings: []HelpBinding{
-					{"1", "Library"},
-					{"2", "DLL Catalog"},
-					{"3", "Monitor"},
-					{"4", "Settings"},
-					{"↑/k", "Move rail cursor up"},
-					{"↓/j", "Move rail cursor down"},
-					{"Enter", "Activate rail selection"},
-				},
-			},
-			{
-				Title: "Profile detail (Games + Defaults)",
-				Bindings: []HelpBinding{
-					{"↓/j", "Next field (crosses group boundaries)"},
-					{"↑/k", "Previous field (crosses group boundaries)"},
-					{"Tab", "Enter pane from rail / leave to rail"},
-					{"Esc/q", "Return to rail from detail"},
-				},
-			},
-			{
-				Title: "DLLs resource",
-				Bindings: []HelpBinding{
-					{"j/↓", "Focus next game row in the deployment table"},
-					{"k/↑", "Focus previous game row"},
-					{"U", "Update every stale cell to the latest cached version"},
-					{"ctrl+u", "Alias for U (update-all)"},
-				},
-			},
-			{
-				Title: "Metrics resource",
-				Bindings: []HelpBinding{
-					{"Tab", "Enter pane from rail (read-only; no other bindings)"},
-				},
-			},
-			{
-				Title: "Games profile editing",
-				Bindings: []HelpBinding{
-					{"r", "Reset focused field to inherited (no-op if already inherited)"},
-					{"Shift+R", "Reset every field on this game's profile to inherited"},
-					{"p", "Pin the currently-resolved value on an inherited field as an override (idempotent)"},
-					{":", "Command palette (deferred)"},
-				},
-			},
-			{
-				Title: "Games list",
-				Bindings: []HelpBinding{
-					{"/, Ctrl+F", "Search games"},
-					{"d", "Toggle DLLs filter"},
-					{"P", "Toggle profile filter (shift+p)"},
-					{"s", "Cycle sort mode"},
-					{"C", "Clear all filters"},
-					{"Ctrl+R", "Rescan games"},
-				},
-			},
-			{
-				Title: "Game detail",
-				Bindings: []HelpBinding{
-					{"↑/k", "Previous setting"},
-					{"↓/j", "Next setting"},
-					{"←/h", "Decrease value"},
-					{"→/l", "Increase value"},
-					{"s", "Save profile"},
-					{"i", "Install DLL"},
-					{"u", "Update DLLs"},
-					{"Ctrl+Shift+R", "Restore DLLs (displaced from R by Task 5)"},
-				},
-			},
-			{
-				Title: "Batch operations",
-				Bindings: []HelpBinding{
-					{"Space", "Enter multi-select / toggle selection"},
-					{"a", "Select all visible"},
-					{"A", "Deselect all"},
-					{"Esc", "Exit multi-select"},
-					{"Enter", "Execute batch action"},
-				},
-			},
-			{
-				Title: "Indicators",
-				Bindings: []HelpBinding{
-					{"●", "Game has DLLs"},
-					{"◆", "Game has profile / active resource"},
-				},
-			},
-			{
-				Title: "Displaced bindings (Task 3 + Task 5 keymap audits)",
-				Bindings: []HelpBinding{
-					{"r → Ctrl+R", "Rescan games moved so `r` can reset a profile field"},
-					{"p → P", "Profile filter moved so `p` can pin a field"},
-					{"R → Ctrl+Shift+R", "Restore DLLs moved so Shift+R can reset a whole profile"},
-				},
-			},
-			{
-				Title: "General",
-				Bindings: []HelpBinding{
-					{"?", "Toggle help"},
-					{"o", "Options"},
-					{"q", "Quit / step back"},
-					{"Ctrl+C", "Force quit"},
-				},
-			},
-		},
+		styles:   styles,
+		sections: []HelpSection{canonicalHelpSection(context)},
 	}
+}
+
+func canonicalHelpSection(context BindingContext) HelpSection {
+	section := HelpSection{Title: "Shell"}
+	for _, resolution := range CanonicalKeymap.HelpBindings(context) {
+		binding := resolution.Binding
+		labels := make([]string, 0, len(binding.Keys))
+		for _, candidate := range binding.Keys {
+			labels = append(labels, candidate.Label)
+		}
+		description := binding.Description
+		if !resolution.Available && resolution.Reason != "" {
+			description += " (" + resolution.Reason + ")"
+		}
+		section.Bindings = append(section.Bindings, HelpBinding{
+			Key: strings.Join(labels, "/"), Description: description,
+		})
+	}
+	return section
 }
 
 func (m HelpModel) View() string {
@@ -195,11 +103,27 @@ type ContextKey struct {
 	Reason  string // shown when disabled (e.g., "no backup")
 }
 
-// globalKeys are always appended to every context key set.
-var globalKeys = []ContextKey{
-	{Key: "?", Action: "help", Enabled: true},
-	{Key: "o", Action: "options", Enabled: true},
-	{Key: "q", Action: "quit", Enabled: true},
+// globalKeys are projected from the canonical behavior keymap and appended to
+// every legacy pane context until those panes also publish canonical actions.
+var globalKeys = canonicalGlobalContextKeys()
+
+func canonicalGlobalContextKeys() []ContextKey {
+	var keys []ContextKey
+	for _, resolution := range CanonicalKeymap.HelpBindings(BindingContext{Mode: ModeBrowse, Focus: FocusList}) {
+		binding := resolution.Binding
+		if binding.Scope != ScopeGlobal || (binding.Action != ActionShowHelp && binding.Action != ActionQuit) {
+			continue
+		}
+		for _, candidate := range binding.Keys {
+			if candidate.Key == "ctrl+c" {
+				continue
+			}
+			keys = append(keys, ContextKey{
+				Key: candidate.Label, Action: strings.ToLower(binding.Description), Enabled: resolution.Available, Reason: resolution.Reason,
+			})
+		}
+	}
+	return keys
 }
 
 // contextKeySeparator is placed between rendered keys in the bar.
@@ -288,21 +212,4 @@ func RenderContextBar(keys []ContextKey, width int, theme *Theme) string {
 
 	rendered = append(rendered, suffix)
 	return strings.Join(rendered, contextKeySeparator)
-}
-
-// RenderNavContextBar renders key hints from the shared nav model.
-func RenderNavContextBar(keys []nav.ContextKey, width int, theme *Theme) string {
-	if len(keys) == 0 {
-		return ""
-	}
-	converted := make([]ContextKey, len(keys))
-	for i, key := range keys {
-		converted[i] = ContextKey{
-			Key:     key.Key,
-			Action:  key.Action,
-			Enabled: key.Reason == "",
-			Reason:  key.Reason,
-		}
-	}
-	return RenderContextBar(converted, width, theme)
 }

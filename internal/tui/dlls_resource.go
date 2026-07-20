@@ -24,12 +24,76 @@ type DLLsResourceModel struct {
 	cached     map[string][]string
 	typesInUse []dll.KnownDLLTypeInfo
 
+	typeCursor       int
 	gameRowCursor    int
 	deploymentGames  []*game.Game
 	lastBatchResult  map[string]string
 	lastBatchSummary string
 	busy             bool
 	width            int
+}
+
+func (m DLLsResourceModel) UpdateList(key tea.KeyPressMsg, section nav.DLLCatalogSection) DLLsResourceModel {
+	delta := 0
+	switch key.String() {
+	case "j", "down":
+		delta = 1
+	case "k", "up":
+		delta = -1
+	default:
+		return m
+	}
+	if section == nav.SectionDLLDeployment {
+		if len(m.deploymentGames) > 0 {
+			m.gameRowCursor = min(max(m.gameRowCursor+delta, 0), len(m.deploymentGames)-1)
+		}
+		return m
+	}
+	types := m.knownDLLTypes()
+	if len(types) > 0 {
+		m.typeCursor = min(max(m.typeCursor+delta, 0), len(types)-1)
+	}
+	return m
+}
+
+func (m DLLsResourceModel) ListView(focused bool, section nav.DLLCatalogSection) string {
+	var builder strings.Builder
+	sectionLabel := nav.DLLCatalogSectionLabels[int(section)]
+	builder.WriteString(m.styles.Title.Render(sectionLabel))
+	builder.WriteString("\n")
+	builder.WriteString(m.styles.Dim.Render("←/→ section"))
+	builder.WriteString("\n\n")
+	if section == nav.SectionDLLDeployment {
+		if len(m.deploymentGames) == 0 {
+			return builder.String() + m.styles.Dim.Render("No deployed DLLs")
+		}
+		for index, entry := range m.deploymentGames {
+			builder.WriteString(m.listRow(entry.Name, index == m.gameRowCursor, focused))
+		}
+		return builder.String()
+	}
+	types := m.knownDLLTypes()
+	if len(types) == 0 {
+		return builder.String() + m.styles.Dim.Render("DLL catalog unavailable")
+	}
+	for index, info := range types {
+		builder.WriteString(m.listRow(info.Label, index == m.typeCursor, focused))
+	}
+	return builder.String()
+}
+
+func (m DLLsResourceModel) listRow(label string, selected, focused bool) string {
+	style := m.styles.Dim
+	prefix := "  "
+	if selected {
+		prefix = "> "
+		if focused {
+			style = m.styles.FocusStyle()
+		} else {
+			style = m.styles.Selected
+		}
+	}
+	return style.Render(prefix+label) + "\n"
 }
 
 type dllsUpdateAllCompleteMsg struct {
@@ -175,23 +239,11 @@ func (m DLLsResourceModel) isStale(installed, manifestKey string) bool {
 	return dll.IsNewer(installed, latest)
 }
 
-// Update routes a key message. j/k navigate rows; U / ctrl+u triggers a
-// batched update-all. Returns (model, cmd) consistent with other resource
-// components.
+// Update routes Detail actions. List navigation is owned by UpdateList.
 func (m DLLsResourceModel) Update(msg tea.Msg) (DLLsResourceModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch msg.String() {
-		case "j", "down":
-			if m.gameRowCursor < len(m.deploymentGames)-1 {
-				m.gameRowCursor++
-			}
-			return m, nil
-		case "k", "up":
-			if m.gameRowCursor > 0 {
-				m.gameRowCursor--
-			}
-			return m, nil
 		case "U", "ctrl+u":
 			if m.busy {
 				return m, nil
@@ -301,16 +353,48 @@ func (m DLLsResourceModel) View(paneFocused bool, section nav.DLLCatalogSection)
 		Padding(0, 1)
 
 	var b strings.Builder
-	switch section {
-	case nav.SectionDLLDeployment:
-		b.WriteString(m.renderDeployment())
-	default:
-		b.WriteString(m.renderLibrary())
+	b.WriteString(m.renderSelectedDetail(section))
+	if m.lastBatchSummary != "" {
+		b.WriteString("\n\n")
+		b.WriteString(m.styles.Dim.Render(m.lastBatchSummary))
 	}
-	b.WriteString("\n")
-	b.WriteString(m.renderFooter())
 
 	return box.Render(b.String())
+}
+
+func (m DLLsResourceModel) renderSelectedDetail(section nav.DLLCatalogSection) string {
+	if section == nav.SectionDLLDeployment {
+		if len(m.deploymentGames) == 0 {
+			return m.styles.Dim.Render("No deployed DLL selected")
+		}
+		entry := m.deploymentGames[min(m.gameRowCursor, len(m.deploymentGames)-1)]
+		var builder strings.Builder
+		builder.WriteString(m.styles.Title.Render("Deployment"))
+		builder.WriteString("\n")
+		builder.WriteString(m.styles.Selected.Render(entry.Name))
+		builder.WriteString("\n\n")
+		for _, installed := range entry.DLLs {
+			fmt.Fprintf(&builder, "%s  %s\n", installed.Type, installed.Version)
+		}
+		if m.hasStaleCells() {
+			builder.WriteString("\n")
+			builder.WriteString(m.styles.Dim.Render("U: update all stale deployments"))
+		}
+		return builder.String()
+	}
+	types := m.knownDLLTypes()
+	if len(types) == 0 {
+		return m.styles.Dim.Render("DLL catalog unavailable")
+	}
+	info := types[min(m.typeCursor, len(types)-1)]
+	latest := "Unavailable"
+	if m.manifest != nil {
+		if entry := m.manifest.GetLatestDLL(info.ManifestKey); entry != nil {
+			latest = entry.Version
+		}
+	}
+	cached := m.cached[info.ManifestKey]
+	return fmt.Sprintf("%s\n%s\n\nFile: %s\nLatest: %s\nCached: %s", m.styles.Title.Render("Inventory of DLL types"), m.styles.Selected.Render(info.Label), info.Filename, latest, strings.Join(cached, ", "))
 }
 
 func (m DLLsResourceModel) renderLibrary() string {

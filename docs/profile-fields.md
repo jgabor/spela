@@ -49,6 +49,23 @@ GPU accepts `threaded-opt`. Set-command flags and the deprecated
 
 ## Mutation semantics
 
+### Terminal editing contract
+
+The profile field table is the terminal editor catalog. Every entry exposes a
+stable key, subsystem, primitive type, label, description, constraints, and an
+editor kind. Presentation code may format values, but it must not maintain a
+second list of profile fields or invent constraints that are absent here.
+
+Opening an editor copies the persisted profile into a draft. Editing a game
+field to a concrete value creates an override; reset returns it to
+**Inherited**. A root/default field instead resets to **System default**. Save
+persists the whole validated draft, then makes that saved value the new visible
+baseline. Cancel discards the draft without writing. Validation or persistence
+failure leaves the draft, focus, and error visible so the user can correct or
+retry it. Settings uses the same draft and editor-host lifecycle while retaining
+its separate settings catalog; neither editor may mutate live configuration
+before a successful save.
+
 - **set** validates and writes the supplied primitive exactly and marks the
   leaf in `Overrides`; false, zero, empty string, and nil SMT are explicit
   values. Bounded descriptor values are the validation source for CLI, TUI,

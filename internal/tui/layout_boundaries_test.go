@@ -8,7 +8,6 @@ import (
 
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/game"
-	"github.com/jgabor/spela/internal/nav"
 )
 
 func TestLayoutConstructionAndRenderingBoundaryContracts(t *testing.T) {
@@ -23,11 +22,8 @@ func TestLayoutConstructionAndRenderingBoundaryContracts(t *testing.T) {
 		t.Fatalf("rescan error message = %#v", message)
 	}
 
-	if zoneLabel(nav.Zone(99)) != "Primary" || zoneLabel(nav.ZoneContext) != "Context" || zoneLabel(nav.ZoneContent) != "Content" {
-		t.Fatal("zone label fallback changed")
-	}
-	if zoneColumnTitle("Scope", true) != "▸ Scope" || zoneColumnTitle("Scope", false) != "Scope" {
-		t.Fatal("zone title focus marker changed")
+	if paneColumnTitle("List", true) != "▸ List" || paneColumnTitle("List", false) != "List" {
+		t.Fatal("pane title focus marker changed")
 	}
 	if border := buildTopBorder("a title wider than its box", 4, color.White); border == "" {
 		t.Fatal("narrow top border rendered empty")

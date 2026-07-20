@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
@@ -50,7 +50,6 @@ func (p *resourcePaneModel) setServices(svc *Services) {
 func (p *resourcePaneModel) refreshDefaultsDetail() {
 	preserveField := p.defaultsDetail.FocusedField()
 	preserveCursor := p.defaultsDetail.Cursor()
-	preserveSubsystem := p.defaultsDetail.activeSubsystem
 	var defaults *profile.Profile
 	if p.services != nil && p.services.LoadDefaultProfile != nil {
 		defaults, _ = p.services.LoadDefaultProfile()
@@ -60,7 +59,7 @@ func (p *resourcePaneModel) refreshDefaultsDetail() {
 		defaults = desired.Clone()
 	}
 	p.defaultsDetail = NewRootDetail(p.styles, defaults)
-	p.defaultsDetail.SetActiveSubsystem(preserveSubsystem)
+	p.defaultsDetail.SetSize(max(p.width-4, 1), p.height)
 	p.defaultsDetail.RestoreFocus(preserveField, preserveCursor)
 }
 
@@ -72,7 +71,6 @@ func (p *resourcePaneModel) SetState(s nav.State) {
 	if p.navState != nil {
 		*p.navState = s
 	}
-	p.applyProfileSubsystem()
 	if p.navState != nil && p.navState.Destination == nav.DestinationSettings {
 		p.settings.SyncNavSection(p.navState.SettingsSection)
 	}
@@ -83,16 +81,6 @@ func (p resourcePaneModel) State() nav.State {
 		return nav.DefaultState()
 	}
 	return *p.navState
-}
-
-func (p *resourcePaneModel) applyProfileSubsystem() {
-	state := p.State()
-	key := state.ProfileSubsystem.Key()
-	if state.Scope.Kind == nav.ScopeGlobal {
-		p.defaultsDetail.SetActiveSubsystem(key)
-	} else {
-		p.content.detail.SetActiveSubsystem(key)
-	}
 }
 
 func (p *resourcePaneModel) SetSize(width, height int) {
@@ -135,13 +123,8 @@ func (p resourcePaneModel) View(contentFocused bool) string {
 	return ""
 }
 
-func (p resourcePaneModel) renderLibrary(contentFocused bool) string {
+func (p resourcePaneModel) renderLibrary(_ bool) string {
 	s := p.styles
-	borderColor := s.BorderColor(contentFocused)
-	boxStyle := lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(borderColor).
-		Padding(0, 1)
 
 	var body strings.Builder
 	switch p.State().Aspect {
@@ -161,7 +144,7 @@ func (p resourcePaneModel) renderLibrary(contentFocused bool) string {
 		if p.State().Scope.Kind == nav.ScopeGlobal {
 			body.WriteString(s.Title.Render("All games (default profile)"))
 			body.WriteString("\n")
-			body.WriteString(s.Dim.Render("Root profile — fields here feed games by inheritance."))
+			body.WriteString(ansi.Truncate(s.Dim.Render("Root profile — fields here feed games by inheritance."), max(p.width-2, 1), "…"))
 			body.WriteString("\n\n")
 			body.WriteString(p.defaultsDetail.View())
 		} else if p.content.game == nil {
@@ -173,25 +156,20 @@ func (p resourcePaneModel) renderLibrary(contentFocused bool) string {
 		body.WriteString(s.Dim.Render("Select an aspect"))
 	}
 
-	return boxStyle.Render(body.String())
+	return body.String()
 }
 
-func (p resourcePaneModel) renderSettings(contentFocused bool) string {
+func (p resourcePaneModel) renderSettings(_ bool) string {
 	s := p.styles
-	borderColor := s.BorderColor(contentFocused)
-	boxStyle := lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(borderColor).
-		Padding(0, 1)
 
 	var b strings.Builder
 	b.WriteString(s.Title.Render("Settings"))
 	b.WriteString("\n\n")
-	b.WriteString(p.settings.renderOptionsBody())
-	return boxStyle.Render(b.String())
+	b.WriteString(p.settings.DetailView())
+	return b.String()
 }
 
-// Update routes input to the content column when ZoneContent is active.
+// Update routes input to the destination Detail pane.
 func (p resourcePaneModel) Update(msg tea.Msg) (resourcePaneModel, tea.Cmd) {
 	if m, ok := msg.(dllsUpdateAllCompleteMsg); ok {
 		next, cmd := p.dllsResource.Update(m)
@@ -223,38 +201,7 @@ func (p resourcePaneModel) updateLibrary(msg tea.Msg) (resourcePaneModel, tea.Cm
 
 	switch p.State().Aspect {
 	case nav.AspectProfile:
-		if p.State().Scope.Kind == nav.ScopeGlobal {
-			if key, ok := msg.(tea.KeyPressMsg); ok {
-				switch key.String() {
-				case "left", "h":
-					if p.defaultsDetail.CycleFocusedField(-1) {
-						return p, p.saveDefaultProfile()
-					}
-					return p, nil
-				case "right", "l":
-					if p.defaultsDetail.CycleFocusedField(1) {
-						return p, p.saveDefaultProfile()
-					}
-					return p, nil
-				case "r":
-					if changed, err := p.defaultsDetail.ResetFocused(); err == nil && changed {
-						return p, p.saveDefaultProfile()
-					}
-					return p, nil
-				case "R":
-					if p.defaultsDetail.ResetAll() {
-						return p, p.saveDefaultProfile()
-					}
-					return p, nil
-				}
-			}
-			detail, cmd, _ := p.defaultsDetail.Update(msg)
-			p.defaultsDetail = detail
-			return p, cmd
-		}
-		content, cmd := p.content.Update(msg)
-		p.content = content
-		return p, cmd
+		return p.updateProfileDetail(msg)
 	case nav.AspectDLLs, nav.AspectOverview:
 		if p.State().Scope.Kind == nav.ScopeGame {
 			content, cmd := p.content.Update(msg)
@@ -265,11 +212,63 @@ func (p resourcePaneModel) updateLibrary(msg tea.Msg) (resourcePaneModel, tea.Cm
 	return p, nil
 }
 
+func (p resourcePaneModel) updateProfileDetail(msg tea.Msg) (resourcePaneModel, tea.Cmd) {
+	detail := &p.defaultsDetail
+	save := p.saveDefaultProfile
+	if p.State().Scope.Kind == nav.ScopeGame {
+		detail = &p.content.detail
+		save = p.content.saveResolvedProfile
+	}
+	key, ok := msg.(tea.KeyPressMsg)
+	if !ok {
+		return p, nil
+	}
+	if detail.Editing() {
+		detail.UpdateEditor(key)
+		return p, nil
+	}
+	switch key.String() {
+	case "enter":
+		detail.BeginEdit()
+		return p, nil
+	case "s", "ctrl+s":
+		if detail.Dirty() {
+			return p, save()
+		}
+		return p, nil
+	case "esc":
+		detail.CancelDraft()
+		return p, nil
+	case "r":
+		_, _ = detail.ResetFocused()
+		return p, nil
+	case "R":
+		detail.ResetAll()
+		return p, nil
+	}
+	next, command, _ := detail.Update(msg)
+	*detail = next
+	return p, command
+}
+
 // HasModalOpen reports modals that should suppress global hotkeys.
 func (p resourcePaneModel) HasModalOpen() bool {
 	destination := p.State().Destination
 	return destination == nav.DestinationLibrary && p.content.HasModalOpen() ||
 		destination == nav.DestinationSettings && p.settings.editingPath
+}
+
+func (p resourcePaneModel) Editing() bool {
+	if p.State().Destination == nav.DestinationSettings {
+		return p.settings.editingPath
+	}
+	if p.State().Destination == nav.DestinationLibrary && p.State().Aspect == nav.AspectProfile {
+		if p.State().Scope.Kind == nav.ScopeGlobal {
+			return p.defaultsDetail.Editing()
+		}
+		return p.content.detail.Editing()
+	}
+	return false
 }
 
 func (p resourcePaneModel) contentModel() *ContentModel {
@@ -294,6 +293,7 @@ func (p *resourcePaneModel) saveDefaultProfile() tea.Cmd {
 }
 
 func (p *resourcePaneModel) completeDefaultSave(message profileSaveMsg) tea.Cmd {
+	p.defaultsDetail.CompleteSave(message.err)
 	if message.err == nil && message.request.desired != nil {
 		p.persistedDefaults = message.request.desired.Clone()
 	}
@@ -308,7 +308,6 @@ func (p *resourcePaneModel) loadGlobalScope() {
 	*p.navState = p.State().SelectScope(nav.Scope{Kind: nav.ScopeGlobal})
 	*p.navState = p.State().SelectAspect(nav.AspectProfile)
 	p.refreshDefaultsDetail()
-	p.applyProfileSubsystem()
 }
 
 // loadGameScope prepares per-game content.
@@ -320,8 +319,7 @@ func (p *resourcePaneModel) loadGameScope(g *game.Game) {
 		Kind:     nav.ScopeGame,
 		GameName: g.Name,
 		AppID:    g.AppID,
-	})
+	}).SelectAspect(nav.AspectOverview)
 	p.content = p.content.SetGame(g)
 	p.overview = p.overview.SetGame(g, p.services)
-	p.applyProfileSubsystem()
 }

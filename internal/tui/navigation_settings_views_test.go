@@ -12,59 +12,36 @@ import (
 	"github.com/jgabor/spela/internal/nav"
 )
 
-func TestContextNavigationSupportedStateTransitionsAndViews(t *testing.T) {
+func TestListPaneSupportedStateTransitionsAndViews(t *testing.T) {
 	styles := NewStyles(DefaultTheme, true)
 	entry := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	sidebar := testSidebar(entry)
 	state := nav.DefaultState()
-	context := NewContextNav(styles, sidebar, &state)
-	context.SetSize(30, 20)
-	if view := stripANSI(context.View(true)); !strings.Contains(view, "All games") || !strings.Contains(view, "Cyberpunk 2077") {
-		t.Fatalf("global context view:\n%s", view)
-	}
-
-	state = state.SelectScope(nav.Scope{Kind: nav.ScopeGame, GameName: entry.Name, AppID: entry.AppID})
-	context.SetState(state)
-	for key, want := range map[string]nav.Aspect{"1": nav.AspectOverview, "2": nav.AspectProfile, "3": nav.AspectDLLs} {
-		next, _, handled := context.Update(keyMsg(key))
-		context = next
-		if !handled || context.State().Aspect != want {
-			t.Errorf("aspect key %s = state %+v, handled %v", key, context.State(), handled)
-		}
-	}
-	state = context.State().SelectAspect(nav.AspectProfile)
-	context.SetState(state)
-	for _, key := range []string{"down", "j", "up", "k"} {
-		next, _, handled := context.Update(keyMsg(key))
-		context = next
-		if !handled {
-			t.Errorf("profile subsystem key %s was not handled", key)
-		}
-	}
-	if view := stripANSI(context.View(false)); !strings.Contains(view, "Subsystem") || !strings.Contains(view, "Overlay") {
-		t.Fatalf("profile context view:\n%s", view)
+	list := NewListPane(styles, sidebar, &state)
+	list.SetSize(30, 20)
+	if view := stripANSI(list.View(true)); !strings.Contains(view, "All games") || !strings.Contains(view, "Cyberpunk 2077") {
+		t.Fatalf("Library List view:\n%s", view)
 	}
 
 	for _, destination := range []nav.Destination{nav.DestinationDLLCatalog, nav.DestinationMonitor, nav.DestinationSettings} {
 		state = state.SelectDestination(destination)
-		state.Zone = nav.ZoneContext
-		context.SetState(state)
+		list.SetState(state)
 		for _, key := range []string{"down", "j", "up", "k"} {
-			next, _, handled := context.Update(keyMsg(key))
-			context = next
+			next, _, handled := list.Update(keyMsg(key))
+			list = next
 			if !handled {
 				t.Errorf("destination %v key %s was not handled", destination, key)
 			}
 		}
-		if view := stripANSI(context.View(true)); view == "" || strings.Contains(view, "unknown") {
-			t.Errorf("destination %v context view:\n%s", destination, view)
+		if view := stripANSI(list.View(true)); view == "" || strings.Contains(view, "unknown") {
+			t.Errorf("destination %v List view:\n%s", destination, view)
 		}
 	}
-	context.navState = nil
-	if context.State().Destination != nav.DestinationLibrary {
+	list.navState = nil
+	if list.State().Destination != nav.DestinationLibrary {
 		t.Fatal("nil navigation state did not fall back to default")
 	}
-	if _, _, handled := context.Update("not a key"); handled {
+	if _, _, handled := list.Update("not a key"); handled {
 		t.Fatal("non-key message was unexpectedly handled")
 	}
 }
@@ -126,7 +103,7 @@ func TestOptionsModalSupportedSaveFailureAndInlineSections(t *testing.T) {
 	modal.pathInput.SetValue("/steam")
 	next, _ = modal.Update(keyMsg("enter"))
 	modal = next
-	if modal.editingPath || modal.config.SteamPath != "/steam" {
+	if modal.editingPath || modal.draft.SteamPath != "/steam" || modal.config.SteamPath != "" {
 		t.Fatal("path editor did not confirm edit")
 	}
 
@@ -165,7 +142,7 @@ func TestSidebarSupportedRenderedSelectionFilterAndBatchStates(t *testing.T) {
 		}
 	}
 
-	for _, key := range []string{"down", "space", "down", "space", "a", "A", "d", "P", "s", "s", "s", "s", "C"} {
+	for _, key := range []string{"down", "space", "down", "space", "a", "A", "d", "p", "s", "s", "s", "s", "C"} {
 		next, _ := sidebar.Update(keyMsg(key))
 		sidebar = next
 		_ = sidebar.View()

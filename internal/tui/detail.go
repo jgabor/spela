@@ -3,9 +3,12 @@ package tui
 
 import (
 	"fmt"
+	"reflect"
+	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jgabor/spela/internal/profile"
 )
@@ -46,6 +49,9 @@ type DetailModel struct {
 
 	// raw is the profile as stored on disk (game or defaults).
 	raw *profile.Profile
+	// persisted is the last successfully saved baseline. raw is an independent
+	// draft and may diverge until Save or Cancel.
+	persisted *profile.Profile
 
 	// resolved is the effective profile for display — the output of
 	// ResolveForApply(defaults) for a game profile, or a copy of defaults
@@ -55,25 +61,14 @@ type DetailModel struct {
 	// defaults is the defaults profile used to resolve raw. nil when isRoot.
 	defaults *profile.Profile
 
-	isRoot bool
-
-	// activeSubsystem limits rendering to one section key (e.g. "dlss").
-	// Empty string renders all sections.
-	activeSubsystem string
+	isRoot    bool
+	editor    EditorHost
+	saveError error
 
 	rows          []detailRow
 	focusableRows []int // indices into rows
 	cursor        int   // index into focusableRows (0..len(focusableRows)-1)
 	width, height int
-}
-
-// SetActiveSubsystem limits View() to a single subsystem group. Pass "" for all.
-func (m *DetailModel) SetActiveSubsystem(sectionKey string) {
-	m.activeSubsystem = sectionKey
-	m.rows, m.focusableRows = buildDetailRowsFiltered(sectionKey)
-	if m.cursor >= len(m.focusableRows) {
-		m.cursor = max(len(m.focusableRows)-1, 0)
-	}
 }
 
 // NewDetail constructs a game-profile detail renderer. raw is the on-disk
@@ -91,6 +86,10 @@ func NewRootDetail(styles *Styles, defaults *profile.Profile) DetailModel {
 }
 
 func buildDetail(styles *Styles, raw, defaults *profile.Profile, isRoot bool) DetailModel {
+	if raw == nil {
+		raw = &profile.Profile{}
+	}
+	persisted := raw.Clone()
 	var resolved *profile.Profile
 	switch {
 	case isRoot:
@@ -98,17 +97,8 @@ func buildDetail(styles *Styles, raw, defaults *profile.Profile, isRoot bool) De
 		// values — no inheritance chain to walk. ResolveForApply(nil) would
 		// drop any field not marked Overridden, which is exactly wrong for
 		// a root profile loaded from disk. Use the struct verbatim instead.
-		if raw == nil {
-			resolved = &profile.Profile{}
-		} else {
-			// Shallow copy so View() never mutates the caller's struct.
-			copied := *raw
-			resolved = &copied
-		}
+		resolved = raw.Clone()
 	default:
-		if raw == nil {
-			raw = &profile.Profile{}
-		}
 		resolved = raw.ResolveForApply(defaults)
 	}
 
@@ -117,6 +107,7 @@ func buildDetail(styles *Styles, raw, defaults *profile.Profile, isRoot bool) De
 	return DetailModel{
 		styles:        styles,
 		raw:           raw,
+		persisted:     persisted,
 		resolved:      resolved,
 		defaults:      defaults,
 		isRoot:        isRoot,
@@ -124,6 +115,158 @@ func buildDetail(styles *Styles, raw, defaults *profile.Profile, isRoot bool) De
 		focusableRows: focusable,
 		cursor:        0,
 	}
+}
+
+// Editing reports whether the focused profile value currently owns input.
+func (m DetailModel) Editing() bool { return m.editor.Active() }
+
+// Dirty reports whether the draft differs from the last saved profile.
+func (m DetailModel) Dirty() bool { return !reflect.DeepEqual(m.raw, m.persisted) }
+
+// SaveError is retained until the draft is changed, cancelled, or saved.
+func (m DetailModel) SaveError() error { return m.saveError }
+
+// BeginEdit opens the shared editor host for the focused field. Inherited game
+// fields start from their effective value; committing therefore creates a
+// concrete override.
+func (m *DetailModel) BeginEdit() bool {
+	field := m.FocusedField()
+	descriptor, ok := profile.Field(field)
+	if !ok {
+		return false
+	}
+	value, err := profile.ReadField(m.resolved, field)
+	if err != nil {
+		return false
+	}
+	m.editor.Begin(profileEditorSpec(descriptor), profileEditorValue(value))
+	m.saveError = nil
+	return true
+}
+
+// UpdateEditor applies input to the active editor. Enter commits to the draft;
+// Escape restores the field's pre-edit value.
+func (m *DetailModel) UpdateEditor(key tea.KeyPressMsg) bool {
+	if !m.editor.Active() {
+		return false
+	}
+	switch key.String() {
+	case "esc":
+		m.editor.Cancel()
+		return true
+	case "enter", "ctrl+s":
+		value, err := m.editor.Commit()
+		if err != nil {
+			return true
+		}
+		if err := m.setFocusedEditorValue(value); err != nil {
+			m.editor.Begin(profileEditorSpec(m.focusedDescriptor()), value)
+			m.editor.err = err
+			return true
+		}
+		m.saveError = nil
+		m.rebuildResolved()
+		return true
+	case "backspace":
+		m.editor.Delete()
+		return true
+	case "left", "h":
+		m.editor.Cycle(-1)
+		return true
+	case "right", "l":
+		m.editor.Cycle(1)
+		return true
+	}
+	if key.Text != "" {
+		m.editor.Append(key.Text)
+		return true
+	}
+	return true
+}
+
+func (m DetailModel) focusedDescriptor() profile.FieldDescriptor {
+	descriptor, _ := profile.Field(m.FocusedField())
+	return descriptor
+}
+
+func profileEditorSpec(descriptor profile.FieldDescriptor) EditorSpec {
+	kind := EditorText
+	switch descriptor.Editor {
+	case profile.EditorToggle:
+		kind = EditorBool
+	case profile.EditorChoice:
+		kind = EditorChoice
+	case profile.EditorInteger:
+		kind = EditorInteger
+	}
+	return EditorSpec{Key: descriptor.Key, Kind: kind, Choices: append([]string(nil), descriptor.AllowedValues...)}
+}
+
+func profileEditorValue(value any) string {
+	switch value := value.(type) {
+	case bool:
+		return strconv.FormatBool(value)
+	case int:
+		return strconv.Itoa(value)
+	case string:
+		return value
+	case *bool:
+		if value != nil {
+			return strconv.FormatBool(*value)
+		}
+	}
+	return ""
+}
+
+func (m *DetailModel) setFocusedEditorValue(value string) error {
+	descriptor := m.focusedDescriptor()
+	var typed any = value
+	switch descriptor.Kind {
+	case profile.PrimitiveBool:
+		parsed, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("invalid boolean: %s", value)
+		}
+		typed = parsed
+	case profile.PrimitiveInt:
+		parsed, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("invalid integer: %s", value)
+		}
+		typed = parsed
+	case profile.PrimitiveOptionalBool:
+		if value == "" {
+			typed = (*bool)(nil)
+		} else {
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				return fmt.Errorf("invalid boolean: %s", value)
+			}
+			typed = &parsed
+		}
+	}
+	return m.raw.Set(descriptor.Key, typed)
+}
+
+// CancelDraft discards all unsaved profile changes.
+func (m *DetailModel) CancelDraft() {
+	if m.persisted != nil {
+		m.raw = m.persisted.Clone()
+	}
+	m.editor.Cancel()
+	m.saveError = nil
+	m.rebuildResolved()
+}
+
+// CompleteSave advances the baseline on success or retains the draft and error
+// for an in-place retry on failure.
+func (m *DetailModel) CompleteSave(err error) {
+	if err != nil {
+		m.saveError = err
+		return
+	}
+	m.persisted = m.raw.Clone()
+	m.saveError = nil
 }
 
 // buildDetailRowsFiltered flattens subsystem groups into rows. When sectionKey
@@ -322,33 +465,8 @@ func (m *DetailModel) ResetAll() bool {
 	return true
 }
 
-// PinFocused pins the currently-resolved value of the focused field as an
-// override on the raw profile. Reads the effective value from the resolved
-// profile (which already accounts for defaults inheritance) so the pin
-// captures exactly what the user sees. No-op when the field is already
-// overridden, when no field is focused, or when in root mode. Returns
-// (changed, error).
-func (m *DetailModel) PinFocused() (bool, error) {
-	if m.isRoot || m.raw == nil {
-		return false, nil
-	}
-	field := m.FocusedField()
-	if field == "" {
-		return false, nil
-	}
-	if m.raw.IsOverridden(field) {
-		return false, nil
-	}
-	if err := m.raw.PinField(field, m.defaults); err != nil {
-		return false, err
-	}
-	m.rebuildResolved()
-	return true, nil
-}
-
-// RawProfile returns the underlying raw profile pointer (mutated by reset/
-// pin operations). Callers use this to feed the save pipeline after a
-// binding fires. nil when the renderer has no backing profile.
+// RawProfile returns the current in-memory draft. Callers clone it before
+// passing it to the save pipeline.
 func (m DetailModel) RawProfile() *profile.Profile {
 	return m.raw
 }
@@ -398,15 +516,21 @@ func (m DetailModel) View() string {
 	if len(m.focusableRows) > 0 {
 		focusedRow = m.focusableRows[m.cursor]
 	}
-
-	// When filtering to one subsystem, skip redundant group header.
-	skipHeader := m.activeSubsystem != ""
+	if m.editor.Error() != nil {
+		b.WriteString(s.Error.Render("Invalid value: " + m.editor.Error().Error()))
+		b.WriteString("\n")
+	}
+	if m.saveError != nil {
+		b.WriteString(s.Error.Render("Save failed: " + m.saveError.Error()))
+		b.WriteString("\n")
+	}
+	if m.Dirty() {
+		b.WriteString(s.Warning.Render("Unsaved changes  s:save  Esc:cancel"))
+		b.WriteString("\n")
+	}
 
 	for i, row := range m.rows {
 		if row.isHeader() {
-			if skipHeader {
-				continue
-			}
 			if i > 0 {
 				b.WriteString("\n")
 			}
@@ -422,6 +546,9 @@ func (m DetailModel) View() string {
 		} else if overridden {
 			value = formatExplicitFieldValue(m.raw, row.field)
 		}
+		if i == focusedRow && m.editor.Active() {
+			value = m.editor.Value()
+		}
 		semantics := m.formatFieldSemantics(row.field)
 
 		marker := "  "
@@ -435,14 +562,15 @@ func (m DetailModel) View() string {
 			marker = s.OverrideMarkerStyle().Render(overrideMarkerGlyph) + " "
 		}
 		body := fmt.Sprintf("%-20s  %-12s  %s", row.label, value, semantics)
-		if i == focusedRow && !m.isRoot {
-			body += s.Dim.Render("  [r reset · Shift+R all · p pin]")
+		if i == focusedRow && m.editor.Active() {
+			body += s.Dim.Render("  [Enter apply · Esc cancel]")
+		} else if i == focusedRow && !m.isRoot {
+			body += s.Dim.Render("  [Enter edit · r Inherited · Shift+R all]")
 		} else if i == focusedRow && m.isRoot {
-			if rootFieldOptions(row.field) != nil {
-				body += s.Dim.Render("  [←/→ cycle · r reset]")
-			} else {
-				body += s.Dim.Render("  [r reset]")
-			}
+			body += s.Dim.Render("  [Enter edit · r System default]")
+		}
+		if m.width > 0 {
+			body = ansi.Truncate(body, max(m.width-7, 1), "…")
 		}
 
 		if i == focusedRow {
@@ -462,7 +590,6 @@ func (m DetailModel) View() string {
 		b.WriteString(body)
 		b.WriteString("\n")
 	}
-
 	return b.String()
 }
 

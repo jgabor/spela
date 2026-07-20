@@ -18,6 +18,17 @@ const (
 	PrimitiveOptionalBool PrimitiveKind = "optional_bool"
 )
 
+// EditorKind identifies the control shape a presentation layer should use.
+// It deliberately describes values, not a particular UI toolkit.
+type EditorKind string
+
+const (
+	EditorToggle  EditorKind = "toggle"
+	EditorChoice  EditorKind = "choice"
+	EditorInteger EditorKind = "integer"
+	EditorText    EditorKind = "text"
+)
+
 // FieldDescriptor is the domain-owned contract for one persisted profile leaf.
 // UI layout, formatting, and command aliases deliberately remain with their
 // presentation layers.
@@ -29,47 +40,49 @@ type FieldDescriptor struct {
 	AllowedValues []string
 	Impact        LaunchImpact
 	Restore       RestoreCoverage
+	Description   string
+	Editor        EditorKind
 }
 
 var fieldDescriptors = []FieldDescriptor{
-	{FieldProtonEnableHDR, "proton", PrimitiveBool, "HDR", nil, LaunchImpactCompatibility, RestoreCoverageEphemeralLaunch},
-	{FieldProtonEnableWayland, "proton", PrimitiveBool, "Wayland", nil, LaunchImpactCompatibility, RestoreCoverageEphemeralLaunch},
-	{FieldProtonEnableNGXUpdater, "proton", PrimitiveBool, "NGX updater", nil, LaunchImpactCompatibility, RestoreCoverageEphemeralLaunch},
-	{FieldProtonVKD3DHeap, "proton", PrimitiveBool, "VKD3D heap", nil, LaunchImpactCompatibility, RestoreCoverageEphemeralLaunch},
+	{FieldProtonEnableHDR, "proton", PrimitiveBool, "HDR", nil, LaunchImpactCompatibility, RestoreCoverageEphemeralLaunch, "", ""},
+	{FieldProtonEnableWayland, "proton", PrimitiveBool, "Wayland", nil, LaunchImpactCompatibility, RestoreCoverageEphemeralLaunch, "", ""},
+	{FieldProtonEnableNGXUpdater, "proton", PrimitiveBool, "NGX updater", nil, LaunchImpactCompatibility, RestoreCoverageEphemeralLaunch, "", ""},
+	{FieldProtonVKD3DHeap, "proton", PrimitiveBool, "VKD3D heap", nil, LaunchImpactCompatibility, RestoreCoverageEphemeralLaunch, "", ""},
 
-	{FieldDLSSSRMode, "dlss", PrimitiveString, "SR mode", []string{"", "off", "ultra_performance", "performance", "balanced", "quality", "dlaa"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch},
-	{FieldDLSSSRPreset, "dlss", PrimitiveString, "SR preset", []string{"", "default", "auto", "A", "B", "C", "D", "E", "F", "J", "K", "L", "M"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch},
-	{FieldDLSSSROverride, "dlss", PrimitiveBool, "SR override", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch},
-	{FieldDLSSRRMode, "dlss", PrimitiveString, "RR mode", []string{"", "off", "ultra_performance", "performance", "balanced", "quality", "dlaa"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch},
-	{FieldDLSSRRPreset, "dlss", PrimitiveString, "RR preset", []string{"", "default", "A", "B", "C", "D", "E", "F", "J", "K", "L", "M"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch},
-	{FieldDLSSRROverride, "dlss", PrimitiveBool, "RR override", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch},
-	{FieldDLSSFGEnabled, "dlss", PrimitiveBool, "FG enabled", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch},
-	{FieldDLSSFGOverride, "dlss", PrimitiveBool, "FG override", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch},
-	{FieldDLSSMultiFrame, "dlss", PrimitiveInt, "Multi-frame", []string{"0", "1", "2", "3", "4"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch},
-	{FieldDLSSIndicator, "dlss", PrimitiveBool, "SR indicator", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch},
-	{FieldDLSSFGIndicator, "dlss", PrimitiveBool, "FG indicator", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch},
+	{FieldDLSSSRMode, "dlss", PrimitiveString, "SR mode", []string{"", "off", "ultra_performance", "performance", "balanced", "quality", "dlaa"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
+	{FieldDLSSSRPreset, "dlss", PrimitiveString, "SR preset", []string{"", "default", "auto", "A", "B", "C", "D", "E", "F", "J", "K", "L", "M"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
+	{FieldDLSSSROverride, "dlss", PrimitiveBool, "SR override", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
+	{FieldDLSSRRMode, "dlss", PrimitiveString, "RR mode", []string{"", "off", "ultra_performance", "performance", "balanced", "quality", "dlaa"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
+	{FieldDLSSRRPreset, "dlss", PrimitiveString, "RR preset", []string{"", "default", "A", "B", "C", "D", "E", "F", "J", "K", "L", "M"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
+	{FieldDLSSRROverride, "dlss", PrimitiveBool, "RR override", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
+	{FieldDLSSFGEnabled, "dlss", PrimitiveBool, "FG enabled", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
+	{FieldDLSSFGOverride, "dlss", PrimitiveBool, "FG override", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
+	{FieldDLSSMultiFrame, "dlss", PrimitiveInt, "Multi-frame", []string{"0", "1", "2", "3", "4"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
+	{FieldDLSSIndicator, "dlss", PrimitiveBool, "SR indicator", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
+	{FieldDLSSFGIndicator, "dlss", PrimitiveBool, "FG indicator", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
 
-	{FieldGPUClockOffset, "gpu", PrimitiveInt, "Clock offset", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation},
-	{FieldGPUMemoryOffset, "gpu", PrimitiveInt, "Memory offset", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation},
-	{FieldGPUPowerLimit, "gpu", PrimitiveInt, "Power limit", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation},
-	{FieldGPUFanSpeed, "gpu", PrimitiveInt, "Fan speed", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation},
-	{FieldGPUPowerMizer, "gpu", PrimitiveString, "Power mode", []string{"", "adaptive", "max", "prefer_max_performance", "prefer_maximum_performance"}, LaunchImpactSystemState, RestoreCoverageNotApplicable},
-	{FieldGPUShaderCache, "gpu", PrimitiveBool, "Shader cache", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch},
-	{FieldGPUShaderCachePath, "gpu", PrimitiveString, "Shader cache path", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch},
-	{FieldGPUThreadedOptimization, "gpu", PrimitiveBool, "Threaded opt", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch},
+	{FieldGPUClockOffset, "gpu", PrimitiveInt, "Clock offset", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "", ""},
+	{FieldGPUMemoryOffset, "gpu", PrimitiveInt, "Memory offset", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "", ""},
+	{FieldGPUPowerLimit, "gpu", PrimitiveInt, "Power limit", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "", ""},
+	{FieldGPUFanSpeed, "gpu", PrimitiveInt, "Fan speed", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "", ""},
+	{FieldGPUPowerMizer, "gpu", PrimitiveString, "Power mode", []string{"", "adaptive", "max", "prefer_max_performance", "prefer_maximum_performance"}, LaunchImpactSystemState, RestoreCoverageNotApplicable, "", ""},
+	{FieldGPUShaderCache, "gpu", PrimitiveBool, "Shader cache", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
+	{FieldGPUShaderCachePath, "gpu", PrimitiveString, "Shader cache path", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
+	{FieldGPUThreadedOptimization, "gpu", PrimitiveBool, "Threaded opt", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
 
-	{FieldCPUGovernor, "cpu", PrimitiveString, "Governor", []string{"", "performance", "powersave", "schedutil", "ondemand"}, LaunchImpactSystemState, RestoreCoverageRestorableMutation},
-	{FieldCPUSMT, "cpu", PrimitiveOptionalBool, "SMT", []string{"", "true", "false"}, LaunchImpactSystemState, RestoreCoverageRestorableMutation},
-	{FieldCPUAffinity, "cpu", PrimitiveString, "Affinity", nil, LaunchImpactSystemState, RestoreCoverageNotApplicable},
+	{FieldCPUGovernor, "cpu", PrimitiveString, "Governor", []string{"", "performance", "powersave", "schedutil", "ondemand"}, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "", ""},
+	{FieldCPUSMT, "cpu", PrimitiveOptionalBool, "SMT", []string{"", "true", "false"}, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "", ""},
+	{FieldCPUAffinity, "cpu", PrimitiveString, "Affinity", nil, LaunchImpactSystemState, RestoreCoverageNotApplicable, "", ""},
 
-	{FieldOverlayEnabled, "overlay", PrimitiveBool, "Enabled", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable},
-	{FieldOverlayPosition, "overlay", PrimitiveString, "Position", []string{"", "top-left", "top-right", "bottom-left", "bottom-right"}, LaunchImpactOverlay, RestoreCoverageNotApplicable},
-	{FieldOverlayShowFPS, "overlay", PrimitiveBool, "Show FPS", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable},
-	{FieldOverlayShowFrametime, "overlay", PrimitiveBool, "Show frametime", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable},
-	{FieldOverlayShowCPU, "overlay", PrimitiveBool, "Show CPU", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable},
-	{FieldOverlayShowGPU, "overlay", PrimitiveBool, "Show GPU", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable},
-	{FieldOverlayShowVRAM, "overlay", PrimitiveBool, "Show VRAM", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable},
-	{FieldOverlayToggleKey, "overlay", PrimitiveString, "Toggle key", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable},
+	{FieldOverlayEnabled, "overlay", PrimitiveBool, "Enabled", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "", ""},
+	{FieldOverlayPosition, "overlay", PrimitiveString, "Position", []string{"", "top-left", "top-right", "bottom-left", "bottom-right"}, LaunchImpactOverlay, RestoreCoverageNotApplicable, "", ""},
+	{FieldOverlayShowFPS, "overlay", PrimitiveBool, "Show FPS", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "", ""},
+	{FieldOverlayShowFrametime, "overlay", PrimitiveBool, "Show frametime", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "", ""},
+	{FieldOverlayShowCPU, "overlay", PrimitiveBool, "Show CPU", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "", ""},
+	{FieldOverlayShowGPU, "overlay", PrimitiveBool, "Show GPU", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "", ""},
+	{FieldOverlayShowVRAM, "overlay", PrimitiveBool, "Show VRAM", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "", ""},
+	{FieldOverlayToggleKey, "overlay", PrimitiveString, "Toggle key", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "", ""},
 }
 
 var descriptorsByKey = func() map[string]FieldDescriptor {
@@ -96,7 +109,27 @@ func Field(key string) (FieldDescriptor, bool) {
 }
 
 func cloneDescriptor(descriptor FieldDescriptor) FieldDescriptor {
+	descriptor = completeDescriptor(descriptor)
 	descriptor.AllowedValues = append([]string(nil), descriptor.AllowedValues...)
+	return descriptor
+}
+
+func completeDescriptor(descriptor FieldDescriptor) FieldDescriptor {
+	if descriptor.Description == "" {
+		descriptor.Description = "Configure " + descriptor.Label + "."
+	}
+	if descriptor.Editor == "" {
+		switch {
+		case descriptor.Kind == PrimitiveBool:
+			descriptor.Editor = EditorToggle
+		case descriptor.Kind == PrimitiveInt:
+			descriptor.Editor = EditorInteger
+		case len(descriptor.AllowedValues) > 0:
+			descriptor.Editor = EditorChoice
+		default:
+			descriptor.Editor = EditorText
+		}
+	}
 	return descriptor
 }
 

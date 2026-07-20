@@ -138,19 +138,19 @@ func TestDLLsResource_JKNavigatesRows(t *testing.T) {
 	if m.gameRowCursor != 0 {
 		t.Fatalf("initial cursor expected 0, got %d", m.gameRowCursor)
 	}
-	m, _ = m.Update(keyMsg("j"))
+	m = m.UpdateList(keyMsg("j"), nav.SectionDLLDeployment)
 	if m.gameRowCursor != 1 {
 		t.Errorf("after j: cursor = %d, want 1", m.gameRowCursor)
 	}
-	m, _ = m.Update(keyMsg("j")) // clamp at end
+	m = m.UpdateList(keyMsg("j"), nav.SectionDLLDeployment) // clamp at end
 	if m.gameRowCursor != 1 {
 		t.Errorf("cursor should clamp at %d, got %d", 1, m.gameRowCursor)
 	}
-	m, _ = m.Update(keyMsg("k"))
+	m = m.UpdateList(keyMsg("k"), nav.SectionDLLDeployment)
 	if m.gameRowCursor != 0 {
 		t.Errorf("after k: cursor = %d, want 0", m.gameRowCursor)
 	}
-	m, _ = m.Update(keyMsg("k")) // clamp at start
+	m = m.UpdateList(keyMsg("k"), nav.SectionDLLDeployment) // clamp at start
 	if m.gameRowCursor != 0 {
 		t.Errorf("cursor should clamp at 0, got %d", m.gameRowCursor)
 	}

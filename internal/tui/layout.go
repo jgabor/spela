@@ -24,36 +24,40 @@ const (
 )
 
 const (
-	primaryNavWidth     = 20
-	contextNavWidth     = 28
-	statusBarHeight     = 1
-	messageBarHeight    = 1
-	headerHeight        = 7 // 6 lines for logo + 1 for bottom border
-	compactHeaderHeight = 3 // 2 metric lines + 1 bottom border
+	listPaneWidth         = 32
+	minimumTerminalWidth  = 80
+	minimumTerminalHeight = 24
+	statusBarHeight       = 1
+	messageBarHeight      = 1
+	headerHeight          = 7 // 6 lines for logo + 1 for bottom border
+	compactHeaderHeight   = 3 // 2 metric lines + 1 bottom border
 )
 
-// LayoutModel is the three-zone shell: primary nav, context nav, content.
+// LayoutModel owns the non-focusable destination bar and the two-pane
+// List/Detail workspace.
 type LayoutModel struct {
-	styles        *Styles
-	services      *Services
-	header        HeaderModel
-	rail          RailModel
-	contextNav    ContextNavModel
-	pane          resourcePaneModel
-	navState      *nav.State
-	messageBar    MessageBarModel
-	help          HelpModel
-	config        *config.Config
-	db            *game.Database
-	showHelp      bool
-	showBatchMenu bool
-	batchGames    []*game.Game
-	batchCursor   int
-	batchMessage  string
-	densityMode   DensityMode
-	width         int
-	height        int
-	initCmd       tea.Cmd
+	styles         *Styles
+	services       *Services
+	header         HeaderModel
+	destinationBar DestinationBarModel
+	listPane       ListPaneModel
+	pane           resourcePaneModel
+	navState       *nav.State
+	focus          KeyFocus
+	inputMode      InputMode
+	messageBar     MessageBarModel
+	help           HelpModel
+	config         *config.Config
+	db             *game.Database
+	showHelp       bool
+	showBatchMenu  bool
+	batchGames     []*game.Game
+	batchCursor    int
+	batchMessage   string
+	densityMode    DensityMode
+	width          int
+	height         int
+	initCmd        tea.Cmd
 }
 
 func NewLayout(db *game.Database, svc *Services) LayoutModel {
@@ -79,25 +83,28 @@ func NewLayout(db *game.Database, svc *Services) LayoutModel {
 	pane.SetDLLsData(games, manifest)
 
 	settings := NewOptionsModal(styles)
+	settings.SetSaveConfig(svc.SaveConfig)
 	settings.OpenEmbedded(cfg)
 	pane.settings = settings
 
 	state := nav.DefaultState()
 	layout := LayoutModel{
-		styles:     styles,
-		services:   svc,
-		header:     NewHeader(styles),
-		rail:       NewRail(styles),
-		pane:       pane,
-		navState:   &state,
-		messageBar: NewMessageBar(styles),
-		help:       NewHelp(styles),
-		config:     cfg,
-		db:         db,
-		initCmd:    sidebarCmd,
+		styles:         styles,
+		services:       svc,
+		header:         NewHeader(styles),
+		destinationBar: NewDestinationBar(styles),
+		pane:           pane,
+		navState:       &state,
+		focus:          FocusList,
+		inputMode:      ModeBrowse,
+		messageBar:     NewMessageBar(styles),
+		help:           NewHelp(styles),
+		config:         cfg,
+		db:             db,
+		initCmd:        sidebarCmd,
 	}
 	layout.pane.BindNavState(layout.navState)
-	layout.contextNav = NewContextNav(styles, sidebar, layout.navState)
+	layout.listPane = NewListPane(styles, sidebar, layout.navState)
 	layout.pane.loadGlobalScope()
 	return layout
 }
@@ -127,14 +134,19 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// the single metrics source-of-truth).
 	m.pane.SetMetricsData(m.header)
 
-	// Handle window resize and key overlays/globals.
-	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
+	// Resize is the only message that reaches the hidden workspace while the
+	// terminal is below the supported minimum.
+	if msg, ok := msg.(tea.WindowSizeMsg); ok {
 		m.width, m.height = msg.Width, msg.Height
 		m.calculateDimensions()
 		return m, tea.Batch(cmds...)
+	}
+	if m.width < minimumTerminalWidth || m.height < minimumTerminalHeight {
+		return m, tea.Batch(cmds...)
+	}
 
-	case tea.KeyPressMsg:
+	// Handle key overlays and globals at supported sizes.
+	if msg, ok := msg.(tea.KeyPressMsg); ok {
 		if m.showBatchMenu {
 			var cmd tea.Cmd
 			m, cmd, _ = m.handleBatchMenuKeys(msg)
@@ -156,26 +168,19 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 	}
 
-	// Route keys to the focused zone; always route non-key msgs to content.
+	// Route keys only to the visibly focused pane; non-key messages continue to
+	// the Detail host because it owns asynchronous domain operations.
 	if key, ok := msg.(tea.KeyPressMsg); ok {
 		var cmd tea.Cmd
-		var handled bool
-		switch m.navState.Zone {
-		case nav.ZonePrimary:
-			m.rail, cmd, handled = m.rail.Update(key)
-			if handled {
-				m.syncNavFromRail()
-				cmds = append(cmds, cmd)
-				return m, tea.Batch(cmds...)
-			}
-		case nav.ZoneContext:
-			m.contextNav, cmd, handled = m.contextNav.Update(key)
+		if m.focus == FocusList {
+			var handled bool
+			m, cmd, handled = m.updateVisibleList(key)
 			m.pane.SetState(*m.navState)
 			if handled {
 				cmds = append(cmds, cmd)
 				return m, tea.Batch(cmds...)
 			}
-		case nav.ZoneContent:
+		} else {
 			m.pane, cmd = m.pane.Update(key)
 			cmds = append(cmds, cmd)
 			return m, tea.Batch(cmds...)
@@ -189,8 +194,10 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m *LayoutModel) syncNavFromRail() {
-	*m.navState = m.navState.SelectDestination(m.rail.Active())
+func (m *LayoutModel) selectDestination(destination nav.Destination) {
+	*m.navState = m.navState.SelectDestination(destination)
+	m.focus = FocusList
+	m.inputMode = ModeBrowse
 	m.syncNavToComponents()
 	if m.navState.Destination == nav.DestinationSettings {
 		m.pane.settings.OpenEmbedded(m.config)
@@ -198,9 +205,8 @@ func (m *LayoutModel) syncNavFromRail() {
 }
 
 func (m *LayoutModel) syncNavToComponents() {
-	m.rail.SyncFromState(*m.navState)
-	m.contextNav.SetState(*m.navState)
-	m.contextNav.syncCursorFromState()
+	m.destinationBar.SetActive(m.navState.Destination)
+	m.listPane.SetState(*m.navState)
 	m.pane.SetState(*m.navState)
 }
 
@@ -213,37 +219,43 @@ func (m *LayoutModel) calculateDimensions() {
 		headerH = 0
 	}
 
-	panelHeight := max(m.height-statusBarHeight-messageBarHeight-headerH-2, 5)
+	panelHeight := max(m.height-headerH-statusBarHeight-messageBarHeight-2, 5)
 
 	m.header.SetWidth(m.width)
-	m.rail.SetSize(primaryNavWidth-4, panelHeight)
-	m.contextNav.SetSize(contextNavWidth, panelHeight)
-	m.pane.SetSize(m.contentWidth(), panelHeight)
+	m.destinationBar.SetWidth(m.width)
+	m.listPane.SetSize(m.listWidth(), panelHeight)
+	m.pane.SetSize(m.detailWidth(), panelHeight)
 	m.messageBar.SetWidth(m.width)
 }
 
-func (m LayoutModel) contentWidth() int {
-	if m.densityMode == DensityFocused {
-		return m.width - 4
-	}
-	return m.width - primaryNavWidth - contextNavWidth - 4
-}
+func (m LayoutModel) listWidth() int   { return min(listPaneWidth, max(m.width/3, 24)) }
+func (m LayoutModel) detailWidth() int { return max(m.width-m.listWidth(), 1) }
 
 // contentModel returns the ContentModel inside ResourceGames for layout-
 // level logic (e.g. HasModalOpen checks). Returns nil when not applicable.
 func (m LayoutModel) renderStatusBar(text string) string {
 	return lipgloss.NewStyle().Foreground(m.styles.Theme.TextDim).
-		Width(m.width).Padding(0, 1).Render(text)
+		Width(max(m.width-2, 1)).Padding(0, 1).MaxHeight(1).Render(text)
 }
 
 func (m LayoutModel) View() tea.View {
 	if m.width == 0 || m.height == 0 {
 		return tea.NewView("Loading...")
 	}
+	if m.width < minimumTerminalWidth || m.height < minimumTerminalHeight {
+		view := tea.NewView(m.renderResizePrompt())
+		view.AltScreen = true
+		return view
+	}
 
 	mainContent := m.renderMain()
-	mainLayer := lipgloss.NewLayer(mainContent)
+	if !m.showHelp && !m.showBatchMenu {
+		view := tea.NewView(mainContent)
+		view.AltScreen = true
+		return view
+	}
 
+	mainLayer := lipgloss.NewLayer(mainContent)
 	compositor := lipgloss.NewCompositor(mainLayer)
 
 	modalCount := 0
@@ -268,6 +280,32 @@ func (m LayoutModel) View() tea.View {
 	return v
 }
 
+func (m LayoutModel) renderResizePrompt() string {
+	lines := []string{
+		"Resize terminal",
+		fmt.Sprintf("Spela needs at least %dx%d", minimumTerminalWidth, minimumTerminalHeight),
+		fmt.Sprintf("Current size: %dx%d", m.width, m.height),
+	}
+	for index := range lines {
+		lines[index] = truncatePlainText(lines[index], m.width)
+	}
+	if len(lines) > m.height {
+		lines = lines[:m.height]
+	}
+	return strings.Join(lines, "\n")
+}
+
+func truncatePlainText(value string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	runes := []rune(value)
+	if len(runes) <= width {
+		return value
+	}
+	return string(runes[:width])
+}
+
 func (m LayoutModel) renderMain() string {
 	switch m.densityMode {
 	case DensityFocused:
@@ -281,53 +319,36 @@ func (m LayoutModel) renderMain() string {
 
 func (m LayoutModel) renderStandard() string {
 	header := m.header.View()
+	panelHeight := max(m.height-headerHeight-statusBarHeight-messageBarHeight-2, 5)
+	listFocused := m.focus == FocusList
+	detailFocused := m.focus == FocusDetail
+	listWidth := m.listWidth()
+	detailWidth := m.detailWidth()
 
-	panelHeight := max(m.height-statusBarHeight-messageBarHeight-headerHeight-2, 5)
+	listView := truncateHeight(m.visibleListView(listFocused), panelHeight)
+	detailView := truncateHeight(m.pane.View(detailFocused), panelHeight)
+	listBorder := m.styles.BorderColor(listFocused)
+	detailBorder := m.styles.BorderColor(detailFocused)
 
-	primaryFocused := m.navState.Zone == nav.ZonePrimary
-	contextFocused := m.navState.Zone == nav.ZoneContext
-	contentFocused := m.navState.Zone == nav.ZoneContent
+	listStyle := lipgloss.NewStyle().Width(listWidth - 2).Height(panelHeight).
+		MaxHeight(panelHeight).
+		BorderStyle(lipgloss.RoundedBorder()).BorderTop(false).BorderLeft(true).BorderRight(true).BorderBottom(true).BorderForeground(listBorder)
+	detailStyle := lipgloss.NewStyle().Width(detailWidth - 2).Height(panelHeight).
+		MaxHeight(panelHeight).
+		BorderStyle(lipgloss.RoundedBorder()).BorderTop(false).BorderLeft(true).BorderRight(true).BorderBottom(true).BorderForeground(detailBorder)
 
-	primaryView := truncateHeight(m.rail.View(primaryFocused), panelHeight)
-	contextView := truncateHeight(m.contextNav.View(contextFocused), panelHeight)
-	contentView := truncateHeight(m.pane.View(contentFocused), panelHeight)
-
-	primaryBorder := m.styles.BorderColor(primaryFocused)
-	contextBorder := m.styles.BorderColor(contextFocused)
-	contentBorder := m.styles.BorderColor(contentFocused)
-
-	primaryStyle := lipgloss.NewStyle().Width(primaryNavWidth - 2).Height(panelHeight).
-		BorderStyle(lipgloss.RoundedBorder()).BorderTop(false).BorderForeground(primaryBorder)
-	contextStyle := lipgloss.NewStyle().Width(contextNavWidth - 2).Height(panelHeight).
-		BorderStyle(lipgloss.RoundedBorder()).BorderTop(false).BorderForeground(contextBorder)
-	contentStyle := lipgloss.NewStyle().Width(m.contentWidth() - 2).Height(panelHeight).
-		BorderStyle(lipgloss.RoundedBorder()).BorderTop(false).BorderForeground(contentBorder)
-
-	primaryBox := primaryStyle.Render(primaryView)
-	contextBox := contextStyle.Render(contextView)
-	contentBox := contentStyle.Render(contentView)
-
-	primaryBox = buildTopBorder(zoneColumnTitle("Navigate", primaryFocused), primaryNavWidth-2, primaryBorder) + "\n" + primaryBox
-	contextBox = buildTopBorder(zoneColumnTitle("Context", contextFocused), contextNavWidth-2, contextBorder) + "\n" + contextBox
-	contentBox = buildTopBorder(zoneColumnTitle("Content", contentFocused), m.contentWidth()-2, contentBorder) + "\n" + contentBox
-
-	mainArea := lipgloss.JoinHorizontal(lipgloss.Top, primaryBox, contextBox, contentBox)
-
-	messageBar := m.messageBar.View()
-
-	hints := nav.ContentHints{}
-	if cm := m.pane.contentModel(); cm != nil {
-		hints = nav.ContentHints{
-			HasUpdates:   cm.hasUpdates,
-			HasBackup:    cm.hasBackup,
-			DLLOperating: cm.dllOperating,
-		}
-	}
-	contextHelp := RenderNavContextBar(m.navState.ContextKeys(m.styles.ShowHints, hints), m.width/2, &m.styles.Theme)
+	listBox := buildTopBorder(paneColumnTitle("List", listFocused), listWidth-2, listBorder) + "\n" + listStyle.Render(listView)
+	detailBox := buildTopBorder(paneColumnTitle("Detail", detailFocused), detailWidth-2, detailBorder) + "\n" + detailStyle.Render(detailView)
+	mainArea := lipgloss.JoinHorizontal(lipgloss.Top, listBox, detailBox)
+	statusHelp := m.renderCanonicalStatus()
 	crumbs := m.renderBreadcrumbs()
-	statusBar := m.renderStatusBar(crumbs + "  " + m.renderZoneIndicator() + "  " + contextHelp)
+	focusLabel := "List"
+	if m.focus == FocusDetail {
+		focusLabel = "Detail"
+	}
+	statusBar := m.renderStatusBar(crumbs + "  [" + focusLabel + "]  " + statusHelp)
 
-	return lipgloss.JoinVertical(lipgloss.Left, header, mainArea, messageBar, statusBar)
+	return lipgloss.JoinVertical(lipgloss.Left, header, m.destinationBar.View(), mainArea, m.messageBar.View(), statusBar)
 }
 
 func (m LayoutModel) renderCompact() string {
@@ -335,8 +356,13 @@ func (m LayoutModel) renderCompact() string {
 }
 
 func (m LayoutModel) renderFocused() string {
-	contentHeight := max(m.height-statusBarHeight-messageBarHeight-2, 5)
-	paneView := truncateHeight(m.pane.View(true), contentHeight)
+	contentHeight := max(m.height-statusBarHeight-messageBarHeight-3, 5)
+	var paneView string
+	if m.focus == FocusList {
+		paneView = truncateHeight(m.visibleListView(true), contentHeight)
+	} else {
+		paneView = truncateHeight(m.pane.View(true), contentHeight)
+	}
 
 	paneBorderColor := m.styles.BorderColor(true)
 
@@ -350,10 +376,81 @@ func (m LayoutModel) renderFocused() string {
 
 	messageBar := m.messageBar.View()
 
-	escHint := lipgloss.NewStyle().Foreground(m.styles.Theme.TextDim).Render("F11:exit focused  ?:help  q:quit")
-	statusBar := m.renderStatusBar(escHint)
+	statusBar := m.renderStatusBar(m.renderCanonicalStatus())
 
-	return lipgloss.JoinVertical(lipgloss.Left, paneBox, messageBar, statusBar)
+	return lipgloss.JoinVertical(lipgloss.Left, m.destinationBar.View(), paneBox, messageBar, statusBar)
+}
+
+func (m LayoutModel) visibleListView(focused bool) string {
+	switch m.navState.Destination {
+	case nav.DestinationDLLCatalog:
+		return m.pane.dllsResource.ListView(focused, m.navState.DLLCatalogSection)
+	case nav.DestinationSettings:
+		return m.pane.settings.ListView(focused)
+	default:
+		return m.listPane.View(focused)
+	}
+}
+
+func (m LayoutModel) updateVisibleList(key tea.KeyPressMsg) (LayoutModel, tea.Cmd, bool) {
+	switch m.navState.Destination {
+	case nav.DestinationDLLCatalog:
+		if key.String() == "enter" {
+			m.focus = FocusDetail
+			return m, nil, true
+		}
+		if key.String() == "h" || key.String() == "left" || key.String() == "l" || key.String() == "right" {
+			if m.navState.DLLCatalogSection == nav.SectionDLLLibrary {
+				m.navState.DLLCatalogSection = nav.SectionDLLDeployment
+			} else {
+				m.navState.DLLCatalogSection = nav.SectionDLLLibrary
+			}
+			return m, nil, true
+		}
+		m.pane.dllsResource = m.pane.dllsResource.UpdateList(key, m.navState.DLLCatalogSection)
+		return m, nil, true
+	case nav.DestinationSettings:
+		if key.String() == "enter" {
+			m.focus = FocusDetail
+			return m, nil, true
+		}
+		if key.String() == "h" || key.String() == "left" || key.String() == "l" || key.String() == "right" {
+			sectionCount := len(m.pane.settings.sections)
+			if sectionCount > 0 {
+				delta := 1
+				if key.String() == "h" || key.String() == "left" {
+					delta = -1
+				}
+				m.pane.settings.sectionCursor = (m.pane.settings.sectionCursor + delta + sectionCount) % sectionCount
+				m.pane.settings.optionCursor = 0
+				m.navState.SettingsSection = nav.SettingsSection(m.pane.settings.sectionCursor)
+			}
+			return m, nil, true
+		}
+		m.pane.settings.UpdateList(key)
+		return m, nil, true
+	default:
+		var command tea.Cmd
+		var handled bool
+		m.listPane, command, handled = m.listPane.Update(key)
+		return m, command, handled
+	}
+}
+
+func (m LayoutModel) renderCanonicalStatus() string {
+	resolutions := CanonicalKeymap.HelpBindings(m.bindingContext())
+	keys := make([]ContextKey, 0, len(resolutions))
+	for _, resolution := range resolutions {
+		for _, candidate := range resolution.Binding.Keys {
+			if candidate.Printable || candidate.Key == "ctrl+c" {
+				continue
+			}
+			keys = append(keys, ContextKey{
+				Key: candidate.Label, Action: strings.ToLower(resolution.Binding.Description), Enabled: resolution.Available, Reason: resolution.Reason,
+			})
+		}
+	}
+	return RenderContextBar(keys, m.width/2, &m.styles.Theme)
 }
 
 // renderBreadcrumbs renders the navigation breadcrumb trail for the status bar.
@@ -376,26 +473,7 @@ func (m LayoutModel) renderBreadcrumbs() string {
 	return strings.Join(parts, "")
 }
 
-func (m LayoutModel) renderZoneIndicator() string {
-	label := zoneLabel(m.navState.Zone)
-	style := lipgloss.NewStyle().Foreground(m.styles.Theme.AccentOverride).Bold(true)
-	return style.Render("[" + label + "]")
-}
-
-func zoneLabel(z nav.Zone) string {
-	switch z {
-	case nav.ZonePrimary:
-		return "Primary"
-	case nav.ZoneContext:
-		return "Context"
-	case nav.ZoneContent:
-		return "Content"
-	default:
-		return "Primary"
-	}
-}
-
-func zoneColumnTitle(name string, focused bool) string {
+func paneColumnTitle(name string, focused bool) string {
 	if focused {
 		return "▸ " + name
 	}

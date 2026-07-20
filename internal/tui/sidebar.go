@@ -96,6 +96,7 @@ func (m SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
 			default:
 				m.search, cmd = m.search.Update(msg)
 				m.applyFiltersAndSort()
+				cmd = tea.Batch(cmd, m.selectCurrentItem())
 			}
 			return m, cmd
 		}
@@ -121,7 +122,7 @@ func (m SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
 		case "d":
 			m.filters.hasDLLs = !m.filters.hasDLLs
 			m.applyFiltersAndSort()
-		case "P":
+		case "p":
 			// `p` is reserved for the Task 5 pin-field binding; profile
 			// filter was displaced to `P` (shift+p) during the Task 3
 			// keymap audit. Displacement documented in the help screen.

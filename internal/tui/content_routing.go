@@ -46,6 +46,9 @@ func (m ContentModel) updatePendingAction(msg tea.KeyPressMsg) (ContentModel, te
 func (m ContentModel) updateContentMessage(msg tea.Msg) (ContentModel, tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case profileSaveMsg:
+		if m.game != nil && msg.request.appID == m.game.AppID {
+			m.detail.CompleteSave(msg.err)
+		}
 		if msg.err == nil && m.game != nil && msg.request.appID == m.game.AppID {
 			m.persistedProfile = msg.request.desired.Clone()
 			m.usingDefaultProfile = false
@@ -130,12 +133,6 @@ func (m ContentModel) updateProfileKey(msg tea.KeyPressMsg) (ContentModel, tea.C
 		return m, nil, true
 	case "R":
 		if m.detail.ResetAll() {
-			return m, m.saveResolvedProfile(), true
-		}
-		return m, nil, true
-	case "p":
-		changed, err := m.detail.PinFocused()
-		if err == nil && changed {
 			return m, m.saveResolvedProfile(), true
 		}
 		return m, nil, true

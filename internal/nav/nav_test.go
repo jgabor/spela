@@ -38,7 +38,7 @@ func TestDestinationFromHotkey(t *testing.T) {
 	}
 }
 
-func TestNavigationLabelsBreadcrumbsAndContextKeysCoverSupportedStates(t *testing.T) {
+func TestNavigationLabelsAndBreadcrumbsCoverSupportedStates(t *testing.T) {
 	for destination := DestinationLibrary; destination <= DestinationSettings; destination++ {
 		if destination.String() == "unknown" || DestinationHotkey(destination) == "" {
 			t.Errorf("destination %d label/hotkey missing", destination)
@@ -61,24 +61,6 @@ func TestNavigationLabelsBreadcrumbsAndContextKeysCoverSupportedStates(t *testin
 		if state.Destination != Destination(99) && !strings.Contains(state.BreadcrumbString(), state.Destination.String()) {
 			t.Errorf("breadcrumb %q missing destination %q", state.BreadcrumbString(), state.Destination)
 		}
-		for _, zone := range []Zone{ZonePrimary, ZoneContext, ZoneContent, Zone(99)} {
-			state.Zone = zone
-			keys := state.ContextKeys(true, ContentHints{HasUpdates: true, HasBackup: true})
-			if zone != Zone(99) && state.Destination != Destination(99) && len(keys) == 0 {
-				t.Errorf("state %+v has no context keys", state)
-			}
-			if state.ContextKeys(false, ContentHints{}) != nil {
-				t.Error("hidden hints unexpectedly returned keys")
-			}
-		}
-	}
-	dllState := states[3]
-	dllState.Zone = ZoneContent
-	if keys := dllState.ContextKeys(true, ContentHints{HasUpdates: true}); keys[0].Key != "u" {
-		t.Fatalf("DLL update hint keys = %+v", keys)
-	}
-	if keys := dllState.ContextKeys(true, ContentHints{HasUpdates: true, DLLOperating: true}); keys[0].Key == "u" {
-		t.Fatalf("operating DLL keys still offer update: %+v", keys)
 	}
 }
 
@@ -150,82 +132,13 @@ func TestSelectScope_GameDefaultsOverview(t *testing.T) {
 	s := DefaultState()
 	s.Scope = Scope{Kind: ScopeGame, GameName: "Test"}
 	s = s.SelectScope(Scope{Kind: ScopeGame, GameName: "Test"})
-	if s.Aspect != AspectOverview && s.Aspect != AspectProfile {
-		t.Errorf("unexpected aspect after game scope: %v", s.Aspect)
-	}
-}
-
-func TestContextKeys_ZonePrimary(t *testing.T) {
-	s := DefaultState()
-	s.Zone = ZonePrimary
-	keys := s.ContextKeys(true, ContentHints{})
-	if len(keys) == 0 {
-		t.Fatal("expected keys")
-	}
-	if keys[0].Key != "1-4" {
-		t.Errorf("first key: got %q", keys[0].Key)
-	}
-}
-
-func TestContextKeys_HintsDisabled(t *testing.T) {
-	s := DefaultState()
-	if got := s.ContextKeys(false, ContentHints{}); len(got) != 0 {
-		t.Errorf("expected no keys when hints disabled")
-	}
-}
-
-func TestNextPrevZone(t *testing.T) {
-	s := DefaultState()
-	if s.Zone != ZonePrimary {
-		t.Fatal("precondition")
-	}
-	s = s.NextZone()
-	if s.Zone != ZoneContext {
-		t.Errorf("after NextZone: %v", s.Zone)
-	}
-	s = s.NextZone()
-	if s.Zone != ZoneContent {
-		t.Errorf("after second NextZone: %v", s.Zone)
-	}
-	s = s.PrevZone()
-	if s.Zone != ZoneContext {
-		t.Errorf("after PrevZone: %v", s.Zone)
+	if s.Aspect != AspectOverview {
+		t.Errorf("game scope aspect = %v, want Overview", s.Aspect)
 	}
 }
 
 func TestProfileSubsystemKey(t *testing.T) {
 	if SubsystemDLSS.Key() != "dlss" {
 		t.Errorf("got %q", SubsystemDLSS.Key())
-	}
-}
-
-func TestContextKeys_ContentDLLs_OmitsUpdateWhenUpToDate(t *testing.T) {
-	s := DefaultState()
-	s.Zone = ZoneContent
-	s.Scope = Scope{Kind: ScopeGame, GameName: "Test"}
-	s.Aspect = AspectDLLs
-	keys := s.ContextKeys(true, ContentHints{HasUpdates: false})
-	for _, k := range keys {
-		if k.Key == "u" {
-			t.Fatal("expected no update key when DLLs are up to date")
-		}
-	}
-}
-
-func TestContextKeys_ContentDLLs_ShowsUpdateWhenStale(t *testing.T) {
-	s := DefaultState()
-	s.Zone = ZoneContent
-	s.Scope = Scope{Kind: ScopeGame, GameName: "Test"}
-	s.Aspect = AspectDLLs
-	keys := s.ContextKeys(true, ContentHints{HasUpdates: true})
-	found := false
-	for _, k := range keys {
-		if k.Key == "u" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatal("expected update key when updates are available")
 	}
 }

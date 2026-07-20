@@ -16,7 +16,7 @@ func TestFieldDescriptorsExhaustProfileLeavesExactlyOnce(t *testing.T) {
 			t.Fatalf("duplicate descriptor %q", descriptor.Key)
 		}
 		seen[descriptor.Key] = true
-		if descriptor.Subsystem == "" || descriptor.Label == "" || descriptor.Kind == "" || descriptor.Impact == "" || descriptor.Restore == "" {
+		if descriptor.Subsystem == "" || descriptor.Label == "" || descriptor.Description == "" || descriptor.Kind == "" || descriptor.Editor == "" || descriptor.Impact == "" || descriptor.Restore == "" {
 			t.Errorf("incomplete descriptor: %+v", descriptor)
 		}
 		value, err := fieldAccessor(&Profile{}, descriptor.Key)

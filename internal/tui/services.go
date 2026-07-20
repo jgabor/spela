@@ -14,6 +14,7 @@ import (
 // Production code uses DefaultServices(); tests substitute fakes.
 type Services struct {
 	LoadConfig         func() (*config.Config, error)
+	SaveConfig         func(*config.Config) error
 	ScanGames          func(cfg *config.Config) (*game.Database, error)
 	LoadProfile        func(appID uint64) (*profile.Profile, error)
 	LoadDefaultProfile func() (*profile.Profile, error)
@@ -32,6 +33,7 @@ type Services struct {
 func DefaultServices() *Services {
 	return &Services{
 		LoadConfig:         config.Load,
+		SaveConfig:         func(configuration *config.Config) error { return configuration.Save() },
 		ScanGames:          steam.Rescan,
 		LoadProfile:        profile.Load,
 		LoadDefaultProfile: profile.LoadDefault,

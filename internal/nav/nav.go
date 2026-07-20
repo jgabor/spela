@@ -52,15 +52,6 @@ func DestinationFromHotkey(key string) (Destination, bool) {
 	}
 }
 
-// Zone is a keyboard-focus region in the shell layout.
-type Zone int
-
-const (
-	ZonePrimary Zone = iota
-	ZoneContext
-	ZoneContent
-)
-
 // ScopeKind distinguishes global default profile vs a specific game.
 type ScopeKind int
 
@@ -188,7 +179,6 @@ type Scope struct {
 // State is the full navigation state shared by TUI and GUI.
 type State struct {
 	Destination       Destination
-	Zone              Zone
 	Scope             Scope
 	Aspect            Aspect
 	ProfileSubsystem  ProfileSubsystem
@@ -201,7 +191,6 @@ type State struct {
 func DefaultState() State {
 	return State{
 		Destination:      DestinationLibrary,
-		Zone:             ZonePrimary,
 		Scope:            Scope{Kind: ScopeGlobal},
 		Aspect:           AspectProfile,
 		ProfileSubsystem: SubsystemProton,
@@ -211,7 +200,6 @@ func DefaultState() State {
 // SelectDestination switches primary nav and resets context to sensible defaults.
 func (s State) SelectDestination(d Destination) State {
 	s.Destination = d
-	s.Zone = ZonePrimary
 	switch d {
 	case DestinationLibrary:
 		if s.Scope.Kind == ScopeGlobal {
@@ -236,13 +224,9 @@ func (s State) SelectScope(scope Scope) State {
 		s.Aspect = AspectProfile
 		return s
 	}
-	// Game scope: keep Profile or DLLs; otherwise default to Overview.
-	switch s.Aspect {
-	case AspectProfile, AspectDLLs:
-		// unchanged
-	default:
-		s.Aspect = AspectOverview
-	}
+	// A newly selected game always opens on Overview. Detail-local navigation
+	// may change the aspect after selection.
+	s.Aspect = AspectOverview
 	return s
 }
 
@@ -294,131 +278,4 @@ func (s State) BreadcrumbString() string {
 		return "Spela"
 	}
 	return "Spela › " + strings.Join(parts, " › ")
-}
-
-// ContentHints carries TUI content state for DLL-related status-bar hints.
-type ContentHints struct {
-	HasUpdates   bool
-	HasBackup    bool
-	DLLOperating bool
-}
-
-// ContextKey is one keybinding hint for the status bar.
-type ContextKey struct {
-	Key    string
-	Action string
-	Reason string // non-empty when disabled
-}
-
-// ContextKeys returns key hints for the current state and focus zone.
-func (s State) ContextKeys(showHints bool, hints ContentHints) []ContextKey {
-	if !showHints {
-		return nil
-	}
-	switch s.Zone {
-	case ZonePrimary:
-		return []ContextKey{
-			{Key: "1-4", Action: "destination"},
-			{Key: "j/k", Action: "navigate"},
-			{Key: "Tab", Action: "context"},
-			{Key: "q", Action: "quit"},
-		}
-	case ZoneContext:
-		return s.contextZoneKeys()
-	case ZoneContent:
-		return s.contentZoneKeys(hints)
-	}
-	return nil
-}
-
-func (s State) contextZoneKeys() []ContextKey {
-	switch s.Destination {
-	case DestinationLibrary:
-		keys := []ContextKey{
-			{Key: "/", Action: "search"},
-			{Key: "Tab", Action: "content"},
-			{Key: "Esc", Action: "primary"},
-		}
-		if s.Scope.Kind == ScopeGame {
-			keys = append([]ContextKey{{Key: "1-3", Action: "aspect"}}, keys...)
-		}
-		return keys
-	case DestinationDLLCatalog:
-		return []ContextKey{
-			{Key: "j/k", Action: "section"},
-			{Key: "Tab", Action: "content"},
-			{Key: "Esc", Action: "primary"},
-		}
-	case DestinationMonitor, DestinationSettings:
-		return []ContextKey{
-			{Key: "j/k", Action: "section"},
-			{Key: "Tab", Action: "content"},
-			{Key: "Esc", Action: "primary"},
-		}
-	}
-	return nil
-}
-
-func (s State) contentZoneKeys(hints ContentHints) []ContextKey {
-	switch s.Destination {
-	case DestinationLibrary:
-		switch s.Aspect {
-		case AspectProfile:
-			return []ContextKey{
-				{Key: "j/k", Action: "field"},
-				{Key: "r", Action: "reset"},
-				{Key: "p", Action: "pin"},
-				{Key: "Shift+R", Action: "reset all"},
-				{Key: "Esc", Action: "context"},
-			}
-		case AspectDLLs:
-			keys := []ContextKey{
-				{Key: "i", Action: "install"},
-				{Key: "Ctrl+Shift+R", Action: "restore"},
-				{Key: "Esc", Action: "context"},
-			}
-			if hints.HasUpdates && !hints.DLLOperating {
-				keys = append([]ContextKey{{Key: "u", Action: "update"}}, keys...)
-			}
-			return keys
-		case AspectOverview:
-			return []ContextKey{{Key: "Esc", Action: "context"}}
-		}
-	case DestinationDLLCatalog:
-		return []ContextKey{
-			{Key: "j/k", Action: "row"},
-			{Key: "U", Action: "update all stale"},
-			{Key: "Esc", Action: "context"},
-		}
-	case DestinationMonitor:
-		return []ContextKey{{Key: "Esc", Action: "context"}}
-	case DestinationSettings:
-		return []ContextKey{
-			{Key: "j/k", Action: "option"},
-			{Key: "Esc", Action: "context"},
-		}
-	}
-	return []ContextKey{{Key: "Esc", Action: "context"}}
-}
-
-// NextZone advances focus forward (Primary → Context → Content).
-func (s State) NextZone() State {
-	switch s.Zone {
-	case ZonePrimary:
-		s.Zone = ZoneContext
-	case ZoneContext:
-		s.Zone = ZoneContent
-	}
-	return s
-}
-
-// PrevZone moves focus backward (Content → Context → Primary).
-func (s State) PrevZone() State {
-	switch s.Zone {
-	case ZoneContent:
-		s.Zone = ZoneContext
-	case ZoneContext:
-		s.Zone = ZonePrimary
-	}
-	return s
 }

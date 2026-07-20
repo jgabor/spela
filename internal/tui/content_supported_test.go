@@ -271,13 +271,18 @@ func TestContentFirstGameProfileSaveClearsInheritedBannerAndRetainsFocus(t *test
 		t.Fatal("profile-free game did not begin with inherited-only banner")
 	}
 
-	mutated, saveCommand := content.Update(keyMsg("p"))
+	if !content.detail.BeginEdit() {
+		t.Fatal("could not edit inherited field")
+	}
+	content.detail.UpdateEditor(keyMsg("enter"))
+	mutated := content
+	saveCommand := mutated.saveResolvedProfile()
 	if saveCommand == nil {
-		t.Fatal("pin returned no save command")
+		t.Fatal("explicit profile save returned no command")
 	}
 	message, ok := saveCommand().(profileSaveMsg)
 	if !ok || message.err != nil || message.request.appID != entry.AppID {
-		t.Fatalf("pin save result = %#v", message)
+		t.Fatalf("profile save result = %#v", message)
 	}
 	persisted, err := profile.Load(entry.AppID)
 	if err != nil {

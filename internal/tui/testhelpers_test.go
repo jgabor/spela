@@ -292,8 +292,8 @@ func TestFactories_Smoke(t *testing.T) {
 		if m.height != 40 {
 			t.Errorf("expected height 40, got %d", m.height)
 		}
-		if m.navState.Zone != nav.ZonePrimary {
-			t.Error("expected primary zone focused by default")
+		if m.focus != FocusList {
+			t.Error("expected List focused by default")
 		}
 	})
 
@@ -307,11 +307,11 @@ func TestFactories_Smoke(t *testing.T) {
 		if cm.game.Name != "Cyberpunk 2077" {
 			t.Errorf("expected Cyberpunk 2077, got %s", cm.game.Name)
 		}
-		if withGame.navState.Zone != nav.ZoneContent {
-			t.Errorf("expected content zone after game confirmation, got %v", withGame.navState.Zone)
+		if withGame.focus != FocusDetail {
+			t.Errorf("expected Detail after game confirmation, got %v", withGame.focus)
 		}
-		if withGame.rail.Active() != nav.DestinationLibrary {
-			t.Errorf("expected Library active, got %v", withGame.rail.Active())
+		if withGame.navState.Destination != nav.DestinationLibrary {
+			t.Errorf("expected Library active, got %v", withGame.navState.Destination)
 		}
 	})
 

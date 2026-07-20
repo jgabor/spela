@@ -205,6 +205,7 @@ func (m ContentModel) SetGame(g *game.Game) ContentModel {
 			rawProfile, m.usingDefaultProfile = desired.Clone(), false
 		}
 		m.detail = NewDetail(m.styles, rawProfile, defaults)
+		m.detail.SetSize(max(m.width, 1), m.height)
 		m.hasBackup = m.services.BackupExists(g.AppID)
 	}
 

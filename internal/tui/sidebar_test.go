@@ -114,10 +114,10 @@ func TestSidebar_ProfileFilter(t *testing.T) {
 
 	initialCount := len(m.filtered)
 
-	// New binding: P (shift+p).
-	m, _ = m.Update(keyMsg("P"))
+	// Profile filtering uses p now that profile editing creates overrides.
+	m, _ = m.Update(keyMsg("p"))
 	if !m.filters.hasProfile {
-		t.Error("expected profile filter to be active after 'P'")
+		t.Error("expected profile filter to be active after 'p'")
 	}
 	if len(m.filtered) >= initialCount {
 		t.Error("expected filtered list to be smaller with profile filter")
@@ -126,19 +126,6 @@ func TestSidebar_ProfileFilter(t *testing.T) {
 		if item.kind == sidebarItemGame && item.game != nil && item.game.AppID == 200 {
 			t.Error("expected game without profile to be filtered out")
 		}
-	}
-}
-
-// TestSidebar_BareP_NotProfileFilter guards that bare `p` does NOT toggle
-// the profile filter, so Task 5 can safely bind `p` to pin-field.
-func TestSidebar_BareP_NotProfileFilter(t *testing.T) {
-	g := testGame("Alpha")
-	m := testSidebar(g)
-	m.filters.hasProfile = false
-
-	m, _ = m.Update(keyMsg("p"))
-	if m.filters.hasProfile {
-		t.Error("bare 'p' must not toggle profile filter (reserved for Task 5)")
 	}
 }
 

@@ -204,8 +204,8 @@ func TestGameLoadAndPinUsePendingDefaultIntent(t *testing.T) {
 	if !pane.content.detail.resolved.Proton.EnableHDR || pane.content.detail.RawProfile().IsOverridden(profile.FieldProtonEnableHDR) {
 		t.Fatal("game did not display pending inherited HDR value")
 	}
-	if changed, err := pane.content.detail.PinFocused(); err != nil || !changed {
-		t.Fatalf("pin pending inherited HDR = changed %v, err %v", changed, err)
+	if !pane.content.detail.BeginEdit() || !pane.content.detail.UpdateEditor(keyMsg("enter")) {
+		t.Fatal("could not create concrete override from inherited HDR")
 	}
 	if command := pane.content.saveResolvedProfile(); command != nil {
 		t.Fatal("game pin ran concurrently with pending defaults")
