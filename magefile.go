@@ -7,9 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
-	"time"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
@@ -50,7 +48,7 @@ func Build() error {
 	if err != nil {
 		return err
 	}
-	return sh.RunV("go", "build", "-buildvcs=false", "-tags", "embed_assets,production,webkit2_41", "-ldflags", ldf, "-o", binaryName, "./cmd/spela")
+	return sh.RunV("go", "build", "-buildvcs=false", "-trimpath", "-tags", "embed_assets,production,webkit2_41", "-ldflags", ldf, "-o", binaryName, "./cmd/spela")
 }
 
 // GenNavJS generates GUI nav constants from internal/nav.
@@ -334,55 +332,4 @@ func Dev() error {
 // DevStop stops the Vite dev server
 func DevStop() error {
 	return sh.Run("pkill", "-f", "bun run dev")
-}
-
-type Aur mg.Namespace
-
-// UpdateVersion updates PKGBUILD version and SHA256 checksum
-func (Aur) UpdateVersion(version string) error {
-	if version == "" {
-		return fmt.Errorf("version argument required")
-	}
-	version = strings.TrimPrefix(version, "v")
-	pkgbuild := "pkg/aur/PKGBUILD"
-	content, err := os.ReadFile(pkgbuild)
-	if err != nil {
-		return fmt.Errorf("failed to read PKGBUILD: %w", err)
-	}
-	content = regexp.MustCompile(`(?m)^pkgver=.*$`).ReplaceAll(content, []byte(fmt.Sprintf("pkgver=%s", version)))
-	tarballURL := fmt.Sprintf("https://github.com/jgabor/spela/archive/v%s.tar.gz", version)
-	fmt.Printf("Fetching tarball checksum from %s...\n", tarballURL)
-	tmpFile, err := os.CreateTemp("", "spela-*.tar.gz")
-	if err != nil {
-		return fmt.Errorf("failed to create temp file: %w", err)
-	}
-	defer func() { _ = os.Remove(tmpFile.Name()) }()
-	_ = tmpFile.Close()
-	maxRetries := 5
-	var downloadErr error
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		downloadErr = sh.Run("curl", "-sfL", "-o", tmpFile.Name(), tarballURL)
-		if downloadErr == nil {
-			break
-		}
-		if attempt < maxRetries {
-			delay := time.Duration(attempt*attempt) * time.Second
-			fmt.Printf("Download failed (attempt %d/%d), retrying in %v...\n", attempt, maxRetries, delay)
-			time.Sleep(delay)
-		}
-	}
-	if downloadErr != nil {
-		return fmt.Errorf("failed to download tarball after %d attempts: %w", maxRetries, downloadErr)
-	}
-	checksumOut, err := sh.Output("sha256sum", tmpFile.Name())
-	if err != nil {
-		return fmt.Errorf("failed to compute checksum: %w", err)
-	}
-	checksum := strings.Fields(checksumOut)[0]
-	content = regexp.MustCompile(`(?m)^sha256sums=\('.*'\)$`).ReplaceAll(content, []byte(fmt.Sprintf("sha256sums=('%s')", checksum)))
-	if err := os.WriteFile(pkgbuild, content, 0o644); err != nil {
-		return fmt.Errorf("failed to write PKGBUILD: %w", err)
-	}
-	fmt.Printf("Updated PKGBUILD: pkgver=%s, sha256=%s\n", version, checksum)
-	return nil
 }

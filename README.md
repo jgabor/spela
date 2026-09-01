@@ -9,8 +9,7 @@ the MangoHud + LACT + DLSS Updater juggle.
 ### AUR (Arch Linux)
 
 ```bash
-paru -S spela        # stable
-paru -S spela-git    # development
+paru -S spela-git
 ```
 
 ### Build from source

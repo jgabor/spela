@@ -88,28 +88,8 @@ func TestReleaseWorkflowArtifactContract(t *testing.T) {
 	if got := strings.TrimSpace(steps["Extract release notes from CHANGELOG.md"].Run); got != `sh scripts/release-notes.sh "$RELEASE_TAG" > release_notes.md` {
 		t.Fatalf("release notes command = %q", got)
 	}
-	aur, ok := workflow.Jobs["aur-publish"]
-	if !ok {
-		t.Fatal("release workflow has no aur-publish job")
-	}
-	updateTargetFound := false
-	var published []string
-	for _, step := range aur.Steps {
-		if step.Name == "Update PKGBUILD version and checksum" {
-			updateTargetFound = true
-			if strings.TrimSpace(step.Run) != `go tool mage aur:updateVersion "$RELEASE_TAG"` {
-				t.Fatalf("AUR version update command = %q", step.Run)
-			}
-		}
-		if strings.HasPrefix(step.Uses, "KSXGitHub/github-actions-deploy-aur@") {
-			published = append(published, step.With["pkgname"]+":"+step.With["pkgbuild"])
-		}
-	}
-	if !updateTargetFound {
-		t.Fatal("release workflow does not update the AUR package version")
-	}
-	if !equalStrings(published, []string{"spela:pkg/aur/PKGBUILD", "spela-git:pkg/aur/PKGBUILD-git"}) {
-		t.Fatalf("AUR publications = %q", published)
+	if _, ok := workflow.Jobs["aur-publish"]; ok {
+		t.Fatal("versioned release workflow must not publish the VCS-only AUR package")
 	}
 }
 
@@ -147,11 +127,6 @@ func TestReleaseTagIsValidatedBeforeUse(t *testing.T) {
 	if build.Needs.Kind != yaml.ScalarNode || build.Needs.Value != "validate-tag" {
 		t.Errorf("build needs = %v, want validate-tag", build.Needs.Value)
 	}
-	aur := workflow.Jobs["aur-publish"]
-	if got := yamlNodeValues(&aur.Needs); !equalStrings(got, []string{"validate-tag", "build"}) {
-		t.Errorf("aur-publish needs = %q, want validate-tag and build", got)
-	}
-
 	for jobName, job := range workflow.Jobs {
 		for _, step := range job.Steps {
 			if strings.Contains(step.Run, "${{ github.ref_name }}") {
@@ -162,29 +137,11 @@ func TestReleaseTagIsValidatedBeforeUse(t *testing.T) {
 			}
 		}
 	}
-	for _, jobName := range []string{"build", "aur-publish"} {
+	for _, jobName := range []string{"build"} {
 		job := workflow.Jobs[jobName]
 		if got := job.Env["RELEASE_TAG"]; got != "${{ needs.validate-tag.outputs.release_tag }}" {
 			t.Errorf("%s RELEASE_TAG environment = %q", jobName, got)
 		}
-	}
-
-	var update releaseWorkflowStep
-	for _, step := range aur.Steps {
-		if step.Name == "Update PKGBUILD version and checksum" {
-			update = step
-		}
-		if strings.HasPrefix(step.Uses, "KSXGitHub/github-actions-deploy-aur@") {
-			if strings.Contains(step.With["pkgname"], "RELEASE_TAG") || strings.Contains(step.With["pkgbuild"], "RELEASE_TAG") {
-				t.Errorf("%s allows release tag text in an AUR package argument", step.Name)
-			}
-			if step.With["commit_message"] != "Update to ${{ env.RELEASE_TAG }}" {
-				t.Errorf("%s commit message = %q", step.Name, step.With["commit_message"])
-			}
-		}
-	}
-	if got := strings.TrimSpace(update.Run); got != `go tool mage aur:updateVersion "$RELEASE_TAG"` {
-		t.Fatalf("AUR version command = %q", got)
 	}
 }
 
@@ -308,7 +265,7 @@ func TestReleaseBuildInputsContract(t *testing.T) {
 	goModule := read("go.mod")
 	for _, pin := range []string{
 		"github.com/magefile/mage v1.15.0",
-		"github.com/wailsapp/wails/v2 v2.12.0",
+		"github.com/wailsapp/wails/v2 v2.15.0",
 		"tool (",
 		"github.com/wailsapp/wails/v2/cmd/wails",
 	} {
@@ -333,10 +290,7 @@ func TestReleaseBuildInputsContract(t *testing.T) {
 	}
 
 	magefile := read("magefile.go")
-	if !strings.Contains(magefile, "func (Aur) UpdateVersion") {
-		t.Error("release workflow references missing aur:updateVersion target")
-	}
-	for _, removed := range []string{"type Release mg.Namespace", "func (Release)", "func (Aur) Publish", "func (Aur) Srcinfo", "findGitCliff", "opencode", "gh release"} {
+	for _, removed := range []string{"type Release mg.Namespace", "func (Release)", "type Aur mg.Namespace", "func (Aur)", "findGitCliff", "opencode", "gh release"} {
 		if strings.Contains(magefile, removed) {
 			t.Errorf("magefile retains removed release publisher %q", removed)
 		}
@@ -347,17 +301,29 @@ func TestReleaseBuildInputsContract(t *testing.T) {
 	if strings.Contains(magefile, `environment, "wails", "build"`) {
 		t.Error("coverage requires an unpinned Wails executable on PATH")
 	}
-	for _, path := range []string{"pkg/aur/PKGBUILD", "pkg/aur/PKGBUILD-git"} {
-		pkgbuild := read(path)
-		if !strings.Contains(pkgbuild, "go tool mage build") {
-			t.Errorf("%s does not use the canonical build target", path)
-		}
-		if !strings.Contains(pkgbuild, `SPELA_VERSION="$pkgver"`) {
-			t.Errorf("%s does not preserve the package version in the binary", path)
-		}
-		if strings.Contains(pkgbuild, "bun run build") || strings.Contains(pkgbuild, "go build ") {
-			t.Errorf("%s duplicates canonical build steps", path)
-		}
+	pkgbuild := read("pkg/aur/PKGBUILD")
+	if !strings.Contains(pkgbuild, "pkgname=spela-git") || !strings.Contains(pkgbuild, "git+$url.git") {
+		t.Error("AUR package is not the spela-git VCS package")
+	}
+	if !strings.Contains(pkgbuild, "--match 'v[0-9]*'") {
+		t.Error("AUR package version can select non-release DLL tags")
+	}
+	if !strings.Contains(pkgbuild, "go tool mage build") {
+		t.Error("AUR package does not use the canonical build target")
+	}
+	if !strings.Contains(pkgbuild, `SPELA_VERSION="$pkgver"`) {
+		t.Error("AUR package does not preserve the package version in the binary")
+	}
+	if strings.Contains(pkgbuild, "bun run build") || strings.Contains(pkgbuild, "go build ") {
+		t.Error("AUR package duplicates canonical build steps")
+	}
+	srcinfo := read("pkg/aur/.SRCINFO")
+	if !strings.Contains(srcinfo, "pkgbase = spela-git") || !strings.Contains(srcinfo, "pkgname = spela-git") {
+		t.Error("AUR .SRCINFO does not describe spela-git")
+	}
+	aurSubmit := read("scripts/aur-submit.sh")
+	if !strings.Contains(aurSubmit, "expected_account=jgabor") || !strings.Contains(aurSubmit, "Welcome to AUR, ${expected_account}!") {
+		t.Error("AUR submission does not guard the dedicated jgabor identity")
 	}
 }
 

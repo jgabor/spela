@@ -1,0 +1,21 @@
+pkgbase = spela-git
+	pkgdesc = Linux gaming optimization tool for NVIDIA GPUs with DLSS/DLL management (git version)
+	pkgver = 0.5.1.r6.g087d1c4
+	pkgrel = 1
+	url = https://github.com/jgabor/spela
+	arch = x86_64
+	license = MIT
+	makedepends = git
+	makedepends = go>=1.25.5
+	makedepends = bun
+	depends = nvidia-utils
+	depends = webkit2gtk-4.1
+	depends = gtk3
+	optdepends = nvidia-settings: GPU settings control
+	optdepends = polkit: Privileged operations support
+	provides = spela
+	conflicts = spela
+	source = spela::git+https://github.com/jgabor/spela.git
+	sha256sums = SKIP
+
+pkgname = spela-git

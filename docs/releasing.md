@@ -1,8 +1,11 @@
 # Releasing Spela
 
-GitHub Actions is the only release publisher. A pushed `v*` tag starts
+GitHub Actions is the only versioned release publisher. A pushed `v*` tag starts
 `.github/workflows/release.yml`; local tooling must not create, replace, or
-delete GitHub releases or mutate AUR repositories.
+delete GitHub releases.
+
+The AUR contains the independent `spela-git` VCS package. It follows the latest
+upstream branch and therefore does not need an update for every Spela release.
 
 ## Release contract
 
@@ -14,10 +17,7 @@ For a tag `vX.Y.Z`:
   `checksums.txt` with its SHA-256 checksum.
 - The release body is exactly the matching changelog section body (not the
   heading and not an adjacent release).
-- The stable AUR publication uses `pkg/aur/PKGBUILD` with `pkgver=X.Y.Z` and
-  the tag archive checksum. The development publication uses
-  `pkg/aur/PKGBUILD-git` unchanged.
-- CI, the tag workflow, source builds, and both PKGBUILDs use the `Build` Mage
+- CI, the tag workflow, source builds, and the AUR PKGBUILD use the `Build` Mage
   target as the canonical generation, frozen frontend install, frontend build,
   and embedded Go binary path. Build tags and linker flags live only there.
 
@@ -63,14 +63,36 @@ Pushing the tag is the publication boundary. Monitor the tag workflow in
 GitHub Actions. Do not recreate a failed release locally: correct the cause and
 use a new version/tag so published history remains immutable.
 
+## AUR package
+
+`pkg/aur/PKGBUILD` is the source of truth for the `spela-git` package;
+`pkg/aur/.SRCINFO` is its checked-in generated representation. Submit them only
+when the package metadata or build recipe changes, not for ordinary upstream
+commits or tags.
+
+First inspect the exact AUR diff without publishing:
+
+```bash
+./scripts/aur-submit.sh
+```
+
+The script refuses to continue unless SSH authenticates to the AUR as the
+separate `jgabor` account. `AUR_SSH_TARGET` may select a dedicated SSH host
+alias, but that alias must authenticate as `jgabor`. After reviewing the dry
+run, publish explicitly:
+
+```bash
+./scripts/aur-submit.sh --publish
+```
+
 ## Nonpublishing verification
 
-The release contract tests inspect the workflow and PKGBUILDs, extract release
+The release contract tests inspect the workflow and PKGBUILD, extract release
 notes, and build/checksum the artifact from a clean tracked-source snapshot.
 They do not create tags, GitHub releases, or AUR commits.
 
 ```bash
 go test ./tests/contracts/...
-(cd pkg/aur && makepkg --printsrcinfo -p PKGBUILD)
-(cd pkg/aur && makepkg --printsrcinfo -p PKGBUILD-git)
+(cd pkg/aur && makepkg --printsrcinfo | diff -u .SRCINFO -)
+./scripts/aur-submit.sh
 ```

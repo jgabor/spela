@@ -1,29 +1,37 @@
 # Maintainer: Jonathan Gabor <jonathan@jgabor.se>
-pkgname=spela
-pkgver=0.1.0
+pkgname=spela-git
+_pkgname=${pkgname%-git}
+pkgver=0.5.1.r6.g087d1c4
 pkgrel=1
-pkgdesc="Linux gaming optimization tool for NVIDIA GPUs with DLSS/DLL management"
+pkgdesc="Linux gaming optimization tool for NVIDIA GPUs with DLSS/DLL management (git version)"
 arch=('x86_64')
 url="https://github.com/jgabor/spela"
 license=('MIT')
 depends=('nvidia-utils' 'webkit2gtk-4.1' 'gtk3')
-makedepends=('go>=1.25' 'bun')
+makedepends=('git' 'go>=1.25.5' 'bun')
 optdepends=(
     'nvidia-settings: GPU settings control'
     'polkit: Privileged operations support'
 )
-source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
+provides=('spela')
+conflicts=('spela')
+source=("$_pkgname::git+$url.git")
 sha256sums=('SKIP')
 
+pkgver() {
+    cd "$srcdir/$_pkgname"
+    git describe --long --abbrev=7 --tags --match 'v[0-9]*' | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+}
+
 build() {
-    cd "$pkgname-$pkgver"
+    cd "$srcdir/$_pkgname"
 
     SPELA_VERSION="$pkgver" CGO_ENABLED=1 go tool mage build
 }
 
 package() {
-    cd "$pkgname-$pkgver"
-    install -Dm755 spela "$pkgdir/usr/bin/spela"
+    cd "$srcdir/$_pkgname"
+    install -Dm755 "$_pkgname" "$pkgdir/usr/bin/$_pkgname"
     install -Dm644 data/polkit/io.github.spela.policy "$pkgdir/usr/share/polkit-1/actions/io.github.spela.policy"
     install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
