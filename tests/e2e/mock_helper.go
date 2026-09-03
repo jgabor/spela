@@ -25,17 +25,7 @@ type TestEnvironment struct {
 func SetupTestEnvironment(t *testing.T) (*TestEnvironment, func()) {
 	t.Helper()
 
-	// 1. Create a parent test_run_data folder in the worktree if it does not exist
-	baseDir, err := filepath.Abs(filepath.Join(".", "test_run_data"))
-	if err != nil {
-		t.Fatalf("failed to get absolute path for test_run_data base directory: %v", err)
-	}
-	if err := os.MkdirAll(baseDir, 0o755); err != nil {
-		t.Fatalf("failed to create test_run_data base directory: %v", err)
-	}
-
-	// 2. Create an isolated subdirectory for this specific test
-	tempDir, err := os.MkdirTemp(baseDir, "run-*")
+	tempDir, err := os.MkdirTemp("", "spela-tui-e2e-fixture-*")
 	if err != nil {
 		t.Fatalf("failed to create temporary test run directory: %v", err)
 	}
@@ -43,10 +33,11 @@ func SetupTestEnvironment(t *testing.T) (*TestEnvironment, func()) {
 	configHome := filepath.Join(tempDir, "config")
 	dataHome := filepath.Join(tempDir, "data")
 	cacheHome := filepath.Join(tempDir, "cache")
+	homeDir := filepath.Join(tempDir, "home")
 
 	// Ensure subdirectories exist
 	runtimeDir := filepath.Join(tempDir, "runtime")
-	for _, dir := range []string{configHome, dataHome, cacheHome, runtimeDir} {
+	for _, dir := range []string{configHome, dataHome, cacheHome, runtimeDir, filepath.Join(homeDir, ".steam", "steam", "steamapps")} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatalf("failed to create XDG subdirectory %q: %v", dir, err)
 		}
@@ -54,6 +45,7 @@ func SetupTestEnvironment(t *testing.T) (*TestEnvironment, func()) {
 
 	// Build isolated environment variables list
 	env := []string{
+		"HOME=" + homeDir,
 		"XDG_RUNTIME_DIR=" + filepath.Join(tempDir, "runtime"),
 		"XDG_CONFIG_HOME=" + configHome,
 		"XDG_DATA_HOME=" + dataHome,

@@ -93,10 +93,8 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Install tmux
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y tmux
+      - name: Install Terminal Control
+        run: cargo install --locked terminal-control --version 0.3.1
 
       - name: Set up bun
         uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2.1.2

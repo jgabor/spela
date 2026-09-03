@@ -1,0 +1,15 @@
+id: dlifcnbhlm
+artifact: progress
+record:
+  timestamp: 2026-09-03 19:53
+  type: test
+  phase: build
+  what: Replaced the retired tmux TUI acceptance harness with Terminal Control journeys.
+  context:
+    intent: Make the tagged TUI target prove current accepted behavior through rendered terminal screens.
+    constraints: Use unique sessions, visible waits, OS-temp fixtures, guaranteed stops, and no real game paths.
+    scope: TUI e2e transport, journeys, target description, CI dependency, and changelog.
+  discovered: Legacy tests asserted removed three-zone navigation and numeric aspect shortcuts and wrote binaries and fixtures inside the checkout.
+  verified: "go tool mage TestTUIE2E passed in 5.758 seconds: 120x40 navigation, search, selection, detail focus, profile draft/save, and Help; fresh 80x24 DLL install cancellation without mutation, search-empty recovery, and malformed-database startup error. mage test, go test -race ./internal/tui, mage lint, mage build, and git diff --check passed. termctrl list was empty and no fixture or binary temp directories remained."
+  next: Keep pzlcvsmusb in_progress for independent acceptance audit.
+  publication_order: 18

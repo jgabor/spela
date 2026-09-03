@@ -12,7 +12,7 @@ record:
     - tvubizjmml
     - lamvzkrgxu
     - zyfnmqxuce
-  status: pending
+  status: in_progress
   acceptance:
     - GIVEN the TUI end-to-end target WHEN it runs THEN Terminal Control is the interactive transport and no retired tmux-only contract remains.
     - GIVEN any acceptance session WHEN it starts and ends THEN it uses a unique name, waits for visible readiness, asserts rendered output, avoids fixed sleeps, and is always stopped.

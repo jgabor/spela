@@ -249,7 +249,7 @@ func CoverageCheck() error {
 	return sh.RunV("python3", "scripts/check-coverage.py", filepath.Join(coverageDir, "lcov.info"), "--minimum", "90")
 }
 
-// TestTUIE2E runs the TUI end-to-end integration tests using tmux.
+// TestTUIE2E runs the TUI end-to-end integration tests using Terminal Control.
 func TestTUIE2E() error {
 	return sh.RunV("go", "test", "-tags", "e2e", "-v", "-count=1", "./tests/e2e/...")
 }

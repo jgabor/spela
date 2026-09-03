@@ -4,173 +4,88 @@ package e2e
 
 import (
 	"bytes"
-	"context"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
-// Session represents an active tmux automation session.
+var sessionSequence atomic.Uint64
+
+// Session represents an active Terminal Control session.
 type Session struct {
-	name       string
-	binaryPath string
-	width      int
-	height     int
-	tempDir    string
+	name string
+	path string
 }
 
-// NewSession starts a new detached tmux session running the target command.
-func NewSession(sessionName string, width, height int, command string, args []string, environment []string) (*Session, error) {
-	multiplexer, err := locateMultiplexer()
+// NewSession starts a uniquely named Terminal Control session.
+func NewSession(baseName string, width, height int, command string, args []string, environment []string) (*Session, error) {
+	path, err := exec.LookPath("termctrl")
 	if err != nil {
-		return nil, fmt.Errorf("failed to locate terminal multiplexer: %w", err)
+		return nil, fmt.Errorf("termctrl was not found in PATH: %w", err)
 	}
 
-	// 1. Kill any existing session with the same name to ensure clean state
-	_ = killSession(multiplexer, sessionName)
-
-	// 2. Extract tempDir from the environment variable XDG_CONFIG_HOME
-	var tempDir string
-	for _, envVar := range environment {
-		if strings.HasPrefix(envVar, "XDG_CONFIG_HOME=") {
-			parts := strings.SplitN(envVar, "=", 2)
-			if len(parts) == 2 {
-				tempDir = filepath.Dir(parts[1])
-			}
-			break
-		}
+	name := fmt.Sprintf("%s-%d-%d", baseName, time.Now().UnixNano(), sessionSequence.Add(1))
+	commandArgs := []string{"start", name, "--cols", strconv.Itoa(width), "--rows", strconv.Itoa(height), "--", "env"}
+	commandArgs = append(commandArgs, environment...)
+	commandArgs = append(commandArgs, command)
+	commandArgs = append(commandArgs, args...)
+	if output, err := exec.Command(path, commandArgs...).CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("start Terminal Control session %s: %w: %s", name, err, strings.TrimSpace(string(output)))
 	}
 
-	// 3. Build the command line argument list for creating the session.
-	// We run the command directly inside the shell or PTY.
-	runArgs := []string{
-		"new-session",
-		"-d",
-		"-s", sessionName,
-		"-x", fmt.Sprintf("%d", width),
-		"-y", fmt.Sprintf("%d", height),
-	}
-
-	envStr := ""
-	if len(environment) > 0 {
-		envStr = "env " + strings.Join(environment, " ") + " "
-	}
-
-	argsStr := ""
-	if len(args) > 0 {
-		argsStr = " " + strings.Join(args, " ")
-	}
-
-	logRedirect := ""
-	if tempDir != "" {
-		logRedirect = fmt.Sprintf(" 2>%s/stderr.log", tempDir)
-	}
-
-	fullCommand := fmt.Sprintf("%s%s%s%s", envStr, command, argsStr, logRedirect)
-	runArgs = append(runArgs, fullCommand)
-
-	cmd := exec.Command(multiplexer, runArgs...)
-	cmd.Env = append(os.Environ(), environment...)
-
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("failed to start session via %s: %w (stderr: %s)", multiplexer, err, stderr.String())
-	}
-
-	// 4. Wait a moment for the session to initialize
-	time.Sleep(200 * time.Millisecond)
-
-	return &Session{
-		name:       sessionName,
-		binaryPath: multiplexer,
-		width:      width,
-		height:     height,
-		tempDir:    tempDir,
-	}, nil
+	return &Session{name: name, path: path}, nil
 }
 
 // SendKeys sends keyboard inputs to the active session.
 func (s *Session) SendKeys(keys ...string) error {
+	args := []string{"send", s.name}
+	namedKeys := map[string]bool{
+		"backspace": true, "delete": true, "down": true, "end": true, "enter": true,
+		"escape": true, "home": true, "left": true, "page-down": true, "page-up": true,
+		"right": true, "shift-tab": true, "tab": true, "up": true,
+	}
 	for _, key := range keys {
-		args := []string{"send-keys", "-t", s.name, key}
-		cmd := exec.Command(s.binaryPath, args...)
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to send key %q to session %s: %w", key, s.name, err)
+		if !namedKeys[key] && !strings.HasPrefix(key, "ctrl-") {
+			key = "text:" + key
 		}
-		// Brief pause between keystrokes to mimic human/system processing
-		time.Sleep(50 * time.Millisecond)
+		args = append(args, key)
+	}
+	if output, err := exec.Command(s.path, args...).CombinedOutput(); err != nil {
+		return fmt.Errorf("send input to %s: %w: %s", s.name, err, strings.TrimSpace(string(output)))
 	}
 	return nil
 }
 
-// Capture reads the current contents of the active terminal pane.
+// Capture reads the rendered visible screen.
 func (s *Session) Capture() (string, error) {
-	args := []string{"capture-pane", "-t", s.name, "-p"}
-	cmd := exec.Command(s.binaryPath, args...)
 	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		var logInfo string
-		if s.tempDir != "" {
-			stderrBytes, _ := os.ReadFile(filepath.Join(s.tempDir, "stderr.log"))
-			logInfo = fmt.Sprintf("\n--- TARGET STDERR ---\n%s\n", string(stderrBytes))
-		}
-		return "", fmt.Errorf("failed to capture pane in session %s: %w (stderr: %s)%s", s.name, err, strings.TrimSpace(stderr.String()), logInfo)
+	command := exec.Command(s.path, "show", s.name)
+	command.Stdout = &stdout
+	command.Stderr = &stderr
+	if err := command.Run(); err != nil {
+		return "", fmt.Errorf("show session %s: %w: %s", s.name, err, strings.TrimSpace(stderr.String()))
 	}
 	return stdout.String(), nil
 }
 
-// WaitForText blocks until the specified text is rendered on the screen or the timeout is reached.
+// WaitForText waits until text is visible on the rendered screen.
 func (s *Session) WaitForText(text string, timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			// Capture the final screen output to provide a diagnostic error message.
-			currentScreen, _ := s.Capture()
-			var logInfo string
-			if s.tempDir != "" {
-				stderrBytes, _ := os.ReadFile(filepath.Join(s.tempDir, "stderr.log"))
-				logInfo = fmt.Sprintf("\n--- TARGET STDERR ---\n%s\n", string(stderrBytes))
-			}
-			return fmt.Errorf("timed out waiting for text %q in session %s.\nLast screen state:\n%s%s", text, s.name, currentScreen, logInfo)
-		case <-ticker.C:
-			screen, err := s.Capture()
-			if err != nil {
-				return err
-			}
-			if strings.Contains(screen, text) {
-				return nil
-			}
-		}
+	output, err := exec.Command(s.path, "wait", s.name, text, "--timeout", strconv.FormatInt(timeout.Milliseconds(), 10)).CombinedOutput()
+	if err != nil {
+		screen, _ := s.Capture()
+		return fmt.Errorf("wait for %q in %s: %w: %s\nLast screen:\n%s", text, s.name, err, strings.TrimSpace(string(output)), screen)
 	}
+	return nil
 }
 
-// Close terminates the session and frees resources.
+// Close stops the session and removes it from Terminal Control.
 func (s *Session) Close() error {
-	return killSession(s.binaryPath, s.name)
-}
-
-// locateMultiplexer locates the tmux transport used by headless E2E tests.
-func locateMultiplexer() (string, error) {
-	if path, err := exec.LookPath("tmux"); err == nil {
-		return path, nil
+	output, err := exec.Command(s.path, "stop", s.name).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("stop session %s: %w: %s", s.name, err, strings.TrimSpace(string(output)))
 	}
-	return "", fmt.Errorf("tmux was not found in PATH")
-}
-
-func killSession(multiplexer, name string) error {
-	cmd := exec.Command(multiplexer, "kill-session", "-t", name)
-	return cmd.Run()
+	return nil
 }

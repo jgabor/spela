@@ -7,7 +7,7 @@ record:
     - xlnuugbhom
     - gaewoncior
     - qshqtvkmyj
-  status: in_progress
+  status: complete
   acceptance:
     - GIVEN a game with no managed DLL WHEN its DLL view opens THEN a visible install action and supported family choices explain the next step.
     - GIVEN any DLL family WHEN it appears across game, catalog, deployment, or install views THEN one user-facing name is used consistently.
@@ -16,12 +16,12 @@ record:
     - GIVEN a DLL operation or result WHEN the affected view updates THEN progress and success, no-op, cancellation, or failure remain visible, with focused and Terminal Control evidence at both sizes.
   plan: ajcnhmbmoh
   evaluation:
-    attempt_count: 1
+    attempt_count: 2
     failure_count: 1
-    last_verdict: fail
+    last_verdict: pass
     last_failure_evidence: "Install confirmation uppercases raw family keys, yielding DLSSG, DLSSD, XESS instead of canonical DLSS-G, DLSS-D, XeSS; internal/tui/content.go:377 versus internal/dll/detect.go:39-43. Verify: git grep -n -e 'strings.ToUpper(m.selectedDLLType)' -- internal/tui/content.go"
     provenance:
-      attempt_id: audit-1
+      attempt_id: audit-2
       source: independent acceptance and progress evidence audit
-      recorded_at: 2026-09-03 19:34
+      recorded_at: 2026-09-03 19:44
       writer_command: agentera state plan record-evaluation
