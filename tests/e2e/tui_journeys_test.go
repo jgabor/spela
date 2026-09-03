@@ -14,7 +14,7 @@ const visibleTimeout = 10 * time.Second
 
 func startTUI(t *testing.T, environment *TestEnvironment, width, height int) *Session {
 	t.Helper()
-	session, err := NewSession("spela-tui-e2e", width, height, testBinaryPath, []string{"tui"}, environment.Env)
+	session, err := NewSession("spela-tui-e2e", width, height, testBinaryPath, []string{"tui"}, environment.Env, environment.TerminalControlRuntimeDirectory)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestTUIJourneysConstrained(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(environment.DataHome, "spela", "games.yaml"), []byte("games: [invalid"), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		session, err := NewSession("spela-tui-e2e-error", 80, 24, testBinaryPath, []string{"tui"}, environment.Env)
+		session, err := NewSession("spela-tui-e2e-error", 80, 24, testBinaryPath, []string{"tui"}, environment.Env, environment.TerminalControlRuntimeDirectory)
 		if err != nil {
 			t.Fatal(err)
 		}

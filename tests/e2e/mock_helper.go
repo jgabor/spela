@@ -14,11 +14,12 @@ import (
 
 // TestEnvironment represents the paths and environment configuration for an isolated test run.
 type TestEnvironment struct {
-	TempDir    string
-	ConfigHome string
-	DataHome   string
-	CacheHome  string
-	Env        []string
+	TempDir                         string
+	ConfigHome                      string
+	DataHome                        string
+	CacheHome                       string
+	TerminalControlRuntimeDirectory string
+	Env                             []string
 }
 
 // SetupTestEnvironment creates a temporary directory and writes isolated config/profile/database/manifest files.
@@ -34,10 +35,11 @@ func SetupTestEnvironment(t *testing.T) (*TestEnvironment, func()) {
 	dataHome := filepath.Join(tempDir, "data")
 	cacheHome := filepath.Join(tempDir, "cache")
 	homeDir := filepath.Join(tempDir, "home")
+	terminalControlRuntimeDirectory := filepath.Join(tempDir, "termctrl")
 
 	// Ensure subdirectories exist
 	runtimeDir := filepath.Join(tempDir, "runtime")
-	for _, dir := range []string{configHome, dataHome, cacheHome, runtimeDir, filepath.Join(homeDir, ".steam", "steam", "steamapps")} {
+	for _, dir := range []string{configHome, dataHome, cacheHome, runtimeDir, terminalControlRuntimeDirectory, filepath.Join(homeDir, ".steam", "steam", "steamapps")} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatalf("failed to create XDG subdirectory %q: %v", dir, err)
 		}
@@ -53,11 +55,12 @@ func SetupTestEnvironment(t *testing.T) (*TestEnvironment, func()) {
 	}
 
 	te := &TestEnvironment{
-		TempDir:    tempDir,
-		ConfigHome: configHome,
-		DataHome:   dataHome,
-		CacheHome:  cacheHome,
-		Env:        env,
+		TempDir:                         tempDir,
+		ConfigHome:                      configHome,
+		DataHome:                        dataHome,
+		CacheHome:                       cacheHome,
+		TerminalControlRuntimeDirectory: terminalControlRuntimeDirectory,
+		Env:                             env,
 	}
 
 	// 3. Write mock game database (games.yaml)
@@ -257,7 +260,15 @@ func SetupTestEnvironment(t *testing.T) (*TestEnvironment, func()) {
 	}
 
 	cleanup := func() {
-		_ = os.RemoveAll(tempDir)
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Errorf("remove temporary test run directory: %v", err)
+			return
+		}
+		if _, err := os.Stat(tempDir); err == nil {
+			t.Errorf("temporary test run directory remains after cleanup: %s", tempDir)
+		} else if !os.IsNotExist(err) {
+			t.Errorf("verify temporary test run directory cleanup: %v", err)
+		}
 	}
 
 	return te, cleanup

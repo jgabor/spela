@@ -1,0 +1,14 @@
+id: vqbtxeysup
+artifact: progress
+record:
+  timestamp: 2026-09-03 20:02
+  type: fix
+  phase: build
+  what: Isolated every TUI E2E Terminal Control session inside its test fixture runtime root and made fixture and binary cleanup failures fail the harness.
+  context:
+    intent: Remove only test-created Terminal Control lock residue.
+    constraints: Preserve audit-1 and all passing journeys; do not delete unrelated or pre-existing Terminal Control state.
+    scope: tests/e2e lifecycle cleanup only.
+  verified: Focused success and startup-error checks, five go tool mage TestTUIE2E runs, mage test, mage lint, mage build, and git diff --check passed. /tmp/termctrl-1000 stayed at 89 files with SHA-256 93bca296a5e5eea223bbc0f4fbaa3a77a7784dd95fc50952a54e72ee8fae140f; termctrl list and fixture/binary globs were empty.
+  next: Run independent audit-2; pzlcvsmusb remains in_progress.
+  publication_order: 19

@@ -32,6 +32,15 @@ func TestMain(m *testing.M) {
 	}
 
 	code := m.Run()
-	_ = os.RemoveAll(testBinaryDirectory)
+	if err := os.RemoveAll(testBinaryDirectory); err != nil {
+		fmt.Printf("ERROR: failed to remove binary directory: %v\n", err)
+		code = 1
+	} else if _, err := os.Stat(testBinaryDirectory); err == nil {
+		fmt.Printf("ERROR: binary directory remains after cleanup: %s\n", testBinaryDirectory)
+		code = 1
+	} else if !os.IsNotExist(err) {
+		fmt.Printf("ERROR: failed to verify binary directory cleanup: %v\n", err)
+		code = 1
+	}
 	os.Exit(code)
 }

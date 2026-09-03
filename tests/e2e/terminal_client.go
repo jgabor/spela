@@ -5,7 +5,9 @@ package e2e
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -16,12 +18,13 @@ var sessionSequence atomic.Uint64
 
 // Session represents an active Terminal Control session.
 type Session struct {
-	name string
-	path string
+	name             string
+	path             string
+	runtimeDirectory string
 }
 
 // NewSession starts a uniquely named Terminal Control session.
-func NewSession(baseName string, width, height int, command string, args []string, environment []string) (*Session, error) {
+func NewSession(baseName string, width, height int, command string, args []string, environment []string, runtimeDirectory string) (*Session, error) {
 	path, err := exec.LookPath("termctrl")
 	if err != nil {
 		return nil, fmt.Errorf("termctrl was not found in PATH: %w", err)
@@ -32,11 +35,22 @@ func NewSession(baseName string, width, height int, command string, args []strin
 	commandArgs = append(commandArgs, environment...)
 	commandArgs = append(commandArgs, command)
 	commandArgs = append(commandArgs, args...)
-	if output, err := exec.Command(path, commandArgs...).CombinedOutput(); err != nil {
+	session := &Session{name: name, path: path, runtimeDirectory: runtimeDirectory}
+	if output, err := session.command(commandArgs...).CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("start Terminal Control session %s: %w: %s", name, err, strings.TrimSpace(string(output)))
 	}
+	if _, err := os.Stat(filepath.Join(runtimeDirectory, name+".lock")); err != nil {
+		_, _ = session.command("stop", name).CombinedOutput()
+		return nil, fmt.Errorf("verify isolated Terminal Control lock for %s: %w", name, err)
+	}
 
-	return &Session{name: name, path: path}, nil
+	return session, nil
+}
+
+func (s *Session) command(arguments ...string) *exec.Cmd {
+	command := exec.Command(s.path, arguments...)
+	command.Env = append(os.Environ(), "TERMCTRL_RUNTIME_DIR="+s.runtimeDirectory)
+	return command
 }
 
 // SendKeys sends keyboard inputs to the active session.
@@ -53,7 +67,7 @@ func (s *Session) SendKeys(keys ...string) error {
 		}
 		args = append(args, key)
 	}
-	if output, err := exec.Command(s.path, args...).CombinedOutput(); err != nil {
+	if output, err := s.command(args...).CombinedOutput(); err != nil {
 		return fmt.Errorf("send input to %s: %w: %s", s.name, err, strings.TrimSpace(string(output)))
 	}
 	return nil
@@ -62,7 +76,7 @@ func (s *Session) SendKeys(keys ...string) error {
 // Capture reads the rendered visible screen.
 func (s *Session) Capture() (string, error) {
 	var stdout, stderr bytes.Buffer
-	command := exec.Command(s.path, "show", s.name)
+	command := s.command("show", s.name)
 	command.Stdout = &stdout
 	command.Stderr = &stderr
 	if err := command.Run(); err != nil {
@@ -73,7 +87,7 @@ func (s *Session) Capture() (string, error) {
 
 // WaitForText waits until text is visible on the rendered screen.
 func (s *Session) WaitForText(text string, timeout time.Duration) error {
-	output, err := exec.Command(s.path, "wait", s.name, text, "--timeout", strconv.FormatInt(timeout.Milliseconds(), 10)).CombinedOutput()
+	output, err := s.command("wait", s.name, text, "--timeout", strconv.FormatInt(timeout.Milliseconds(), 10)).CombinedOutput()
 	if err != nil {
 		screen, _ := s.Capture()
 		return fmt.Errorf("wait for %q in %s: %w: %s\nLast screen:\n%s", text, s.name, err, strings.TrimSpace(string(output)), screen)
@@ -83,7 +97,7 @@ func (s *Session) WaitForText(text string, timeout time.Duration) error {
 
 // Close stops the session and removes it from Terminal Control.
 func (s *Session) Close() error {
-	output, err := exec.Command(s.path, "stop", s.name).CombinedOutput()
+	output, err := s.command("stop", s.name).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("stop session %s: %w: %s", s.name, err, strings.TrimSpace(string(output)))
 	}

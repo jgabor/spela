@@ -20,3 +20,13 @@ record:
     - GIVEN current navigation and edit behavior WHEN acceptance journeys run THEN destination, aspect, focus, draft/save, Help, DLL safety, search, selection, empty, and error contracts are asserted rather than legacy zones or shortcuts.
     - GIVEN standard and constrained journeys WHEN the target completes THEN 120x40 and fresh 80x24 success plus failure or cancellation paths pass without leaked sessions or fixture directories.
   plan: ajcnhmbmoh
+  evaluation:
+    attempt_count: 1
+    failure_count: 1
+    last_verdict: fail
+    last_failure_evidence: "Tagged E2E leaves per-session Terminal Control .lock artifacts after stop; tests/e2e/terminal_client.go:84-90 only calls termctrl stop. Verify: git show bbb2222:tests/e2e/terminal_client.go | nl -ba | sed -n '74,91p'"
+    provenance:
+      attempt_id: audit-1
+      source: independent acceptance and progress evidence audit
+      recorded_at: 2026-09-03 19:57
+      writer_command: agentera state plan record-evaluation
