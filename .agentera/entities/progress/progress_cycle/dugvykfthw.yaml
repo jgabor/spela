@@ -1,0 +1,15 @@
+id: dugvykfthw
+artifact: progress
+record:
+  timestamp: 2026-09-03 18:44
+  type: fix
+  phase: build
+  what: "Corrected constrained Profile and Monitor rendering: a lower selected Profile row retains its Effect explanation, while Monitor borders and memory gauges remain bounded at 80x24 without changing normal-width geometry."
+  context:
+    intent: Resolve only the accepted audit-1 constrained-layout failures for zyfnmqxuce.
+    constraints: Preserved accepted Profile labels and state symbols, Monitor selection and state semantics, blocked DLL state and TODO, later tasks, and 120x40 behavior.
+    unknowns: None.
+    scope: Profile viewport sizing and focus visibility, Monitor width and gauge sizing, and focused regression coverage in internal/tui.
+  verified: Focused internal/tui regression and package tests; go test -race ./internal/tui ./internal/profile; go test ./...; mage lint; mage build; git diff --check. Isolated Terminal Control showed the lower Toggle key row plus Effect at 80x24 and 120x40, clean GPU and CPU metrics at 80x24, and bounded alert Recovery at both sizes; session and fixture removed.
+  next: Keep zyfnmqxuce in_progress for audit-2.
+  publication_order: 14

@@ -15,3 +15,13 @@ record:
     - GIVEN an alert or unavailable metric WHEN Monitor renders THEN resource, cause, recovery, and loading, unsupported, failed, or stale state are distinguishable.
     - GIVEN Monitor and Profile fixtures WHEN focused checks and Terminal Control review run at 120x40 and 80x24 THEN both surfaces remain clean, bounded, and understandable.
   plan: ajcnhmbmoh
+  evaluation:
+    attempt_count: 1
+    failure_count: 1
+    last_verdict: fail
+    last_failure_evidence: "At 80x24, Profile's focused lower row/effect can be dropped by a second top-only truncation and Monitor alert recovery breaks its unconstrained nested border. Refs internal/tui/content_views.go:178-183, internal/tui/layout.go:355-356,552-559, internal/tui/metrics_resource.go:94-97,256. Verify: git grep -n -E 'profileSectionHeight\\(|truncateHeight\\(|m\\.detail\\.SetSize|box := lipgloss.NewStyle|Recovery:' -- internal/tui"
+    provenance:
+      attempt_id: audit-1
+      source: independent acceptance and progress evidence audit
+      recorded_at: 2026-09-03 18:33
+      writer_command: agentera state plan record-evaluation

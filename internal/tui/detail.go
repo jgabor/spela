@@ -603,7 +603,8 @@ func (m DetailModel) View() string {
 		}
 	}
 	if m.height > 0 && len(lines) > m.height {
-		start := max(focusedLine-m.height+1, 0)
+		// Keep the focused row and its following Effect line visible.
+		start := max(focusedLine-m.height+2, 0)
 		start = min(start, len(lines)-m.height)
 		lines = lines[start : start+m.height]
 	}

@@ -106,7 +106,8 @@ func (m MetricsResourceModel) View(paneFocused bool, section nav.MonitorSection)
 	}
 	gaugeWidth := 20
 	if m.width > 0 {
-		gaugeWidth = max(8, min(24, m.width-20))
+		// Leave room for the border, label, percentage, and displayed value.
+		gaugeWidth = max(8, min(24, m.width-35))
 	}
 
 	labelStyle := lipgloss.NewStyle().Foreground(t.TextDim)
@@ -125,7 +126,11 @@ func (m MetricsResourceModel) View(paneFocused bool, section nav.MonitorSection)
 		m.renderAlertsBlock(&b, s)
 	}
 
-	return box.Render(b.String())
+	view := box.Render(b.String())
+	if m.width > 0 && lipgloss.Width(view) > m.width {
+		view = box.Width(m.width).Render(b.String())
+	}
+	return view
 }
 
 func (m MetricsResourceModel) renderGPUBlock(b *strings.Builder, s *Styles, t Theme, sparklineWidth, gaugeWidth int, labelStyle, valueStyle, freqStyle lipgloss.Style) {

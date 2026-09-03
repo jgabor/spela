@@ -215,9 +215,9 @@ func (m *ContentModel) SetSize(width, height int) {
 	m.width, m.height = width, height
 }
 
-// profileSectionHeight returns the space allotted to the game profile detail.
+// profileSectionHeight returns the space below the Library aspect selector.
 func (m ContentModel) profileSectionHeight() int {
-	return max(m.height, 5)
+	return max(m.height-3, 5)
 }
 
 func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
