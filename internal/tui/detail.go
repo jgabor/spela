@@ -170,10 +170,10 @@ func (m *DetailModel) UpdateEditor(key tea.KeyPressMsg) bool {
 	case "backspace":
 		m.editor.Delete()
 		return true
-	case "left", "h":
+	case "left":
 		m.editor.Cycle(-1)
 		return true
-	case "right", "l":
+	case "right":
 		m.editor.Cycle(1)
 		return true
 	}

@@ -1,0 +1,14 @@
+id: xlnuugbhom
+artifact: plan
+record:
+  name: Keep interactive content visible
+  depends_on:
+    - vtflntmzjw
+  status: pending
+  acceptance:
+    - GIVEN any Profile field is focused WHEN the user traverses every group at 120x40 or 80x24 THEN the focused field remains visible and editable.
+    - GIVEN Help exceeds available height WHEN it opens THEN every shortcut and the close guidance are reachable without obscuring the active position.
+    - GIVEN a game, deployment, or version collection exceeds its pane WHEN the user navigates it THEN the cursor remains visible and each item occupies one unambiguous visual row.
+    - GIVEN an active focus or edit WHEN the terminal is resized within supported bounds THEN the same user context remains visible after reflow.
+    - GIVEN fitting and overflowing fixtures WHEN focused checks and Terminal Control review run THEN both paths remain bounded and operable.
+  plan: ajcnhmbmoh

@@ -195,6 +195,8 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *LayoutModel) selectDestination(destination nav.Destination) {
+	m.listPane.sidebar.selectMode = false
+	m.listPane.sidebar.selected = make(map[uint64]bool)
 	*m.navState = m.navState.SelectDestination(destination)
 	m.focus = FocusList
 	m.inputMode = ModeBrowse
@@ -578,6 +580,8 @@ type gameConfirmedMsg struct {
 }
 
 type defaultProfileSelectedMsg struct{}
+
+type noLibrarySelectionMsg struct{}
 
 type defaultProfileConfirmedMsg struct{}
 

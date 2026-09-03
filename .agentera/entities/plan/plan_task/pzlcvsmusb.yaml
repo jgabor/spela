@@ -1,0 +1,22 @@
+id: pzlcvsmusb
+artifact: plan
+record:
+  name: Replace stale TUI acceptance infrastructure
+  depends_on:
+    - efdydreiqj
+    - vtflntmzjw
+    - xlnuugbhom
+    - gaewoncior
+    - txuxsmwydo
+    - qshqtvkmyj
+    - tvubizjmml
+    - lamvzkrgxu
+    - zyfnmqxuce
+  status: pending
+  acceptance:
+    - GIVEN the TUI end-to-end target WHEN it runs THEN Terminal Control is the interactive transport and no retired tmux-only contract remains.
+    - GIVEN any acceptance session WHEN it starts and ends THEN it uses a unique name, waits for visible readiness, asserts rendered output, avoids fixed sleeps, and is always stopped.
+    - GIVEN test binaries, XDG state, and game fixtures WHEN journeys execute THEN all writable data lives under operating-system temporary directories outside the checkout and real installations.
+    - GIVEN current navigation and edit behavior WHEN acceptance journeys run THEN destination, aspect, focus, draft/save, Help, DLL safety, search, selection, empty, and error contracts are asserted rather than legacy zones or shortcuts.
+    - GIVEN standard and constrained journeys WHEN the target completes THEN 120x40 and fresh 80x24 success plus failure or cancellation paths pass without leaked sessions or fixture directories.
+  plan: ajcnhmbmoh

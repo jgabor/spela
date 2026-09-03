@@ -1,0 +1,14 @@
+id: efdydreiqj
+artifact: plan
+record:
+  name: Correct keyboard and state transitions
+  depends_on:
+    []
+  status: complete
+  acceptance:
+    - GIVEN a text or path editor WHEN the user enters h, l, or any other printable character THEN the exact text remains visible and can be committed.
+    - GIVEN an unsaved profile draft, active search, overlay, or multi-selection WHEN the user invokes its documented cancel action THEN the prior browsing state returns without an unintended write or operation.
+    - GIVEN the final marked game is cleared or the user changes destination WHEN the screen updates THEN normal browsing is visible and the highlighted item has matching detail or an explicit no-item state.
+    - GIVEN an unavailable key WHEN it is pressed THEN the interface remains in an understandable visible state and does not enter or retain a hidden mode.
+    - GIVEN the task is ready to exit WHEN focused checks and deterministic Terminal Control journeys run at 120x40 and 80x24 THEN successful and cancelled or rejected transitions are visibly correct.
+  plan: ajcnhmbmoh

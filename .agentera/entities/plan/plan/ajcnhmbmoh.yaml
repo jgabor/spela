@@ -1,0 +1,37 @@
+id: ajcnhmbmoh
+artifact: plan
+record:
+  header:
+    level: full
+    created: 2026-09-02
+    status: open
+    reviewed: 2026-09-02
+    critic_issues: 6 found, 5 addressed, 1 dismissed
+    title: "Plan: TUI Clarity, Safety, and Operability"
+  what: Make every visible Spela TUI control truthful, safe, readable, and operable at 120x40 and the supported 80x24 minimum while simplifying user-facing information and restoring executable acceptance coverage.
+  why: The comprehensive QA review found blocking focus loss, dropped text input, trapped selection state, broken cancellation, clipped responsive views, invisible feedback, unsafe or inconsistent DLL actions, inert settings, contradictory search state, technical terminology, and stale end-to-end contracts.
+  constraints: Preserve XDG behavior, privilege boundaries, supported persisted YAML keys and unchanged values, keyboard-only operation, and the 80x24 contract. Use deterministic temporary fixtures and never mutate real game files during QA. Exclude GUI redesign, theme implementation, and unrelated backend work. For each corrected testable behavior, cover at least one success and one failure or cancellation path unless no meaningful failure exists.
+  overall_acceptance: GIVEN a user starts Spela TUI with populated, empty, failing, or constrained fixtures WHEN they navigate, edit, save, monitor, or manage DLLs THEN every visible action behaves as described, file mutations are explicitly confirmed and observable, interactive focus remains visible, supported viewports remain operable, and automated plus visual evidence covers every original finding.
+  scope:
+    included:
+      - TUI keyboard state transitions and contextual actions
+      - Responsive shell, feedback, scrolling, and focused layouts
+      - Library, Profile, DLL, Monitor, Settings, Help, and startup recovery
+      - Safe DLL confirmation, progress, and outcome presentation
+      - Terminal Control end-to-end acceptance coverage and user-facing contract documentation
+    excluded:
+      - GUI redesign or parity work
+      - Theme implementation
+      - Unrelated launcher, profile, privilege, or DLL backend changes
+      - Mouse interaction, localization, and new monitoring features
+  design: Establish observable state-transition and mutation-safety contracts first. Bound shell geometry and interactive visibility next, then derive guidance from actions that are actually available. Make Settings and DLL workflows truthful before simplifying Library, startup, Profile, and Monitor surfaces. Replace stale acceptance infrastructure after behavior stabilizes, then perform one complete current-state verification and documentation sync.
+  unknowns:
+    - question: Can every supported terminal distinguish Ctrl+Shift+R reliably?
+      affects_task: 4
+      resolve_by: Exercise the binding through supported terminal input before Task 4 completes; retain it only if reliable, otherwise select and document one portable restore binding.
+    - question: Which currently inert settings have approved runtime behavior that belongs in this remediation?
+      affects_task: 5
+      resolve_by: Inventory each setting against current runtime consumers and user contracts before Task 5; hide controls without approved current behavior while preserving their persisted compatibility.
+  rejected:
+    - issue: Implement theme switching so the visible Theme setting becomes functional.
+      rationale: The single TUI theme is intentional and theme implementation would expand the remediation into redesign; hide the TUI control while preserving its persisted value instead.

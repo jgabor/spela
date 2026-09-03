@@ -1,0 +1,17 @@
+id: tvubizjmml
+artifact: plan
+record:
+  name: Clarify DLL status and presentation
+  depends_on:
+    - vtflntmzjw
+    - xlnuugbhom
+    - gaewoncior
+    - qshqtvkmyj
+  status: pending
+  acceptance:
+    - GIVEN a game with no managed DLL WHEN its DLL view opens THEN a visible install action and supported family choices explain the next step.
+    - GIVEN any DLL family WHEN it appears across game, catalog, deployment, or install views THEN one user-facing name is used consistently.
+    - GIVEN detected and available versions WHEN a DLL view renders THEN current, latest, unavailable, unknown, and stale states are distinguishable.
+    - GIVEN long deployment game names WHEN the list renders at 80x24 or 120x40 THEN each game remains one navigable row with visible stale status.
+    - GIVEN a DLL operation or result WHEN the affected view updates THEN progress and success, no-op, cancellation, or failure remain visible, with focused and Terminal Control evidence at both sizes.
+  plan: ajcnhmbmoh

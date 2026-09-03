@@ -126,6 +126,14 @@ func (m LayoutModel) handleGlobalKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd
 				m.inputMode = ModeBrowse
 				return m, nil, true
 			}
+			if m.navState.Destination == nav.DestinationLibrary && m.navState.Aspect == nav.AspectProfile {
+				if m.navState.Scope.Kind == nav.ScopeGlobal {
+					m.pane.defaultsDetail.CancelDraft()
+				} else {
+					m.pane.content.detail.CancelDraft()
+				}
+				return m, nil, true
+			}
 		case ActionEditSave:
 			if m.navState.Destination == nav.DestinationSettings {
 				m.inputMode = ModeBrowse
@@ -301,6 +309,10 @@ func (m LayoutModel) handleAppMessages(msg tea.Msg, cmds []tea.Cmd) (LayoutModel
 
 	case defaultProfileSelectedMsg:
 		m.pane.loadGlobalScope()
+		m.syncNavToComponents()
+
+	case noLibrarySelectionMsg:
+		m.pane.loadNoScope()
 		m.syncNavToComponents()
 
 	case defaultProfileConfirmedMsg:

@@ -1,0 +1,14 @@
+id: ptoxjugzrs
+artifact: progress
+record:
+  timestamp: 2026-09-03 11:01
+  type: fix
+  phase: build
+  what: Corrected TUI keyboard ownership and browsing state restoration for editors, cancellation, empty results, multi-selection, and destination changes.
+  context:
+    intent: Complete plan task efdydreiqj only.
+    constraints: Preserve later geometry, Help, Settings catalog, DLL workflow, and view-language tasks.
+    unknowns: Profile grounding is absent; no decisions, health, docs, TODO, or prior progress entities existed.
+    scope: Existing TUI key routing, editor input, cancellation, and selection synchronization plus focused regressions.
+  verified: go test ./internal/tui; mage build; mage test; mage lint; git diff --check; isolated Terminal Control journeys at 120x40 and 80x24 covering path edit save/cancel, search accept/cancel/empty results, final-mark clearing, destination change, and unavailable-key rejection.
+  publication_order: 1

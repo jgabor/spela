@@ -302,6 +302,7 @@ var CanonicalKeymap = NewKeymap(
 	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailIncrease, Description: "Increase value", Keys: []KeyLabel{key("right", "→"), key("l", "l")}},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailConfirm, Description: "Edit or confirm", Keys: []KeyLabel{key("enter", "Enter")}},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailSave, Description: "Save changes", Keys: []KeyLabel{key("s", "s")}},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionCancelDraft, Description: "Discard changes", Keys: []KeyLabel{key("esc", "Esc")}, Availability: libraryProfileAvailable},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionCancelDraft, Description: "Discard changes", Keys: []KeyLabel{key("esc", "Esc")}, Availability: settingsAvailable},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailReset, Description: "Reset field", Keys: []KeyLabel{key("r", "r")}, Availability: libraryProfileAvailable},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailResetAll, Description: "Reset all fields", Keys: []KeyLabel{key("R", "R")}, Availability: libraryProfileAvailable},

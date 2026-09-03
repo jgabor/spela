@@ -1,0 +1,17 @@
+id: zyfnmqxuce
+artifact: plan
+record:
+  name: Simplify Profile and Monitor language
+  depends_on:
+    - vtflntmzjw
+    - xlnuugbhom
+    - gaewoncior
+    - lamvzkrgxu
+  status: pending
+  acceptance:
+    - GIVEN a Profile field list WHEN it renders THEN rows use user-facing language and the selected field provides any needed effect or restoration explanation without exposing raw identifiers on every row.
+    - GIVEN default, inherited, overridden, destination, and selection states WHEN they render THEN text or distinct symbols make each meaning distinguishable without relying on color alone.
+    - GIVEN Monitor sections WHEN the user moves selection THEN a non-color marker identifies the current section and repeated headings or developer-facing copy are absent.
+    - GIVEN an alert or unavailable metric WHEN Monitor renders THEN resource, cause, recovery, and loading, unsupported, failed, or stale state are distinguishable.
+    - GIVEN Monitor and Profile fixtures WHEN focused checks and Terminal Control review run at 120x40 and 80x24 THEN both surfaces remain clean, bounded, and understandable.
+  plan: ajcnhmbmoh

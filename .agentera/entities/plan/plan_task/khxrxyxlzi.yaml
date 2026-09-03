@@ -1,0 +1,23 @@
+id: khxrxyxlzi
+artifact: plan
+record:
+  name: Perform final current-state sync
+  depends_on:
+    - efdydreiqj
+    - vtflntmzjw
+    - xlnuugbhom
+    - gaewoncior
+    - txuxsmwydo
+    - qshqtvkmyj
+    - tvubizjmml
+    - lamvzkrgxu
+    - zyfnmqxuce
+    - pzlcvsmusb
+  status: pending
+  acceptance:
+    - GIVEN all implementation tasks are complete WHEN full project tests, lint, build, and tagged TUI acceptance run THEN every required check passes.
+    - GIVEN the compiled TUI WHEN final visual review runs THEN every destination is inspected at 120x40, a fresh 80x24 launch, and below-minimum recovery.
+    - GIVEN user-facing settings, keys, minimum sizes, and workflows WHEN documentation is compared with behavior THEN no stale or inert contract remains.
+    - GIVEN final verification ends WHEN environment cleanup is inspected THEN no terminal session, fixture, or source-user state mutation remains.
+    - GIVEN the original QA report WHEN evidence is reconciled THEN every finding maps to a passing check or an explicitly approved deferment.
+  plan: ajcnhmbmoh

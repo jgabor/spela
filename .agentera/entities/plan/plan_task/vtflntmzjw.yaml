@@ -1,0 +1,14 @@
+id: vtflntmzjw
+artifact: plan
+record:
+  name: Bound shell geometry and feedback
+  depends_on:
+    - efdydreiqj
+  status: pending
+  acceptance:
+    - GIVEN a fresh 120x40 or 80x24 terminal WHEN the TUI renders THEN the header, destinations, panes, message area, and status area remain within the viewport without wrapped metric fragments or missing controls.
+    - GIVEN an information, success, or error outcome WHEN it is reported THEN the message remains visible without displacing required context or controls beyond the viewport.
+    - GIVEN compact behavior is offered WHEN the user activates or persists it THEN density visibly changes; otherwise no compact control or shortcut is advertised.
+    - GIVEN a terminal below the supported minimum WHEN the resize prompt appears THEN quit remains available and resizing back restores an operable view.
+    - GIVEN focused layout is active WHEN either pane is shown THEN content uses the available width and retains enough destination and section context to orient the user, as verified at both supported review sizes.
+  plan: ajcnhmbmoh

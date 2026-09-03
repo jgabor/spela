@@ -1,0 +1,16 @@
+id: gaewoncior
+artifact: plan
+record:
+  name: Make guidance match executable actions
+  depends_on:
+    - efdydreiqj
+    - vtflntmzjw
+    - xlnuugbhom
+  status: pending
+  acceptance:
+    - GIVEN Help, footer, or inline guidance is visible WHEN the documented key is pressed in that context THEN the described action occurs.
+    - GIVEN a destination does not support search or a mutation WHEN guidance renders THEN that action is absent rather than advertised as available.
+    - GIVEN multiple keys describe one action WHEN they render THEN labels have readable spacing, consistent terminology, and one verified portable restore binding.
+    - GIVEN Help, a dialog, or another overlay is active WHEN Ctrl+C, q, or Escape is used THEN behavior follows one documented quit or cancel policy and cannot silently conflict with the guidance.
+    - GIVEN constrained and standard widths WHEN contextual guidance renders THEN essential current actions remain visible before any overflow indicator, with Terminal Control evidence at both sizes.
+  plan: ajcnhmbmoh

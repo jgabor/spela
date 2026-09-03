@@ -145,6 +145,10 @@ func (m SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
 				} else {
 					if m.selected[item.game.AppID] {
 						delete(m.selected, item.game.AppID)
+						if len(m.selected) == 0 {
+							m.selectMode = false
+							return m, m.selectCurrentItem()
+						}
 					} else {
 						m.selected[item.game.AppID] = true
 					}
@@ -448,7 +452,7 @@ func (m SidebarModel) selectCurrentItem() tea.Cmd {
 			}
 		}
 	}
-	return nil
+	return func() tea.Msg { return noLibrarySelectionMsg{} }
 }
 
 func (m SidebarModel) SelectedGames() []*game.Game {

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/jgabor/spela/internal/nav"
+	"github.com/jgabor/spela/internal/profile"
 )
 
 func TestBrowseDestinationShortcutWorksFromVisiblePane(t *testing.T) {
@@ -84,6 +85,90 @@ func TestProfileEditConsumesPrintableDestinationShortcut(t *testing.T) {
 	}
 	if !updated.pane.defaultsDetail.Editing() || !strings.HasSuffix(updated.pane.defaultsDetail.editor.Value(), "4") {
 		t.Fatal("printable destination key did not stay with the active editor")
+	}
+}
+
+func TestTextEditorKeepsPrintableNavigationKeys(t *testing.T) {
+	detail := NewDetail(NewStyles(DefaultTheme, true), nil, nil)
+	focusField(t, &detail, profile.FieldGPUShaderCachePath)
+	if !detail.BeginEdit() {
+		t.Fatal("could not start text editor")
+	}
+	for _, key := range []string{"h", "l", "x"} {
+		detail.UpdateEditor(keyMsg(key))
+	}
+	if !strings.HasSuffix(detail.editor.Value(), "hlx") {
+		t.Fatalf("text editor value = %q, want printable suffix hlx", detail.editor.Value())
+	}
+	detail.UpdateEditor(keyMsg("enter"))
+	if detail.Editing() || !strings.HasSuffix(detail.RawProfile().GPU.ShaderCachePath, "hlx") {
+		t.Fatal("printable text could not be committed")
+	}
+}
+
+func TestProfileDraftEscapeRestoresPersistedState(t *testing.T) {
+	layout := testLayoutWithGame(testGame("Cyberpunk 2077"))
+	layout.focus = FocusDetail
+	*layout.navState = layout.navState.SelectAspect(nav.AspectProfile)
+	layout.syncNavToComponents()
+	detail := &layout.pane.content.detail
+	focusField(t, detail, profile.FieldGPUShaderCachePath)
+	detail.BeginEdit()
+	detail.editor.Set("draft")
+	detail.UpdateEditor(keyMsg("enter"))
+
+	model, _ := sendKey(&layout, "esc")
+	updated := model.(LayoutModel)
+	if updated.pane.content.detail.Dirty() {
+		t.Fatal("escape retained unsaved profile draft")
+	}
+}
+
+func TestDestinationChangeClearsMultiSelection(t *testing.T) {
+	layout := testLayoutWithGame(testGame("Cyberpunk 2077"))
+	layout.listPane.sidebar.selectMode = true
+	layout.listPane.sidebar.selected[layout.listPane.sidebar.games[0].AppID] = true
+
+	model, _ := sendKey(&layout, "2")
+	updated := model.(LayoutModel)
+	if updated.listPane.sidebar.selectMode || len(updated.listPane.sidebar.selected) != 0 {
+		t.Fatal("destination change retained hidden multi-selection")
+	}
+	if updated.navState.Destination != nav.DestinationDLLCatalog || updated.pane.State().Destination != nav.DestinationDLLCatalog {
+		t.Fatal("destination and detail state diverged")
+	}
+}
+
+func TestClearingFinalMarkedGameReturnsToBrowsing(t *testing.T) {
+	layout := testLayoutWithGame(testGame("Cyberpunk 2077"))
+	sidebar := layout.listPane.sidebar
+	sidebar.cursor = 1
+	sidebar, _ = sidebar.Update(keyMsg("space"))
+	sidebar, command := sidebar.Update(keyMsg("space"))
+	if sidebar.selectMode || len(sidebar.selected) != 0 {
+		t.Fatal("clearing final mark retained multi-select mode")
+	}
+	if command == nil {
+		t.Fatal("clearing final mark did not restore highlighted item detail")
+	}
+}
+
+func TestEmptySearchClearsStaleGameDetail(t *testing.T) {
+	layout := testLayoutWithGame(testGame("Cyberpunk 2077"))
+	layout.focus = FocusList
+	model, _ := sendKey(&layout, "/")
+	searching := model.(LayoutModel)
+	for _, key := range []string{"n", "o", "m", "a", "t", "c", "h"} {
+		model, _ = sendKey(&searching, key)
+		searching = model.(LayoutModel)
+	}
+	command := searching.listPane.sidebar.selectCurrentItem()
+	if command == nil {
+		t.Fatal("empty search did not produce explicit no-item transition")
+	}
+	updated, _ := searching.handleAppMessages(command(), nil)
+	if updated.pane.content.game != nil || updated.navState.Scope.GameName != "" {
+		t.Fatal("empty search retained stale game detail")
 	}
 }
 

@@ -1,0 +1,16 @@
+id: txuxsmwydo
+artifact: plan
+record:
+  name: Make Settings truthful and compatible
+  depends_on:
+    - efdydreiqj
+    - vtflntmzjw
+    - gaewoncior
+  status: pending
+  acceptance:
+    - GIVEN the Settings destination WHEN a control is visible THEN changing it produces its documented runtime or restart behavior; controls without approved behavior are absent.
+    - GIVEN a setting is edited or a save fails WHEN Detail renders THEN saved and draft values remain separately and accurately identified.
+    - GIVEN a path is edited WHEN printable text and documented commit or cancel keys are used THEN the exact draft is committed or discarded as described.
+    - GIVEN an effect is immediate or restart-required WHEN the setting is shown and saved THEN that timing is stated and honored through restart.
+    - GIVEN a valid existing YAML configuration WHEN one visible setting is saved and the TUI restarts THEN every supported key and value not explicitly changed, including theme and confirmation values, remains intact and success or failure is visibly verified.
+  plan: ajcnhmbmoh

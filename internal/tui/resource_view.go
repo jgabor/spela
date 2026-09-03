@@ -323,3 +323,9 @@ func (p *resourcePaneModel) loadGameScope(g *game.Game) {
 	p.content = p.content.SetGame(g)
 	p.overview = p.overview.SetGame(g, p.services)
 }
+
+func (p *resourcePaneModel) loadNoScope() {
+	*p.navState = p.State().SelectScope(nav.Scope{Kind: nav.ScopeGame})
+	p.content = p.content.SetGame(nil)
+	p.overview = p.overview.SetGame(nil, p.services)
+}

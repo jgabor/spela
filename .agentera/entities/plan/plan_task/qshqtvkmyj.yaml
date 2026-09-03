@@ -1,0 +1,16 @@
+id: qshqtvkmyj
+artifact: plan
+record:
+  name: Enforce DLL mutation safety
+  depends_on:
+    - efdydreiqj
+    - gaewoncior
+    - txuxsmwydo
+  status: pending
+  acceptance:
+    - GIVEN any TUI install, per-game update, batch update, or restore request WHEN it is about to start THEN an explicit confirmation names affected games, paths, versions where applicable, and backup behavior.
+    - GIVEN a DLL confirmation WHEN the user presses Escape or q THEN no file operation starts and the prior view returns.
+    - GIVEN a denied game, current version, cancellation, or partial failure WHEN the workflow completes THEN the outcome is identified accurately and is never presented as full success.
+    - GIVEN a mutation is active WHEN execution is requested again THEN duplicate execution is blocked while visible progress and final outcome remain available.
+    - GIVEN deterministic temporary game files WHEN focused checks and Terminal Control journeys exercise success and rejection paths THEN no source-user game file or privileged action is touched.
+  plan: ajcnhmbmoh

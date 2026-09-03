@@ -70,7 +70,11 @@ func TestSidebarSupportedSortSearchAndSelectionBoundaryContracts(t *testing.T) {
 		t.Fatal("game selection returned no command")
 	}
 	sidebar.cursor = len(sidebar.filtered)
-	if command := sidebar.selectCurrentItem(); command != nil {
-		t.Fatal("out-of-range selection returned a command")
+	command := sidebar.selectCurrentItem()
+	if command == nil {
+		t.Fatal("out-of-range selection returned no clearing command")
+	}
+	if _, ok := command().(noLibrarySelectionMsg); !ok {
+		t.Fatal("out-of-range selection did not clear stale detail")
 	}
 }
