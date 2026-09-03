@@ -80,6 +80,28 @@ func TestLayout_HelpCtrlCQuits(t *testing.T) {
 	}
 }
 
+func TestLayout_HelpDoesNotAdvertiseOrHandleEnter(t *testing.T) {
+	m := testLayout()
+	result, _ := sendKey(&m, "?")
+	layout := result.(LayoutModel)
+	guidance := stripANSI(layout.help.View())
+	if !strings.Contains(guidance, "? / Esc close • q / Ctrl+C quit") {
+		t.Fatalf("help is missing its behavior guidance:\n%s", guidance)
+	}
+	if status := layout.renderCanonicalStatus(); status != "" {
+		t.Fatalf("help rendered generic overlay guidance: %q", stripANSI(status))
+	}
+
+	result, command := sendKey(&layout, "enter")
+	layout = result.(LayoutModel)
+	if command != nil || !layout.showHelp {
+		t.Fatalf("Enter changed Help state: command=%v showHelp=%t", command, layout.showHelp)
+	}
+	if got := stripANSI(layout.help.View()); got != guidance {
+		t.Fatalf("Enter changed Help guidance from %q to %q", guidance, got)
+	}
+}
+
 func TestLayout_HelpBlocksOtherKeys(t *testing.T) {
 	m := testLayout()
 	result, _ := sendKey(&m, "?")

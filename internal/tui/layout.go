@@ -462,6 +462,9 @@ func (m LayoutModel) updateVisibleList(key tea.KeyPressMsg) (LayoutModel, tea.Cm
 }
 
 func (m LayoutModel) renderCanonicalStatus() string {
+	if m.showHelp {
+		return ""
+	}
 	resolutions := CanonicalKeymap.HelpBindings(m.bindingContext())
 	contextKeys := make([]ContextKey, 0, len(resolutions))
 	global := make([]ContextKey, 0, len(globalKeys))

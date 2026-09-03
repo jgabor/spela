@@ -1,0 +1,16 @@
+id: njwmjtpsaz
+artifact: plan
+record:
+  plan: ajcnhmbmoh
+  name: Align Help guidance with Help behavior
+  status: in_progress
+  depends_on:
+    - efdydreiqj
+    - vtflntmzjw
+    - xlnuugbhom
+  acceptance:
+    - GIVEN Help is open WHEN its guidance renders THEN only keys with actual Help behavior are advertised and Enter confirmation is absent unless Enter has an explicit Help action.
+    - GIVEN Help is open WHEN Enter is pressed THEN no undocumented action occurs and the visible guidance remains truthful.
+    - GIVEN Help is open WHEN q, Ctrl+C, or Escape is pressed THEN q and Ctrl+C quit while Escape closes Help without exiting.
+    - GIVEN the correction is complete WHEN contextual guidance is compared across destinations THEN accepted filtering, grouped labels, F6 restore, and overflow priority remain unchanged.
+    - GIVEN focused checks and isolated Terminal Control journeys run at 120x40 and 80x24 WHEN every visible Help action is exercised THEN behavior and guidance agree and all sessions and fixtures are cleaned up.

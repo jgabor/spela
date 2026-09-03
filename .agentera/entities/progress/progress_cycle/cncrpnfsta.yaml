@@ -1,0 +1,16 @@
+id: cncrpnfsta
+artifact: progress
+record:
+  timestamp: 2026-09-03 15:43
+  type: fix
+  phase: build
+  what: Help now relies on its Help-specific close, quit, and scroll footer instead of generic overlay status actions, leaving Enter an unadvertised no-op.
+  context:
+    intent: Align active Help guidance with Help keyboard behavior.
+    constraints: Preserve contextual filtering, grouped labels, F6 restore, overflow priority, and existing overlay behavior; do not complete the replacement task or resolve its TODO.
+    unknowns: None; the rendering and handler mismatch was confirmed in the current checkout.
+    scope: internal/tui Help status rendering, one focused regression, changelog, and required Agentera state.
+  discovered: The blocked predecessor corrected overlay quit behavior but renderCanonicalStatus still treated Help as a confirmable ModeOverlay.
+  verified: go test ./internal/tui -count=1, mage test, mage lint, mage build, and git diff --check passed. Isolated Terminal Control at 120x40 and 80x24 showed unchanged Help after Enter, arrow scrolling at 80x24, ? and Escape closing, and q and Ctrl+C exiting. All sessions and /tmp/spela-termctrl-njwmjtpsaz were removed.
+  next: Independently audit njwmjtpsaz while it remains in_progress; keep ycsvvvvxkz open until Orchestrate reconciles a PASS.
+  publication_order: 6

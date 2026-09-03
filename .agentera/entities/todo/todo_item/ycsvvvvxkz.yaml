@@ -1,0 +1,24 @@
+id: ycsvvvvxkz
+artifact: todo
+record:
+  severity: degraded
+  kind: bug
+  target_version: null
+  title: Align Help Enter guidance with behavior
+  requirements:
+    - Remove Enter confirmation guidance from Help when Help has no Enter action, or provide a context-specific action that exactly matches the visible label.
+    - Preserve the verified q and Ctrl+C quit policy, Escape cancellation, contextual filtering, F6 restore binding, and overflow ordering.
+  acceptance:
+    - GIVEN Help is open WHEN its footer renders THEN every visible key performs the described action.
+    - GIVEN Help is open WHEN Enter is pressed THEN either its documented Help-specific action occurs or no Enter action is advertised.
+    - GIVEN the correction is reviewed at 120x40 and 80x24 WHEN q, Ctrl+C, Escape, and visible Help actions are exercised THEN behavior and guidance agree.
+  release_blocker: false
+  status: open
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[bug] Align Help Enter guidance with behavior"
+      severity: degraded
+      status: open
+      order: 1
