@@ -1,0 +1,28 @@
+id: ayynzpmziq
+artifact: todo
+record:
+  severity: degraded
+  kind: bug
+  target_version: null
+  title: Eliminate live TUI header refresh corruption
+  requirements:
+    - Determine whether stale metric fragments originate in Spela rendering or terminal refresh handling and correct the owned behavior.
+    - Keep repeated live GPU and CPU metric updates bounded and clean at both 80x24 and 120x40 without stray characters or displaced content.
+  acceptance:
+    - GIVEN a compiled TUI at 80x24 or 120x40 WHEN multiple live metric refreshes occur THEN every header line is redrawn cleanly without stale frequency fragments.
+    - GIVEN metric values change width between samples WHEN the next frame renders THEN prior characters are fully cleared and the workspace remains aligned.
+    - GIVEN deterministic and live refresh checks run WHEN verification completes THEN automated coverage and isolated Terminal Control evidence reproduce the fix with no leaked state.
+  release_blocker: false
+  status: resolved
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[bug] Eliminate live TUI header refresh corruption"
+      status: resolved
+      order: 4
+      severity: degraded
+  lifecycle:
+    operation: resolve
+    reason: Fixed duplicate polling and stabilized live header replacement; required verification passed.
+    date: 2026-09-03

@@ -5,6 +5,8 @@ package e2e
 import (
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -72,6 +74,67 @@ func requireClosedSplitPaneBorders(t *testing.T, screen string) {
 		}
 	}
 	t.Fatalf("Detail bottom border is missing:\n%s", screen)
+}
+
+func requireCleanLiveHeader(t *testing.T, screen string, width int) int {
+	t.Helper()
+	lines := strings.Split(strings.TrimRight(screen, "\n"), "\n")
+	if len(lines) < 9 || !strings.HasPrefix(lines[0], " █") || !strings.Contains(lines[7], "Library") {
+		t.Fatalf("live refresh displaced the header or workspace:\n%s", screen)
+	}
+	cpuLine := ""
+	for _, line := range lines[:6] {
+		if strings.Contains(line, "CPU:") {
+			cpuLine = line
+			break
+		}
+	}
+	if cpuLine == "" || !regexp.MustCompile(`CPU:\s+\d+%.*\s+\d+MHz\s*$`).MatchString(cpuLine) {
+		t.Fatalf("malformed CPU header line: %q\n%s", cpuLine, screen)
+	}
+	for _, line := range lines {
+		if len([]rune(line)) > width {
+			t.Fatalf("line wrapped past %d columns: %q\n%s", width, line, screen)
+		}
+	}
+	return strings.Index(cpuLine, "CPU:")
+}
+
+func TestTUILiveHeaderSuccessiveWidthChanges(t *testing.T) {
+	for _, width := range []int{80, 120} {
+		t.Run(strconv.Itoa(width), func(t *testing.T) {
+			environment, cleanup := SetupTestEnvironment(t)
+			t.Cleanup(cleanup)
+			environment.Env = append(environment.Env, "SPELA_E2E_METRICS=successive-widths")
+			height := 40
+			if width == 80 {
+				height = 24
+			}
+			session := startTUI(t, environment, width, height)
+
+			if err := session.WaitForText("5365MHz", visibleTimeout); err != nil {
+				t.Fatal(err)
+			}
+			first := requireScreen(t, session, []string{"5365MHz"}, "842MHz", "12345MHz")
+			cpuColumn := requireCleanLiveHeader(t, first, width)
+
+			if err := session.WaitForText("842MHz", visibleTimeout); err != nil {
+				t.Fatal(err)
+			}
+			second := requireScreen(t, session, []string{"842MHz"}, "5365MHz", "12345MHz")
+			if column := requireCleanLiveHeader(t, second, width); column != cpuColumn {
+				t.Fatalf("shorter sample moved CPU column from %d to %d:\n%s", cpuColumn, column, second)
+			}
+
+			if err := session.WaitForText("12345MHz", visibleTimeout); err != nil {
+				t.Fatal(err)
+			}
+			third := requireScreen(t, session, []string{"12345MHz"}, "5365MHz", "842MHz")
+			if column := requireCleanLiveHeader(t, third, width); column != cpuColumn {
+				t.Fatalf("longer sample moved CPU column from %d to %d:\n%s", cpuColumn, column, third)
+			}
+		})
+	}
 }
 
 func TestTUIFreshMinimumLongPathBorderClosure(t *testing.T) {

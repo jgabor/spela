@@ -13,9 +13,9 @@ func TestHeaderFetchMetricsSupportedNvidiaSMIFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", bin)
-	message, ok := fetchMetrics()().(metricsMsg)
+	message, ok := NewHeader(NewStyles(DefaultTheme, true)).Init()().(metricsMsg)
 	if !ok || message.gpuMetrics == nil || message.gpuMetrics.Temperature != 55 || message.cpuMetrics == nil {
-		t.Fatalf("header metrics message = %#v", message)
+		t.Fatalf("header initial command = %#v", message)
 	}
 	header := NewHeader(NewStyles(DefaultTheme, true))
 	header, command := header.Update(message)

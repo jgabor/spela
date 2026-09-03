@@ -22,7 +22,7 @@ func TestMain(m *testing.M) {
 	}
 	testBinaryPath = filepath.Join(testBinaryDirectory, "spela")
 
-	cmd := exec.Command("go", "build", "-o", testBinaryPath, "../../cmd/spela")
+	cmd := exec.Command("go", "build", "-tags", "e2e", "-o", testBinaryPath, "../../cmd/spela")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {

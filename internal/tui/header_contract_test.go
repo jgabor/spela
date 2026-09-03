@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -90,6 +91,65 @@ func TestHeaderAndMonitorRenderLiveUnavailableAndAlertStates(t *testing.T) {
 			t.Errorf("empty monitor section %d missing %q:\n%s", section, fragment, view)
 		}
 	}
+}
+
+func TestHeaderSuccessiveSamplesKeepMetricColumnAndReplaceValues(t *testing.T) {
+	styles := NewStyles(DefaultTheme, true)
+	for _, width := range []int{80, 120} {
+		t.Run(fmt.Sprintf("width_%d", width), func(t *testing.T) {
+			header := NewHeader(styles)
+			header.SetWidth(width)
+			samples := []metricsMsg{
+				{
+					gpuMetrics: &gpu.GPUMetrics{Temperature: 100, PowerDraw: 307, PowerLimit: 300, Utilization: 100, MemoryUsed: 8192, MemoryTotal: 12288},
+					cpuMetrics: &cpu.CPUMetrics{AverageFrequency: 5365, Utilization: 100, RAMUsedMB: 16384, RAMTotalMB: 32768},
+					alerts:     []overlay.Alert{{Type: overlay.AlertPowerLimit, Severity: overlay.AlertWarning}},
+				},
+				{
+					gpuMetrics: &gpu.GPUMetrics{Temperature: 9, PowerDraw: 48, PowerLimit: 300, Utilization: 9, MemoryUsed: 512, MemoryTotal: 12288},
+					cpuMetrics: &cpu.CPUMetrics{AverageFrequency: 842, Utilization: 9, RAMUsedMB: 1024, RAMTotalMB: 32768},
+				},
+				{
+					gpuMetrics: &gpu.GPUMetrics{Temperature: 105, PowerDraw: 1234, PowerLimit: 300, Utilization: 100, MemoryUsed: 10240, MemoryTotal: 12288},
+					cpuMetrics: &cpu.CPUMetrics{AverageFrequency: 12345, Utilization: 100, RAMUsedMB: 24576, RAMTotalMB: 32768},
+				},
+			}
+			frequencies := []string{"5365MHz", "842MHz", "12345MHz"}
+			cpuColumn := -1
+			for index, sample := range samples {
+				header, _ = header.Update(sample)
+				view := stripANSI(header.View())
+				line := lineContaining(view, "CPU:")
+				if line == "" || !strings.Contains(line, frequencies[index]) {
+					t.Fatalf("sample %d CPU line = %q", index, line)
+				}
+				for previous := range index {
+					if strings.Contains(view, frequencies[previous]) {
+						t.Fatalf("sample %d retained %q:\n%s", index, frequencies[previous], view)
+					}
+				}
+				if column := strings.Index(line, "CPU:"); cpuColumn < 0 {
+					cpuColumn = column
+				} else if column != cpuColumn {
+					t.Fatalf("sample %d moved CPU column from %d to %d:\n%s", index, cpuColumn, column, view)
+				}
+				for _, renderedLine := range strings.Split(view, "\n") {
+					if got := lipgloss.Width(renderedLine); got != width {
+						t.Fatalf("sample %d line width = %d, want %d: %q", index, got, width, renderedLine)
+					}
+				}
+			}
+		})
+	}
+}
+
+func lineContaining(view, fragment string) string {
+	for _, line := range strings.Split(view, "\n") {
+		if strings.Contains(line, fragment) {
+			return line
+		}
+	}
+	return ""
 }
 
 func TestMonitorUsesTextMarkersAndDistinctMetricStates(t *testing.T) {

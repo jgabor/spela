@@ -23,6 +23,8 @@ var logo = []string{
 	"╚══════╝╚═╝     ╚══════╝╚══════╝╚═╝  ╚═╝",
 }
 
+const fullHeaderMetricsWidth = 60
+
 type headerTickMsg struct{}
 
 // metricsMsg delivers asynchronously fetched system metrics.
@@ -67,7 +69,7 @@ func (m *HeaderModel) SetWidth(width int) {
 }
 
 func (m HeaderModel) Init() tea.Cmd {
-	return tea.Batch(fetchMetrics(), tickHeader())
+	return fetchMetrics()
 }
 
 func tickHeader() tea.Cmd {
@@ -77,27 +79,29 @@ func tickHeader() tea.Cmd {
 }
 
 // fetchMetrics returns a command that reads GPU/CPU metrics off the main loop.
-func fetchMetrics() tea.Cmd {
-	return func() tea.Msg {
-		gpuMetrics, gpuError := gpu.GetGPUMetrics()
-		cpuMetrics, cpuError := cpu.GetCPUMetrics()
-		var alerts []overlay.Alert
-		if gpuMetrics != nil {
-			input := overlay.AlertInput{
-				Temperature:   gpuMetrics.Temperature,
-				PowerDraw:     gpuMetrics.PowerDraw,
-				PowerLimit:    gpuMetrics.PowerLimit,
-				GraphicsClock: gpuMetrics.GraphicsClock,
-				FanSpeed:      gpuMetrics.FanSpeed,
-			}
-			if r := gpuMetrics.ThrottleReasons; r != nil {
-				input.ThrottleThermal = r.ThermalHardware || r.ThermalSoftware
-				input.ThrottlePower = r.PowerCap || r.PowerBrake
-			}
-			alerts = overlay.Evaluate(input, overlay.DefaultThresholds())
+var readSystemMetrics = func() metricsMsg {
+	gpuMetrics, gpuError := gpu.GetGPUMetrics()
+	cpuMetrics, cpuError := cpu.GetCPUMetrics()
+	var alerts []overlay.Alert
+	if gpuMetrics != nil {
+		input := overlay.AlertInput{
+			Temperature:   gpuMetrics.Temperature,
+			PowerDraw:     gpuMetrics.PowerDraw,
+			PowerLimit:    gpuMetrics.PowerLimit,
+			GraphicsClock: gpuMetrics.GraphicsClock,
+			FanSpeed:      gpuMetrics.FanSpeed,
 		}
-		return metricsMsg{gpuMetrics: gpuMetrics, cpuMetrics: cpuMetrics, alerts: alerts, gpuError: gpuError, cpuError: cpuError}
+		if r := gpuMetrics.ThrottleReasons; r != nil {
+			input.ThrottleThermal = r.ThermalHardware || r.ThermalSoftware
+			input.ThrottlePower = r.PowerCap || r.PowerBrake
+		}
+		alerts = overlay.Evaluate(input, overlay.DefaultThresholds())
 	}
+	return metricsMsg{gpuMetrics: gpuMetrics, cpuMetrics: cpuMetrics, alerts: alerts, gpuError: gpuError, cpuError: cpuError}
+}
+
+func fetchMetrics() tea.Cmd {
+	return func() tea.Msg { return readSystemMetrics() }
 }
 
 func (m HeaderModel) Update(msg tea.Msg) (HeaderModel, tea.Cmd) {
@@ -179,16 +183,16 @@ func (m HeaderModel) View() string {
 		powerStyle := ThermalStyle(powerRatio, 0, 100, &t)
 
 		line := labelStyle.Render("GPU: ") +
-			tempStyle.Render(fmt.Sprintf("%d°C", g.Temperature))
+			tempStyle.Render(fmt.Sprintf("%3d°C", g.Temperature))
 
 		if sparklineWidth > 0 {
 			line += " " + RenderSparkline(m.tempBuffer.Values(), sparklineWidth, 30, 95, &t)
 		}
 
 		line += "  " +
-			valueStyle.Render(fmt.Sprintf("%d%%", g.Utilization)) +
+			valueStyle.Render(fmt.Sprintf("%3d%%", g.Utilization)) +
 			" " +
-			powerStyle.Render(fmt.Sprintf("%.0fW", g.PowerDraw))
+			powerStyle.Render(fmt.Sprintf("%3.0fW", g.PowerDraw))
 
 		if highest := highestSeverityAlert(m.alerts); highest != nil {
 			var icon string
@@ -236,13 +240,13 @@ func (m HeaderModel) View() string {
 
 		utilStyle := ThermalStyle(c.Utilization, 0, 100, &t)
 		line := labelStyle.Render("CPU: ") +
-			utilStyle.Render(fmt.Sprintf("%.0f%%", c.Utilization))
+			utilStyle.Render(fmt.Sprintf("%3.0f%%", c.Utilization))
 
 		if sparklineWidth > 0 {
 			line += " " + RenderSparkline(m.cpuBuffer.Values(), sparklineWidth, 0, 100, &t)
 		}
 
-		line += "  " + freqStyle.Render(fmt.Sprintf("%dMHz", c.AverageFrequency))
+		line += "  " + freqStyle.Render(fmt.Sprintf("%4dMHz", c.AverageFrequency))
 		metricsLines = append(metricsLines, line)
 	} else {
 		metricsLines = append(metricsLines, labelStyle.Render("CPU: ")+valueStyle.Render("N/A"))
@@ -263,23 +267,14 @@ func (m HeaderModel) View() string {
 		metricsLines = append(metricsLines, labelStyle.Render("RAM: ")+valueStyle.Render("N/A"))
 	}
 
-	// Calculate widths for layout spacing.
-	metricsWidth := 0
-	for _, line := range metricsLines {
-		w := lipgloss.Width(line)
-		if w > metricsWidth {
-			metricsWidth = w
-		}
-	}
-
 	// Build combined lines
 	var lines []string
 	numLines := max(len(logo), len(metricsLines))
 
 	innerWidth := max(m.width-2, 1)
+	metricsWidth := min(fullHeaderMetricsWidth, max(innerWidth-logoWidth-2, 0))
 	spacing := max(innerWidth-logoWidth-metricsWidth, 2)
 	spacer := strings.Repeat(" ", spacing)
-	metricsWidth = max(innerWidth-logoWidth-spacing, 0)
 
 	for i := range numLines {
 		var logoLine, metricsLine string
@@ -325,9 +320,9 @@ func (m HeaderModel) ViewCompact() string {
 		powerStyle := m.alertStyleFor(overlay.AlertPowerLimit, valueStyle)
 
 		line1.WriteString(labelStyle.Render("GPU "))
-		line1.WriteString(tempStyle.Render(fmt.Sprintf("%d\u00b0C", g.Temperature)))
-		line1.WriteString(valueStyle.Render(fmt.Sprintf(" %d%% ", g.Utilization)))
-		line1.WriteString(powerStyle.Render(fmt.Sprintf("%.0fW", g.PowerDraw)))
+		line1.WriteString(tempStyle.Render(fmt.Sprintf("%3d\u00b0C", g.Temperature)))
+		line1.WriteString(valueStyle.Render(fmt.Sprintf(" %3d%% ", g.Utilization)))
+		line1.WriteString(powerStyle.Render(fmt.Sprintf("%3.0fW", g.PowerDraw)))
 	} else {
 		line1.WriteString(labelStyle.Render("GPU ") + valueStyle.Render("N/A"))
 	}
@@ -335,7 +330,7 @@ func (m HeaderModel) ViewCompact() string {
 	if m.cpuMetrics != nil {
 		c := m.cpuMetrics
 		line1.WriteString(labelStyle.Render("CPU "))
-		line1.WriteString(valueStyle.Render(fmt.Sprintf("%.0f%% %dMHz", c.Utilization, c.AverageFrequency)))
+		line1.WriteString(valueStyle.Render(fmt.Sprintf("%3.0f%% %4dMHz", c.Utilization, c.AverageFrequency)))
 	} else {
 		line1.WriteString(labelStyle.Render("CPU ") + valueStyle.Render("N/A"))
 	}

@@ -1,0 +1,25 @@
+id: rkyuilltbu
+artifact: plan
+record:
+  plan: ajcnhmbmoh
+  name: Stabilize live header refresh and revalidate final state
+  status: in_progress
+  depends_on:
+    - efdydreiqj
+    - vtflntmzjw
+    - xlnuugbhom
+    - gaewoncior
+    - njwmjtpsaz
+    - txuxsmwydo
+    - qshqtvkmyj
+    - eofjxctvwo
+    - tvubizjmml
+    - lamvzkrgxu
+    - zyfnmqxuce
+    - pzlcvsmusb
+  acceptance:
+    - GIVEN a compiled TUI at 80x24 or 120x40 WHEN repeated live metric refreshes occur THEN every header line redraws without stale frequency fragments, stray characters, wrapping, or workspace displacement.
+    - GIVEN metric values change width between samples WHEN the next frame renders THEN prior content is fully replaced in deterministic checks and compiled Terminal Control observations.
+    - GIVEN the correction is complete WHEN full project tests, lint, build, and tagged Terminal Control acceptance run THEN every required check passes.
+    - GIVEN the compiled TUI receives final review WHEN every destination is inspected at 120x40, a fresh 80x24 launch, and below-minimum recovery THEN user-facing behavior, documentation, and key contracts remain aligned.
+    - GIVEN final verification ends WHEN cleanup and the original QA map are inspected THEN no session, fixture, shared runtime residue, source-user mutation, or unresolved original finding remains.

@@ -1,0 +1,16 @@
+id: njxlagyjgs
+artifact: progress
+record:
+  timestamp: 2026-09-03 21:26
+  type: fix
+  phase: build
+  what: Stabilized live TUI header refreshes in internal/tui/header.go and added deterministic compiled coverage.
+  context:
+    intent: Eliminate stale live-header fragments without disabling metrics.
+    constraints: Preserve existing TUI behavior and named commits; use isolated XDG state; do not mutate real game files or privileged state.
+    unknowns: "Resolved: current frame clearing was complete; duplicate scheduling and sample-dependent column placement caused unstable redraws."
+    scope: Header polling, metric field layout, deterministic successive-sample tests, and tagged Terminal Control E2E only.
+  discovered: Spela started two polling chains and right-aligned the metrics block from each sample’s widest line; alert and value-width changes moved every metric row while Terminal Control could observe the redraw in progress.
+  verified: TestHeaderSuccessiveSamplesKeepMetricColumnAndReplaceValues and TestTUILiveHeaderSuccessiveWidthChanges verified 5365MHz to 842MHz to 12345MHz replacement at 80x24 and 120x40. mage test, mage lint, mage build, go tool mage TestTUIE2E, focused race checks, all four destinations, and 72x20 recovery passed.
+  next: Keep plan task rkyuilltbu in_progress for independent audit.
+  publication_order: 22

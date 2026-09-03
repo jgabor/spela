@@ -13,7 +13,7 @@ record:
     - lamvzkrgxu
     - zyfnmqxuce
     - pzlcvsmusb
-  status: in_progress
+  status: blocked
   acceptance:
     - GIVEN all implementation tasks are complete WHEN full project tests, lint, build, and tagged TUI acceptance run THEN every required check passes.
     - GIVEN the compiled TUI WHEN final visual review runs THEN every destination is inspected at 120x40, a fresh 80x24 launch, and below-minimum recovery.
@@ -22,12 +22,12 @@ record:
     - GIVEN the original QA report WHEN evidence is reconciled THEN every finding maps to a passing check or an explicitly approved deferment.
   plan: ajcnhmbmoh
   evaluation:
-    attempt_count: 1
-    failure_count: 1
+    attempt_count: 2
+    failure_count: 2
     last_verdict: fail
-    last_failure_evidence: "Fresh 80x24 long-path Overview can overflow without closing Detail border, and canonical h/l List/Profile actions are advertised but ignored. Refs internal/tui/layout.go:234,355-368; internal/tui/keymap.go:327-339; internal/tui/list_pane.go:67-72; internal/tui/detail.go:173-178,341-352. Verify: git grep -n -E 'panelHeight :=|truncateHeight|ActionListPreviousGroup|ActionDetailDecrease|key\\(\"h\"|key\\(\"l\"' -- internal/tui"
+    last_failure_evidence: "Compiled live header leaves stale CPU-frequency fragments after metric refresh at 80x24 and 120x40, violating bounded non-overlap contracts. Refs internal/tui/header.go:70,79-80,103,139,267-298; docs/tui-testing.md:160-174. Verify: git grep -n -E 'func \\(m HeaderModel\\) View|metricsWidth|ansi\\.Truncate\\(metricsLines|line\\+strings\\.Repeat|func \\(m HeaderModel\\) Update|fetchMetrics' -- internal/tui/header.go"
     provenance:
-      attempt_id: audit-1
+      attempt_id: audit-2
       source: independent acceptance and progress evidence audit
-      recorded_at: 2026-09-03 20:24
+      recorded_at: 2026-09-03 20:46
       writer_command: agentera state plan record-evaluation
