@@ -15,3 +15,13 @@ record:
     - GIVEN long deployment game names WHEN the list renders at 80x24 or 120x40 THEN each game remains one navigable row with visible stale status.
     - GIVEN a DLL operation or result WHEN the affected view updates THEN progress and success, no-op, cancellation, or failure remain visible, with focused and Terminal Control evidence at both sizes.
   plan: ajcnhmbmoh
+  evaluation:
+    attempt_count: 1
+    failure_count: 1
+    last_verdict: fail
+    last_failure_evidence: "Install confirmation uppercases raw family keys, yielding DLSSG, DLSSD, XESS instead of canonical DLSS-G, DLSS-D, XeSS; internal/tui/content.go:377 versus internal/dll/detect.go:39-43. Verify: git grep -n -e 'strings.ToUpper(m.selectedDLLType)' -- internal/tui/content.go"
+    provenance:
+      attempt_id: audit-1
+      source: independent acceptance and progress evidence audit
+      recorded_at: 2026-09-03 19:34
+      writer_command: agentera state plan record-evaluation

@@ -1,0 +1,15 @@
+id: jbhkqhhixe
+artifact: progress
+record:
+  timestamp: 2026-09-03 19:42
+  type: fix
+  phase: build
+  what: Reused canonical DLL family metadata in install confirmation and added all-family cross-view regression coverage.
+  context:
+    intent: Correct the persisted audit-1 family-label inconsistency without changing accepted DLL behavior.
+    constraints: Use existing family metadata; preserve safety and cancellation behavior; do not mutate real game files.
+    scope: Install-confirmation label rendering, focused tests, and stale Terminal Control registry cleanup.
+  discovered: The failed confirmation path alone uppercased raw manifest keys; existing selection, game, catalog, deployment, update, and restore views already used canonical labels.
+  verified: Focused TUI rendering and cancellation tests; mage test; go test -race ./internal/tui; mage lint; mage build; git diff --check. Isolated Terminal Control at 120x40 and 80x24 showed canonical DLSS, DLSS-D, DLSS-G, FSR, and XeSS confirmation labels; every dialog was cancelled, the fixture game directory stayed empty, and termctrl list was empty after cleanup.
+  next: Keep tvubizjmml in_progress with audit-1 preserved for independent audit-2.
+  publication_order: 17

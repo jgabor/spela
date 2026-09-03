@@ -14,6 +14,7 @@ import (
 
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/nav"
 	"github.com/jgabor/spela/internal/profile"
 )
 
@@ -77,8 +78,32 @@ func TestContentSupportedProfileDLLAndInstallViews(t *testing.T) {
 	}
 }
 
-func TestDLLPresentationNoInstallAndCanonicalFamilies(t *testing.T) {
-	content := testContent(testGame("No DLL Game"))
+func TestDLLPresentationUsesCanonicalFamiliesAcrossViews(t *testing.T) {
+	knownTypes := dll.KnownDLLTypes()
+	installed := make([]game.DetectedDLL, 0, len(knownTypes))
+	for _, info := range knownTypes {
+		installed = append(installed, testDLL(info.Type, "1.0.0"))
+	}
+	entry := testGame("All DLLs", installed...)
+	content := testContent(entry)
+	gameView := stripANSI(content.ViewDLLAspect())
+	resource := makeDLLsResource([]*game.Game{entry}, nil, nil)
+	deploymentView := stripANSI(resource.renderSelectedDetail(nav.SectionDLLDeployment))
+	for index, info := range knownTypes {
+		if !strings.Contains(gameView, fmt.Sprintf("%-10s", info.Label)) {
+			t.Errorf("game view missing canonical family %q:\n%s", info.Label, gameView)
+		}
+		resource.typeCursor = index
+		catalogView := stripANSI(resource.renderSelectedDetail(nav.SectionDLLLibrary))
+		if !strings.Contains(catalogView, "\n"+info.Label+"\n\nFile: "+info.Filename) {
+			t.Errorf("catalog view missing canonical family %q:\n%s", info.Label, catalogView)
+		}
+		if !strings.Contains(deploymentView, info.Label+"  1.0.0 · current") {
+			t.Errorf("deployment view missing canonical family %q:\n%s", info.Label, deploymentView)
+		}
+	}
+
+	content = testContent(testGame("No DLL Game"))
 	view := stripANSI(content.ViewDLLAspect())
 	for _, want := range []string{"No managed DLL installed", "i: install", "DLSS", "DLSS-G", "DLSS-D", "XeSS", "FSR"} {
 		if !strings.Contains(view, want) {
@@ -89,10 +114,38 @@ func TestDLLPresentationNoInstallAndCanonicalFamilies(t *testing.T) {
 	content.dllInstallState = DLLInstallSelectType
 	content.dllTypes = []string{"dlss", "dlssg", "dlssd", "xess", "fsr"}
 	install := stripANSI(content.ViewDLLAspect())
-	for _, info := range dll.KnownDLLTypes() {
+	for _, info := range knownTypes {
 		if !strings.Contains(install, info.Label) {
 			t.Fatalf("install choices missing canonical family %q:\n%s", info.Label, install)
 		}
+	}
+}
+
+func TestContentInstallConfirmationUsesCanonicalFamilyLabels(t *testing.T) {
+	for _, info := range dll.KnownDLLTypes() {
+		t.Run(info.ManifestKey, func(t *testing.T) {
+			entry := testGame("No DLL Game")
+			content := testContent(entry)
+			content.dllInstallState = DLLInstallSelectVersion
+			content.dllOperating = true
+			content.selectedDLLType = info.ManifestKey
+			content.dllVersions = []dll.DLL{{Version: "1.0.0", Filename: info.Filename}}
+
+			versionView := stripANSI(content.ViewDLLAspect())
+			if !strings.Contains(versionView, "Select "+info.Label+" version:") {
+				t.Fatalf("version view missing canonical family %q:\n%s", info.Label, versionView)
+			}
+
+			content, command := content.Update(keyMsg("enter"))
+			if command != nil || content.confirmation == nil {
+				t.Fatal("expected install confirmation before execution")
+			}
+			view := stripANSI(content.ViewDLLAspect())
+			want := fmt.Sprintf("• %s — %s — %s — 1.0.0", entry.Name, info.Label, filepath.Join(entry.InstallDir, info.Filename))
+			if !strings.Contains(view, want) {
+				t.Fatalf("confirmation missing canonical family row %q:\n%s", want, view)
+			}
+		})
 	}
 }
 

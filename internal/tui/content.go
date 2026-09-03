@@ -374,7 +374,7 @@ func (m ContentModel) updateDLLInstall(msg tea.Msg) (ContentModel, tea.Cmd) {
 				m.confirmation = newDLLMutationConfirmation("Confirm DLL install", []dllMutationTarget{{
 					appID:          m.game.AppID,
 					gameName:       m.game.Name,
-					family:         strings.ToUpper(m.selectedDLLType),
+					family:         dllFamilyName(m.selectedDLLType),
 					manifestKey:    m.selectedDLLType,
 					path:           path,
 					currentVersion: currentVersion,
