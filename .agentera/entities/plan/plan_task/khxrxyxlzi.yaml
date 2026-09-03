@@ -13,7 +13,7 @@ record:
     - lamvzkrgxu
     - zyfnmqxuce
     - pzlcvsmusb
-  status: blocked
+  status: superseded
   acceptance:
     - GIVEN all implementation tasks are complete WHEN full project tests, lint, build, and tagged TUI acceptance run THEN every required check passes.
     - GIVEN the compiled TUI WHEN final visual review runs THEN every destination is inspected at 120x40, a fresh 80x24 launch, and below-minimum recovery.
@@ -31,3 +31,6 @@ record:
       source: independent acceptance and progress evidence audit
       recorded_at: 2026-09-03 20:46
       writer_command: agentera state plan record-evaluation
+  superseded_by:
+    - rkyuilltbu
+  superseded_reason: Final header stability and complete current-state validation passed in the replacement task
