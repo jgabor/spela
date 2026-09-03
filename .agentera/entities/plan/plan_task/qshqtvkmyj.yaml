@@ -14,3 +14,13 @@ record:
     - GIVEN a mutation is active WHEN execution is requested again THEN duplicate execution is blocked while visible progress and final outcome remain available.
     - GIVEN deterministic temporary game files WHEN focused checks and Terminal Control journeys exercise success and rejection paths THEN no source-user game file or privileged action is touched.
   plan: ajcnhmbmoh
+  evaluation:
+    attempt_count: 1
+    failure_count: 1
+    last_verdict: fail
+    last_failure_evidence: "Confirmations use vague target versions and install lists unrelated files; q quits instead of cancelling; Enter is accepted but only y executes; per-game outcome vanishes with the message bar. Refs: internal/tui/content_routing.go:29-68,188; internal/tui/layout.go:154-167; internal/tui/dll_mutation.go:22-39; internal/tui/messagebar.go:18,55-74. Verify: git grep -n -E 'latest available|latest cached|ActionQuit|case \"enter\", \"y\"|messageClearDuration' -- internal/tui"
+    provenance:
+      attempt_id: audit-1
+      source: independent acceptance and progress evidence audit
+      recorded_at: 2026-09-03 17:53
+      writer_command: agentera state plan record-evaluation

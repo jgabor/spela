@@ -19,10 +19,11 @@ func (m LayoutModel) handleBatchMenuKeys(msg tea.KeyPressMsg) (LayoutModel, tea.
 			return m, nil, true
 		}
 		if confirm && !m.batchBusy {
+			targets := m.batchConfirmation.targets
 			m.batchConfirmation = nil
 			m.batchBusy = true
 			m.batchMessage = "Updating DLLs..."
-			return m, m.executeBatchAction(), true
+			return m, m.executeBatchAction(targets), true
 		}
 		return m, nil, true
 	}
@@ -45,7 +46,12 @@ func (m LayoutModel) handleBatchMenuKeys(msg tea.KeyPressMsg) (LayoutModel, tea.
 		if m.batchBusy {
 			return m, nil, true
 		}
-		m.batchConfirmation = newDLLMutationConfirmation("Confirm batch DLL update", m.batchGames, "latest available", "each current DLL is backed up before replacement")
+		targets := latestDLLMutationTargets(m.batchGames, m.pane.dllsResource.manifest)
+		if len(targets) == 0 {
+			m.batchMessage = "No concrete DLL update targets available"
+			return m, nil, true
+		}
+		m.batchConfirmation = newDLLMutationConfirmation("Confirm batch DLL update", targets, "each current DLL is backed up before replacement")
 		return m, nil, true
 	}
 	return m, nil, true
@@ -227,7 +233,7 @@ func (m LayoutModel) selectAdjacentLibraryAspect(delta int) LayoutModel {
 
 func (m LayoutModel) bindingContext() BindingContext {
 	context := BindingContext{
-		Mode: m.inputMode, Focus: m.focus, Destination: m.navState.Destination, GameScope: m.navState.Scope.Kind == nav.ScopeGame, Aspect: m.navState.Aspect, HasBackup: m.pane.content.hasBackup,
+		Mode: m.inputMode, Focus: m.focus, Destination: m.navState.Destination, GameScope: m.navState.Scope.Kind == nav.ScopeGame, Aspect: m.navState.Aspect, HasBackup: m.pane.content.hasBackup, DLLSection: m.navState.DLLCatalogSection,
 	}
 	if m.pane.Editing() {
 		context.Mode = ModeEdit
@@ -464,6 +470,7 @@ func (m LayoutModel) handleDLLUpdateMsg(msg dllUpdateMsg, cmds []tea.Cmd) (Layou
 	}
 	cmds = append(cmds, m.messageBar.SetMessage(message, msgType))
 	updated, contentCmd := m.pane.content.Update(msg)
+	updated.lastDLLResult = message
 	m.pane.content = updated
 	cmds = append(cmds, contentCmd)
 	return m, cmds
@@ -472,15 +479,19 @@ func (m LayoutModel) handleDLLUpdateMsg(msg dllUpdateMsg, cmds []tea.Cmd) (Layou
 func (m LayoutModel) handleDLLRestoreMsg(msg dllRestoreMsg, cmds []tea.Cmd) (LayoutModel, []tea.Cmd) {
 	var msgType MessageType
 	var message string
-	if msg.err == nil {
-		message = "Original DLLs restored!"
-		msgType = MessageSuccess
-	} else if msg.err != nil {
+	if msg.err != nil {
 		message = fmt.Sprintf("Restore failed: %v", msg.err)
 		msgType = MessageError
+	} else if msg.result.Outcome == dll.OutcomeNoOp {
+		message = "Restore: already current"
+		msgType = MessageInfo
+	} else {
+		message = "Original DLLs restored!"
+		msgType = MessageSuccess
 	}
 	cmds = append(cmds, m.messageBar.SetMessage(message, msgType))
 	updated, contentCmd := m.pane.content.Update(msg)
+	updated.lastDLLResult = message
 	m.pane.content = updated
 	cmds = append(cmds, contentCmd)
 	return m, cmds
@@ -489,15 +500,19 @@ func (m LayoutModel) handleDLLRestoreMsg(msg dllRestoreMsg, cmds []tea.Cmd) (Lay
 func (m LayoutModel) handleDLLInstallMsg(msg dllInstallMsg, cmds []tea.Cmd) (LayoutModel, []tea.Cmd) {
 	var msgType MessageType
 	var message string
-	if msg.err == nil {
-		message = "DLL installed successfully!"
-		msgType = MessageSuccess
-	} else if msg.err != nil {
+	if msg.err != nil {
 		message = fmt.Sprintf("Install failed: %v", msg.err)
 		msgType = MessageError
+	} else if msg.result.Outcome == dll.OutcomeNoOp {
+		message = "Install: already current"
+		msgType = MessageInfo
+	} else {
+		message = "DLL installed successfully!"
+		msgType = MessageSuccess
 	}
 	cmds = append(cmds, m.messageBar.SetMessage(message, msgType))
 	updated, contentCmd := m.pane.content.Update(msg)
+	updated.lastDLLResult = message
 	m.pane.content = updated
 	cmds = append(cmds, contentCmd)
 	return m, cmds

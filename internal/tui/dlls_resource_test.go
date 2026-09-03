@@ -220,6 +220,10 @@ func TestDLLsResource_UpdateAll_PassReportsEachCell(t *testing.T) {
 	if cmd != nil {
 		t.Fatal("update started before confirmation")
 	}
+	confirmation := stripANSI(next.View(true, nav.SectionDLLDeployment))
+	if !strings.Contains(confirmation, "3.7.0 → 3.8.10") {
+		t.Fatalf("confirmation target is not concrete:\n%s", confirmation)
+	}
 	next, cmd = next.Update(keyMsg("enter"))
 	if cmd == nil || !next.busy {
 		t.Fatalf("expected update command and busy state")

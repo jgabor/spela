@@ -279,6 +279,17 @@ func (p resourcePaneModel) HasModalOpen() bool {
 		destination == nav.DestinationSettings && p.settings.editingPath
 }
 
+func (p resourcePaneModel) HasDLLMutationConfirmation() bool {
+	switch p.State().Destination {
+	case nav.DestinationLibrary:
+		return p.content.confirmation != nil
+	case nav.DestinationDLLCatalog:
+		return p.dllsResource.confirmation != nil
+	default:
+		return false
+	}
+}
+
 func (p resourcePaneModel) Editing() bool {
 	if p.State().Destination == nav.DestinationSettings {
 		return p.settings.editingPath

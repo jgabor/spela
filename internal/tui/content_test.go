@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jgabor/spela/internal/dll"
@@ -38,7 +39,13 @@ func TestContent_NoGame_DLLKeysIgnored(t *testing.T) {
 func TestContent_Update_WithConfirmation(t *testing.T) {
 	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	m := testContent(g)
+	var requests []dll.UpdateRequest
+	m.services.BatchUpdateDLLs = func(received []dll.UpdateRequest) dll.BatchResult {
+		requests = append(requests, received...)
+		return dll.BatchResult{Updated: len(received)}
+	}
 	m.hasUpdates = true
+	m.dllUpdateTargets = []dllMutationTarget{newDLLMutationTarget(g, g.DLLs[0], "3.9.0")}
 	m.confirmDestructive = true
 
 	result, cmd := m.Update(keyMsg("u"))
@@ -59,6 +66,10 @@ func TestContent_Update_WithConfirmation(t *testing.T) {
 	if cmd == nil {
 		t.Error("expected update command after Y confirmation")
 	}
+	execCmd(cmd)
+	if len(requests) != 1 || requests[0].Version != "3.9.0" || requests[0].InstalledPath != g.DLLs[0].Path {
+		t.Fatalf("executed targets = %+v", requests)
+	}
 }
 
 func TestContent_Update_ConfirmationCancelled(t *testing.T) {
@@ -78,6 +89,29 @@ func TestContent_Update_ConfirmationCancelled(t *testing.T) {
 	}
 	if result.dllOperating {
 		t.Error("expected dllOperating to remain false on cancel")
+	}
+}
+
+func TestContent_PerGameConfirmationEnterAndYExecute(t *testing.T) {
+	for _, action := range []string{"update", "restore"} {
+		for _, key := range []string{"enter", "y", "Y"} {
+			t.Run(action+"/"+key, func(t *testing.T) {
+				entry := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
+				content := testContent(entry)
+				if action == "update" {
+					content.hasUpdates = true
+					content.dllUpdateTargets = []dllMutationTarget{newDLLMutationTarget(entry, entry.DLLs[0], "3.9.0")}
+					content, _ = content.Update(keyMsg("u"))
+				} else {
+					content.hasBackup = true
+					content, _ = content.Update(keyMsg("f6"))
+				}
+				content, command := content.Update(keyMsg(key))
+				if command == nil || !content.dllOperating || content.pendingAction != PendingNone {
+					t.Fatalf("state = operating %v, pending %v, command %v", content.dllOperating, content.pendingAction, command)
+				}
+			})
+		}
 	}
 }
 
@@ -246,6 +280,29 @@ func TestContent_InstallWizard_VersionToDownload(t *testing.T) {
 	}
 	if cmd == nil {
 		t.Error("expected installSelectedDLL command")
+	}
+}
+
+func TestContent_InstallConfirmationListsOnlySelectedFamilyAndPath(t *testing.T) {
+	entry := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"), testDLL(game.DLLTypeXeSS, "1.3.1"))
+	content := testContent(entry)
+	content.dllInstallState = DLLInstallSelectVersion
+	content.dllOperating = true
+	content.selectedDLLType = "dlss"
+	content.dllVersions = []dll.DLL{{Version: "3.9.0", Filename: entry.DLLs[0].Name}}
+
+	content, command := content.Update(keyMsg("enter"))
+	if command != nil || content.confirmation == nil {
+		t.Fatal("expected install confirmation before execution")
+	}
+	view := stripANSI(content.ViewDLLAspect())
+	for _, want := range []string{"DLSS", entry.DLLs[0].Path, "3.8.10 → 3.9.0"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("confirmation missing %q:\n%s", want, view)
+		}
+	}
+	if strings.Contains(view, entry.DLLs[1].Path) || strings.Contains(view, "1.3.1") {
+		t.Fatalf("confirmation included unselected XeSS DLL:\n%s", view)
 	}
 }
 

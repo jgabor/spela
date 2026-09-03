@@ -266,22 +266,23 @@ func (m DLLsResourceModel) Update(msg tea.Msg) (DLLsResourceModel, tea.Cmd) {
 				return m, nil
 			}
 			if confirm && !m.busy {
+				targets := m.confirmation.targets
 				m.confirmation = nil
 				m.busy = true
 				m.lastBatchSummary = "Updating DLLs..."
-				return m, m.updateAllCmd()
+				return m, m.updateAllCmd(targets)
 			}
 			return m, nil
 		}
 		switch msg.String() {
-		case "U", "ctrl+u":
+		case "u", "U", "ctrl+u":
 			if m.busy {
 				return m, nil
 			}
 			if !m.hasStaleCells() {
 				return m, nil
 			}
-			m.confirmation = newDLLMutationConfirmation("Confirm all stale DLL updates", m.staleGames(), "latest cached", "each current DLL is backed up before replacement")
+			m.confirmation = newDLLMutationConfirmation("Confirm all stale DLL updates", m.staleDLLMutationTargets(), "each current DLL is backed up before replacement")
 			return m, nil
 		}
 	case dllsUpdateAllCompleteMsg:
@@ -322,20 +323,18 @@ func (m DLLsResourceModel) hasStaleCells() bool {
 	return false
 }
 
-func (m DLLsResourceModel) staleGames() []*game.Game {
-	var games []*game.Game
+func (m DLLsResourceModel) staleDLLMutationTargets() []dllMutationTarget {
+	var targets []dllMutationTarget
 	for _, entry := range m.deploymentGames {
 		for _, installed := range entry.DLLs {
 			for _, info := range m.typesInUse {
 				if installed.Type == info.Type && m.isStale(installed.Version, info.ManifestKey) {
-					games = append(games, entry)
-					goto nextGame
+					targets = append(targets, newDLLMutationTarget(entry, installed, m.latestCached(info.ManifestKey)))
 				}
 			}
 		}
-	nextGame:
 	}
-	return games
+	return targets
 }
 
 // installedVersionFor returns the version string of the installed DLL of
@@ -349,19 +348,11 @@ func installedVersionFor(g *game.Game, t game.DLLType) string {
 	return ""
 }
 
-func (m DLLsResourceModel) updateAllCmd() tea.Cmd {
-	var requests []dll.UpdateRequest
+func (m DLLsResourceModel) updateAllCmd(targets []dllMutationTarget) tea.Cmd {
+	requests := dllUpdateRequests(targets, true)
 	var keys []string
-	for _, g := range m.deploymentGames {
-		for _, info := range m.typesInUse {
-			for _, d := range g.DLLs {
-				if d.Type != info.Type || !m.isStale(d.Version, info.ManifestKey) {
-					continue
-				}
-				requests = append(requests, dll.UpdateRequest{AppID: g.AppID, DLLType: info.ManifestKey, Version: m.latestCached(info.ManifestKey), InstalledPath: d.Path, CachedOnly: true})
-				keys = append(keys, fmt.Sprintf("%d:%s", g.AppID, info.ManifestKey))
-			}
-		}
+	for _, target := range targets {
+		keys = append(keys, fmt.Sprintf("%d:%s", target.appID, target.manifestKey))
 	}
 
 	return func() tea.Msg {

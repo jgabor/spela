@@ -173,9 +173,11 @@ func TestContentDLLCommandsCompleteAgainstIsolatedGameFiles(t *testing.T) {
 	}
 	content := testContent(entry)
 	saveTestDatabase(t, content.database)
-	if message, ok := execCmd(content.LoadDLLUpdates()).(dllUpdatesCheckedMsg); !ok || message.err != nil || !message.hasUpdates {
-		t.Fatalf("DLL update check = %#v", message)
+	check, ok := execCmd(content.LoadDLLUpdates()).(dllUpdatesCheckedMsg)
+	if !ok || check.err != nil || !check.hasUpdates {
+		t.Fatalf("DLL update check = %#v", check)
 	}
+	content, _ = content.Update(check)
 	if message, ok := execCmd(content.loadDLLTypes()).(dllTypesLoadedMsg); !ok || len(message.types) != 1 || message.types[0] != "dlss" {
 		t.Fatalf("DLL type load = %#v", message)
 	}

@@ -4,7 +4,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jgabor/spela/internal/dll"
-	"github.com/jgabor/spela/internal/game"
 )
 
 func (m ContentModel) updateBlockingFlow(msg tea.Msg) (ContentModel, tea.Cmd, bool) {
@@ -17,8 +16,14 @@ func (m ContentModel) updateBlockingFlow(msg tea.Msg) (ContentModel, tea.Cmd, bo
 		if cancel {
 			m.confirmation = nil
 			if m.pendingAction != PendingNone {
+				if m.pendingAction == PendingDLLUpdate {
+					m.lastDLLResult = "DLL update cancelled"
+				} else {
+					m.lastDLLResult = "DLL restore cancelled"
+				}
 				m.pendingAction = PendingNone
 			} else {
+				m.lastDLLResult = "DLL install cancelled"
 				m.dllInstallState = DLLInstallSelectVersion
 			}
 			return m, nil, true
@@ -28,6 +33,7 @@ func (m ContentModel) updateBlockingFlow(msg tea.Msg) (ContentModel, tea.Cmd, bo
 		}
 		m.confirmation = nil
 		if m.pendingAction == PendingNone {
+			m.lastDLLResult = ""
 			m.dllInstallState = DLLInstallDownloading
 			return m, m.installSelectedDLL(), true
 		}
@@ -47,11 +53,17 @@ func (m ContentModel) updateBlockingFlow(msg tea.Msg) (ContentModel, tea.Cmd, bo
 func (m ContentModel) updatePendingAction(msg tea.KeyPressMsg) (ContentModel, tea.Cmd, bool) {
 	switch msg.String() {
 	case "esc", "escape", "q":
+		if m.pendingAction == PendingDLLUpdate {
+			m.lastDLLResult = "DLL update cancelled"
+		} else {
+			m.lastDLLResult = "DLL restore cancelled"
+		}
 		m.pendingAction = PendingNone
 		return m, nil, true
-	case "y", "Y":
+	case "enter", "y", "Y":
 		action := m.pendingAction
 		m.pendingAction = PendingNone
+		m.lastDLLResult = ""
 		switch action {
 		case PendingDLLUpdate:
 			m.dllOperating = true
@@ -86,6 +98,7 @@ func (m ContentModel) updateContentMessage(msg tea.Msg) (ContentModel, tea.Cmd, 
 	case dllUpdatesCheckedMsg:
 		if msg.err == nil {
 			m.hasUpdates = msg.hasUpdates
+			m.dllUpdateTargets = msg.targets
 		}
 		return m, nil, true
 	}
@@ -180,17 +193,22 @@ func (m ContentModel) updateDLLKey(msg tea.KeyPressMsg) (ContentModel, tea.Cmd, 
 			return m, nil, false
 		}
 		if !m.hasUpdates {
+			m.lastDLLResult = "DLLs already up to date"
 			return m, func() tea.Msg {
 				return contentNoticeMsg{text: "DLLs already up to date", messageType: MessageInfo}
 			}, true
 		}
 		m.pendingAction = PendingDLLUpdate
-		m.confirmation = newDLLMutationConfirmation("Confirm DLL update", []*game.Game{m.game}, "latest available", "current DLL is backed up before replacement")
+		m.confirmation = newDLLMutationConfirmation("Confirm DLL update", m.dllUpdateTargets, "current DLL is backed up before replacement")
 		return m, nil, true
 	case "f6":
 		if m.game != nil && m.hasBackup && !m.dllOperating {
 			m.pendingAction = PendingDLLRestore
-			m.confirmation = newDLLMutationConfirmation("Confirm DLL restore", []*game.Game{m.game}, "backup", "existing backup is restored; current DLL is not backed up again")
+			targets := make([]dllMutationTarget, 0, len(m.game.DLLs))
+			for _, installed := range m.game.DLLs {
+				targets = append(targets, newDLLMutationTarget(m.game, installed, "backup"))
+			}
+			m.confirmation = newDLLMutationConfirmation("Confirm DLL restore", targets, "existing backup is restored; current DLL is not backed up again")
 			return m, nil, true
 		}
 	}

@@ -580,14 +580,65 @@ func TestLayout_BatchMenu_Navigation(t *testing.T) {
 func TestLayout_BatchMenu_EnterExecutes(t *testing.T) {
 	m := testLayout()
 	m.showBatchMenu = true
-	m.batchGames = []*game.Game{testGame("Test")}
+	m.batchGames = []*game.Game{testGame("Test", testDLL(game.DLLTypeDLSS, "3.7.0"))}
+	m.pane.dllsResource.manifest = &dll.Manifest{DLLs: map[string][]dll.DLL{"dlss": {{Version: "3.8.0"}}}}
 	m.batchCursor = 0
 
 	result, _ := sendKey(&m, "enter")
 	confirmed := result.(LayoutModel)
+	if view := stripANSI(confirmed.batchConfirmation.view(confirmed.styles)); !strings.Contains(view, "3.7.0 → 3.8.0") {
+		t.Fatalf("batch confirmation target is not concrete:\n%s", view)
+	}
 	_, cmd := sendKey(&confirmed, "enter")
 	if cmd == nil {
 		t.Error("expected enter in batch menu to return a command")
+	}
+}
+
+func TestLayout_DLLConfirmationsCancelBeforeGlobalQuit(t *testing.T) {
+	for _, key := range []string{"q", "esc"} {
+		t.Run("content/"+key, func(t *testing.T) {
+			entry := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.7.0"))
+			layout := testLayoutWithGame(entry)
+			layout.pane.content.pendingAction = PendingDLLUpdate
+			layout.pane.content.confirmation = newDLLMutationConfirmation("Confirm DLL update", []dllMutationTarget{newDLLMutationTarget(entry, entry.DLLs[0], "3.8.0")}, "backup")
+			status := stripANSI(layout.renderCanonicalStatus())
+			if !strings.Contains(status, "Enter/Y:confirm") || !strings.Contains(status, "Esc/q:cancel") || strings.Contains(status, "q:quit") {
+				t.Fatalf("confirmation status keys disagree with behavior: %s", status)
+			}
+
+			result, command := sendKey(&layout, key)
+			updated := result.(LayoutModel)
+			if command != nil || updated.pane.content.confirmation != nil || updated.pane.content.pendingAction != PendingNone || updated.pane.content.dllOperating {
+				t.Fatalf("confirmation was not cancelled safely: command %v, content %+v", command, updated.pane.content)
+			}
+		})
+
+		t.Run("catalog/"+key, func(t *testing.T) {
+			entry := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.7.0"))
+			layout := testLayout(entry)
+			layout.selectDestination(nav.DestinationDLLCatalog)
+			layout.pane.dllsResource.confirmation = newDLLMutationConfirmation("Confirm update-all", []dllMutationTarget{newDLLMutationTarget(entry, entry.DLLs[0], "3.8.0")}, "backup")
+
+			result, command := sendKey(&layout, key)
+			updated := result.(LayoutModel)
+			if command != nil || updated.pane.dllsResource.confirmation != nil || updated.pane.dllsResource.busy {
+				t.Fatalf("confirmation was not cancelled safely: command %v, resource %+v", command, updated.pane.dllsResource)
+			}
+		})
+
+		t.Run("batch/"+key, func(t *testing.T) {
+			entry := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.7.0"))
+			layout := testLayout(entry)
+			layout.showBatchMenu = true
+			layout.batchConfirmation = newDLLMutationConfirmation("Confirm batch update", []dllMutationTarget{newDLLMutationTarget(entry, entry.DLLs[0], "3.8.0")}, "backup")
+
+			result, command := sendKey(&layout, key)
+			updated := result.(LayoutModel)
+			if command != nil || updated.batchConfirmation != nil || updated.batchBusy || !updated.showBatchMenu {
+				t.Fatalf("confirmation was not cancelled safely: command %v, layout %+v", command, updated)
+			}
+		})
 	}
 }
 

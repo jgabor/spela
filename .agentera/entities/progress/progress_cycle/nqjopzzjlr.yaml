@@ -1,0 +1,15 @@
+id: nqjopzzjlr
+artifact: progress
+record:
+  timestamp: 2026-09-03 18:15
+  type: fix
+  phase: build
+  what: Corrected the accepted audit-1 DLL confirmation, routing, key parity, and retained-outcome failures.
+  context:
+    intent: Execute only the safety findings accepted from audit-1.
+    constraints: Preserve centralized confirmation, hidden YAML compatibility, duplicate busy suppression, audit-1, and one recorded failure; do not touch real game data or privileged actions.
+    scope: internal/tui confirmation targets, confirmation routing, execution keys, catalog update routing, and per-game result retention.
+  discovered: Global key routing preempted confirmation cancellation, and catalog update-all was not reachable through the canonical Deployment binding. Update execution also re-resolved targets instead of using the version shown for confirmation.
+  verified: go test ./internal/tui ./internal/config ./internal/dll; go test -race ./internal/tui ./internal/config ./internal/dll; mage test; mage lint; mage build; git diff --check. Isolated Terminal Control at 120x40 and 80x24 showed concrete 3.8.10 to 3.9.0 per-game, install, batch, and catalog targets; q/Escape cancellation returned to the prior view; Enter updated only a deterministic /tmp DLL whose SHA-256 matched the fixture cache; and the success result remained visible after the five-second message cleared. All sessions and fixtures were removed.
+  next: Run independent audit-2; keep plan task qshqtvkmyj in_progress.
+  publication_order: 12

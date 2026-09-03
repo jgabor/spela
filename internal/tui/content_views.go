@@ -160,6 +160,10 @@ func (m ContentModel) renderDLLs() string {
 			}
 		}
 	}
+	if m.lastDLLResult != "" {
+		b.WriteString(s.Dim.Render("  " + m.lastDLLResult))
+		b.WriteString("\n")
+	}
 
 	return b.String()
 }

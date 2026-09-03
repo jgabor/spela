@@ -162,6 +162,11 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m, cmd, _ = m.handleHelpKeys(msg)
 			return m, cmd
 		}
+		if m.pane.HasDLLMutationConfirmation() {
+			var cmd tea.Cmd
+			m.pane, cmd = m.pane.Update(msg)
+			return m, cmd
+		}
 		if updated, cmd, handled := m.handleGlobalKeys(msg); handled {
 			return updated, cmd
 		}
@@ -467,6 +472,12 @@ func (m LayoutModel) renderCanonicalStatus() string {
 	if m.showHelp {
 		return ""
 	}
+	if m.batchConfirmation != nil || m.pane.HasDLLMutationConfirmation() {
+		return RenderContextBar([]ContextKey{
+			{Key: "Enter/Y", Action: "confirm", Enabled: true},
+			{Key: "Esc/q", Action: "cancel", Enabled: true},
+		}, m.width/2, &m.styles.Theme)
+	}
 	resolutions := CanonicalKeymap.HelpBindings(m.bindingContext())
 	contextKeys := make([]ContextKey, 0, len(resolutions))
 	global := make([]ContextKey, 0, len(globalKeys))
@@ -656,13 +667,11 @@ var batchActions = []string{
 	"Update all DLLs",
 }
 
-func (m LayoutModel) executeBatchAction() tea.Cmd {
-	appIDs := make([]uint64, len(m.batchGames))
-	for index, entry := range m.batchGames {
-		appIDs[index] = entry.AppID
-	}
+func (m LayoutModel) executeBatchAction(targets []dllMutationTarget) tea.Cmd {
+	requests := dllUpdateRequests(targets, false)
+	requested := len(m.batchGames)
 	return func() tea.Msg {
-		return summarizeBatchDLLUpdate(m.services.updateGamesDLLs(appIDs), len(appIDs))
+		return summarizeBatchDLLUpdate(m.services.BatchUpdateDLLs(requests), requested)
 	}
 }
 

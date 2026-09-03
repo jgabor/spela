@@ -139,3 +139,37 @@ func TestLayoutApplicationMessagesMaintainCrossComponentState(t *testing.T) {
 		t.Fatalf("stacked layout overlays missing:\n%s", modalView)
 	}
 }
+
+func TestPerGameDLLOutcomesRemainAfterMessageBarClears(t *testing.T) {
+	entry := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
+	partial := &dll.PartialFailure{
+		Result: dll.Result{Outcome: dll.OutcomeChanged, FilesChanged: true, Game: entry},
+		Stage:  dll.StageSaving,
+		Err:    errors.New("disk full"),
+	}
+	tests := []struct {
+		name    string
+		message interface{}
+		want    string
+	}{
+		{name: "success", message: dllUpdateMsg{batch: dll.BatchResult{Updated: 1, Items: []dll.BatchItem{{Result: dll.Result{Outcome: dll.OutcomeChanged, Game: entry}}}}}, want: "DLL update: 1 updated, 0 current, 0 failed"},
+		{name: "no-op", message: dllUpdateMsg{batch: dll.BatchResult{Unchanged: 1}}, want: "DLLs already up to date"},
+		{name: "denied", message: dllInstallMsg{err: errors.New("DLL swap denied for app 1091500")}, want: "Install failed: DLL swap denied"},
+		{name: "partial", message: dllRestoreMsg{result: partial.Result, err: partial}, want: "DLL files changed but metadata did not fully persist"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			layout := testLayoutWithGame(entry)
+			updated, _ := layout.handleAppMessages(test.message, nil)
+			timestamp := updated.messageBar.timestamp
+			updated, _ = updated.handleAppMessages(messageClearMsg{timestamp: timestamp}, nil)
+			if updated.messageBar.HasMessage() {
+				t.Fatal("message bar did not clear")
+			}
+			view := stripANSI(updated.pane.content.ViewDLLAspect())
+			if !strings.Contains(view, test.want) {
+				t.Fatalf("retained outcome missing %q:\n%s", test.want, view)
+			}
+		})
+	}
+}

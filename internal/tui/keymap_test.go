@@ -74,6 +74,10 @@ func TestCanonicalHelpOmitsUnavailableDestinationActions(t *testing.T) {
 			t.Fatalf("DLL Catalog help advertised unavailable action %q", action)
 		}
 	}
+	deployment := BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationDLLCatalog, DLLSection: nav.SectionDLLDeployment}
+	if got := CanonicalKeymap.Lookup(deployment, "U"); !got.Available || got.Binding.Action != ActionDetailUpdate {
+		t.Fatalf("catalog update binding = %#v", got)
+	}
 
 	dllDetail := BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, GameScope: true, Aspect: nav.AspectDLLs, HasBackup: true}
 	if got := CanonicalKeymap.Lookup(dllDetail, "f6"); !got.Available || got.Binding.Action != ActionDetailRestore {

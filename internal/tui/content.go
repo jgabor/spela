@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -58,6 +59,7 @@ type ContentModel struct {
 	height              int
 	dllOperating        bool
 	dllOperatingLabel   string
+	lastDLLResult       string
 	hasBackup           bool
 	hasUpdates          bool
 	usingDefaultProfile bool
@@ -70,6 +72,7 @@ type ContentModel struct {
 	dllVersionCursor  int
 	dllVersionsLoaded bool
 	selectedDLLType   string
+	dllUpdateTargets  []dllMutationTarget
 }
 
 type contentNoticeMsg struct {
@@ -162,6 +165,7 @@ type dllRestoreMsg struct {
 
 type dllUpdatesCheckedMsg struct {
 	hasUpdates bool
+	targets    []dllMutationTarget
 	err        error
 }
 
@@ -185,7 +189,8 @@ func NewContent(styles *Styles, confirmDestructive bool, svc *Services) ContentM
 func (m ContentModel) SetGame(g *game.Game) ContentModel {
 	m.game, m.dllOperating = g, false
 	m.scrollOffset, m.dllInstallState = 0, DLLInstallNone
-	m.hasUpdates, m.usingDefaultProfile = false, false
+	m.hasUpdates, m.usingDefaultProfile, m.lastDLLResult = false, false, ""
+	m.dllUpdateTargets = nil
 
 	if g != nil {
 		rawProfile, _ := m.services.LoadProfile(g.AppID)
@@ -256,9 +261,9 @@ func (m ContentModel) updateDLLs() tea.Cmd {
 	if m.game == nil {
 		return func() tea.Msg { return dllUpdateMsg{err: fmt.Errorf("no game selected")} }
 	}
-	appID := m.game.AppID
+	requests := dllUpdateRequests(m.dllUpdateTargets, false)
 	return func() tea.Msg {
-		return dllUpdateMsg{batch: m.services.updateGameDLLs(appID)}
+		return dllUpdateMsg{batch: m.services.BatchUpdateDLLs(requests)}
 	}
 }
 
@@ -358,7 +363,23 @@ func (m ContentModel) updateDLLInstall(msg tea.Msg) (ContentModel, tea.Cmd) {
 				return m, m.loadDLLVersions()
 			} else if m.dllInstallState == DLLInstallSelectVersion && len(m.dllVersions) > 0 {
 				selected := m.dllVersions[m.dllVersionCursor]
-				m.confirmation = newDLLMutationConfirmation("Confirm DLL install", []*game.Game{m.game}, selected.Version, "original DLL is backed up before replacement")
+				path := filepath.Join(m.game.InstallDir, selected.Filename)
+				currentVersion := ""
+				for _, installed := range m.game.DLLs {
+					if installed.Name == selected.Filename {
+						path, currentVersion = installed.Path, installed.Version
+						break
+					}
+				}
+				m.confirmation = newDLLMutationConfirmation("Confirm DLL install", []dllMutationTarget{{
+					appID:          m.game.AppID,
+					gameName:       m.game.Name,
+					family:         strings.ToUpper(m.selectedDLLType),
+					manifestKey:    m.selectedDLLType,
+					path:           path,
+					currentVersion: currentVersion,
+					targetVersion:  selected.Version,
+				}}, "original DLL is backed up before replacement")
 				return m, nil
 			}
 		}
@@ -413,19 +434,8 @@ func (m ContentModel) LoadDLLUpdates() tea.Cmd {
 			return dllUpdatesCheckedMsg{err: fmt.Errorf("failed to fetch manifest: %w", err)}
 		}
 
-		for _, d := range detected {
-			dllType := strings.ToLower(string(d.Type))
-			latest := manifest.GetLatestDLL(dllType)
-			if latest == nil {
-				continue
-			}
-			if d.Version != "" && !dll.IsNewer(d.Version, latest.Version) {
-				continue
-			}
-			return dllUpdatesCheckedMsg{hasUpdates: true}
-		}
-
-		return dllUpdatesCheckedMsg{hasUpdates: false}
+		targets := latestDLLMutationTargets([]*game.Game{m.game}, manifest)
+		return dllUpdatesCheckedMsg{hasUpdates: len(targets) > 0, targets: targets}
 	}
 }
 
