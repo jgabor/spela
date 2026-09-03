@@ -20,12 +20,6 @@ const (
 	DLLInstallDownloading
 )
 
-// Fixed heights for content sections to prevent layout shifts.
-const (
-	headerSectionHeight = 5 // name + app ID + install + prefix + blank
-	dllSectionHeight    = 5 // title + DLL columns (2 rows) + hint + blank
-)
-
 // dllDisplayColumns defines the ordered list of DLL types to display and their column headers.
 var dllDisplayColumns = []struct {
 	dllType    game.DLLType
@@ -218,9 +212,7 @@ func (m *ContentModel) SetSize(width, height int) {
 
 // profileSectionHeight returns the space allotted to the game profile detail.
 func (m ContentModel) profileSectionHeight() int {
-	// Game detail: header + dll section + blank
-	used := headerSectionHeight + dllSectionHeight + 1
-	return max(m.height-used, 5)
+	return max(m.height, 5)
 }
 
 func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {

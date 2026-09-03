@@ -1,9 +1,11 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 type HelpSection struct {
@@ -19,6 +21,29 @@ type HelpBinding struct {
 type HelpModel struct {
 	styles   *Styles
 	sections []HelpSection
+	height   int
+	width    int
+	offset   int
+}
+
+func (m *HelpModel) SetHeight(height int) {
+	m.SetSize(m.width, height)
+}
+
+func (m *HelpModel) SetSize(width, height int) {
+	m.width = width
+	m.height = max(height, 3)
+	m.clampOffset()
+}
+
+func (m *HelpModel) Move(delta int) {
+	m.offset += delta
+	m.clampOffset()
+}
+
+func (m *HelpModel) clampOffset() {
+	maximum := max(len(strings.Split(m.content(), "\n"))-(m.height-2), 0)
+	m.offset = min(max(m.offset, 0), maximum)
 }
 
 func NewHelp(styles *Styles) HelpModel {
@@ -52,6 +77,25 @@ func canonicalHelpSection(context BindingContext) HelpSection {
 }
 
 func (m HelpModel) View() string {
+	lines := strings.Split(m.content(), "\n")
+	if m.width > 0 {
+		for index := range lines {
+			lines[index] = ansi.Truncate(lines[index], m.width, "…")
+		}
+	}
+	if m.height == 0 {
+		return strings.Join(lines, "\n") + m.styles.Dim.Render("Press ? or Esc to close")
+	}
+	visible := max(m.height-2, 1)
+	if len(lines) <= visible {
+		return strings.Join(lines, "\n") + "\n" + m.styles.Dim.Render("Press ? or Esc to close")
+	}
+	end := min(m.offset+visible, len(lines))
+	position := m.styles.Dim.Render(fmt.Sprintf("↑/↓ scroll  %d-%d/%d", m.offset+1, end, len(lines)))
+	return strings.Join(lines[m.offset:end], "\n") + "\n" + position + "\n" + m.styles.Dim.Render("Press ? or Esc to close")
+}
+
+func (m HelpModel) content() string {
 	s := m.styles
 	t := s.Theme
 
@@ -88,9 +132,6 @@ func (m HelpModel) View() string {
 			b.WriteString("\n")
 		}
 	}
-
-	b.WriteString("\n")
-	b.WriteString(s.Dim.Render("Press ? or Esc to close"))
 
 	return b.String()
 }

@@ -36,6 +36,14 @@ func (m LayoutModel) handleHelpKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, 
 	switch msg.String() {
 	case "?", "esc", "q":
 		m.showHelp = false
+	case "j", "down":
+		m.help.Move(1)
+	case "k", "up":
+		m.help.Move(-1)
+	case "pgdown":
+		m.help.Move(max(m.help.height-3, 1))
+	case "pgup":
+		m.help.Move(-max(m.help.height-3, 1))
 	}
 	return m, nil, true
 }
@@ -73,6 +81,7 @@ func (m LayoutModel) handleGlobalKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd
 			return m, tea.Quit, true
 		case ActionShowHelp:
 			m.help = NewHelpForContext(m.styles, m.bindingContext())
+			m.help.SetSize(m.helpWidth(), max(m.height-4, 3))
 			m.showHelp = true
 			return m, nil, true
 		case ActionFocusNext:

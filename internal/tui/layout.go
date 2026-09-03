@@ -236,6 +236,12 @@ func (m *LayoutModel) calculateDimensions() {
 		m.pane.SetSize(m.detailWidth(), panelHeight)
 	}
 	m.messageBar.SetWidth(m.width)
+	m.help.SetSize(m.helpWidth(), max(m.height-4, 3))
+}
+
+func (m LayoutModel) helpWidth() int {
+	modalWidth := min(max(int(float64(m.width)*0.55), minModalWidth), maxModalWidth)
+	return max(modalWidth-4, 1)
 }
 
 func (m LayoutModel) listWidth() int   { return min(listPaneWidth, max(m.width/3, 24)) }

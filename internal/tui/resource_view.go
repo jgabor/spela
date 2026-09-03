@@ -59,7 +59,7 @@ func (p *resourcePaneModel) refreshDefaultsDetail() {
 		defaults = desired.Clone()
 	}
 	p.defaultsDetail = NewRootDetail(p.styles, defaults)
-	p.defaultsDetail.SetSize(max(p.width-4, 1), p.height)
+	p.defaultsDetail.SetSize(max(p.width-4, 1), max(p.height-5, 1))
 	p.defaultsDetail.RestoreFocus(preserveField, preserveCursor)
 }
 
@@ -86,7 +86,7 @@ func (p resourcePaneModel) State() nav.State {
 func (p *resourcePaneModel) SetSize(width, height int) {
 	p.width, p.height = width, height
 	p.content.SetSize(width-4, height)
-	p.defaultsDetail.SetSize(width-4, height)
+	p.defaultsDetail.SetSize(width-4, max(height-5, 1))
 	p.dllsResource.SetSize(width-4, height)
 	p.metricsView.SetSize(width-4, height)
 	p.settings.SetSize(width, height)

@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Keep focused Profile fields, Help shortcuts, and overflowing game, deployment, and DLL version selections visible across terminal resizes.
 - Bound TUI headers, panes, feedback, and status rows to the terminal while preserving compact, focused, and resize-recovery controls.
 - TUI editors preserve printable keys, while cancel, empty-result, multi-selection, and destination transitions restore visible browsing state.
 - Proton-CachyOS 11.0+ descriptor_heap support detected by build tag instead of removed `PROTON_VKD3D_HEAP` script marker; legacy 10.x builds still receive `PROTON_VKD3D_HEAP=1` at launch.

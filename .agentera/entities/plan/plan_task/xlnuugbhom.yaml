@@ -4,7 +4,7 @@ record:
   name: Keep interactive content visible
   depends_on:
     - vtflntmzjw
-  status: pending
+  status: in_progress
   acceptance:
     - GIVEN any Profile field is focused WHEN the user traverses every group at 120x40 or 80x24 THEN the focused field remains visible and editable.
     - GIVEN Help exceeds available height WHEN it opens THEN every shortcut and the close guidance are reachable without obscuring the active position.

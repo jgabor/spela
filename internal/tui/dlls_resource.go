@@ -31,6 +31,7 @@ type DLLsResourceModel struct {
 	lastBatchSummary string
 	busy             bool
 	width            int
+	height           int
 }
 
 func (m DLLsResourceModel) UpdateList(key tea.KeyPressMsg, section nav.DLLCatalogSection) DLLsResourceModel {
@@ -67,8 +68,13 @@ func (m DLLsResourceModel) ListView(focused bool, section nav.DLLCatalogSection)
 		if len(m.deploymentGames) == 0 {
 			return builder.String() + m.styles.Dim.Render("No deployed DLLs")
 		}
-		for index, entry := range m.deploymentGames {
+		start, end := visibleRange(m.gameRowCursor, len(m.deploymentGames), max(m.height-5, 1))
+		for index := start; index < end; index++ {
+			entry := m.deploymentGames[index]
 			builder.WriteString(m.listRow(entry.Name, index == m.gameRowCursor, focused))
+		}
+		if len(m.deploymentGames) > end-start {
+			builder.WriteString(m.styles.Dim.Render(fmt.Sprintf(" %d/%d", m.gameRowCursor+1, len(m.deploymentGames))))
 		}
 		return builder.String()
 	}
@@ -76,7 +82,9 @@ func (m DLLsResourceModel) ListView(focused bool, section nav.DLLCatalogSection)
 	if len(types) == 0 {
 		return builder.String() + m.styles.Dim.Render("DLL catalog unavailable")
 	}
-	for index, info := range types {
+	start, end := visibleRange(m.typeCursor, len(types), max(m.height-5, 1))
+	for index := start; index < end; index++ {
+		info := types[index]
 		builder.WriteString(m.listRow(info.Label, index == m.typeCursor, focused))
 	}
 	return builder.String()
@@ -172,7 +180,14 @@ func (m DLLsResourceModel) RefreshCached() DLLsResourceModel {
 
 // SetSize stores the allotted width for rendering.
 func (m *DLLsResourceModel) SetSize(width, height int) {
-	m.width = width
+	m.width, m.height = width, height
+}
+
+func visibleRange(cursor, count, capacity int) (int, int) {
+	capacity = max(capacity, 1)
+	start := max(cursor-capacity+1, 0)
+	start = min(start, max(count-capacity, 0))
+	return start, min(start+capacity, count)
 }
 
 // computeTypesInUse returns the ordered list of DLL types that at least one

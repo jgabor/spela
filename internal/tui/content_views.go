@@ -46,7 +46,9 @@ func (m ContentModel) renderDLLInstallDialog() string {
 				b.WriteString(s.Dim.Render("Loading..."))
 			}
 		} else {
-			for i, v := range m.dllVersions {
+			start, end := visibleRange(m.dllVersionCursor, len(m.dllVersions), max(m.height-8, 1))
+			for i := start; i < end; i++ {
+				v := m.dllVersions[i]
 				cursor := "  "
 				style := s.Normal
 				if i == m.dllVersionCursor {
@@ -57,8 +59,11 @@ func (m ContentModel) renderDLLInstallDialog() string {
 				if i == 0 {
 					label += " (latest)"
 				}
-				b.WriteString(style.Render(fmt.Sprintf("%s%s", cursor, label)))
+				b.WriteString(style.Render(truncate(fmt.Sprintf("%s%s", cursor, label), max(m.width-2, 1))))
 				b.WriteString("\n")
+			}
+			if len(m.dllVersions) > end-start {
+				b.WriteString(s.Dim.Render(fmt.Sprintf(" %d/%d", m.dllVersionCursor+1, len(m.dllVersions))))
 			}
 		}
 

@@ -511,31 +511,28 @@ func (m DetailModel) View() string {
 		return ""
 	}
 
-	var b strings.Builder
+	var lines []string
 	focusedRow := -1
 	if len(m.focusableRows) > 0 {
 		focusedRow = m.focusableRows[m.cursor]
 	}
 	if m.editor.Error() != nil {
-		b.WriteString(s.Error.Render("Invalid value: " + m.editor.Error().Error()))
-		b.WriteString("\n")
+		lines = append(lines, s.Error.Render("Invalid value: "+m.editor.Error().Error()))
 	}
 	if m.saveError != nil {
-		b.WriteString(s.Error.Render("Save failed: " + m.saveError.Error()))
-		b.WriteString("\n")
+		lines = append(lines, s.Error.Render("Save failed: "+m.saveError.Error()))
 	}
 	if m.Dirty() {
-		b.WriteString(s.Warning.Render("Unsaved changes  s:save  Esc:cancel"))
-		b.WriteString("\n")
+		lines = append(lines, s.Warning.Render("Unsaved changes  s:save  Esc:cancel"))
 	}
 
+	focusedLabel := ""
 	for i, row := range m.rows {
 		if row.isHeader() {
 			if i > 0 {
-				b.WriteString("\n")
+				lines = append(lines, "")
 			}
-			b.WriteString(s.Title.Render(row.headerLabel))
-			b.WriteString("\n")
+			lines = append(lines, s.Title.Render(row.headerLabel))
 			continue
 		}
 
@@ -585,12 +582,25 @@ func (m DetailModel) View() string {
 		} else {
 			body = s.Normal.Render(body)
 		}
-		b.WriteString("  ")
-		b.WriteString(marker)
-		b.WriteString(body)
-		b.WriteString("\n")
+		if i == focusedRow {
+			focusedLabel = row.label
+		}
+		lines = append(lines, "  "+marker+body)
 	}
-	return b.String()
+	lines = strings.Split(strings.Join(lines, "\n"), "\n")
+	focusedLine := 0
+	for index, line := range lines {
+		if focusedLabel != "" && strings.Contains(ansi.Strip(line), focusedLabel) {
+			focusedLine = index
+			break
+		}
+	}
+	if m.height > 0 && len(lines) > m.height {
+		start := max(focusedLine-m.height+1, 0)
+		start = min(start, len(lines)-m.height)
+		lines = lines[start : start+m.height]
+	}
+	return strings.Join(lines, "\n")
 }
 
 func (m DetailModel) formatFieldSemantics(field string) string {

@@ -1,0 +1,16 @@
+id: rcdrghvxya
+artifact: progress
+record:
+  timestamp: 2026-09-03 11:48
+  type: fix
+  phase: build
+  what: Task xlnuugbhom keeps active TUI content visible in bounded viewports.
+  context:
+    intent: Keep interactive content visible while navigating and resizing.
+    constraints: Preserve commits 27c112e and d3c2ca7; exclude later Help semantics, Settings, DLL safety/presentation, Library onboarding, and Profile/Monitor language work.
+    unknowns: Profile grounding is absent. Agentera retry state is not_recorded with zero known failures and budget 2.
+    scope: internal/tui viewport rendering, proportional tests, CHANGELOG, and required Agentera progress state only.
+  discovered: Profile and Help rendering counted logical lines while styled output and pane framing consumed additional rows; DLL deployment and version lists had no cursor-relative viewport.
+  verified: go test ./internal/tui -count=1 passed; mage test passed; mage lint passed with 0 issues; mage build produced ./spela and the Wails binary; git diff --check passed. Isolated Terminal Control showed the top, middle, and bottom Profile fields bounded at 120x40, the bottom field still visible and editing after resize to 80x24, Help position 13-30/30 with close guidance visible at 80x24, game cursor 31/31 and deployment cursor 30/30 visible on single rows, and DLL version cursor 30/30 visible at both 120x40 and 80x24. The named session was stopped and /tmp fixture removed.
+  next: Leave xlnuugbhom in_progress for the independent Orchestrate audit.
+  publication_order: 3
