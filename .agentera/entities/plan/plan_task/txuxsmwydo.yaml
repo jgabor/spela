@@ -6,7 +6,7 @@ record:
     - efdydreiqj
     - vtflntmzjw
     - gaewoncior
-  status: pending
+  status: in_progress
   acceptance:
     - GIVEN the Settings destination WHEN a control is visible THEN changing it produces its documented runtime or restart behavior; controls without approved behavior are absent.
     - GIVEN a setting is edited or a save fails WHEN Detail renders THEN saved and draft values remain separately and accurately identified.

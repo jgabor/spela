@@ -16,22 +16,22 @@ func TestOptionsClassifyEveryConfigField(t *testing.T) {
 		kind       Kind
 		visibility Visibility
 	}{
-		{"log_level", "logLevel", nav.SettingsLogging, KindEnum, VisibilityCLI | VisibilityTUI | VisibilityGUI | VisibilityWails},
+		{"log_level", "logLevel", nav.SettingsLogging, KindEnum, VisibilityCLI | VisibilityGUI | VisibilityWails},
 		{"shader_cache", "shaderCache", nav.SettingsPaths, KindPath, VisibilityCLI | VisibilityWails},
-		{"check_updates", "checkUpdates", nav.SettingsStartup, KindBool, VisibilityCLI | VisibilityTUI | VisibilityGUI | VisibilityWails},
+		{"check_updates", "checkUpdates", nav.SettingsStartup, KindBool, VisibilityCLI | VisibilityGUI | VisibilityWails},
 		{"show_hints", "showHints", nav.SettingsDisplay, KindBool, VisibilityTUI | VisibilityGUI | VisibilityWails},
 		{"rescan_on_startup", "rescanOnStartup", nav.SettingsStartup, KindBool, VisibilityTUI | VisibilityGUI | VisibilityWails},
-		{"auto_update_dlls", "autoUpdateDLLs", nav.SettingsStartup, KindBool, VisibilityTUI | VisibilityGUI | VisibilityWails},
+		{"auto_update_dlls", "autoUpdateDLLs", nav.SettingsStartup, KindBool, VisibilityGUI | VisibilityWails},
 		{"steam_path", "steamPath", nav.SettingsPaths, KindPath, VisibilityTUI | VisibilityGUI | VisibilityWails},
 		{"additional_library_paths", "additionalLibraryPaths", nav.SettingsPaths, KindStringList, VisibilityWails},
-		{"dll_cache_path", "dllCachePath", nav.SettingsPaths, KindPath, VisibilityTUI | VisibilityGUI | VisibilityWails},
-		{"backup_path", "backupPath", nav.SettingsPaths, KindPath, VisibilityTUI | VisibilityGUI | VisibilityWails},
+		{"dll_cache_path", "dllCachePath", nav.SettingsPaths, KindPath, VisibilityGUI | VisibilityWails},
+		{"backup_path", "backupPath", nav.SettingsPaths, KindPath, VisibilityGUI | VisibilityWails},
 		{"dll_manifest_url", "dllManifestURL", nav.SettingsDLLPolicy, KindPath, VisibilityWails},
-		{"auto_refresh_manifest", "autoRefreshManifest", nav.SettingsDLLPolicy, KindBool, VisibilityTUI | VisibilityGUI | VisibilityWails},
-		{"manifest_refresh_hours", "manifestRefreshHours", nav.SettingsDLLPolicy, KindInt, VisibilityTUI | VisibilityGUI | VisibilityWails},
-		{"preferred_dll_source", "preferredDLLSource", nav.SettingsDLLPolicy, KindEnum, VisibilityTUI | VisibilityGUI | VisibilityWails},
-		{"theme", "theme", nav.SettingsDisplay, KindEnum, VisibilityTUI | VisibilityGUI | VisibilityWails},
-		{"compact_mode", "compactMode", nav.SettingsDisplay, KindBool, VisibilityTUI | VisibilityGUI | VisibilityWails},
+		{"auto_refresh_manifest", "autoRefreshManifest", nav.SettingsDLLPolicy, KindBool, VisibilityGUI | VisibilityWails},
+		{"manifest_refresh_hours", "manifestRefreshHours", nav.SettingsDLLPolicy, KindInt, VisibilityGUI | VisibilityWails},
+		{"preferred_dll_source", "preferredDLLSource", nav.SettingsDLLPolicy, KindEnum, VisibilityGUI | VisibilityWails},
+		{"theme", "theme", nav.SettingsDisplay, KindEnum, VisibilityGUI | VisibilityWails},
+		{"compact_mode", "compactMode", nav.SettingsDisplay, KindBool, VisibilityGUI | VisibilityWails},
 		{"confirm_destructive", "confirmDestructive", nav.SettingsDisplay, KindBool, VisibilityTUI | VisibilityGUI | VisibilityWails},
 	}
 	if reflect.TypeOf(Config{}).NumField() != len(want) || len(Options()) != len(want) {

@@ -148,7 +148,6 @@ func (m OptionsModalModel) updatePathEditing(msg tea.Msg) (OptionsModalModel, te
 					value = "(default)"
 				}
 				m.setConfigValue(opt.Key, value)
-				m.modified = true
 			}
 			m.editingPath = false
 			m.pathInput.Blur()
@@ -226,13 +225,19 @@ func (m OptionsModalModel) DetailView() string {
 	builder.WriteString("\n\n")
 	builder.WriteString(m.styles.Dim.Render("Saved value"))
 	builder.WriteString("\n")
-	value := m.getConfigValue(option.Key)
-	if m.editingPath {
-		value = m.pathInput.View()
-	}
-	builder.WriteString(m.styles.DLSS.Render(value))
+	builder.WriteString(m.styles.DLSS.Render(option.Get(m.config)))
 	builder.WriteString("\n\n")
-	if m.saving {
+	builder.WriteString(m.styles.Dim.Render("Draft value"))
+	builder.WriteString("\n")
+	draft := m.getConfigValue(option.Key)
+	if m.editingPath {
+		draft = m.pathInput.View()
+	}
+	builder.WriteString(m.styles.DLSS.Render(draft))
+	builder.WriteString("\n\n")
+	if m.editingPath {
+		builder.WriteString(m.styles.Selected.Render("Enter:commit  Esc:cancel"))
+	} else if m.saving {
 		builder.WriteString(m.styles.Dim.Render("Saving…"))
 	} else if m.saveError != nil {
 		builder.WriteString(m.styles.Error.Render("Save failed: " + m.saveError.Error()))
@@ -261,7 +266,6 @@ func (m *OptionsModalModel) cycleValue(direction int) {
 		return
 	}
 	m.setConfigValue(opt.Key, value)
-	m.modified = true
 }
 
 func (m OptionsModalModel) getConfigValue(key string) string {

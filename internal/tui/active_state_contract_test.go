@@ -40,8 +40,7 @@ func TestActiveLayoutDestinationsRenderAndPreserveNavigationState(t *testing.T) 
 		{"monitor GPU", withMonitorSection(nav.MonitorGPU), "GPU"},
 		{"monitor CPU", withMonitorSection(nav.MonitorCPU), "CPU"},
 		{"monitor alerts", withMonitorSection(nav.MonitorAlerts), "Alerts"},
-		{"settings display", withSettingsSection(nav.SettingsDisplay), "Theme"},
-		{"settings logging", withSettingsSection(nav.SettingsLogging), "Log level"},
+		{"settings display", withSettingsSection(nav.SettingsDisplay), "Show hints"},
 	}
 	for _, test := range states {
 		t.Run(test.name, func(t *testing.T) {

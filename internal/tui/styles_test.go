@@ -150,12 +150,9 @@ func TestTheme_NeonPaletteTokens(t *testing.T) {
 	}
 }
 
-// TestLayout_StripsLegacyTheme verifies that when a config file carrying a
-// legacy `theme: dark` or `theme: light` value is loaded, the TUI resolves
-// to the single neon-accent theme without error and clears the stored
-// value so subsequent saves do not re-persist it. Task 1 acceptance
-// criterion 2.
-func TestLayout_StripsLegacyTheme(t *testing.T) {
+// TestLayoutPreservesConfiguredTheme verifies compatibility while the TUI uses
+// its single approved visual theme.
+func TestLayoutPreservesConfiguredTheme(t *testing.T) {
 	cases := []string{"dark", "light", "default", "royal-blue"}
 	for _, legacy := range cases {
 		t.Run(legacy, func(t *testing.T) {
@@ -168,9 +165,8 @@ func TestLayout_StripsLegacyTheme(t *testing.T) {
 			}
 			db := testDatabase()
 			m := NewLayout(db, svc)
-			if m.config.Theme != "" {
-				t.Errorf("legacy theme %q not stripped: config.Theme = %q, want empty",
-					legacy, m.config.Theme)
+			if m.config.Theme != legacy {
+				t.Errorf("configured theme = %q, want preserved value %q", m.config.Theme, legacy)
 			}
 			if m.styles.Theme.Name != "neon-accent-dark" {
 				t.Errorf("expected neon-accent-dark, got %q", m.styles.Theme.Name)

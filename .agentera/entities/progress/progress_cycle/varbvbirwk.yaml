@@ -1,0 +1,16 @@
+id: varbvbirwk
+artifact: progress
+record:
+  timestamp: 2026-09-03 16:37
+  type: fix
+  phase: build
+  what: Made TUI Settings truthful while preserving configuration compatibility.
+  context:
+    intent: Expose only approved working TUI Settings behavior and preserve supported YAML values.
+    constraints: No theme implementation, DLL workflow, Profile/Monitor wording, E2E transport, or final sync.
+    unknowns: Resolved the visible-setting consumer inventory and confirmed that confirmation remains meaningful for current restore and update prompts.
+    scope: internal/config Settings visibility and internal/tui Settings editing, rendering, persistence, and tests.
+  discovered: Only show_hints, confirm_destructive, rescan_on_startup, and steam_path have current TUI runtime consumers. Confirmation still gates supported restore and update actions; theme has no approved TUI behavior but remains persisted.
+  verified: go test ./internal/config ./internal/tui, mage test, mage lint, and mage build passed. Isolated Terminal Control verified Settings edits, saved/draft rendering, successful and failed saves, path commit/cancel guidance, restart persistence, and 120x40/80x24 layouts; sessions and fixtures were removed.
+  next: Leave txuxsmwydo in_progress for independent audit.
+  publication_order: 9

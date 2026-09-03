@@ -72,7 +72,7 @@ func TestOptionsModalSupportedSaveFailureAndInlineSections(t *testing.T) {
 	for section := range nav.SettingsSectionLabels {
 		modal.SyncNavSection(nav.SettingsSection(section))
 		view := stripANSI(modal.renderOptionsBody())
-		if !strings.Contains(view, modal.sections[section].Options[0].Label) {
+		if len(modal.sections[section].Options) > 0 && !strings.Contains(view, modal.sections[section].Options[0].Label) {
 			t.Errorf("inline section %d missing heading:\n%s", section, view)
 		}
 	}
