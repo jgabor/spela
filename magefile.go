@@ -212,7 +212,7 @@ func Coverage() error {
 	if err := runGoCoverage("gui", testPackages, "dev", "webkit2_41"); err != nil {
 		return err
 	}
-	if err := runGoCoverage("e2e", testPackages, "e2e"); err != nil {
+	if err := runGoCoverage("e2e", []string{"./internal/tui"}, "e2e"); err != nil {
 		return err
 	}
 	taggedPackages := []string{"./cmd/spela", "./internal/gui"}
