@@ -7,7 +7,7 @@ record:
     - xlnuugbhom
     - gaewoncior
     - qshqtvkmyj
-  status: pending
+  status: in_progress
   acceptance:
     - GIVEN a game with no managed DLL WHEN its DLL view opens THEN a visible install action and supported family choices explain the next step.
     - GIVEN any DLL family WHEN it appears across game, catalog, deployment, or install views THEN one user-facing name is used consistently.

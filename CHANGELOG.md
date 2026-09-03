@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Clarify managed DLL install choices, canonical family names, version states, compact deployment rows, and retained operation feedback in the TUI.
 - Make Profile inheritance and restoration language user-facing, and distinguish Monitor selection, metric availability, and alert recovery without color reliance.
 - Require explicit TUI confirmation bound to concrete DLL versions and selected paths before file mutation, and retain accurate cancellation, no-op, failure, and busy outcomes.
 - Keep TUI Settings limited to working controls, distinguish saved and draft values, and preserve compatible YAML values across saves.

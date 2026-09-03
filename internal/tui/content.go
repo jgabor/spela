@@ -21,16 +21,16 @@ const (
 	DLLInstallDownloading
 )
 
-// dllDisplayColumns defines the ordered list of DLL types to display and their column headers.
-var dllDisplayColumns = []struct {
-	dllType    game.DLLType
-	columnName string
-}{
-	{game.DLLTypeDLSS, "DLSS"},
-	{game.DLLTypeDLSSG, "DLSS-G"},
-	{game.DLLTypeDLSSD, "DLSS-D"},
-	{game.DLLTypeXeSS, "XESS"},
-	{game.DLLTypeFSR, "FSR"},
+// dllDisplayColumns is the canonical ordered family catalog used by every TUI view.
+var dllDisplayColumns = dll.KnownDLLTypes()
+
+func dllFamilyName(manifestKey string) string {
+	for _, info := range dllDisplayColumns {
+		if info.ManifestKey == strings.ToLower(manifestKey) {
+			return info.Label
+		}
+	}
+	return manifestKey
 }
 
 // PendingAction identifies a destructive operation awaiting confirmation.

@@ -13,12 +13,16 @@ record:
     - GIVEN an earlier DLL success exists WHEN a later confirmation is cancelled THEN the visible outcome reports cancellation rather than stale success.
     - GIVEN cancellation journeys run at 120x40 and 80x24 WHEN every mutation surface is exercised THEN no file changes and accurate retained outcomes are verified.
   release_blocker: false
-  status: open
+  status: resolved
   reconciliation:
     schema_version: agentera.todoReconciliation.v1
     public:
       present: true
       description: "[bug] Show accurate DLL cancellation outcomes"
+      status: resolved
+      order: 3
       severity: degraded
-      status: open
-      order: 1
+  lifecycle:
+    operation: resolve
+    reason: Replacement task passed independent DLL cancellation evaluation
+    date: 2026-09-03

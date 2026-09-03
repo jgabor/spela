@@ -24,7 +24,7 @@ func newDLLMutationTarget(entry *game.Game, installed game.DetectedDLL, targetVe
 	return dllMutationTarget{
 		appID:          entry.AppID,
 		gameName:       entry.Name,
-		family:         strings.ToUpper(string(installed.Type)),
+		family:         dllFamilyName(string(installed.Type)),
 		manifestKey:    strings.ToLower(string(installed.Type)),
 		path:           installed.Path,
 		currentVersion: installed.Version,

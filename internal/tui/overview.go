@@ -96,7 +96,7 @@ func (m OverviewModel) View() string {
 		for _, col := range dllDisplayColumns {
 			version := "-"
 			for _, d := range m.game.DLLs {
-				if d.Type == col.dllType {
+				if d.Type == col.Type {
 					version = d.Version
 					if version == "" {
 						version = "?"
@@ -105,7 +105,7 @@ func (m OverviewModel) View() string {
 				}
 			}
 			if version != "-" {
-				fmt.Fprintf(&b, " %s %s", col.columnName, version)
+				fmt.Fprintf(&b, " %s %s", col.Label, version)
 			}
 		}
 		b.WriteString("\n")

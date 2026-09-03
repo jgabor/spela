@@ -72,7 +72,7 @@ func (m DLLsResourceModel) ListView(focused bool, section nav.DLLCatalogSection)
 		start, end := visibleRange(m.gameRowCursor, len(m.deploymentGames), max(m.height-5, 1))
 		for index := start; index < end; index++ {
 			entry := m.deploymentGames[index]
-			builder.WriteString(m.listRow(entry.Name, index == m.gameRowCursor, focused))
+			builder.WriteString(m.listRow(m.deploymentRowLabel(entry), index == m.gameRowCursor, focused))
 		}
 		if len(m.deploymentGames) > end-start {
 			builder.WriteString(m.styles.Dim.Render(fmt.Sprintf(" %d/%d", m.gameRowCursor+1, len(m.deploymentGames))))
@@ -103,6 +103,23 @@ func (m DLLsResourceModel) listRow(label string, selected, focused bool) string 
 		}
 	}
 	return style.Render(prefix+label) + "\n"
+}
+
+func (m DLLsResourceModel) deploymentRowLabel(entry *game.Game) string {
+	status := "current"
+	for _, installed := range entry.DLLs {
+		for _, info := range m.typesInUse {
+			if installed.Type == info.Type && m.isStale(installed.Version, info.ManifestKey) {
+				status = "stale"
+				break
+			}
+		}
+	}
+	// The catalog list pane is 20 cells wide at the supported 80-column floor.
+	// Keep the status on the same navigable row instead of relying on wrapping.
+	available := 20
+	suffix := " · " + status
+	return truncate(entry.Name, max(available-len([]rune(suffix)), 1)) + suffix
 }
 
 type dllsUpdateAllCompleteMsg struct {
@@ -382,26 +399,21 @@ func (m DLLsResourceModel) updateAllCmd(targets []dllMutationTarget) tea.Cmd {
 	}
 }
 
-func (m DLLsResourceModel) View(paneFocused bool, section nav.DLLCatalogSection) string {
+func (m DLLsResourceModel) View(_ bool, section nav.DLLCatalogSection) string {
 	if m.confirmation != nil {
 		return m.confirmation.view(m.styles)
 	}
-	s := m.styles
-	borderColor := s.BorderColor(paneFocused)
-
-	box := lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(borderColor).
-		Padding(0, 1)
-
 	var b strings.Builder
 	b.WriteString(m.renderSelectedDetail(section))
-	if m.lastBatchSummary != "" {
+	if m.busy {
+		b.WriteString("\n\n")
+		b.WriteString(m.styles.Warning.Render("Updating DLLs..."))
+	} else if m.lastBatchSummary != "" {
 		b.WriteString("\n\n")
 		b.WriteString(m.styles.Dim.Render(m.lastBatchSummary))
 	}
 
-	return box.Render(b.String())
+	return b.String()
 }
 
 func (m DLLsResourceModel) renderSelectedDetail(section nav.DLLCatalogSection) string {
@@ -413,10 +425,23 @@ func (m DLLsResourceModel) renderSelectedDetail(section nav.DLLCatalogSection) s
 		var builder strings.Builder
 		builder.WriteString(m.styles.Title.Render("Deployment"))
 		builder.WriteString("\n")
-		builder.WriteString(m.styles.Selected.Render(entry.Name))
+		builder.WriteString(m.styles.Selected.Render(truncate(entry.Name, max(m.width-2, 20))))
 		builder.WriteString("\n\n")
 		for _, installed := range entry.DLLs {
-			fmt.Fprintf(&builder, "%s  %s\n", installed.Type, installed.Version)
+			version := installed.Version
+			if version == "" {
+				version = "unknown"
+			}
+			status := "current"
+			for _, info := range m.typesInUse {
+				if info.Type == installed.Type && m.isStale(installed.Version, info.ManifestKey) {
+					status = "stale"
+				}
+			}
+			if installed.Version == "" {
+				status = "unknown"
+			}
+			fmt.Fprintf(&builder, "%s  %s · %s\n", dllFamilyName(string(installed.Type)), version, status)
 		}
 		if m.hasStaleCells() {
 			builder.WriteString("\n")
@@ -429,14 +454,18 @@ func (m DLLsResourceModel) renderSelectedDetail(section nav.DLLCatalogSection) s
 		return m.styles.Dim.Render("DLL catalog unavailable")
 	}
 	info := types[min(m.typeCursor, len(types)-1)]
-	latest := "Unavailable"
+	latest := "unavailable"
 	if m.manifest != nil {
 		if entry := m.manifest.GetLatestDLL(info.ManifestKey); entry != nil {
 			latest = entry.Version
 		}
 	}
 	cached := m.cached[info.ManifestKey]
-	return fmt.Sprintf("%s\n%s\n\nFile: %s\nLatest: %s\nCached: %s", m.styles.Title.Render("Inventory of DLL types"), m.styles.Selected.Render(info.Label), info.Filename, latest, strings.Join(cached, ", "))
+	cachedStatus := "unavailable"
+	if len(cached) > 0 {
+		cachedStatus = strings.Join(cached, ", ")
+	}
+	return fmt.Sprintf("%s\n%s\n\nFile: %s\nLatest: %s\nCached: %s", m.styles.Title.Render("Inventory of DLL types"), m.styles.Selected.Render(info.Label), info.Filename, latest, cachedStatus)
 }
 
 func (m DLLsResourceModel) renderLibrary() string {
@@ -460,7 +489,7 @@ func (m DLLsResourceModel) renderLibrary() string {
 	b.WriteString("\n")
 
 	for _, info := range m.knownDLLTypes() {
-		latestStr := "-"
+		latestStr := "unavailable"
 		if m.manifest != nil {
 			if latest := m.manifest.GetLatestDLL(info.ManifestKey); latest != nil {
 				latestStr = latest.Version
@@ -468,7 +497,7 @@ func (m DLLsResourceModel) renderLibrary() string {
 		}
 		newestCached := m.latestCached(info.ManifestKey)
 		if newestCached == "" {
-			newestCached = "-"
+			newestCached = "unavailable"
 		}
 		count := len(m.cached[info.ManifestKey])
 

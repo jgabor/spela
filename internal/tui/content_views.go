@@ -20,7 +20,7 @@ func (m ContentModel) renderDLLInstallDialog() string {
 
 	switch m.dllInstallState {
 	case DLLInstallSelectType:
-		b.WriteString(s.Dim.Render("Select DLL type:"))
+		b.WriteString(s.Dim.Render("Select a supported DLL family:"))
 		b.WriteString("\n\n")
 
 		if len(m.dllTypes) == 0 {
@@ -33,13 +33,13 @@ func (m ContentModel) renderDLLInstallDialog() string {
 					cursor = "> "
 					style = s.Selected
 				}
-				b.WriteString(style.Render(fmt.Sprintf("%s%s", cursor, strings.ToUpper(t))))
+				b.WriteString(style.Render(fmt.Sprintf("%s%s", cursor, dllFamilyName(t))))
 				b.WriteString("\n")
 			}
 		}
 
 	case DLLInstallSelectVersion:
-		b.WriteString(s.Dim.Render(fmt.Sprintf("Select %s version:", strings.ToUpper(m.selectedDLLType))))
+		b.WriteString(s.Dim.Render(fmt.Sprintf("Select %s version:", dllFamilyName(m.selectedDLLType))))
 		b.WriteString("\n\n")
 
 		if len(m.dllVersions) == 0 {
@@ -95,7 +95,15 @@ func (m ContentModel) renderDLLs() string {
 	b.WriteString("\n")
 
 	if len(m.game.DLLs) == 0 {
-		b.WriteString(s.Dim.Render("  No DLLs detected"))
+		b.WriteString(s.Dim.Render("  No managed DLL installed"))
+		b.WriteString("\n")
+		b.WriteString(s.Normal.Render("  i: install a supported family"))
+		b.WriteString("\n")
+		families := make([]string, 0, len(dllDisplayColumns))
+		for _, info := range dllDisplayColumns {
+			families = append(families, info.Label)
+		}
+		b.WriteString(s.Dim.Render("  Choices: " + strings.Join(families, ", ")))
 		b.WriteString("\n")
 	} else {
 		// Build DLL type -> version mapping using DLLType constants directly
@@ -114,14 +122,14 @@ func (m ContentModel) renderDLLs() string {
 		// Header row
 		b.WriteString("  ")
 		for _, col := range dllDisplayColumns {
-			b.WriteString(s.Dim.Render(fmt.Sprintf("%-*s", columnWidth, col.columnName)))
+			b.WriteString(s.Dim.Render(fmt.Sprintf("%-*s", columnWidth, col.Label)))
 		}
 		b.WriteString("\n")
 
 		// Version row
 		b.WriteString("  ")
 		for _, col := range dllDisplayColumns {
-			version := dllVersions[col.dllType]
+			version := dllVersions[col.Type]
 			if version == "" {
 				version = "-"
 			}

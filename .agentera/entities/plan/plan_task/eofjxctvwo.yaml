@@ -3,7 +3,7 @@ artifact: plan
 record:
   plan: ajcnhmbmoh
   name: Retain accurate DLL cancellation outcomes
-  status: in_progress
+  status: complete
   depends_on:
     - efdydreiqj
     - gaewoncior
@@ -14,3 +14,13 @@ record:
     - GIVEN a DLL confirmation is cancelled WHEN operation calls and fixture files are inspected THEN no mutation command ran and file contents remain unchanged.
     - GIVEN the cancellation correction is complete WHEN existing DLL safety behavior is checked THEN concrete targets, Enter and y confirmation, mandatory safety, busy suppression, and retained non-cancel outcomes remain intact.
     - GIVEN focused checks and isolated Terminal Control journeys run at 120x40 and 80x24 WHEN every DLL mutation surface is cancelled THEN accurate retained outcomes are visible and all sessions and fixtures are cleaned up.
+  evaluation:
+    attempt_count: 1
+    failure_count: 0
+    last_verdict: pass
+    last_failure_evidence: null
+    provenance:
+      attempt_id: audit-1
+      source: independent acceptance and progress evidence audit
+      recorded_at: 2026-09-03 19:19
+      writer_command: agentera state plan record-evaluation

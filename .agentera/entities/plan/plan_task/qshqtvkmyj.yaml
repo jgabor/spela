@@ -6,7 +6,7 @@ record:
     - efdydreiqj
     - gaewoncior
     - txuxsmwydo
-  status: blocked
+  status: superseded
   acceptance:
     - GIVEN any TUI install, per-game update, batch update, or restore request WHEN it is about to start THEN an explicit confirmation names affected games, paths, versions where applicable, and backup behavior.
     - GIVEN a DLL confirmation WHEN the user presses Escape or q THEN no file operation starts and the prior view returns.
@@ -24,3 +24,6 @@ record:
       source: independent acceptance and progress evidence audit
       recorded_at: 2026-09-03 18:20
       writer_command: agentera state plan record-evaluation
+  superseded_by:
+    - eofjxctvwo
+  superseded_reason: DLL cancellation outcome safety completed and independently evaluated in the replacement task

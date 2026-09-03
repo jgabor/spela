@@ -52,7 +52,7 @@ func TestContentSupportedProfileDLLAndInstallViews(t *testing.T) {
 		fragment string
 	}{
 		{DLLInstallSelectType, func(m *ContentModel) { m.dllTypes = nil }, "Loading"},
-		{DLLInstallSelectType, func(m *ContentModel) { m.dllTypes = []string{"dlss", "xess"}; m.dllTypeCursor = 1 }, "XESS"},
+		{DLLInstallSelectType, func(m *ContentModel) { m.dllTypes = []string{"dlss", "xess"}; m.dllTypeCursor = 1 }, "XeSS"},
 		{DLLInstallSelectVersion, func(m *ContentModel) { m.selectedDLLType = "dlss"; m.dllVersions = nil; m.dllVersionsLoaded = false }, "Loading"},
 		{DLLInstallSelectVersion, func(m *ContentModel) { m.dllVersions = nil; m.dllVersionsLoaded = true }, "No versions available"},
 		{DLLInstallSelectVersion, func(m *ContentModel) {
@@ -74,6 +74,25 @@ func TestContentSupportedProfileDLLAndInstallViews(t *testing.T) {
 	empty := testContent(nil)
 	if !strings.Contains(stripANSI(empty.ViewProfileAspect()), "Select a game") || !strings.Contains(stripANSI(empty.ViewDLLAspect()), "Select a game") {
 		t.Fatal("empty content did not retain selection guidance")
+	}
+}
+
+func TestDLLPresentationNoInstallAndCanonicalFamilies(t *testing.T) {
+	content := testContent(testGame("No DLL Game"))
+	view := stripANSI(content.ViewDLLAspect())
+	for _, want := range []string{"No managed DLL installed", "i: install", "DLSS", "DLSS-G", "DLSS-D", "XeSS", "FSR"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("no-DLL view missing %q:\n%s", want, view)
+		}
+	}
+
+	content.dllInstallState = DLLInstallSelectType
+	content.dllTypes = []string{"dlss", "dlssg", "dlssd", "xess", "fsr"}
+	install := stripANSI(content.ViewDLLAspect())
+	for _, info := range dll.KnownDLLTypes() {
+		if !strings.Contains(install, info.Label) {
+			t.Fatalf("install choices missing canonical family %q:\n%s", info.Label, install)
+		}
 	}
 }
 

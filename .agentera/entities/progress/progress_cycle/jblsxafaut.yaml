@@ -1,0 +1,14 @@
+id: jblsxafaut
+artifact: progress
+record:
+  timestamp: 2026-09-03 19:30
+  type: fix
+  phase: build
+  what: Task tvubizjmml now uses dll.KnownDLLTypes across internal/tui, labels deployment versions current/stale/unknown, shows unavailable catalog data, and keeps update feedback visible at 80x24 and 120x40.
+  context:
+    intent: Clarify DLL status and presentation.
+    constraints: Preserved mandatory confirmation and cancellation safety through ae36b7b; no E2E transport or final sync.
+    scope: TUI DLL game, catalog, deployment, install, and operation feedback presentation.
+  verified: Focused internal/tui checks; go test ./internal/tui; go test -race ./internal/tui; go test ./...; mage lint; mage build; git diff --check. Isolated Terminal Control showed no-DLL guidance and install choices, catalog/deployment version states, one-row stale navigation, confirmation, cancellation, and failure feedback at 80x24 and 120x40; fixture mutations stayed under /tmp and were removed.
+  next: Audit tvubizjmml; keep it in_progress until independent evaluation.
+  publication_order: 16

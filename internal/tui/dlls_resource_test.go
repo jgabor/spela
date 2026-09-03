@@ -105,6 +105,68 @@ func TestDLLsResource_StaleCellIsMarked(t *testing.T) {
 	}
 }
 
+func TestDLLPresentationVersionStatesAndLongDeploymentRow(t *testing.T) {
+	longName := "A Very Long Deterministic Deployment Fixture Game Name That Must Stay On One Navigable Row"
+	entry := testGame(longName,
+		testDLL(game.DLLTypeDLSS, "3.7.0"),
+		testDLL(game.DLLTypeXeSS, ""),
+		testDLL(game.DLLTypeFSR, "3.8.0"),
+	)
+	manifest := &dll.Manifest{DLLs: map[string][]dll.DLL{
+		"dlss": {{Version: "3.8.0"}},
+		"xess": {{Version: "1.3.1"}},
+		"fsr":  {{Version: "3.8.0"}},
+	}}
+	model := makeDLLsResource([]*game.Game{entry}, map[string][]string{"dlss": {"3.8.0"}, "fsr": {"3.8.0"}}, manifest)
+
+	for _, width := range []int{80, 120} {
+		model.SetSize(width, 24)
+		row := stripANSI(model.ListView(true, nav.SectionDLLDeployment))
+		if strings.Count(row, "stale") != 1 || len([]rune(model.deploymentRowLabel(entry))) > 20 {
+			t.Fatalf("%d-column deployment row did not retain stale state:\n%s", width, row)
+		}
+	}
+
+	detail := stripANSI(model.renderSelectedDetail(nav.SectionDLLDeployment))
+	for _, want := range []string{"DLSS  3.7.0 · stale", "XeSS  unknown · unknown", "FSR  3.8.0 · current"} {
+		if !strings.Contains(detail, want) {
+			t.Fatalf("deployment detail missing %q:\n%s", want, detail)
+		}
+	}
+
+	model.typeCursor = 1 // DLSS-G has no manifest entry or cache.
+	if view := stripANSI(model.renderSelectedDetail(nav.SectionDLLLibrary)); !strings.Contains(view, "Latest: unavailable") || !strings.Contains(view, "Cached: unavailable") {
+		t.Fatalf("unavailable catalog state is ambiguous:\n%s", view)
+	}
+}
+
+func TestDLLOperationProgressAndOutcomesRemainVisibleAtSupportedSizes(t *testing.T) {
+	entry := testGame("Fixture", testDLL(game.DLLTypeDLSS, "3.7.0"))
+	model := makeDLLsResource([]*game.Game{entry}, map[string][]string{"dlss": {"3.8.0"}}, nil)
+	states := []struct {
+		summary string
+		busy    bool
+		want    string
+	}{
+		{"", true, "Updating DLLs"},
+		{"Update-all: 1 updated, 0 current, 0 failed", false, "1 updated"},
+		{"Update-all: 0 updated, 1 current, 0 failed", false, "1 current"},
+		{dllCancellationResult("DLL update-all"), false, "cancelled"},
+		{"Update-all: 0 updated, 0 current, 1 failed", false, "1 failed"},
+	}
+	for _, size := range []struct{ width, height int }{{80, 24}, {120, 40}} {
+		for _, state := range states {
+			model.SetSize(size.width, size.height)
+			model.busy = state.busy
+			model.lastBatchSummary = state.summary
+			view := stripANSI(model.View(true, nav.SectionDLLDeployment))
+			if !strings.Contains(view, state.want) {
+				t.Fatalf("%dx%d missing %q:\n%s", size.width, size.height, state.want, view)
+			}
+		}
+	}
+}
+
 func TestDLLsResource_UpToDateCellHasNoStaleMarker(t *testing.T) {
 	g := testGame("Alpha", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	m := makeDLLsResource([]*game.Game{g}, map[string][]string{
