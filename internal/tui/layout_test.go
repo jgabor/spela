@@ -52,15 +52,17 @@ func TestLayout_HelpEscCloses(t *testing.T) {
 	}
 }
 
-func TestLayout_HelpQCloses(t *testing.T) {
+func TestLayout_HelpQQuits(t *testing.T) {
 	m := testLayout()
 	result, _ := sendKey(&m, "?")
 	layout := result.(LayoutModel)
 
-	result, _ = sendKey(&layout, "q")
-	layout = result.(LayoutModel)
-	if layout.showHelp {
-		t.Error("expected q to close help")
+	_, command := sendKey(&layout, "q")
+	if command == nil {
+		t.Fatal("expected q to quit while help is open")
+	}
+	if _, ok := command().(tea.QuitMsg); !ok {
+		t.Fatalf("q command returned %T, want tea.QuitMsg", command())
 	}
 }
 
@@ -478,6 +480,26 @@ func TestLayout_ModalClosesOnCancel(t *testing.T) {
 	layout := result.(LayoutModel)
 	if layout.pane.content.pendingAction != PendingNone {
 		t.Error("expected esc to clear pending action")
+	}
+}
+
+func TestLayout_ModalQQuitsAsPrompted(t *testing.T) {
+	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.7.0"))
+	m := testLayoutWithGame(g)
+	m.navState.Aspect = nav.AspectDLLs
+	m.pane.SetState(*m.navState)
+	m.pane.content.pendingAction = PendingDLLUpdate
+	m.focus = FocusDetail
+
+	if prompt := stripANSI(m.pane.content.renderDLLs()); !strings.Contains(prompt, "Esc cancel • q/Ctrl+C quit") {
+		t.Fatalf("dialog prompt does not document quit policy: %q", prompt)
+	}
+	_, command := sendKey(&m, "q")
+	if command == nil {
+		t.Fatal("expected q to quit while dialog is open")
+	}
+	if _, ok := command().(tea.QuitMsg); !ok {
+		t.Fatalf("q command returned %T, want tea.QuitMsg", command())
 	}
 }
 

@@ -13,9 +13,9 @@ import (
 // handleBatchMenuKeys handles key input when the batch-action menu is visible.
 func (m LayoutModel) handleBatchMenuKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, bool) {
 	switch msg.String() {
-	case "ctrl+c":
+	case "ctrl+c", "q":
 		return m, tea.Quit, true
-	case "esc", "escape", "q":
+	case "esc", "escape":
 		m.showBatchMenu = false
 		m.batchGames = nil
 		return m, nil, true
@@ -36,9 +36,9 @@ func (m LayoutModel) handleBatchMenuKeys(msg tea.KeyPressMsg) (LayoutModel, tea.
 // handleHelpKeys handles key input when the help overlay is visible.
 func (m LayoutModel) handleHelpKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, bool) {
 	switch msg.String() {
-	case "ctrl+c":
+	case "ctrl+c", "q":
 		return m, tea.Quit, true
-	case "?", "esc", "escape", "q":
+	case "?", "esc", "escape":
 		m.showHelp = false
 	case "j", "down":
 		m.help.Move(1)

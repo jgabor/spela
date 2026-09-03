@@ -84,15 +84,15 @@ func (m HelpModel) View() string {
 		}
 	}
 	if m.height == 0 {
-		return strings.Join(lines, "\n") + m.styles.Dim.Render("?, q, Esc close • Ctrl+C quits")
+		return strings.Join(lines, "\n") + m.styles.Dim.Render("? / Esc close • q / Ctrl+C quit")
 	}
 	visible := max(m.height-2, 1)
 	if len(lines) <= visible {
-		return strings.Join(lines, "\n") + "\n" + m.styles.Dim.Render("?, q, Esc close • Ctrl+C quits")
+		return strings.Join(lines, "\n") + "\n" + m.styles.Dim.Render("? / Esc close • q / Ctrl+C quit")
 	}
 	end := min(m.offset+visible, len(lines))
 	position := m.styles.Dim.Render(fmt.Sprintf("↑/↓ scroll  %d-%d/%d", m.offset+1, end, len(lines)))
-	return strings.Join(lines[m.offset:end], "\n") + "\n" + position + "\n" + m.styles.Dim.Render("?, q, Esc close • Ctrl+C quits")
+	return strings.Join(lines[m.offset:end], "\n") + "\n" + position + "\n" + m.styles.Dim.Render("? / Esc close • q / Ctrl+C quit")
 }
 
 func (m HelpModel) content() string {

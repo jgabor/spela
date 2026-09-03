@@ -14,3 +14,13 @@ record:
     - GIVEN Help, a dialog, or another overlay is active WHEN Ctrl+C, q, or Escape is used THEN behavior follows one documented quit or cancel policy and cannot silently conflict with the guidance.
     - GIVEN constrained and standard widths WHEN contextual guidance renders THEN essential current actions remain visible before any overflow indicator, with Terminal Control evidence at both sizes.
   plan: ajcnhmbmoh
+  evaluation:
+    attempt_count: 1
+    failure_count: 1
+    last_verdict: fail
+    last_failure_evidence: "Help renders q as Quit but q closes Help; internal/tui/keymap.go:300 and internal/tui/layout_handlers.go:41-42. Verify with: git grep -n -E 'ActionQuit.*key\\(\"q\", \"q\"\\)|case \"\\?\", \"esc\", \"escape\", \"q\"' -- internal/tui"
+    provenance:
+      attempt_id: audit-1
+      source: independent acceptance and progress evidence audit
+      recorded_at: 2026-09-03 12:19
+      writer_command: agentera state plan record-evaluation

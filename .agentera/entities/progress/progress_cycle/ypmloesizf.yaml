@@ -1,0 +1,15 @@
+id: ypmloesizf
+artifact: progress
+record:
+  timestamp: 2026-09-03 12:21
+  type: fix
+  phase: build
+  what: Corrected Help quit guidance so q performs the advertised quit action.
+  context:
+    intent: Correct only the accepted Help q policy failure.
+    constraints: Preserve contextual filtering, grouped labels, F6 restore, overflow priority, and persisted audit-1.
+    scope: Help and overlay quit/cancel routing plus proportional tests.
+  discovered: The persisted audit-1 failure identified that q was labeled Quit but closed Help.
+  verified: go test ./internal/tui -count=1 passed; mage test passed; mage lint passed with 0 issues; mage build produced the compiled binaries; git diff --check passed. Isolated Terminal Control at 120x40 showed q labeled Quit and q exiting from Help. At 80x24 the full policy remained visible, Escape closed Help without exiting, and Ctrl+C exited after Help reopened. Both sessions were stopped and termctrl list was empty.
+  next: gaewoncior remains in_progress for independent re-evaluation; audit-1 remains persisted.
+  publication_order: 5

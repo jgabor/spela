@@ -127,9 +127,9 @@ func (m ContentModel) renderDLLs() string {
 			var prompt string
 			switch m.pendingAction {
 			case PendingDLLUpdate:
-				prompt = "Update DLLs? [Y]es / any key to cancel"
+				prompt = "Update DLLs? [Y]es • Esc cancel • q/Ctrl+C quit"
 			case PendingDLLRestore:
-				prompt = "Restore original DLLs? [Y]es / any key to cancel"
+				prompt = "Restore original DLLs? [Y]es • Esc cancel • q/Ctrl+C quit"
 			}
 			b.WriteString(s.Warning.Render("  " + prompt))
 			b.WriteString("\n")

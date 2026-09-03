@@ -345,6 +345,7 @@ var CanonicalKeymap = NewKeymap(
 	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionEditDelete, Description: "Delete character", Keys: []KeyLabel{key("backspace", "Backspace")}},
 	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionEditInput, Description: "Edit value", Keys: []KeyLabel{printable("Text")}},
 	KeyBinding{Mode: ModeOverlay, Scope: ScopeOverlay, Action: ActionOverlayClose, Description: "Close overlay", Keys: []KeyLabel{key("esc", "Esc")}},
+	KeyBinding{Mode: ModeOverlay, Scope: ScopeOverlay, Action: ActionQuit, Description: "Quit", Keys: []KeyLabel{key("q", "q")}},
 	KeyBinding{Mode: ModeOverlay, Scope: ScopeOverlay, Action: ActionOverlayConfirm, Description: "Confirm", Keys: []KeyLabel{key("enter", "Enter")}},
 	KeyBinding{Mode: ModeOverlay, Scope: ScopeOverlay, Action: ActionOverlayPrevious, Description: "Previous option", Keys: []KeyLabel{key("up", "Up"), key("k", "k")}},
 	KeyBinding{Mode: ModeOverlay, Scope: ScopeOverlay, Action: ActionOverlayNext, Description: "Next option", Keys: []KeyLabel{key("down", "Down"), key("j", "j")}},
