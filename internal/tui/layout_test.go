@@ -84,14 +84,22 @@ func TestLayout_HelpDoesNotAdvertiseOrHandleEnter(t *testing.T) {
 	m := testLayout()
 	result, _ := sendKey(&m, "?")
 	layout := result.(LayoutModel)
-	guidance := stripANSI(layout.help.View())
-	if !strings.Contains(guidance, "? / Esc close • q / Ctrl+C quit") {
-		t.Fatalf("help is missing its behavior guidance:\n%s", guidance)
+	body := stripANSI(layout.help.content())
+	for _, want := range []string{"? / Esc", "Close Help", "q / Ctrl+C", "Quit"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("Help body is missing executable action %q:\n%s", want, body)
+		}
+	}
+	for _, forbidden := range []string{"Enter", "Open selection"} {
+		if strings.Contains(body, forbidden) {
+			t.Fatalf("Help body advertises inactive action %q:\n%s", forbidden, body)
+		}
 	}
 	if status := layout.renderCanonicalStatus(); status != "" {
 		t.Fatalf("help rendered generic overlay guidance: %q", stripANSI(status))
 	}
 
+	guidance := stripANSI(layout.help.View())
 	result, command := sendKey(&layout, "enter")
 	layout = result.(LayoutModel)
 	if command != nil || !layout.showHelp {
@@ -99,6 +107,18 @@ func TestLayout_HelpDoesNotAdvertiseOrHandleEnter(t *testing.T) {
 	}
 	if got := stripANSI(layout.help.View()); got != guidance {
 		t.Fatalf("Enter changed Help guidance from %q to %q", guidance, got)
+	}
+
+	layout.help.SetHeight(5)
+	result, _ = sendKey(&layout, "down")
+	layout = result.(LayoutModel)
+	if layout.help.offset != 1 {
+		t.Fatalf("visible scroll-down action moved to offset %d, want 1", layout.help.offset)
+	}
+	result, _ = sendKey(&layout, "up")
+	layout = result.(LayoutModel)
+	if layout.help.offset != 0 {
+		t.Fatalf("visible scroll-up action moved to offset %d, want 0", layout.help.offset)
 	}
 }
 

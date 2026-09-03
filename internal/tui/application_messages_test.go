@@ -135,7 +135,7 @@ func TestLayoutApplicationMessagesMaintainCrossComponentState(t *testing.T) {
 	updated.showHelp = true
 	updated.showBatchMenu = true
 	updated.batchGames = []*game.Game{entry}
-	if modalView := stripANSI(updated.View().Content); !strings.Contains(modalView, "Keyboard shortcuts") {
+	if modalView := stripANSI(updated.View().Content); !strings.Contains(modalView, "Keyboard") || !strings.Contains(modalView, "Batch action") {
 		t.Fatalf("stacked layout overlays missing:\n%s", modalView)
 	}
 }

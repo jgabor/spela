@@ -49,13 +49,13 @@ func TestProfileFocusStaysVisibleWhileEditingAndResizing(t *testing.T) {
 func TestHelpFitsAndScrollsToEveryLineWithCloseGuidance(t *testing.T) {
 	help := NewHelp(NewStyles(DefaultTheme, true))
 	help.SetHeight(100)
-	if !strings.Contains(strings.ToLower(stripANSI(help.View())), "dll catalog") {
+	if !strings.Contains(strings.ToLower(stripANSI(help.View())), "close help") {
 		t.Fatal("fitting help omitted a shortcut")
 	}
-	help.SetHeight(10)
+	help.SetHeight(5)
 	help.Move(1000)
 	view := stripANSI(help.View())
-	if !strings.Contains(view, "? / Esc close • q / Ctrl+C quit") || !strings.Contains(view, "↑/↓ scroll") || lipgloss.Height(help.View()) > 10 {
+	if !strings.Contains(view, "? / Esc close • q / Ctrl+C quit") || !strings.Contains(view, "↑/↓ scroll") || lipgloss.Height(help.View()) > 5 {
 		t.Fatalf("overflowing help did not expose its bounded final position:\n%s", view)
 	}
 }

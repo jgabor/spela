@@ -47,33 +47,16 @@ func (m *HelpModel) clampOffset() {
 }
 
 func NewHelp(styles *Styles) HelpModel {
-	return NewHelpForContext(styles, BindingContext{Mode: ModeBrowse, Focus: FocusList})
-}
-
-func NewHelpForContext(styles *Styles, context BindingContext) HelpModel {
 	return HelpModel{
-		styles:   styles,
-		sections: []HelpSection{canonicalHelpSection(context)},
+		styles: styles,
+		sections: []HelpSection{{
+			Title: "Help",
+			Bindings: []HelpBinding{
+				{Key: "? / Esc", Description: "Close Help"},
+				{Key: "q / Ctrl+C", Description: "Quit"},
+			},
+		}},
 	}
-}
-
-func canonicalHelpSection(context BindingContext) HelpSection {
-	section := HelpSection{Title: "Shell"}
-	for _, resolution := range CanonicalKeymap.HelpBindings(context) {
-		binding := resolution.Binding
-		labels := make([]string, 0, len(binding.Keys))
-		for _, candidate := range binding.Keys {
-			labels = append(labels, candidate.Label)
-		}
-		description := binding.Description
-		if !resolution.Available && resolution.Reason != "" {
-			description += " (" + resolution.Reason + ")"
-		}
-		section.Bindings = append(section.Bindings, HelpBinding{
-			Key: strings.Join(labels, " / "), Description: description,
-		})
-	}
-	return section
 }
 
 func (m HelpModel) View() string {

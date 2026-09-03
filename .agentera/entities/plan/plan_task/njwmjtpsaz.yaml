@@ -14,3 +14,13 @@ record:
     - GIVEN Help is open WHEN q, Ctrl+C, or Escape is pressed THEN q and Ctrl+C quit while Escape closes Help without exiting.
     - GIVEN the correction is complete WHEN contextual guidance is compared across destinations THEN accepted filtering, grouped labels, F6 restore, and overflow priority remain unchanged.
     - GIVEN focused checks and isolated Terminal Control journeys run at 120x40 and 80x24 WHEN every visible Help action is exercised THEN behavior and guidance agree and all sessions and fixtures are cleaned up.
+  evaluation:
+    attempt_count: 1
+    failure_count: 1
+    last_verdict: fail
+    last_failure_evidence: "Help body still advertises Enter: Open selection while Enter is a no-op; internal/tui/layout_handlers.go:87-89, internal/tui/help.go:62-75, internal/tui/keymap.go:315. Verify with: git grep -n -E 'NewHelpForContext|HelpBindings\\(|ActionListSelect.*Open selection' -- internal/tui/help.go internal/tui/keymap.go internal/tui/layout_handlers.go"
+    provenance:
+      attempt_id: audit-1
+      source: independent acceptance and progress evidence audit
+      recorded_at: 2026-09-03 15:53
+      writer_command: agentera state plan record-evaluation

@@ -1,0 +1,16 @@
+id: vhttxoufyr
+artifact: progress
+record:
+  timestamp: 2026-09-03 16:01
+  type: fix
+  phase: build
+  what: The live Help body now lists only Help-active close and quit controls; Enter and underlying browse actions are unadvertised while Help intercepts input.
+  context:
+    intent: Correct the persisted audit-1 Help-body guidance mismatch.
+    constraints: Do not add an Enter action or alter contextual guidance outside Help; preserve grouped labels, F6 restore, overflow priority, quit/close policy, and audit state.
+    unknowns: None; live Help reproduced the underlying browse-body leak before the correction.
+    scope: Help model construction, its direct handler call, focused regressions, one compatibility assertion, changelog wording, and required Agentera state.
+  discovered: The first replacement correction hid generic overlay status but still constructed Help from the underlying browse context, leaving Open selection and other blocked actions in the body.
+  verified: Focused Help and preservation tests, go test ./internal/tui -count=1, mage test, mage lint, mage build, and git diff --check passed. Isolated Terminal Control at 120x40 and 80x24 showed only ?/Escape close and q/Ctrl+C quit in Help; Enter left Help unchanged, both close keys returned to Library, and both quit keys exited. All sessions and /tmp/spela-termctrl-njwmjtpsaz-audit2 were removed. Overflow scrolling remains covered by focused tests.
+  next: Independently audit njwmjtpsaz as audit-2 while it remains in_progress; preserve audit-1 and keep ycsvvvvxkz open until Orchestrate reconciles a PASS.
+  publication_order: 7

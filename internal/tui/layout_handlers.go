@@ -84,7 +84,7 @@ func (m LayoutModel) handleGlobalKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd
 		case ActionQuit:
 			return m, tea.Quit, true
 		case ActionShowHelp:
-			m.help = NewHelpForContext(m.styles, m.bindingContext())
+			m.help = NewHelp(m.styles)
 			m.help.SetSize(m.helpWidth(), max(m.height-4, 3))
 			m.showHelp = true
 			return m, nil, true

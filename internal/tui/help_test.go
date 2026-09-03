@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"charm.land/lipgloss/v2"
-	"github.com/jgabor/spela/internal/nav"
 )
 
 func TestRenderContextBar_EmptyKeys(t *testing.T) {
@@ -69,11 +68,17 @@ func TestRenderContextBar_PreservesCurrentActionBeforeOverflow(t *testing.T) {
 	}
 }
 
-func TestHelpGroupsAlternativeKeysWithReadableSpacing(t *testing.T) {
-	context := BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, GameScope: true, Aspect: nav.AspectDLLs, HasBackup: true}
-	out := NewHelpForContext(NewStyles(DefaultTheme, true), context).View()
-	if !strings.Contains(out, "u / U / Ctrl+U") || !strings.Contains(out, "F6") || strings.Contains(out, "Ctrl+Shift+R") {
-		t.Fatalf("help key labels are inconsistent:\n%s", out)
+func TestHelpGroupsHandledKeysWithReadableSpacing(t *testing.T) {
+	out := stripANSI(NewHelp(NewStyles(DefaultTheme, true)).content())
+	for _, want := range []string{"? / Esc", "Close Help", "q / Ctrl+C", "Quit"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("Help body is missing %q:\n%s", want, out)
+		}
+	}
+	for _, forbidden := range []string{"Enter", "Open selection"} {
+		if strings.Contains(out, forbidden) {
+			t.Fatalf("Help body advertises inactive action %q:\n%s", forbidden, out)
+		}
 	}
 }
 
@@ -106,7 +111,7 @@ func TestRenderContextBar_GlobalKeysOnly(t *testing.T) {
 
 func TestHelp_UsesCanonicalShellWithoutLegacyNavigation(t *testing.T) {
 	out := strings.ToLower(NewHelp(NewStyles(DefaultTheme, true)).View())
-	for _, want := range []string{"library", "dll catalog", "next pane", "keyboard shortcuts"} {
+	for _, want := range []string{"close help", "quit", "keyboard shortcuts"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("canonical help missing %q:\n%s", want, out)
 		}
