@@ -239,8 +239,9 @@ func (m *LayoutModel) calculateDimensions() {
 		m.listPane.SetSize(max(m.width-2, 1), panelHeight)
 		m.pane.SetSize(max(m.width-2, 1), panelHeight)
 	} else {
-		m.listPane.SetSize(m.listWidth(), panelHeight)
-		m.pane.SetSize(m.detailWidth(), panelHeight)
+		contentHeight := max(panelHeight-1, 1)
+		m.listPane.SetSize(m.listWidth(), contentHeight)
+		m.pane.SetSize(m.detailWidth(), contentHeight)
 	}
 	m.messageBar.SetWidth(m.width)
 	m.help.SetSize(m.helpWidth(), max(m.height-4, 3))
@@ -352,8 +353,9 @@ func (m LayoutModel) renderSplit(header string, renderedHeaderHeight int) string
 	listWidth := m.listWidth()
 	detailWidth := m.detailWidth()
 
-	listView := truncateHeight(m.visibleListView(listFocused), panelHeight)
-	detailView := truncateHeight(m.pane.View(detailFocused), panelHeight)
+	contentHeight := max(panelHeight-1, 1) // The style's bottom border occupies the final row.
+	listView := truncateHeight(m.visibleListView(listFocused), contentHeight)
+	detailView := truncateHeight(m.pane.View(detailFocused), contentHeight)
 	listBorder := m.styles.BorderColor(listFocused)
 	detailBorder := m.styles.BorderColor(detailFocused)
 

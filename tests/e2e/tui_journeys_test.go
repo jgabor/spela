@@ -48,6 +48,40 @@ func requireScreen(t *testing.T, session *Session, contains []string, excludes .
 	return screen
 }
 
+func requireClosedSplitPaneBorders(t *testing.T, screen string) {
+	t.Helper()
+	lines := strings.Split(screen, "\n")
+	detailTop := -1
+	for index, line := range lines {
+		line = strings.TrimRight(line, " ")
+		if strings.Contains(line, "Detail") && strings.HasSuffix(line, "╮") {
+			detailTop = index
+			break
+		}
+	}
+	if detailTop < 0 {
+		t.Fatalf("Detail top border is missing:\n%s", screen)
+	}
+	for index, line := range lines[detailTop+1:] {
+		line = strings.TrimRight(line, " ")
+		if strings.HasPrefix(line, "╰") && strings.HasSuffix(line, "╯") {
+			return
+		}
+		if !strings.HasSuffix(line, "│") {
+			t.Fatalf("Detail right border is open on row %d:\n%s", detailTop+index+1, screen)
+		}
+	}
+	t.Fatalf("Detail bottom border is missing:\n%s", screen)
+}
+
+func TestTUIFreshMinimumLongPathBorderClosure(t *testing.T) {
+	environment, cleanup := setupLongPathTestEnvironment(t)
+	t.Cleanup(cleanup)
+	session := startTUI(t, environment, 80, 24)
+	screen := requireScreen(t, session, []string{"Library", "Cyberpunk 2077", "Install directory"})
+	requireClosedSplitPaneBorders(t, screen)
+}
+
 func TestTUIJourneyStandard(t *testing.T) {
 	environment, cleanup := SetupTestEnvironment(t)
 	t.Cleanup(cleanup)

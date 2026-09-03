@@ -24,6 +24,17 @@ type TestEnvironment struct {
 
 // SetupTestEnvironment creates a temporary directory and writes isolated config/profile/database/manifest files.
 func SetupTestEnvironment(t *testing.T) (*TestEnvironment, func()) {
+	return setupTestEnvironment(t, "")
+}
+
+func setupLongPathTestEnvironment(t *testing.T) (*TestEnvironment, func()) {
+	return setupTestEnvironment(t, filepath.Join(
+		"deterministic-long-temporary-root-for-minimum-terminal",
+		"deterministic-long-install-and-prefix-parent",
+	))
+}
+
+func setupTestEnvironment(t *testing.T, fixturePath string) (*TestEnvironment, func()) {
 	t.Helper()
 
 	tempDir, err := os.MkdirTemp("", "spela-tui-e2e-fixture-*")
@@ -64,9 +75,10 @@ func SetupTestEnvironment(t *testing.T) (*TestEnvironment, func()) {
 	}
 
 	// 3. Write mock game database (games.yaml)
-	cyberpunkDir := filepath.Join(tempDir, "games", "Cyberpunk 2077")
-	witcherDir := filepath.Join(tempDir, "games", "The Witcher 3")
-	eldenRingDir := filepath.Join(tempDir, "games", "ELDEN RING")
+	fixtureRoot := filepath.Join(tempDir, fixturePath)
+	cyberpunkDir := filepath.Join(fixtureRoot, "games", "Cyberpunk 2077")
+	witcherDir := filepath.Join(fixtureRoot, "games", "The Witcher 3")
+	eldenRingDir := filepath.Join(fixtureRoot, "games", "ELDEN RING")
 
 	// Create directories for DLL layout
 	if err := os.MkdirAll(filepath.Join(cyberpunkDir, "bin", "x64"), 0o755); err != nil {
@@ -96,9 +108,9 @@ func SetupTestEnvironment(t *testing.T) (*TestEnvironment, func()) {
 				"app_id":       1091500,
 				"name":         "Cyberpunk 2077",
 				"install_dir":  cyberpunkDir,
-				"prefix_path":  filepath.Join(tempDir, "compatdata", "1091500", "pfx"),
+				"prefix_path":  filepath.Join(fixtureRoot, "compatdata", "1091500", "pfx"),
 				"scanned_at":   time.Now().Format(time.RFC3339),
-				"library_path": filepath.Join(tempDir, "games"),
+				"library_path": filepath.Join(fixtureRoot, "games"),
 				"dlls": []map[string]interface{}{
 					{
 						"path":    filepath.Join(cyberpunkDir, "bin", "x64", "nvngx_dlss.dll"),
@@ -118,9 +130,9 @@ func SetupTestEnvironment(t *testing.T) (*TestEnvironment, func()) {
 				"app_id":       292030,
 				"name":         "The Witcher 3: Wild Hunt",
 				"install_dir":  witcherDir,
-				"prefix_path":  filepath.Join(tempDir, "compatdata", "292030", "pfx"),
+				"prefix_path":  filepath.Join(fixtureRoot, "compatdata", "292030", "pfx"),
 				"scanned_at":   time.Now().Format(time.RFC3339),
-				"library_path": filepath.Join(tempDir, "games"),
+				"library_path": filepath.Join(fixtureRoot, "games"),
 				"dlls": []map[string]interface{}{
 					{
 						"path":    filepath.Join(witcherDir, "bin", "nvngx_dlss.dll"),
@@ -134,9 +146,9 @@ func SetupTestEnvironment(t *testing.T) (*TestEnvironment, func()) {
 				"app_id":       1245620,
 				"name":         "Elden Ring",
 				"install_dir":  eldenRingDir,
-				"prefix_path":  filepath.Join(tempDir, "compatdata", "1245620", "pfx"),
+				"prefix_path":  filepath.Join(fixtureRoot, "compatdata", "1245620", "pfx"),
 				"scanned_at":   time.Now().Format(time.RFC3339),
-				"library_path": filepath.Join(tempDir, "games"),
+				"library_path": filepath.Join(fixtureRoot, "games"),
 				"dlls":         []interface{}{},
 			},
 		},

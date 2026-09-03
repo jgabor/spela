@@ -21,3 +21,13 @@ record:
     - GIVEN final verification ends WHEN environment cleanup is inspected THEN no terminal session, fixture, or source-user state mutation remains.
     - GIVEN the original QA report WHEN evidence is reconciled THEN every finding maps to a passing check or an explicitly approved deferment.
   plan: ajcnhmbmoh
+  evaluation:
+    attempt_count: 1
+    failure_count: 1
+    last_verdict: fail
+    last_failure_evidence: "Fresh 80x24 long-path Overview can overflow without closing Detail border, and canonical h/l List/Profile actions are advertised but ignored. Refs internal/tui/layout.go:234,355-368; internal/tui/keymap.go:327-339; internal/tui/list_pane.go:67-72; internal/tui/detail.go:173-178,341-352. Verify: git grep -n -E 'panelHeight :=|truncateHeight|ActionListPreviousGroup|ActionDetailDecrease|key\\(\"h\"|key\\(\"l\"' -- internal/tui"
+    provenance:
+      attempt_id: audit-1
+      source: independent acceptance and progress evidence audit
+      recorded_at: 2026-09-03 20:24
+      writer_command: agentera state plan record-evaluation

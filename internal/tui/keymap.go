@@ -112,13 +112,15 @@ type KeyLabel struct {
 
 // BindingContext is the complete state needed to select a binding.
 type BindingContext struct {
-	Mode        InputMode
-	Focus       KeyFocus
-	Destination nav.Destination
-	GameScope   bool
-	Aspect      nav.Aspect
-	HasBackup   bool
-	DLLSection  nav.DLLCatalogSection
+	Mode             InputMode
+	Focus            KeyFocus
+	Destination      nav.Destination
+	GameScope        bool
+	Aspect           nav.Aspect
+	HasBackup        bool
+	DLLSection       nav.DLLCatalogSection
+	ListGroups       bool
+	DetailAdjustable bool
 }
 
 // Availability lets behavior and help make the same enabled/disabled
@@ -257,6 +259,20 @@ func libraryAvailable(context BindingContext) (bool, string) {
 	return true, ""
 }
 
+func listGroupsAvailable(context BindingContext) (bool, string) {
+	if !context.ListGroups {
+		return false, "no groups in this list"
+	}
+	return true, ""
+}
+
+func detailAdjustmentAvailable(context BindingContext) (bool, string) {
+	if !context.DetailAdjustable {
+		return false, "focused value is not adjustable"
+	}
+	return true, ""
+}
+
 func libraryProfileAvailable(context BindingContext) (bool, string) {
 	if available, reason := libraryGameAvailable(context); !available {
 		return false, reason
@@ -324,8 +340,8 @@ var CanonicalKeymap = NewKeymap(
 	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListPrevious, Description: "Previous item", Keys: []KeyLabel{key("up", "↑"), key("k", "k")}},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListNext, Description: "Next item", Keys: []KeyLabel{key("down", "↓"), key("j", "j")}},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListSelect, Description: "Open selection", Keys: []KeyLabel{key("enter", "Enter")}},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListPreviousGroup, Description: "Previous group", Keys: []KeyLabel{key("left", "←"), key("h", "h")}},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListNextGroup, Description: "Next group", Keys: []KeyLabel{key("right", "→"), key("l", "l")}},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListPreviousGroup, Description: "Previous group", Keys: []KeyLabel{key("left", "←"), key("h", "h")}, Availability: listGroupsAvailable},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListNextGroup, Description: "Next group", Keys: []KeyLabel{key("right", "→"), key("l", "l")}, Availability: listGroupsAvailable},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListToggleDLLFilter, Description: "Toggle DLL filter", Keys: []KeyLabel{key("d", "d")}, Availability: libraryAvailable},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListToggleProfile, Description: "Toggle profile filter", Keys: []KeyLabel{key("p", "p")}, Availability: libraryAvailable},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListSort, Description: "Change sort", Keys: []KeyLabel{key("s", "s")}, Availability: libraryAvailable},
@@ -335,8 +351,8 @@ var CanonicalKeymap = NewKeymap(
 	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListClearSelection, Description: "Clear selection", Keys: []KeyLabel{key("A", "A")}, Availability: libraryAvailable},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailPreviousItem, Description: "Previous field", Keys: []KeyLabel{key("up", "↑"), key("k", "k")}},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailNextItem, Description: "Next field", Keys: []KeyLabel{key("down", "↓"), key("j", "j")}},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailDecrease, Description: "Decrease value", Keys: []KeyLabel{key("left", "←"), key("h", "h")}},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailIncrease, Description: "Increase value", Keys: []KeyLabel{key("right", "→"), key("l", "l")}},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailDecrease, Description: "Decrease value", Keys: []KeyLabel{key("left", "←"), key("h", "h")}, Availability: detailAdjustmentAvailable},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailIncrease, Description: "Increase value", Keys: []KeyLabel{key("right", "→"), key("l", "l")}, Availability: detailAdjustmentAvailable},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailConfirm, Description: "Edit or confirm", Keys: []KeyLabel{key("enter", "Enter")}},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailSave, Description: "Save changes", Keys: []KeyLabel{key("s", "s")}},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionCancelDraft, Description: "Discard changes", Keys: []KeyLabel{key("esc", "Esc")}, Availability: libraryProfileAvailable},

@@ -92,6 +92,50 @@ func TestCanonicalHelpOmitsUnavailableDestinationActions(t *testing.T) {
 	}
 }
 
+func TestCanonicalHorizontalBindingsMatchExecutableContexts(t *testing.T) {
+	tests := []struct {
+		name      string
+		context   BindingContext
+		hAction   KeyAction
+		lAction   KeyAction
+		available bool
+		supported bool
+	}{
+		{"Library List", BindingContext{Mode: ModeBrowse, Focus: FocusList, Destination: nav.DestinationLibrary}, ActionListPreviousGroup, ActionListNextGroup, false, true},
+		{"DLL Catalog List", BindingContext{Mode: ModeBrowse, Focus: FocusList, Destination: nav.DestinationDLLCatalog, ListGroups: true}, ActionListPreviousGroup, ActionListNextGroup, true, true},
+		{"Monitor List", BindingContext{Mode: ModeBrowse, Focus: FocusList, Destination: nav.DestinationMonitor}, ActionListPreviousGroup, ActionListNextGroup, false, true},
+		{"Settings List", BindingContext{Mode: ModeBrowse, Focus: FocusList, Destination: nav.DestinationSettings, ListGroups: true}, ActionListPreviousGroup, ActionListNextGroup, true, true},
+		{"game Overview Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, GameScope: true, Aspect: nav.AspectOverview}, ActionDetailDecrease, ActionDetailIncrease, false, true},
+		{"game Profile Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, GameScope: true, Aspect: nav.AspectProfile}, ActionDetailDecrease, ActionDetailIncrease, false, true},
+		{"game DLL Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, GameScope: true, Aspect: nav.AspectDLLs}, ActionDetailDecrease, ActionDetailIncrease, false, true},
+		{"adjustable default Profile Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, Aspect: nav.AspectProfile, DetailAdjustable: true}, ActionDetailDecrease, ActionDetailIncrease, true, true},
+		{"non-adjustable default Profile Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, Aspect: nav.AspectProfile}, ActionDetailDecrease, ActionDetailIncrease, false, true},
+		{"DLL Catalog Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationDLLCatalog}, ActionDetailDecrease, ActionDetailIncrease, false, true},
+		{"Monitor Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationMonitor}, ActionDetailDecrease, ActionDetailIncrease, false, true},
+		{"adjustable Settings Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationSettings, DetailAdjustable: true}, ActionDetailDecrease, ActionDetailIncrease, true, true},
+		{"path Settings Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationSettings}, ActionDetailDecrease, ActionDetailIncrease, false, true},
+		{"Search input", BindingContext{Mode: ModeSearch, Focus: FocusList, Destination: nav.DestinationLibrary}, ActionSearchInput, ActionSearchInput, true, true},
+		{"Edit input", BindingContext{Mode: ModeEdit, Focus: FocusDetail, Destination: nav.DestinationSettings}, ActionEditInput, ActionEditInput, true, true},
+		{"Overlay", BindingContext{Mode: ModeOverlay, Focus: FocusDetail}, ActionNoOp, ActionNoOp, true, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			for key, wantAction := range map[string]KeyAction{"h": test.hAction, "l": test.lAction} {
+				resolution := CanonicalKeymap.Lookup(test.context, key)
+				if resolution.Supported != test.supported || resolution.Available != test.available || resolution.Binding.Action != wantAction {
+					t.Errorf("%s resolution = %#v, want action %q, available %t, supported %t", key, resolution, wantAction, test.available, test.supported)
+				}
+				if test.context.Mode == ModeBrowse {
+					visible := hasHelpAction(CanonicalKeymap.HelpBindings(test.context), wantAction)
+					if visible != test.available {
+						t.Errorf("%s help visibility = %t, want %t", key, visible, test.available)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestKeymapUnsupportedKeyIsExplicitNoOp(t *testing.T) {
 	resolution := CanonicalKeymap.Lookup(BindingContext{Mode: ModeOverlay, Focus: FocusDetail}, "f12")
 	if resolution.Supported {

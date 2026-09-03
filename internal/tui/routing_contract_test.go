@@ -109,6 +109,81 @@ func TestTextEditorKeepsPrintableNavigationKeys(t *testing.T) {
 	}
 }
 
+func TestHorizontalListKeysRunOnlyForGroupedLists(t *testing.T) {
+	tests := []struct {
+		destination nav.Destination
+		grouped     bool
+	}{
+		{nav.DestinationLibrary, false},
+		{nav.DestinationDLLCatalog, true},
+		{nav.DestinationMonitor, false},
+		{nav.DestinationSettings, true},
+	}
+	for _, test := range tests {
+		t.Run(test.destination.String(), func(t *testing.T) {
+			layout := testLayoutWithGame(testGame("Cyberpunk 2077"))
+			layout.selectDestination(test.destination)
+			before := *layout.navState
+			model, _ := sendKey(&layout, "l")
+			updated := model.(LayoutModel)
+			changed := *updated.navState != before
+			if changed != test.grouped {
+				t.Fatalf("l changed navigation = %t, want %t", changed, test.grouped)
+			}
+			if visible := hasHelpAction(CanonicalKeymap.HelpBindings(updated.bindingContext()), ActionListNextGroup); visible != test.grouped {
+				t.Fatalf("next-group help visibility = %t, want %t", visible, test.grouped)
+			}
+		})
+	}
+}
+
+func TestHorizontalDetailKeysCycleOnlyAdjustableValues(t *testing.T) {
+	layout := testLayout()
+	layout.pane.loadGlobalScope()
+	layout.focus = FocusDetail
+	focusField(t, &layout.pane.defaultsDetail, profile.FieldProtonVKD3DHeap)
+	if !layout.bindingContext().DetailAdjustable {
+		t.Fatal("root bool field did not advertise horizontal adjustment")
+	}
+	model, _ := sendKey(&layout, "l")
+	layout = model.(LayoutModel)
+	if !layout.pane.defaultsDetail.RawProfile().Proton.VKD3DHeap {
+		t.Fatal("l did not increase the focused root profile value")
+	}
+	model, _ = sendKey(&layout, "h")
+	layout = model.(LayoutModel)
+	if layout.pane.defaultsDetail.RawProfile().IsOverridden(profile.FieldProtonVKD3DHeap) {
+		t.Fatal("h did not decrease the focused root profile value")
+	}
+
+	layout.selectDestination(nav.DestinationSettings)
+	layout.focus = FocusDetail
+	if !layout.bindingContext().DetailAdjustable {
+		t.Fatal("boolean setting did not advertise horizontal adjustment")
+	}
+	model, _ = sendKey(&layout, "l")
+	layout = model.(LayoutModel)
+	if !layout.pane.settings.modified {
+		t.Fatal("l did not change an adjustable setting")
+	}
+
+	layout.navState.SettingsSection = nav.SettingsPaths
+	layout.pane.SetState(*layout.navState)
+	layout.pane.settings.SyncNavSection(nav.SettingsPaths)
+	if layout.bindingContext().DetailAdjustable {
+		t.Fatal("path setting advertised horizontal adjustment")
+	}
+	model, _ = sendKey(&layout, "enter")
+	layout = model.(LayoutModel)
+	model, _ = sendKey(&layout, "h")
+	layout = model.(LayoutModel)
+	model, _ = sendKey(&layout, "l")
+	layout = model.(LayoutModel)
+	if !strings.HasSuffix(layout.pane.settings.pathInput.Value(), "hl") {
+		t.Fatalf("path editor value = %q, want printable h/l suffix", layout.pane.settings.pathInput.Value())
+	}
+}
+
 func TestProfileDraftEscapeRestoresPersistedState(t *testing.T) {
 	layout := testLayoutWithGame(testGame("Cyberpunk 2077"))
 	layout.focus = FocusDetail

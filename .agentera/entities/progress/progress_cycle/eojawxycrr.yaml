@@ -1,0 +1,15 @@
+id: eojawxycrr
+artifact: progress
+record:
+  timestamp: 2026-09-03 20:37
+  type: fix
+  phase: build
+  what: Corrected both audit-1 final-sync failures for task khxrxyxlzi without closing the task.
+  context:
+    intent: Make minimum-size border closure and horizontal-key guidance match compiled TUI behavior.
+    constraints: Preserve audit-1, completed functionality, editor input, E2E isolation, and khxrxyxlzi in_progress for audit-2.
+    scope: Panel content height, contextual h/l availability and handlers, focused regressions, full acceptance checks, and isolated visual review.
+  discovered: The split renderer allowed content to occupy the row reserved for its bottom border, while canonical horizontal bindings lacked the state needed to distinguish grouped lists and adjustable Detail values.
+  verified: "Original-finding map: (1) the exact 80x24 long install/prefix fixture now closes the Detail right and bottom borders in unit and compiled Terminal Control E2E tests, and the fresh ./spela visual showed both borders; (2) the h/l matrix covers Library, DLL Catalog, Monitor, Settings, game/default Profile, adjustable/path Detail, Search, Edit, and Overlay contexts, with integration checks for group movement, value cycling, and printable path input. mage test, mage lint, mage build, go tool mage TestTUIE2E, gopls diagnostics, and git diff --check passed. Isolated compiled review covered every destination at 120x40, Help/footer and h/l paths, fresh 80x24 long paths, and 79x23-to-80x24 recovery. Both named sessions stopped, the fixture was removed, and no source-user state was used."
+  next: Run independent audit-2 for khxrxyxlzi; keep the task and plan in_progress and do not publish health.
+  publication_order: 21

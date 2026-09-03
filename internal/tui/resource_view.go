@@ -249,6 +249,12 @@ func (p resourcePaneModel) updateProfileDetail(msg tea.Msg) (resourcePaneModel, 
 		return p, nil
 	}
 	switch key.String() {
+	case "left", "h":
+		detail.CycleFocusedField(-1)
+		return p, nil
+	case "right", "l":
+		detail.CycleFocusedField(1)
+		return p, nil
 	case "enter":
 		detail.BeginEdit()
 		return p, nil

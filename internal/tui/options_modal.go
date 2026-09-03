@@ -245,8 +245,10 @@ func (m OptionsModalModel) DetailView() string {
 		builder.WriteString(m.styles.Selected.Render("Draft retained  s:retry  Esc:cancel"))
 	} else if m.modified {
 		builder.WriteString(m.styles.Selected.Render("Unsaved changes  s:save"))
+	} else if option.Kind == config.KindPath {
+		builder.WriteString(m.styles.Dim.Render("Enter:edit"))
 	} else {
-		builder.WriteString(m.styles.Dim.Render("Enter:edit  ←/→:change"))
+		builder.WriteString(m.styles.Dim.Render("←/→:change"))
 	}
 	return builder.String()
 }

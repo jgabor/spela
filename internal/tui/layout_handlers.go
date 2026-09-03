@@ -236,6 +236,13 @@ func (m LayoutModel) bindingContext() BindingContext {
 	context := BindingContext{
 		Mode: m.inputMode, Focus: m.focus, Destination: m.navState.Destination, GameScope: m.navState.Scope.Kind == nav.ScopeGame, Aspect: m.navState.Aspect, HasBackup: m.pane.content.hasBackup, DLLSection: m.navState.DLLCatalogSection,
 	}
+	context.ListGroups = context.Destination == nav.DestinationDLLCatalog || context.Destination == nav.DestinationSettings
+	if context.Destination == nav.DestinationSettings {
+		option := m.pane.settings.getCurrentOption()
+		context.DetailAdjustable = option != nil && len(option.Choices) > 0
+	} else if context.Destination == nav.DestinationLibrary && !context.GameScope && context.Aspect == nav.AspectProfile {
+		context.DetailAdjustable = len(rootFieldOptions(m.pane.defaultsDetail.FocusedField())) > 0
+	}
 	if m.pane.Editing() {
 		context.Mode = ModeEdit
 		return context

@@ -11,6 +11,36 @@ import (
 	"github.com/jgabor/spela/internal/gpu"
 )
 
+func TestFreshMinimumLayoutClosesLongPathDetailBorder(t *testing.T) {
+	entry := testGame("Cyberpunk 2077")
+	entry.InstallDir = "/tmp/" + strings.Repeat("deterministic-long-install-path/", 8)
+	entry.PrefixPath = "/tmp/" + strings.Repeat("deterministic-long-prefix-path/", 8)
+	layout := testLayoutWithGame(entry)
+	layout.width, layout.height = minimumTerminalWidth, minimumTerminalHeight
+	layout.calculateDimensions()
+
+	view := stripANSI(layout.View().Content)
+	lines := strings.Split(view, "\n")
+	detailTop := -1
+	for index, line := range lines {
+		line = strings.TrimRight(line, " ")
+		if strings.Contains(line, "Detail") && strings.HasSuffix(line, "╮") {
+			detailTop = index
+			break
+		}
+	}
+	if detailTop < 0 {
+		t.Fatalf("80x24 Detail top border is missing:\n%s", view)
+	}
+	for _, line := range lines[detailTop+1:] {
+		line = strings.TrimRight(line, " ")
+		if strings.HasPrefix(line, "╰") && strings.HasSuffix(line, "╯") {
+			return
+		}
+	}
+	t.Fatalf("80x24 long-path Detail bottom border is missing:\n%s", view)
+}
+
 func TestLayoutViewportContract(t *testing.T) {
 	t.Parallel()
 
