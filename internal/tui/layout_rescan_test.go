@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jgabor/spela/internal/config"
@@ -44,4 +45,22 @@ func TestLayout_RescanUsesScanGamesService(t *testing.T) {
 	if len(rescanMsg.db.Games) != 1 {
 		t.Fatalf("expected scanned database, got %d games", len(rescanMsg.db.Games))
 	}
+}
+
+func TestLayout_SavedSteamPathAppliesToFutureManualScans(t *testing.T) {
+	if description := config.OptionByKey("steam_path").Description; !strings.Contains(description, "future manual scans") || !strings.Contains(description, "when Spela next starts") {
+		t.Fatalf("Steam path timing description = %q", description)
+	}
+
+	m := testLayout()
+	desired := m.config.Clone()
+	desired.SteamPath = "/new/steam"
+	m, _ = m.handleAppMessages(optionsSavedMsg{config: desired}, nil)
+	m.services.ScanGames = func(cfg *config.Config) (*game.Database, error) {
+		if cfg.SteamPath != desired.SteamPath {
+			t.Fatalf("manual rescan Steam path = %q, want %q", cfg.SteamPath, desired.SteamPath)
+		}
+		return testDatabase(), nil
+	}
+	execCmd(m.rescanGames())
 }

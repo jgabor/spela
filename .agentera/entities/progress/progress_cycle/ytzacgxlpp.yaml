@@ -1,0 +1,15 @@
+id: ytzacgxlpp
+artifact: progress
+record:
+  timestamp: 2026-09-03 17:37
+  type: fix
+  phase: build
+  what: Corrected the Steam path timing contract after audit-1 and proved saved paths feed same-process manual rescans.
+  context:
+    intent: Fix only audit-1's inaccurate Steam path effect timing.
+    constraints: Preserve accepted Task 5 behavior and audit-1 state; do not add deferred configuration machinery or touch decision, health, docs, vision, objective, or profile state.
+    scope: internal/config Steam path description, focused TUI rescan regression, and persisted audit/progress state.
+  discovered: Saving replaces the layout's live configuration, and Ctrl+R passes that configuration to Steam scanning; restart is not required for a later manual rescan.
+  verified: go test ./internal/config ./internal/tui, mage test, mage lint, and mage build passed. Isolated Terminal Control at 120x40 showed the timing text, exact path draft, Settings saved feedback, and Ctrl+R changing the fixture library from Old Game to New Game. At 80x24 the wrapped timing text, saved new path, and successful Ctrl+R feedback remained visible. Sessions stopped, stale socket removed, and /tmp fixture removed.
+  next: Keep txuxsmwydo in_progress for independent audit-2.
+  publication_order: 10

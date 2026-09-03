@@ -14,3 +14,13 @@ record:
     - GIVEN an effect is immediate or restart-required WHEN the setting is shown and saved THEN that timing is stated and honored through restart.
     - GIVEN a valid existing YAML configuration WHEN one visible setting is saved and the TUI restarts THEN every supported key and value not explicitly changed, including theme and confirmation values, remains intact and success or failure is visibly verified.
   plan: ajcnhmbmoh
+  evaluation:
+    attempt_count: 1
+    failure_count: 1
+    last_verdict: fail
+    last_failure_evidence: "Steam path says next start/requires restart but a same-process manual rescan uses the saved path; internal/config/options.go:74, internal/tui/layout_handlers.go:416-423, internal/tui/layout.go:629-634, internal/steam/refresh.go:41-45. Verify with: git grep -n -E 'optionsSavedMsg|ActionRescanLibrary|func \\(m LayoutModel\\) rescanGames|SteamPath|func scanPaths' -- internal/tui/layout.go internal/tui/layout_handlers.go internal/steam/refresh.go internal/config/options.go"
+    provenance:
+      attempt_id: audit-1
+      source: independent acceptance and progress evidence audit
+      recorded_at: 2026-09-03 16:43
+      writer_command: agentera state plan record-evaluation
