@@ -166,7 +166,7 @@ func (m ContentModel) updateDLLKey(msg tea.KeyPressMsg) (ContentModel, tea.Cmd, 
 		m.dllOperating = true
 		m.dllOperatingLabel = "Updating DLLs..."
 		return m, m.updateDLLs(), true
-	case "ctrl+shift+r":
+	case "f6":
 		if m.game != nil && m.hasBackup && !m.dllOperating {
 			if m.confirmDestructive {
 				m.pendingAction = PendingDLLRestore

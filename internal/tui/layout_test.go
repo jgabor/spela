@@ -64,6 +64,20 @@ func TestLayout_HelpQCloses(t *testing.T) {
 	}
 }
 
+func TestLayout_HelpCtrlCQuits(t *testing.T) {
+	m := testLayout()
+	result, _ := sendKey(&m, "?")
+	layout := result.(LayoutModel)
+
+	_, command := sendKey(&layout, "ctrl+c")
+	if command == nil {
+		t.Fatal("expected Ctrl+C to quit while help is open")
+	}
+	if _, ok := command().(tea.QuitMsg); !ok {
+		t.Fatalf("Ctrl+C command returned %T, want tea.QuitMsg", command())
+	}
+}
+
 func TestLayout_HelpBlocksOtherKeys(t *testing.T) {
 	m := testLayout()
 	result, _ := sendKey(&m, "?")

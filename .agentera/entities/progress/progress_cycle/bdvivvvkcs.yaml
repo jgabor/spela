@@ -1,0 +1,16 @@
+id: bdvivvvkcs
+artifact: progress
+record:
+  timestamp: 2026-09-03 12:11
+  type: fix
+  phase: build
+  what: Made TUI guidance match executable context and replaced the non-portable restore chord with F6.
+  context:
+    intent: Make guidance match executable actions.
+    constraints: Only gaewoncior; preserve prior task behavior and state; no DLL mutation or unrelated TUI cleanup.
+    unknowns: "Resolved: Ctrl+Shift+R is not portable; restore uses F6."
+    scope: internal/tui guidance, key routing, proportional tests, and the matching Unreleased note.
+  discovered: Traditional terminal input cannot reliably distinguish Ctrl+Shift+R from Ctrl+R; F6 is a distinct, non-conflicting escape sequence.
+  verified: go test ./internal/tui -count=1 passed; mage test passed; mage lint passed with 0 issues; mage build produced ./spela and the Wails binary; git diff --check passed. Isolated Terminal Control at 120x40 and 80x24 showed contextual Help/footer guidance, omitted search and mutations in DLL Catalog, readable grouped labels, current actions before overflow, Escape cancellation, Ctrl+C quit, and F6 ignored where restore was unavailable. No DLL mutation was confirmed and the session list was empty after cleanup.
+  next: Orchestrate independently evaluates gaewoncior and owns completion; the task remains in_progress.
+  publication_order: 4

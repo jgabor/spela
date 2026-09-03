@@ -1,6 +1,10 @@
 package tui
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/jgabor/spela/internal/nav"
+)
 
 func TestCanonicalKeymapReservesPrintableDestinationKeysForBrowse(t *testing.T) {
 	tests := []struct {
@@ -58,9 +62,29 @@ func TestKeymapAvailabilityDrivesLookupAndHelp(t *testing.T) {
 	if !resolution.Supported || resolution.Available || resolution.Reason != "nothing selected" {
 		t.Fatalf("lookup availability = supported %t, available %t, reason %q", resolution.Supported, resolution.Available, resolution.Reason)
 	}
-	help := keymap.HelpBindings(context)
-	if len(help) != 1 || help[0].Binding.Action != resolution.Binding.Action || help[0].Available != resolution.Available || help[0].Reason != resolution.Reason {
-		t.Fatalf("help binding does not reflect lookup: %#v vs %#v", help, resolution)
+	if help := keymap.HelpBindings(context); len(help) != 0 {
+		t.Fatalf("help advertised unavailable binding: %#v", help)
+	}
+}
+
+func TestCanonicalHelpOmitsUnavailableDestinationActions(t *testing.T) {
+	dllCatalog := CanonicalKeymap.HelpBindings(BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationDLLCatalog})
+	for _, action := range []KeyAction{ActionStartSearch, ActionRescanLibrary, ActionDetailInstall, ActionDetailUpdate, ActionDetailRestore} {
+		if hasHelpAction(dllCatalog, action) {
+			t.Fatalf("DLL Catalog help advertised unavailable action %q", action)
+		}
+	}
+
+	dllDetail := BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, GameScope: true, Aspect: nav.AspectDLLs, HasBackup: true}
+	if got := CanonicalKeymap.Lookup(dllDetail, "f6"); !got.Available || got.Binding.Action != ActionDetailRestore {
+		t.Fatalf("portable restore binding = %#v", got)
+	}
+	if got := CanonicalKeymap.Lookup(dllDetail, "ctrl+shift+r"); got.Supported {
+		t.Fatalf("non-portable restore binding remains supported: %#v", got)
+	}
+	dllDetail.HasBackup = false
+	if hasHelpAction(CanonicalKeymap.HelpBindings(dllDetail), ActionDetailRestore) {
+		t.Fatal("help advertised restore without a backup")
 	}
 }
 

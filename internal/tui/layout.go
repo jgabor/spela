@@ -463,17 +463,28 @@ func (m LayoutModel) updateVisibleList(key tea.KeyPressMsg) (LayoutModel, tea.Cm
 
 func (m LayoutModel) renderCanonicalStatus() string {
 	resolutions := CanonicalKeymap.HelpBindings(m.bindingContext())
-	keys := make([]ContextKey, 0, len(resolutions))
+	contextKeys := make([]ContextKey, 0, len(resolutions))
+	global := make([]ContextKey, 0, len(globalKeys))
 	for _, resolution := range resolutions {
+		var labels []string
 		for _, candidate := range resolution.Binding.Keys {
-			if candidate.Printable || candidate.Key == "ctrl+c" {
-				continue
+			if !candidate.Printable && candidate.Key != "ctrl+c" {
+				labels = append(labels, candidate.Label)
 			}
-			keys = append(keys, ContextKey{
-				Key: candidate.Label, Action: strings.ToLower(resolution.Binding.Description), Enabled: resolution.Available, Reason: resolution.Reason,
-			})
+		}
+		if len(labels) == 0 {
+			continue
+		}
+		key := ContextKey{Key: strings.Join(labels, "/"), Action: strings.ToLower(resolution.Binding.Description), Enabled: true}
+		if resolution.Binding.Scope == ScopeGlobal {
+			if resolution.Binding.Action == ActionShowHelp || resolution.Binding.Action == ActionQuit {
+				global = append(global, key)
+			}
+		} else {
+			contextKeys = append(contextKeys, key)
 		}
 	}
+	keys := append(contextKeys, global...)
 	return RenderContextBar(keys, m.width/2, &m.styles.Theme)
 }
 

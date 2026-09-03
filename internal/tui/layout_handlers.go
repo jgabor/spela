@@ -13,7 +13,9 @@ import (
 // handleBatchMenuKeys handles key input when the batch-action menu is visible.
 func (m LayoutModel) handleBatchMenuKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, bool) {
 	switch msg.String() {
-	case "esc", "q":
+	case "ctrl+c":
+		return m, tea.Quit, true
+	case "esc", "escape", "q":
 		m.showBatchMenu = false
 		m.batchGames = nil
 		return m, nil, true
@@ -34,7 +36,9 @@ func (m LayoutModel) handleBatchMenuKeys(msg tea.KeyPressMsg) (LayoutModel, tea.
 // handleHelpKeys handles key input when the help overlay is visible.
 func (m LayoutModel) handleHelpKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, bool) {
 	switch msg.String() {
-	case "?", "esc", "q":
+	case "ctrl+c":
+		return m, tea.Quit, true
+	case "?", "esc", "escape", "q":
 		m.showHelp = false
 	case "j", "down":
 		m.help.Move(1)
@@ -205,7 +209,7 @@ func (m LayoutModel) selectAdjacentLibraryAspect(delta int) LayoutModel {
 
 func (m LayoutModel) bindingContext() BindingContext {
 	context := BindingContext{
-		Mode: m.inputMode, Focus: m.focus, Destination: m.navState.Destination, GameScope: m.navState.Scope.Kind == nav.ScopeGame, Aspect: m.navState.Aspect,
+		Mode: m.inputMode, Focus: m.focus, Destination: m.navState.Destination, GameScope: m.navState.Scope.Kind == nav.ScopeGame, Aspect: m.navState.Aspect, HasBackup: m.pane.content.hasBackup,
 	}
 	if m.pane.Editing() {
 		context.Mode = ModeEdit

@@ -142,7 +142,7 @@ func (m ContentModel) renderDLLs() string {
 				actions = append(actions, "u:update")
 			}
 			if m.hasBackup {
-				actions = append(actions, "R:restore")
+				actions = append(actions, "F6:restore")
 			}
 			if m.hasBackup {
 				actions = append(actions, "(backup exists)")

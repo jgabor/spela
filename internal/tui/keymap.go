@@ -117,6 +117,7 @@ type BindingContext struct {
 	Destination nav.Destination
 	GameScope   bool
 	Aspect      nav.Aspect
+	HasBackup   bool
 }
 
 // Availability lets behavior and help make the same enabled/disabled
@@ -157,6 +158,9 @@ func NewKeymap(bindings ...KeyBinding) Keymap {
 // Exact-mode bindings win over ModeAny bindings; within either group, the
 // visibly focused pane wins over global scope.
 func (k Keymap) Lookup(context BindingContext, key string) BindingResolution {
+	if key == "escape" {
+		key = "esc"
+	}
 	var unavailable *BindingResolution
 	for _, exactMode := range []bool{true, false} {
 		for _, exactFocus := range []bool{true, false} {
@@ -192,8 +196,7 @@ func (k Keymap) Lookup(context BindingContext, key string) BindingResolution {
 	}
 }
 
-// HelpBindings returns the same applicable bindings used by Lookup. Disabled
-// bindings remain present so help can render their availability and reason.
+// HelpBindings returns actions that Lookup can execute in the current context.
 func (k Keymap) HelpBindings(context BindingContext) []BindingResolution {
 	results := make([]BindingResolution, 0, len(k.bindings))
 	for _, binding := range k.bindings {
@@ -204,6 +207,9 @@ func (k Keymap) HelpBindings(context BindingContext) []BindingResolution {
 			continue
 		}
 		available, reason := bindingAvailability(binding, context)
+		if !available {
+			continue
+		}
 		results = append(results, BindingResolution{
 			Binding: binding, Available: available, Reason: reason, Supported: true,
 		})
@@ -260,6 +266,26 @@ func libraryProfileAvailable(context BindingContext) (bool, string) {
 	return true, ""
 }
 
+func libraryDLLAvailable(context BindingContext) (bool, string) {
+	if available, reason := libraryGameAvailable(context); !available {
+		return false, reason
+	}
+	if context.Aspect != nav.AspectDLLs {
+		return false, "open DLLs"
+	}
+	return true, ""
+}
+
+func libraryDLLRestoreAvailable(context BindingContext) (bool, string) {
+	if available, reason := libraryDLLAvailable(context); !available {
+		return false, reason
+	}
+	if !context.HasBackup {
+		return false, "no backup"
+	}
+	return true, ""
+}
+
 func settingsAvailable(context BindingContext) (bool, string) {
 	if context.Destination != nav.DestinationSettings {
 		return false, "Settings only"
@@ -306,10 +332,10 @@ var CanonicalKeymap = NewKeymap(
 	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionCancelDraft, Description: "Discard changes", Keys: []KeyLabel{key("esc", "Esc")}, Availability: settingsAvailable},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailReset, Description: "Reset field", Keys: []KeyLabel{key("r", "r")}, Availability: libraryProfileAvailable},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailResetAll, Description: "Reset all fields", Keys: []KeyLabel{key("R", "R")}, Availability: libraryProfileAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailInstall, Description: "Install DLL", Keys: []KeyLabel{key("i", "i")}},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailUpdate, Description: "Update stale DLLs", Keys: []KeyLabel{key("u", "u"), key("U", "U"), key("ctrl+u", "Ctrl+U")}},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailRestore, Description: "Restore DLLs", Keys: []KeyLabel{key("ctrl+shift+r", "Ctrl+Shift+R")}},
-	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionStartSearch, Description: "Search", Keys: []KeyLabel{key("/", "/"), key("ctrl+f", "Ctrl+F")}},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailInstall, Description: "Install DLL", Keys: []KeyLabel{key("i", "i")}, Availability: libraryDLLAvailable},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailUpdate, Description: "Update stale DLLs", Keys: []KeyLabel{key("u", "u"), key("U", "U"), key("ctrl+u", "Ctrl+U")}, Availability: libraryDLLAvailable},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailRestore, Description: "Restore DLLs", Keys: []KeyLabel{key("f6", "F6")}, Availability: libraryDLLRestoreAvailable},
+	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionStartSearch, Description: "Search", Keys: []KeyLabel{key("/", "/"), key("ctrl+f", "Ctrl+F")}, Availability: libraryAvailable},
 	KeyBinding{Mode: ModeSearch, Scope: ScopeSearch, Action: ActionSearchCancel, Description: "Cancel search", Keys: []KeyLabel{key("esc", "Esc")}},
 	KeyBinding{Mode: ModeSearch, Scope: ScopeSearch, Action: ActionSearchAccept, Description: "Accept search", Keys: []KeyLabel{key("enter", "Enter")}},
 	KeyBinding{Mode: ModeSearch, Scope: ScopeSearch, Action: ActionSearchDelete, Description: "Delete character", Keys: []KeyLabel{key("backspace", "Backspace")}},

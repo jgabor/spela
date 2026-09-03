@@ -70,7 +70,7 @@ func canonicalHelpSection(context BindingContext) HelpSection {
 			description += " (" + resolution.Reason + ")"
 		}
 		section.Bindings = append(section.Bindings, HelpBinding{
-			Key: strings.Join(labels, "/"), Description: description,
+			Key: strings.Join(labels, " / "), Description: description,
 		})
 	}
 	return section
@@ -84,15 +84,15 @@ func (m HelpModel) View() string {
 		}
 	}
 	if m.height == 0 {
-		return strings.Join(lines, "\n") + m.styles.Dim.Render("Press ? or Esc to close")
+		return strings.Join(lines, "\n") + m.styles.Dim.Render("?, q, Esc close • Ctrl+C quits")
 	}
 	visible := max(m.height-2, 1)
 	if len(lines) <= visible {
-		return strings.Join(lines, "\n") + "\n" + m.styles.Dim.Render("Press ? or Esc to close")
+		return strings.Join(lines, "\n") + "\n" + m.styles.Dim.Render("?, q, Esc close • Ctrl+C quits")
 	}
 	end := min(m.offset+visible, len(lines))
 	position := m.styles.Dim.Render(fmt.Sprintf("↑/↓ scroll  %d-%d/%d", m.offset+1, end, len(lines)))
-	return strings.Join(lines[m.offset:end], "\n") + "\n" + position + "\n" + m.styles.Dim.Render("Press ? or Esc to close")
+	return strings.Join(lines[m.offset:end], "\n") + "\n" + position + "\n" + m.styles.Dim.Render("?, q, Esc close • Ctrl+C quits")
 }
 
 func (m HelpModel) content() string {
@@ -107,7 +107,7 @@ func (m HelpModel) content() string {
 
 	keyStyle := s.Normal.
 		Foreground(t.Accent).
-		Width(12)
+		Width(18)
 
 	descStyle := s.Normal.
 		Foreground(t.Text)
@@ -191,33 +191,14 @@ func RenderContextBar(keys []ContextKey, width int, theme *Theme) string {
 		return disabledStyle.Render(text)
 	}
 
-	globalCount := len(globalKeys)
-	if globalCount > len(keys) {
-		globalCount = len(keys)
-	}
-	contextKeys := keys[:len(keys)-globalCount]
-	suffixKeys := keys[len(keys)-globalCount:]
-
-	suffixParts := make([]string, len(suffixKeys))
-	for i, k := range suffixKeys {
-		suffixParts[i] = renderKey(k)
-	}
-	suffix := strings.Join(suffixParts, contextKeySeparator)
-	suffixWidth := lipgloss.Width(suffix)
-
-	if suffixWidth >= width {
-		return suffix
-	}
-
 	ellipsis := "..."
 	ellipsisWidth := len(ellipsis)
-	budget := width - suffixWidth - len(contextKeySeparator)
 
 	var rendered []string
 	usedWidth := 0
 	truncated := false
 
-	for i, ck := range contextKeys {
+	for i, ck := range keys {
 		part := renderKey(ck)
 		partWidth := lipgloss.Width(part)
 
@@ -227,18 +208,18 @@ func RenderContextBar(keys []ContextKey, width int, theme *Theme) string {
 		}
 
 		needed := partWidth + separatorWidth
-		remaining := len(contextKeys) - i - 1
+		remaining := len(keys) - i - 1
 		reserveEllipsis := 0
 		if remaining > 0 {
 			reserveEllipsis = ellipsisWidth + len(contextKeySeparator)
 		}
 
-		if usedWidth+needed+reserveEllipsis > budget && remaining > 0 {
+		if usedWidth+needed+reserveEllipsis > width && remaining > 0 {
 			truncated = true
 			break
 		}
 
-		if usedWidth+needed > budget {
+		if usedWidth+needed > width {
 			truncated = true
 			break
 		}
@@ -251,6 +232,5 @@ func RenderContextBar(keys []ContextKey, width int, theme *Theme) string {
 		rendered = append(rendered, ellipsis)
 	}
 
-	rendered = append(rendered, suffix)
 	return strings.Join(rendered, contextKeySeparator)
 }

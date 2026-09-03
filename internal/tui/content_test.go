@@ -115,14 +115,14 @@ func TestContent_Update_NoUpdatesFeedback(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContent_Restore_WithConfirmation(t *testing.T) {
-	// Task 5 displaced the restore DLLs binding from "R" to "ctrl+shift+r"
-	// so bare Shift+R can reset the entire profile to inherited.
+	// F6 is distinguishable on terminals that cannot distinguish Ctrl+Shift+R,
+	// leaving bare Shift+R available to reset the entire profile to inherited.
 	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	m := testContent(g)
 	m.hasBackup = true
 	m.confirmDestructive = true
 
-	result, cmd := m.Update(keyMsg("ctrl+shift+r"))
+	result, cmd := m.Update(keyMsg("f6"))
 	if result.pendingAction != PendingDLLRestore {
 		t.Errorf("expected PendingDLLRestore, got %d", result.pendingAction)
 	}
@@ -144,9 +144,9 @@ func TestContent_Restore_NoBackupIgnored(t *testing.T) {
 	m := testContent(g)
 	m.hasBackup = false
 
-	_, cmd := m.Update(keyMsg("ctrl+shift+r"))
+	_, cmd := m.Update(keyMsg("f6"))
 	if cmd != nil {
-		t.Error("expected ctrl+shift+r to be ignored when no backup exists")
+		t.Error("expected F6 to be ignored when no backup exists")
 	}
 }
 

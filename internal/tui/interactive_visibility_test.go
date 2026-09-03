@@ -55,7 +55,7 @@ func TestHelpFitsAndScrollsToEveryLineWithCloseGuidance(t *testing.T) {
 	help.SetHeight(10)
 	help.Move(1000)
 	view := stripANSI(help.View())
-	if !strings.Contains(view, "Press ? or Esc to close") || !strings.Contains(view, "/30") || lipgloss.Height(help.View()) > 10 {
+	if !strings.Contains(view, "?, q, Esc close • Ctrl+C quits") || !strings.Contains(view, "↑/↓ scroll") || lipgloss.Height(help.View()) > 10 {
 		t.Fatalf("overflowing help did not expose its bounded final position:\n%s", view)
 	}
 }

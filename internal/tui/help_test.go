@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"charm.land/lipgloss/v2"
+	"github.com/jgabor/spela/internal/nav"
 )
 
 func TestRenderContextBar_EmptyKeys(t *testing.T) {
@@ -55,8 +56,24 @@ func TestRenderContextBar_Truncation(t *testing.T) {
 		{Key: "q", Action: "quit", Enabled: true},
 	}
 	result := RenderContextBar(keys, 40, &DefaultTheme)
-	if !strings.Contains(result, "...") || !strings.Contains(result, "quit") {
-		t.Errorf("narrow bar did not preserve truncation and global keys: %q", result)
+	if !strings.Contains(result, "...") || !strings.Contains(result, "navigate") {
+		t.Errorf("narrow bar did not preserve the first current action and truncation: %q", result)
+	}
+}
+
+func TestRenderContextBar_PreservesCurrentActionBeforeOverflow(t *testing.T) {
+	keys := append([]ContextKey{{Key: "F6", Action: "restore DLLs", Enabled: true}, {Key: "i", Action: "install DLL", Enabled: true}}, globalKeys...)
+	result := stripANSI(RenderContextBar(keys, 38, &DefaultTheme))
+	if !strings.Contains(result, "F6:restore DLLs") || !strings.Contains(result, "...") {
+		t.Fatalf("narrow bar did not prioritize current action before overflow: %q", result)
+	}
+}
+
+func TestHelpGroupsAlternativeKeysWithReadableSpacing(t *testing.T) {
+	context := BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, GameScope: true, Aspect: nav.AspectDLLs, HasBackup: true}
+	out := NewHelpForContext(NewStyles(DefaultTheme, true), context).View()
+	if !strings.Contains(out, "u / U / Ctrl+U") || !strings.Contains(out, "F6") || strings.Contains(out, "Ctrl+Shift+R") {
+		t.Fatalf("help key labels are inconsistent:\n%s", out)
 	}
 }
 

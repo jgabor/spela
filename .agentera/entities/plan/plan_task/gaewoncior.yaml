@@ -6,7 +6,7 @@ record:
     - efdydreiqj
     - vtflntmzjw
     - xlnuugbhom
-  status: pending
+  status: in_progress
   acceptance:
     - GIVEN Help, footer, or inline guidance is visible WHEN the documented key is pressed in that context THEN the described action occurs.
     - GIVEN a destination does not support search or a mutation WHEN guidance renders THEN that action is absent rather than advertised as available.
