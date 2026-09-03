@@ -13,7 +13,7 @@ record:
     - lamvzkrgxu
     - zyfnmqxuce
     - pzlcvsmusb
-  status: pending
+  status: in_progress
   acceptance:
     - GIVEN all implementation tasks are complete WHEN full project tests, lint, build, and tagged TUI acceptance run THEN every required check passes.
     - GIVEN the compiled TUI WHEN final visual review runs THEN every destination is inspected at 120x40, a fresh 80x24 launch, and below-minimum recovery.

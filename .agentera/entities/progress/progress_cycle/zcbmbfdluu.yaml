@@ -1,0 +1,15 @@
+id: zcbmbfdluu
+artifact: progress
+record:
+  timestamp: 2026-09-03 20:12
+  type: docs
+  phase: build
+  what: Completed final current-state sync for task khxrxyxlzi and corrected stale TUI visibility and save-timing cells in docs/configuration.md.
+  context:
+    intent: Reconcile every original TUI QA family against current behavior without redesign.
+    constraints: Use local ./spela and isolated temporary state; preserve completed and superseded history; leave khxrxyxlzi in_progress for audit.
+    scope: Full checks, compiled Terminal Control review, contract comparison, cleanup, and evidence publication.
+  discovered: The configuration matrix still advertised GUI-only controls in the TUI and said show_hints changed before save; implementation, tests, and rendered Settings showed only show_hints, rescan_on_startup, and steam_path are TUI-editable and hints apply after save.
+  verified: mage test, mage lint, mage build, go tool mage TestTUIE2E, and git diff --check passed twice. Local ./spela with /tmp/spela-final-review rendered Library Overview/Profile/DLLs; DLL Catalog Library/Deployment; Monitor GPU/CPU/Alerts; all Settings groups; Help; search/no-match; selection; and DLL cancellation at 120x40. A fresh 80x24 launch was bounded and operative; 72x20 showed the 80x24 requirement, recovered after resize, and q quit below minimum. Tests and screens reconcile geometry/header/help/Monitor; Profile scrolling and h/l input; Escape/multi-select; DLL confirmation/cancel/targets/outcomes/naming/states; Settings saved-vs-draft/timing/YAML; Help/footer/F6; messages; no-match detail; Library startup/aspect/Overview; Monitor semantics; empty/error/focused paths; and current Terminal Control transport. No deferments remain. The fixture was removed, termctrl list was empty, no source-user path was used, and no E2E fixture or binary directory remained.
+  next: Independent audit khxrxyxlzi; keep the task in_progress and leave plan closure health to Orchestrate.
+  publication_order: 20

@@ -12,7 +12,7 @@ record:
     - tvubizjmml
     - lamvzkrgxu
     - zyfnmqxuce
-  status: in_progress
+  status: complete
   acceptance:
     - GIVEN the TUI end-to-end target WHEN it runs THEN Terminal Control is the interactive transport and no retired tmux-only contract remains.
     - GIVEN any acceptance session WHEN it starts and ends THEN it uses a unique name, waits for visible readiness, asserts rendered output, avoids fixed sleeps, and is always stopped.
@@ -21,12 +21,12 @@ record:
     - GIVEN standard and constrained journeys WHEN the target completes THEN 120x40 and fresh 80x24 success plus failure or cancellation paths pass without leaked sessions or fixture directories.
   plan: ajcnhmbmoh
   evaluation:
-    attempt_count: 1
+    attempt_count: 2
     failure_count: 1
-    last_verdict: fail
+    last_verdict: pass
     last_failure_evidence: "Tagged E2E leaves per-session Terminal Control .lock artifacts after stop; tests/e2e/terminal_client.go:84-90 only calls termctrl stop. Verify: git show bbb2222:tests/e2e/terminal_client.go | nl -ba | sed -n '74,91p'"
     provenance:
-      attempt_id: audit-1
+      attempt_id: audit-2
       source: independent acceptance and progress evidence audit
-      recorded_at: 2026-09-03 19:57
+      recorded_at: 2026-09-03 20:05
       writer_command: agentera state plan record-evaluation
