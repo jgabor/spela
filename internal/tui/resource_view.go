@@ -85,6 +85,7 @@ func (p resourcePaneModel) State() nav.State {
 
 func (p *resourcePaneModel) SetSize(width, height int) {
 	p.width, p.height = width, height
+	p.overview.SetSize(width-4, max(height-3, 1))
 	p.content.SetSize(width-4, height)
 	p.defaultsDetail.SetSize(width-4, max(height-5, 1))
 	p.dllsResource.SetSize(width-4, height)
@@ -127,6 +128,21 @@ func (p resourcePaneModel) renderLibrary(_ bool) string {
 	s := p.styles
 
 	var body strings.Builder
+	if p.State().Scope.Kind == nav.ScopeGame && p.content.game != nil {
+		for index, label := range nav.AspectLabels {
+			if index > 0 {
+				body.WriteString("  ")
+			}
+			if nav.Aspect(index) == p.State().Aspect {
+				body.WriteString(s.Selected.Render("[" + label + "]"))
+			} else {
+				body.WriteString(s.Dim.Render(label))
+			}
+		}
+		body.WriteString("\n")
+		body.WriteString(s.Dim.Render("[ / ] change view"))
+		body.WriteString("\n\n")
+	}
 	switch p.State().Aspect {
 	case nav.AspectOverview:
 		if p.State().Scope.Kind != nav.ScopeGame {
@@ -202,7 +218,12 @@ func (p resourcePaneModel) updateLibrary(msg tea.Msg) (resourcePaneModel, tea.Cm
 	switch p.State().Aspect {
 	case nav.AspectProfile:
 		return p.updateProfileDetail(msg)
-	case nav.AspectDLLs, nav.AspectOverview:
+	case nav.AspectOverview:
+		if p.State().Scope.Kind == nav.ScopeGame {
+			p.overview = p.overview.Update(msg)
+		}
+		return p, nil
+	case nav.AspectDLLs:
 		if p.State().Scope.Kind == nav.ScopeGame {
 			content, cmd := p.content.Update(msg)
 			p.content = content

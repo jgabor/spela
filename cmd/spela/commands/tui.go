@@ -10,6 +10,7 @@ import (
 	"github.com/jgabor/spela/internal/lock"
 	"github.com/jgabor/spela/internal/steam"
 	"github.com/jgabor/spela/internal/tui"
+	"github.com/jgabor/spela/internal/xdg"
 )
 
 var TUICmd = &cobra.Command{
@@ -32,17 +33,12 @@ func runTUI(cmd *cobra.Command, args []string) error {
 
 	cfg, err := config.Load()
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Cannot load Spela configuration %s: %v\nFix the YAML or remove the file to restore defaults.\n", xdg.ConfigPath("config.yaml"), err)
+		return nil
 	}
 	db, err = steam.RefreshIfNeeded(db, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to refresh game database: %w", err)
 	}
-
-	if len(db.Games) == 0 {
-		fmt.Println("No games found. Run 'spela scan' first.")
-		return nil
-	}
-
 	return tui.Run(db)
 }

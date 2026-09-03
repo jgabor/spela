@@ -7,7 +7,7 @@ record:
     - vtflntmzjw
     - xlnuugbhom
     - gaewoncior
-  status: pending
+  status: in_progress
   acceptance:
     - GIVEN a populated library starts WHEN the first screen appears THEN the user sees an understandable library or game overview rather than an unexplained advanced profile editor.
     - GIVEN a selected game WHEN the user examines Detail THEN visible Overview, Profile, and DLL choices identify the current view and work from documented focus states.

@@ -155,7 +155,7 @@ func TestSidebarSupportedRenderedSelectionFilterAndBatchStates(t *testing.T) {
 		t.Fatal("search focus contract failed")
 	}
 	sidebar, _ = sidebar.Update(keyMsg("z"))
-	if view := stripANSI(sidebar.View()); !strings.Contains(view, "No games found") {
+	if view := stripANSI(sidebar.View()); !strings.Contains(view, `No games match "z"`) || !strings.Contains(view, "Esc, then C to clear search") {
 		t.Fatalf("empty filtered sidebar:\n%s", view)
 	}
 	sidebar, _ = sidebar.Update(keyMsg("esc"))

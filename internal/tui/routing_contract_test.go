@@ -75,6 +75,7 @@ func TestSearchConsumesReservedKeysBeforeGlobals(t *testing.T) {
 
 func TestProfileEditConsumesPrintableDestinationShortcut(t *testing.T) {
 	layout := testLayout()
+	layout.pane.loadGlobalScope()
 	layout.focus = FocusDetail
 	if !layout.pane.defaultsDetail.BeginEdit() {
 		t.Fatal("could not start profile editor")

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/profile"
 )
@@ -15,6 +17,31 @@ type OverviewModel struct {
 	profile  *profile.Profile
 	defaults *profile.Profile
 	raw      *profile.Profile
+	width    int
+	height   int
+	offset   int
+}
+
+func (m *OverviewModel) SetSize(width, height int) {
+	m.width, m.height = width, height
+}
+
+func (m OverviewModel) Update(message tea.Msg) OverviewModel {
+	key, ok := message.(tea.KeyPressMsg)
+	if !ok {
+		return m
+	}
+	switch key.String() {
+	case "j", "down":
+		m.offset++
+	case "k", "up":
+		m.offset = max(m.offset-1, 0)
+	case "pgdown":
+		m.offset += max(m.height-1, 1)
+	case "pgup":
+		m.offset = max(m.offset-max(m.height-1, 1), 0)
+	}
+	return m
 }
 
 func NewOverview(styles *Styles) OverviewModel {
@@ -23,6 +50,7 @@ func NewOverview(styles *Styles) OverviewModel {
 
 func (m OverviewModel) SetGame(g *game.Game, svc *Services) OverviewModel {
 	m.game = g
+	m.offset = 0
 	if g == nil || svc == nil {
 		return m
 	}
@@ -46,10 +74,11 @@ func (m OverviewModel) View() string {
 	b.WriteString(s.Title.Render(m.game.Name))
 	b.WriteString("\n\n")
 
-	fmt.Fprintf(&b, "App ID:      %d\n", m.game.AppID)
-	fmt.Fprintf(&b, "Install dir: %s\n", m.game.InstallDir)
+	b.WriteString(s.Dim.Render("Location"))
+	b.WriteString("\n")
+	writeOverviewPath(&b, "Install directory", m.game.InstallDir, m.width)
 	if m.game.PrefixPath != "" {
-		fmt.Fprintf(&b, "Prefix:      %s\n", m.game.PrefixPath)
+		writeOverviewPath(&b, "Proton prefix", m.game.PrefixPath, m.width)
 	}
 
 	overrideCount := 0
@@ -57,16 +86,13 @@ func (m OverviewModel) View() string {
 		overrideCount = len(m.raw.Overrides)
 	}
 	b.WriteString("\n")
-	b.WriteString(s.Dim.Render("Profile"))
+	b.WriteString(s.Dim.Render("Status"))
 	b.WriteString("\n")
-	fmt.Fprintf(&b, "  Overrides: %d\n", overrideCount)
-
-	b.WriteString("\n")
-	b.WriteString(s.Dim.Render("DLL status"))
-	b.WriteString("\n")
+	fmt.Fprintf(&b, "  Profile overrides: %d\n", overrideCount)
 	if len(m.game.DLLs) == 0 {
-		b.WriteString("  (none detected)\n")
+		b.WriteString("  DLLs: none detected\n")
 	} else {
+		b.WriteString("  DLLs:")
 		for _, col := range dllDisplayColumns {
 			version := "-"
 			for _, d := range m.game.DLLs {
@@ -78,13 +104,33 @@ func (m OverviewModel) View() string {
 					break
 				}
 			}
-			fmt.Fprintf(&b, "  %-8s %s\n", col.columnName+":", version)
+			if version != "-" {
+				fmt.Fprintf(&b, " %s %s", col.columnName, version)
+			}
 		}
+		b.WriteString("\n")
 	}
 
 	b.WriteString("\n")
-	b.WriteString(s.Dim.Render("Launch via Steam: spela %command%"))
+	b.WriteString(s.Dim.Render("Steam launch options"))
+	b.WriteString("\n  spela %command%\n")
+	b.WriteString(s.Dim.Render(fmt.Sprintf("App ID %d", m.game.AppID)))
 	b.WriteString("\n")
 
-	return strings.TrimRight(b.String(), "\n") + "\n"
+	lines := strings.Split(strings.TrimRight(b.String(), "\n"), "\n")
+	visible := max(m.height, 1)
+	m.offset = min(m.offset, max(len(lines)-visible, 0))
+	end := min(m.offset+visible, len(lines))
+	return strings.Join(lines[m.offset:end], "\n") + "\n"
+}
+
+func writeOverviewPath(b *strings.Builder, label, path string, width int) {
+	fmt.Fprintf(b, "  %s:\n", label)
+	const indent = "    "
+	lineWidth := max(width-len(indent)-2, 20)
+	for len(path) > lineWidth {
+		fmt.Fprintf(b, "%s%s\n", indent, path[:lineWidth])
+		path = path[lineWidth:]
+	}
+	fmt.Fprintf(b, "%s%s\n", indent, path)
 }

@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"net/http"
@@ -72,12 +73,33 @@ func TestListSupportedTextFlow(t *testing.T) {
 	if output := executeSupportedCommand(t, ListCmd); !strings.Contains(output, "No games found") {
 		t.Fatalf("empty list output:\n%s", output)
 	}
-	if output := executeSupportedCommand(t, TUICmd); !strings.Contains(output, "No games found") {
-		t.Fatalf("empty TUI output:\n%s", output)
-	}
 	seedGame(t, "Cyberpunk 2077", 1091500)
 	if output := executeSupportedCommand(t, ListCmd); !strings.Contains(output, "Cyberpunk 2077") {
 		t.Fatalf("text list output:\n%s", output)
+	}
+}
+
+func TestTUIReportsMalformedConfigWithoutUsage(t *testing.T) {
+	state := withTempXDG(t)
+	t.Setenv("HOME", state+"/home")
+	t.Setenv("XDG_RUNTIME_DIR", state+"/runtime")
+	configDir := filepath.Join(state, "config", "spela")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(configDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte("show_hints: ["), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stderr bytes.Buffer
+	command := &cobra.Command{}
+	command.SetErr(&stderr)
+	if err := runTUI(command, nil); err != nil {
+		t.Fatal(err)
+	}
+	output := stderr.String()
+	if !strings.Contains(output, configPath) || !strings.Contains(output, "Fix the YAML or remove the file") || strings.Contains(output, "Usage:") {
+		t.Fatalf("malformed config recovery:\n%s", output)
 	}
 }
 

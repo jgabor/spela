@@ -1,0 +1,14 @@
+id: omidjinkiz
+artifact: progress
+record:
+  timestamp: 2026-09-03 16:22
+  type: fix
+  phase: build
+  what: Simplified Library startup and recovery around a game-first Overview, explicit Detail aspects, cleared no-match state, readable paths, and actionable empty or malformed-configuration recovery.
+  context:
+    intent: Make Library startup and recovery understandable without entering adjacent plan tasks.
+    constraints: Preserve keyboard, geometry, scrolling, guidance, and Help behavior through a8da3ea; use only isolated fixtures.
+    scope: Library startup, game Overview and aspects, no-match state, empty-library recovery, and malformed config reporting.
+  verified: Focused Go tests passed; mage test passed; mage build passed. Isolated Terminal Control showed populated startup, Overview/Profile/DLL navigation, List and Detail focus, no-match clearing, long-path scrolling, empty-library scan recovery, and malformed-config recovery at 120x40 and 80x24.
+  next: Keep lamvzkrgxu in progress for independent audit.
+  publication_order: 8

@@ -75,6 +75,10 @@ func NewSidebar(games []*game.Game, styles *Styles, svc *Services) (SidebarModel
 		selected: make(map[uint64]bool),
 	}
 	m.applyFiltersAndSort()
+	// Start on a game overview instead of the global profile editor.
+	if len(games) > 0 {
+		m.cursor = 1
+	}
 	return m, m.selectCurrentItem()
 }
 
@@ -282,7 +286,7 @@ func (m *SidebarModel) applyFiltersAndSort() {
 	}
 
 	items := make([]sidebarItem, 0, len(filtered)+1)
-	if query == "" && !m.filters.IsActive() && !m.selectMode {
+	if len(m.games) > 0 && query == "" && !m.filters.IsActive() && !m.selectMode {
 		items = append(items, sidebarItem{kind: sidebarItemDefaultProfile})
 	}
 	for _, g := range filtered {
@@ -337,8 +341,20 @@ func (m SidebarModel) View() string {
 		b.WriteString("\n")
 	}
 
+	if len(m.games) == 0 && m.search.Value() == "" {
+		b.WriteString("No games found\n")
+		b.WriteString(s.Dim.Render("Ctrl+R scan  •  4 set paths"))
+		return b.String()
+	}
+
 	if len(m.filtered) == 0 {
-		b.WriteString(s.Dim.Render("No games found"))
+		if query := m.search.Value(); query != "" {
+			fmt.Fprintf(&b, "No games match %q\n", query)
+			b.WriteString(s.Dim.Render("Esc, then C to clear search"))
+		} else {
+			b.WriteString("No games match filters\n")
+			b.WriteString(s.Dim.Render("Press C to clear filters"))
+		}
 		return b.String()
 	}
 

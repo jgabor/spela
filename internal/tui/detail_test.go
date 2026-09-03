@@ -517,9 +517,28 @@ func TestResourcePane_GamesSidebarPlusDetail(t *testing.T) {
 	if !strings.Contains(out, "Cyberpunk 2077") {
 		t.Errorf("games view missing game name 'Cyberpunk 2077':\n%s", out)
 	}
-	for _, header := range []string{"App ID", "Overrides"} {
+	for _, header := range []string{"[Overview]", "App ID", "Profile overrides", "Steam launch options"} {
 		if !strings.Contains(out, header) {
 			t.Errorf("games view missing detail header %q in:\n%s", header, out)
+		}
+	}
+}
+
+func TestOverviewWrapsLongPathsAndLabelsLaunchOptions(t *testing.T) {
+	g := testGame("Long Path Game")
+	g.InstallDir = "/tmp/" + strings.Repeat("very-long-directory/", 8)
+	g.PrefixPath = "/tmp/" + strings.Repeat("compatdata/", 8)
+	overview := NewOverview(NewStyles(DefaultTheme, true)).SetGame(g, testServices())
+	overview.SetSize(42, 40)
+	view := stripANSI(overview.View())
+	for _, line := range strings.Split(view, "\n") {
+		if len(line) > 42 {
+			t.Fatalf("long Overview line (%d): %q", len(line), line)
+		}
+	}
+	for _, text := range []string{"Install directory", "Proton prefix", "Steam launch options", "spela %command%"} {
+		if !strings.Contains(view, text) {
+			t.Fatalf("Overview missing %q:\n%s", text, view)
 		}
 	}
 }

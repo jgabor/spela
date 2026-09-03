@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Open the TUI on a game overview and provide explicit detail navigation, no-match clearing, readable paths, and actionable startup recovery.
 - Keep Help's body and active key guidance limited to executable close, quit, and overflow scroll controls.
 - Keep focused Profile fields, Help shortcuts, and overflowing game, deployment, and DLL version selections visible across terminal resizes.
 - Bound TUI headers, panes, feedback, and status rows to the terminal while preserving compact, focused, and resize-recovery controls.

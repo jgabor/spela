@@ -34,6 +34,19 @@ func TestShellStartsInLibraryListWithNonFocusableDestinationBar(t *testing.T) {
 	}
 }
 
+func TestEmptyLibraryOffersScanAndPathRecovery(t *testing.T) {
+	layout := testLayout()
+	layout.width, layout.height = 120, 40
+	layout.calculateDimensions()
+	view := stripANSI(layout.renderMain())
+	if !strings.Contains(view, "No games found") || !strings.Contains(view, "Ctrl+R scan") || !strings.Contains(view, "4 set paths") {
+		t.Fatalf("empty Library recovery missing:\n%s", view)
+	}
+	if strings.Contains(view, "All games (default profile)") {
+		t.Fatalf("empty Library opened advanced profile detail:\n%s", view)
+	}
+}
+
 func TestLibrarySearchSynchronizesDisplayedScopeBeforeEnter(t *testing.T) {
 	alpha := testGame("Alpha")
 	beta := testGame("Beta")
@@ -67,6 +80,21 @@ func TestLibrarySearchSynchronizesDisplayedScopeBeforeEnter(t *testing.T) {
 	}
 	if updated.pane.content.game == nil || updated.pane.content.game.AppID != beta.AppID {
 		t.Fatal("Detail did not update with the displayed search result")
+	}
+}
+
+func TestLibrarySearchNoMatchClearsDetailAndBreadcrumb(t *testing.T) {
+	layout := testLayoutWithGame(testGame("Cyberpunk 2077"))
+	layout.listPane.sidebar.search.SetValue("zzz")
+	layout.listPane.sidebar.applyFiltersAndSort()
+	model, _ := layout.Update(noLibrarySelectionMsg{})
+	updated := model.(LayoutModel)
+	view := stripANSI(updated.renderMain())
+	if updated.pane.content.game != nil || strings.Contains(updated.renderBreadcrumbs(), "Cyberpunk") {
+		t.Fatal("no-match search retained stale game state")
+	}
+	if !strings.Contains(view, `No games match "zzz"`) || !strings.Contains(view, "Esc, then C to clear search") {
+		t.Fatalf("no-match recovery missing:\n%s", view)
 	}
 }
 

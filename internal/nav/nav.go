@@ -256,6 +256,8 @@ func (s State) Breadcrumb() []string {
 			parts = append(parts, "All games")
 		} else if s.Scope.GameName != "" {
 			parts = append(parts, s.Scope.GameName)
+		} else {
+			return parts
 		}
 		parts = append(parts, s.Aspect.String())
 		if s.Aspect == AspectProfile {

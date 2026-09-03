@@ -105,7 +105,11 @@ func NewLayout(db *game.Database, svc *Services) LayoutModel {
 	}
 	layout.pane.BindNavState(layout.navState)
 	layout.listPane = NewListPane(styles, sidebar, layout.navState)
-	layout.pane.loadGlobalScope()
+	if selected := sidebar.Selected(); selected != nil {
+		layout.pane.loadGameScope(selected)
+	} else {
+		layout.pane.loadNoScope()
+	}
 	return layout
 }
 
