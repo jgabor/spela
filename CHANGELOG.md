@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-09-03
+
 ### Added
 
 - Wails nav bindings and `tools/gen-nav-js` codegen so GUI navigation constants and transitions stay aligned with `internal/nav`.
@@ -15,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Include the e2e-tagged TUI graph in canonical coverage without rerunning unrelated packages.
 - Stabilize `spela tui` metric refreshes so changing value widths fully replace prior header content without moving the workspace.
 - Clarify managed DLL install choices, canonical family names, version states, compact deployment rows, and retained operation feedback in the TUI.
 - Make Profile inheritance and restoration language user-facing, and distinguish Monitor selection, metric availability, and alert recovery without color reliance.
@@ -393,6 +396,9 @@ This release introduces a new vkd3d_heap toggle that enables the PROTON_VKD3D_HE
 - Restore interactive redo flow
 - Change summary model
 
+[unreleased]: https://github.com/jgabor/spela/compare/v0.6.1..HEAD
+[0.6.1]: https://github.com/jgabor/spela/compare/v0.6.0..v0.6.1
+[0.6.0]: https://github.com/jgabor/spela/compare/v0.5.1..v0.6.0
 [0.5.1]: https://github.com/jgabor/spela/compare/v0.5.0..v0.5.1
 [0.5.0]: https://github.com/jgabor/spela/compare/v0.4.0..v0.5.0
 [0.4.0]: https://github.com/jgabor/spela/compare/v0.3.0..v0.4.0
