@@ -16,6 +16,7 @@ func (m LayoutModel) handleBatchMenuKeys(msg tea.KeyPressMsg) (LayoutModel, tea.
 		confirm, cancel := m.batchConfirmation.update(msg)
 		if cancel {
 			m.batchConfirmation = nil
+			m.batchMessage = dllCancellationResult("Selected-game DLL batch")
 			return m, nil, true
 		}
 		if confirm && !m.batchBusy {

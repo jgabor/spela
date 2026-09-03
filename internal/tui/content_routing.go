@@ -17,14 +17,15 @@ func (m ContentModel) updateBlockingFlow(msg tea.Msg) (ContentModel, tea.Cmd, bo
 			m.confirmation = nil
 			if m.pendingAction != PendingNone {
 				if m.pendingAction == PendingDLLUpdate {
-					m.lastDLLResult = "DLL update cancelled"
+					m.lastDLLResult = dllCancellationResult("DLL update")
 				} else {
-					m.lastDLLResult = "DLL restore cancelled"
+					m.lastDLLResult = dllCancellationResult("DLL restore")
 				}
 				m.pendingAction = PendingNone
 			} else {
-				m.lastDLLResult = "DLL install cancelled"
-				m.dllInstallState = DLLInstallSelectVersion
+				m.lastDLLResult = dllCancellationResult("DLL install")
+				m.dllInstallState = DLLInstallNone
+				m.dllOperating = false
 			}
 			return m, nil, true
 		}
@@ -54,9 +55,9 @@ func (m ContentModel) updatePendingAction(msg tea.KeyPressMsg) (ContentModel, te
 	switch msg.String() {
 	case "esc", "escape", "q":
 		if m.pendingAction == PendingDLLUpdate {
-			m.lastDLLResult = "DLL update cancelled"
+			m.lastDLLResult = dllCancellationResult("DLL update")
 		} else {
-			m.lastDLLResult = "DLL restore cancelled"
+			m.lastDLLResult = dllCancellationResult("DLL restore")
 		}
 		m.pendingAction = PendingNone
 		return m, nil, true

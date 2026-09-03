@@ -1,11 +1,14 @@
 package tui
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/nav"
 )
 
 func TestDLLMutationConfirmationSummaryAndCancel(t *testing.T) {
@@ -51,5 +54,147 @@ func TestDLLMutationBusySuppressesDuplicate(t *testing.T) {
 	next, command := model.Update(keyMsg("U"))
 	if command != nil || !next.busy {
 		t.Fatal("busy update-all accepted duplicate execution")
+	}
+}
+
+func TestContentDLLCancellationRetainsAccurateOutcomeWithoutMutation(t *testing.T) {
+	for _, action := range []string{"install", "update", "restore"} {
+		for _, key := range []string{"q", "esc"} {
+			t.Run(action+"/"+key, func(t *testing.T) {
+				entry, services, fixturePath, original, calls := newDLLCancellationFixture(t)
+				content := NewContent(NewStyles(DefaultTheme, true), true, services)
+				content.database = testDatabase(entry)
+				content = content.SetGame(entry)
+				content.lastDLLResult = "stale success or failure"
+
+				switch action {
+				case "install":
+					content.dllInstallState = DLLInstallSelectVersion
+					content.dllOperating = true
+					content.selectedDLLType = "dlss"
+					content.dllVersions = []dll.DLL{{Version: "3.8.0", Filename: filepath.Base(fixturePath)}}
+				case "update":
+					content.hasUpdates = true
+					content.dllUpdateTargets = []dllMutationTarget{newDLLMutationTarget(entry, entry.DLLs[0], "3.8.0")}
+				case "restore":
+					content.hasBackup = true
+				}
+
+				openKey := map[string]string{"install": "enter", "update": "u", "restore": "f6"}[action]
+				content, command := content.Update(keyMsg(openKey))
+				if command != nil || content.confirmation == nil {
+					t.Fatalf("%s did not stop at confirmation", action)
+				}
+				content, command = content.Update(keyMsg(key))
+				if command != nil || content.confirmation != nil || content.pendingAction != PendingNone || content.dllOperating {
+					t.Fatalf("cancel state = command %v, confirmation %v, pending %v, operating %v", command, content.confirmation != nil, content.pendingAction, content.dllOperating)
+				}
+				want := dllCancellationResult("DLL " + action)
+				view := stripANSI(content.ViewDLLAspect())
+				if !strings.Contains(view, want) || strings.Contains(view, "stale success or failure") {
+					t.Fatalf("retained cancellation outcome is inaccurate:\n%s", view)
+				}
+				assertDLLFixtureUnchanged(t, fixturePath, original, *calls)
+			})
+		}
+	}
+}
+
+func TestCatalogDLLCancellationReplacesStaleOutcomeWithoutMutation(t *testing.T) {
+	for _, key := range []string{"q", "esc"} {
+		t.Run(key, func(t *testing.T) {
+			entry, services, fixturePath, original, calls := newDLLCancellationFixture(t)
+			resource := makeDLLsResourceWithServices([]*game.Game{entry}, map[string][]string{"dlss": {"3.8.0"}}, services)
+			resource.lastBatchSummary = "stale update-all success or failure"
+			resource.lastBatchResult = map[string]string{"1091500:dlss": "err: stale"}
+
+			resource, command := resource.Update(keyMsg("U"))
+			if command != nil || resource.confirmation == nil {
+				t.Fatal("catalog update-all did not stop at confirmation")
+			}
+			resource, command = resource.Update(keyMsg(key))
+			view := stripANSI(resource.View(true, nav.SectionDLLDeployment))
+			if command != nil || resource.confirmation != nil || resource.busy || resource.lastBatchResult != nil {
+				t.Fatalf("catalog cancel retained executable or stale state: %+v", resource)
+			}
+			if want := dllCancellationResult("DLL update-all"); !strings.Contains(view, want) || strings.Contains(view, "stale update-all success or failure") {
+				t.Fatalf("catalog cancellation outcome is inaccurate:\n%s", view)
+			}
+			assertDLLFixtureUnchanged(t, fixturePath, original, *calls)
+		})
+	}
+}
+
+func TestSelectedGameBatchCancellationReplacesStaleOutcomeWithoutMutation(t *testing.T) {
+	for _, key := range []string{"q", "esc"} {
+		t.Run(key, func(t *testing.T) {
+			entry, services, fixturePath, original, calls := newDLLCancellationFixture(t)
+			layout := NewLayout(testDatabase(entry), services)
+			layout.width, layout.height = 120, 40
+			layout.calculateDimensions()
+			layout.showBatchMenu = true
+			layout.batchGames = []*game.Game{entry}
+			layout.batchMessage = "stale batch success or failure"
+			layout.pane.dllsResource.manifest = &dll.Manifest{DLLs: map[string][]dll.DLL{"dlss": {{Version: "3.8.0"}}}}
+
+			result, command := sendKey(&layout, "enter")
+			layout = result.(LayoutModel)
+			if command != nil || layout.batchConfirmation == nil {
+				t.Fatal("selected-game batch did not stop at confirmation")
+			}
+			result, command = sendKey(&layout, key)
+			layout = result.(LayoutModel)
+			view := stripANSI(layout.renderBatchMenu())
+			if command != nil || layout.batchConfirmation != nil || layout.batchBusy || !layout.showBatchMenu {
+				t.Fatalf("selected-game batch cancel retained executable state: %+v", layout)
+			}
+			if want := dllCancellationResult("Selected-game DLL batch"); !strings.Contains(view, want) || strings.Contains(view, "stale batch success or failure") {
+				t.Fatalf("selected-game batch cancellation outcome is inaccurate:\n%s", view)
+			}
+			assertDLLFixtureUnchanged(t, fixturePath, original, *calls)
+		})
+	}
+}
+
+func newDLLCancellationFixture(t *testing.T) (*game.Game, *Services, string, []byte, *int) {
+	t.Helper()
+	directory := t.TempDir()
+	fixturePath := filepath.Join(directory, "nvngx_dlss.dll")
+	original := []byte("original fixture DLL")
+	if err := os.WriteFile(fixturePath, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	entry := testGame("Fixture Game", testDLL(game.DLLTypeDLSS, "3.7.0"))
+	entry.InstallDir = directory
+	entry.DLLs[0].Path = fixturePath
+	calls := new(int)
+	mutate := func() {
+		(*calls)++
+		_ = os.WriteFile(fixturePath, []byte("mutated"), 0o600)
+	}
+	services := testServices()
+	services.BatchUpdateDLLs = func([]dll.UpdateRequest) dll.BatchResult {
+		mutate()
+		return dll.BatchResult{Updated: 1}
+	}
+	services.InstallDLL = func(uint64, string, string) (dll.Result, error) {
+		mutate()
+		return dll.Result{Outcome: dll.OutcomeChanged}, nil
+	}
+	services.RestoreDLLs = func(uint64) (dll.Result, error) {
+		mutate()
+		return dll.Result{Outcome: dll.OutcomeChanged}, nil
+	}
+	return entry, services, fixturePath, original, calls
+}
+
+func assertDLLFixtureUnchanged(t *testing.T, path string, original []byte, calls int) {
+	t.Helper()
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 0 || string(contents) != string(original) {
+		t.Fatalf("cancelled mutation calls = %d, fixture = %q", calls, contents)
 	}
 }

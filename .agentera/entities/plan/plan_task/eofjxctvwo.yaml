@@ -1,0 +1,16 @@
+id: eofjxctvwo
+artifact: plan
+record:
+  plan: ajcnhmbmoh
+  name: Retain accurate DLL cancellation outcomes
+  status: in_progress
+  depends_on:
+    - efdydreiqj
+    - gaewoncior
+    - txuxsmwydo
+  acceptance:
+    - GIVEN an install, per-game update or restore, catalog update-all, or selected-game batch confirmation WHEN q or Escape cancels it THEN the prior view visibly states that no operation ran.
+    - GIVEN an earlier success or failure outcome is visible WHEN a later DLL confirmation is cancelled THEN the cancellation outcome replaces the stale message.
+    - GIVEN a DLL confirmation is cancelled WHEN operation calls and fixture files are inspected THEN no mutation command ran and file contents remain unchanged.
+    - GIVEN the cancellation correction is complete WHEN existing DLL safety behavior is checked THEN concrete targets, Enter and y confirmation, mandatory safety, busy suppression, and retained non-cancel outcomes remain intact.
+    - GIVEN focused checks and isolated Terminal Control journeys run at 120x40 and 80x24 WHEN every DLL mutation surface is cancelled THEN accurate retained outcomes are visible and all sessions and fixtures are cleaned up.

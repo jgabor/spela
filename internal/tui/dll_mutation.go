@@ -84,6 +84,10 @@ func dllUpdateRequests(targets []dllMutationTarget, cachedOnly bool) []dll.Updat
 	return requests
 }
 
+func dllCancellationResult(operation string) string {
+	return operation + " cancelled — no operation ran"
+}
+
 func (confirmation *dllMutationConfirmation) update(key tea.KeyPressMsg) (confirm, cancel bool) {
 	if confirmation == nil {
 		return false, false

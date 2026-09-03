@@ -7,7 +7,7 @@ record:
     - xlnuugbhom
     - gaewoncior
     - lamvzkrgxu
-  status: in_progress
+  status: complete
   acceptance:
     - GIVEN a Profile field list WHEN it renders THEN rows use user-facing language and the selected field provides any needed effect or restoration explanation without exposing raw identifiers on every row.
     - GIVEN default, inherited, overridden, destination, and selection states WHEN they render THEN text or distinct symbols make each meaning distinguishable without relying on color alone.
@@ -16,12 +16,12 @@ record:
     - GIVEN Monitor and Profile fixtures WHEN focused checks and Terminal Control review run at 120x40 and 80x24 THEN both surfaces remain clean, bounded, and understandable.
   plan: ajcnhmbmoh
   evaluation:
-    attempt_count: 1
+    attempt_count: 2
     failure_count: 1
-    last_verdict: fail
+    last_verdict: pass
     last_failure_evidence: "At 80x24, Profile's focused lower row/effect can be dropped by a second top-only truncation and Monitor alert recovery breaks its unconstrained nested border. Refs internal/tui/content_views.go:178-183, internal/tui/layout.go:355-356,552-559, internal/tui/metrics_resource.go:94-97,256. Verify: git grep -n -E 'profileSectionHeight\\(|truncateHeight\\(|m\\.detail\\.SetSize|box := lipgloss.NewStyle|Recovery:' -- internal/tui"
     provenance:
-      attempt_id: audit-1
+      attempt_id: audit-2
       source: independent acceptance and progress evidence audit
-      recorded_at: 2026-09-03 18:33
+      recorded_at: 2026-09-03 18:48
       writer_command: agentera state plan record-evaluation

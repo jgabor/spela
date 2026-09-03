@@ -263,6 +263,8 @@ func (m DLLsResourceModel) Update(msg tea.Msg) (DLLsResourceModel, tea.Cmd) {
 			confirm, cancel := m.confirmation.update(msg)
 			if cancel {
 				m.confirmation = nil
+				m.lastBatchResult = nil
+				m.lastBatchSummary = dllCancellationResult("DLL update-all")
 				return m, nil
 			}
 			if confirm && !m.busy {

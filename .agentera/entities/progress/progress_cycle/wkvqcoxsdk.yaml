@@ -1,0 +1,15 @@
+id: wkvqcoxsdk
+artifact: progress
+record:
+  timestamp: 2026-09-03 19:06
+  type: fix
+  phase: build
+  what: Fixed retained DLL cancellation outcomes in internal/tui for install, per-game update and restore, catalog update-all, and selected-game batch. dllCancellationResult now replaces stale outcomes; install exits its dialog; catalog clears stale per-cell results.
+  context:
+    intent: Retain accurate no-operation outcomes after every DLL confirmation cancellation.
+    constraints: Preserve concrete confirmation targets, Enter/y execution, mandatory safety, busy suppression, non-cancel outcomes, and accepted work through 0bc026e and f75c030.
+    scope: Only DLL cancellation result state and focused regression coverage; no broad presentation, E2E transport, or final sync.
+  discovered: The blocked implementation stored install cancellation behind the still-open install flow and only dismissed catalog and batch confirmations, leaving their prior retained outcomes unchanged.
+  verified: go test ./internal/tui focused and package checks; go test -race ./internal/tui; go test ./...; mage lint; mage build; git diff --check. Isolated Terminal Control at 120x40 and 80x24 showed all five retained cancellation outcomes after message timeout; fixture target, backup, and cache SHA-256 values stayed unchanged; session and fixtures were removed.
+  next: Independent audit eofjxctvwo while it remains in_progress. Keep qshqtvkmyj blocked and zgltvwomjl open until Orchestrate PASS reconciliation.
+  publication_order: 15
