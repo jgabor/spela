@@ -1,0 +1,8 @@
+{
+  "schema_version": "agentera.todoReconciliationActivation.v1",
+  "retained_legacy_rows": [
+    "27abac8b54654526682e389893c7710d5790f38ed7ad1ebbe96ff9c1a46fa116"
+  ],
+  "effect_sha256": "4653a4ca0b2af27bcbb6fbfee630093991d0fb08f2f27ffa93b324ae8d1d5f2f",
+  "effect_operation": "activate"
+}

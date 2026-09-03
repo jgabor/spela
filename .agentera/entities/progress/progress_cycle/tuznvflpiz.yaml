@@ -1,0 +1,16 @@
+id: tuznvflpiz
+artifact: progress
+record:
+  timestamp: 2026-09-03 11:29
+  type: fix
+  phase: build
+  what: Bound TUI shell geometry and feedback at supported terminal sizes.
+  context:
+    intent: Keep all required TUI shell context and controls inside supported viewports.
+    constraints: Task 2 only; preserve Task 1 behavior and existing Agentera state; no real game-file or privileged operations.
+    unknowns: No profile grounding, decisions, health records, or docs mappings were available; none blocked the bounded geometry fix.
+    scope: TUI header, shell sizing, feedback row, focused orientation, resize recovery, and proportional regression tests.
+  discovered: Full metric lines were wrapping at 80 columns, compact rendering still used the standard header, and focused panes retained split-pane widths.
+  verified: go test ./internal/tui -count=1 passed; mage test passed; mage lint passed with 0 issues; mage build produced ./spela and the Wails binary; git diff --check passed. Isolated Terminal Control fresh sessions showed bounded standard, compact, focused-list, focused-detail, success, error, resize recovery, and below-minimum quit behavior at 120x40 and 80x24.
+  next: Leave plan task vtflntmzjw in_progress for Orchestrate to record the independent audit verdict.
+  publication_order: 2

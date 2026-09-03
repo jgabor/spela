@@ -114,7 +114,8 @@ func (m MessageBarModel) View() string {
 		style = style.Background(t.SurfaceRaised)
 	}
 
-	return style.Width(m.width).Padding(0, 1).Render(m.message)
+	innerWidth := max(m.width-2, 1)
+	return style.Width(innerWidth).MaxWidth(innerWidth).MaxHeight(1).Padding(0, 1).Render(m.message)
 }
 
 func (m MessageBarModel) HasMessage() bool {

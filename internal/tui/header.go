@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jgabor/spela/internal/cpu"
 	"github.com/jgabor/spela/internal/gpu"
@@ -254,8 +255,10 @@ func (m HeaderModel) View() string {
 	var lines []string
 	numLines := max(len(logo), len(metricsLines))
 
-	spacing := max(m.width-logoWidth-metricsWidth-4, 2)
+	innerWidth := max(m.width-2, 1)
+	spacing := max(innerWidth-logoWidth-metricsWidth, 2)
 	spacer := strings.Repeat(" ", spacing)
+	metricsWidth = max(innerWidth-logoWidth-spacing, 0)
 
 	for i := range numLines {
 		var logoLine, metricsLine string
@@ -267,16 +270,16 @@ func (m HeaderModel) View() string {
 		}
 
 		if i < len(metricsLines) {
-			metricsLine = metricsLines[i]
+			metricsLine = ansi.Truncate(metricsLines[i], metricsWidth, "…")
 		}
 
-		lines = append(lines, logoLine+spacer+metricsLine)
+		line := ansi.Truncate(logoLine+spacer+metricsLine, innerWidth, "…")
+		lines = append(lines, line+strings.Repeat(" ", max(innerWidth-lipgloss.Width(line), 0)))
 	}
 
 	content := strings.Join(lines, "\n")
 
 	headerStyle := lipgloss.NewStyle().
-		Width(m.width).
 		Padding(0, 1).
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderBottom(true).
@@ -351,10 +354,14 @@ func (m HeaderModel) ViewCompact() string {
 	}
 	lines = append(lines, line2.String())
 
+	innerWidth := max(m.width-2, 1)
+	for index := range lines {
+		lines[index] = ansi.Truncate(lines[index], innerWidth, "…")
+		lines[index] += strings.Repeat(" ", max(innerWidth-lipgloss.Width(lines[index]), 0))
+	}
 	content := strings.Join(lines, "\n")
 
 	headerStyle := lipgloss.NewStyle().
-		Width(m.width).
 		Padding(0, 1).
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderBottom(true).

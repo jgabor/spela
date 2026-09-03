@@ -12,3 +12,13 @@ record:
     - GIVEN an unavailable key WHEN it is pressed THEN the interface remains in an understandable visible state and does not enter or retain a hidden mode.
     - GIVEN the task is ready to exit WHEN focused checks and deterministic Terminal Control journeys run at 120x40 and 80x24 THEN successful and cancelled or rejected transitions are visibly correct.
   plan: ajcnhmbmoh
+  evaluation:
+    attempt_count: 1
+    failure_count: 0
+    last_verdict: pass
+    last_failure_evidence: null
+    provenance:
+      attempt_id: audit-1
+      source: independent acceptance and progress evidence audit
+      recorded_at: 2026-09-03 11:16
+      writer_command: agentera state plan record-evaluation

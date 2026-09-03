@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/jgabor/spela/internal/nav"
 	"github.com/jgabor/spela/internal/profile"
 )
@@ -178,7 +180,7 @@ func TestBelowMinimumViewportSuppressesHiddenWorkspaceInput(t *testing.T) {
 	layout.height = minimumTerminalHeight
 	before := *layout.navState
 
-	for _, key := range []string{"2", "/", "tab", "ctrl+r", "q"} {
+	for _, key := range []string{"2", "/", "tab", "ctrl+r"} {
 		model, command := sendKey(&layout, key)
 		updated := model.(LayoutModel)
 		if command != nil {
@@ -187,5 +189,10 @@ func TestBelowMinimumViewportSuppressesHiddenWorkspaceInput(t *testing.T) {
 		if *updated.navState != before || updated.focus != layout.focus || updated.inputMode != layout.inputMode {
 			t.Fatalf("below-minimum key %q changed hidden workspace state", key)
 		}
+	}
+
+	_, command := sendKey(&layout, "q")
+	if _, ok := command().(tea.QuitMsg); !ok {
+		t.Fatal("below-minimum q did not quit")
 	}
 }

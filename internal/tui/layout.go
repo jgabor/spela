@@ -142,6 +142,9 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 	}
 	if m.width < minimumTerminalWidth || m.height < minimumTerminalHeight {
+		if key, ok := msg.(tea.KeyPressMsg); ok && (key.String() == "q" || key.String() == "ctrl+c") {
+			return m, tea.Quit
+		}
 		return m, tea.Batch(cmds...)
 	}
 
@@ -225,8 +228,13 @@ func (m *LayoutModel) calculateDimensions() {
 
 	m.header.SetWidth(m.width)
 	m.destinationBar.SetWidth(m.width)
-	m.listPane.SetSize(m.listWidth(), panelHeight)
-	m.pane.SetSize(m.detailWidth(), panelHeight)
+	if m.densityMode == DensityFocused {
+		m.listPane.SetSize(max(m.width-2, 1), panelHeight)
+		m.pane.SetSize(max(m.width-2, 1), panelHeight)
+	} else {
+		m.listPane.SetSize(m.listWidth(), panelHeight)
+		m.pane.SetSize(m.detailWidth(), panelHeight)
+	}
 	m.messageBar.SetWidth(m.width)
 }
 
@@ -285,6 +293,7 @@ func (m LayoutModel) View() tea.View {
 func (m LayoutModel) renderResizePrompt() string {
 	lines := []string{
 		"Resize terminal",
+		"q quit",
 		fmt.Sprintf("Spela needs at least %dx%d", minimumTerminalWidth, minimumTerminalHeight),
 		fmt.Sprintf("Current size: %dx%d", m.width, m.height),
 	}
@@ -320,8 +329,11 @@ func (m LayoutModel) renderMain() string {
 }
 
 func (m LayoutModel) renderStandard() string {
-	header := m.header.View()
-	panelHeight := max(m.height-headerHeight-statusBarHeight-messageBarHeight-2, 5)
+	return m.renderSplit(m.header.View(), headerHeight)
+}
+
+func (m LayoutModel) renderSplit(header string, renderedHeaderHeight int) string {
+	panelHeight := max(m.height-renderedHeaderHeight-statusBarHeight-messageBarHeight-2, 5)
 	listFocused := m.focus == FocusList
 	detailFocused := m.focus == FocusDetail
 	listWidth := m.listWidth()
@@ -354,7 +366,7 @@ func (m LayoutModel) renderStandard() string {
 }
 
 func (m LayoutModel) renderCompact() string {
-	return m.renderStandard()
+	return m.renderSplit(m.header.ViewCompact(), compactHeaderHeight)
 }
 
 func (m LayoutModel) renderFocused() string {
@@ -378,7 +390,11 @@ func (m LayoutModel) renderFocused() string {
 
 	messageBar := m.messageBar.View()
 
-	statusBar := m.renderStatusBar(m.renderCanonicalStatus())
+	focusLabel := "List"
+	if m.focus == FocusDetail {
+		focusLabel = "Detail"
+	}
+	statusBar := m.renderStatusBar(m.renderBreadcrumbs() + "  [" + focusLabel + "]  " + m.renderCanonicalStatus())
 
 	return lipgloss.JoinVertical(lipgloss.Left, m.destinationBar.View(), paneBox, messageBar, statusBar)
 }

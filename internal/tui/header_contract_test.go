@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"charm.land/lipgloss/v2"
+
 	"github.com/jgabor/spela/internal/cpu"
 	"github.com/jgabor/spela/internal/gpu"
 	"github.com/jgabor/spela/internal/nav"
@@ -38,13 +40,21 @@ func TestHeaderAndMonitorRenderLiveUnavailableAndAlertStates(t *testing.T) {
 	if command == nil || header.GPUMetrics() != gpuMetrics || header.CPUMetrics() != cpuMetrics {
 		t.Fatal("metrics update did not schedule the next sample or retain the snapshot")
 	}
-	for _, width := range []int{120, 75, 50} {
+	header.SetWidth(120)
+	view := stripANSI(header.View())
+	for _, fragment := range []string{"92°C", "98%", "275W", "4250MHz", "Throttling"} {
+		if !strings.Contains(view, fragment) {
+			t.Errorf("full header missing %q:\n%s", fragment, view)
+		}
+	}
+	for _, width := range []int{80, 75, 50} {
 		header.SetWidth(width)
-		view := stripANSI(header.View())
-		for _, fragment := range []string{"92°C", "98%", "275W", "4250MHz", "Throttling"} {
-			if !strings.Contains(view, fragment) {
-				t.Errorf("header width %d missing %q:\n%s", width, fragment, view)
-			}
+		view := header.View()
+		if got := lipgloss.Width(view); got > width {
+			t.Errorf("header width %d rendered at %d", width, got)
+		}
+		if got := lipgloss.Height(view); got != headerHeight {
+			t.Errorf("header width %d rendered %d lines", width, got)
 		}
 	}
 	compact := stripANSI(header.ViewCompact())
