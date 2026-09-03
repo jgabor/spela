@@ -583,7 +583,9 @@ func TestLayout_BatchMenu_EnterExecutes(t *testing.T) {
 	m.batchGames = []*game.Game{testGame("Test")}
 	m.batchCursor = 0
 
-	_, cmd := sendKey(&m, "enter")
+	result, _ := sendKey(&m, "enter")
+	confirmed := result.(LayoutModel)
+	_, cmd := sendKey(&confirmed, "enter")
 	if cmd == nil {
 		t.Error("expected enter in batch menu to return a command")
 	}

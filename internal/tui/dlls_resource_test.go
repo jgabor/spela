@@ -164,6 +164,10 @@ func TestDLLsResource_UpdateAllNoop_WhenNothingStale(t *testing.T) {
 
 	next, cmd := m.Update(keyMsg("U"))
 	if cmd != nil {
+		t.Fatal("update started before confirmation")
+	}
+	next, cmd = next.Update(keyMsg("enter"))
+	if cmd != nil {
 		t.Errorf("expected no command when nothing is stale")
 	}
 	if next.busy {
@@ -213,6 +217,10 @@ func TestDLLsResource_UpdateAll_PassReportsEachCell(t *testing.T) {
 	}, svc)
 
 	next, cmd := m.Update(keyMsg("U"))
+	if cmd != nil {
+		t.Fatal("update started before confirmation")
+	}
+	next, cmd = next.Update(keyMsg("enter"))
 	if cmd == nil || !next.busy {
 		t.Fatalf("expected update command and busy state")
 	}
@@ -244,6 +252,10 @@ func TestDLLsResource_UpdateAll_FailReportsFailedCellWithoutSuccessFooter(t *tes
 	}, svc)
 
 	next, cmd := m.Update(keyMsg("U"))
+	if cmd != nil {
+		t.Fatal("update started before confirmation")
+	}
+	next, cmd = next.Update(keyMsg("enter"))
 	if cmd == nil {
 		t.Fatalf("expected update command")
 	}
@@ -277,6 +289,10 @@ func TestDLLsResource_UpdateAllAppliesSaveStagePartialMetadata(t *testing.T) {
 	model := makeDLLsResourceWithServices([]*game.Game{entry}, map[string][]string{"dlss": {"3.8.10"}}, services)
 	model.database = &game.Database{Games: map[uint64]*game.Game{entry.AppID: entry}}
 	next, command := model.Update(keyMsg("U"))
+	if command != nil {
+		t.Fatal("update started before confirmation")
+	}
+	next, command = next.Update(keyMsg("enter"))
 	message := execCmd(command).(dllsUpdateAllCompleteMsg)
 	next, _ = next.Update(message)
 	if next.database.Games[entry.AppID].DLLs[0].Version != "3.8.10" || next.games[0].DLLs[0].Version != "3.8.10" {

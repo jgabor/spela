@@ -81,7 +81,7 @@ var options = []Option{
 	enumOption("preferred_dll_source", "preferredDLLSource", nav.SettingsDLLPolicy, "DLL source", "Preferred source for DLL downloads.", []string{"techpowerup", "github"}, VisibilityGUI|VisibilityWails, func(c *Config) string { return c.PreferredDLLSource }, func(c *Config, value string) { c.PreferredDLLSource = value }, "DLL source"),
 	enumOption("theme", "theme", nav.SettingsDisplay, "Theme", "Use the default, dark, or light theme.", []string{"default", "dark", "light"}, VisibilityGUI|VisibilityWails, func(c *Config) string { return c.Theme }, func(c *Config, value string) { c.Theme = value }, "theme"),
 	boolOption("compact_mode", "compactMode", nav.SettingsDisplay, "Compact mode", "Use tighter spacing in lists and panels.", VisibilityGUI|VisibilityWails, func(c *Config) bool { return c.CompactMode }, func(c *Config, value bool) { c.CompactMode = value }),
-	boolOption("confirm_destructive", "confirmDestructive", nav.SettingsDisplay, "Confirm destructive actions", "Ask before supported restore and update actions. Requires restart.", VisibilityTUI|VisibilityGUI|VisibilityWails, func(c *Config) bool { return c.ConfirmDestructive }, func(c *Config, value bool) { c.ConfirmDestructive = value }),
+	boolOption("confirm_destructive", "confirmDestructive", nav.SettingsDisplay, "Confirm destructive actions", "Ask before supported restore and update actions. Requires restart.", VisibilityGUI|VisibilityWails, func(c *Config) bool { return c.ConfirmDestructive }, func(c *Config, value bool) { c.ConfirmDestructive = value }),
 }
 
 // Options returns every Config field descriptor in Config declaration order.

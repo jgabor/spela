@@ -1,0 +1,15 @@
+id: ciignmjtsg
+artifact: progress
+record:
+  timestamp: 2026-09-03 17:46
+  type: fix
+  phase: build
+  what: internal/tui/dll_mutation.go now gates every TUI DLL file mutation with one mandatory confirmation contract.
+  context:
+    intent: Enforce explicit confirmation and accurate outcomes for TUI DLL mutations.
+    constraints: No later presentation, Profile/Monitor, E2E transport, final sync, privileged action, or source-user game file mutation.
+    scope: TUI DLL mutation state, injected operation services, TUI option visibility, and focused tests.
+  discovered: The persisted confirm_destructive setting cannot safely bypass the reviewed rule, so internal/config/options.go no longer exposes it in TUI while retaining YAML and GUI/Wails compatibility.
+  verified: go test ./internal/tui ./internal/config ./internal/dll, go test -race ./internal/tui ./internal/dll, mage test, mage lint, and mage build passed. Isolated Terminal Control at 120x40 and 80x24 showed the temporary Fixture Game path, version transition, backup behavior, q cancellation, active progress, and retained success outcome; only /tmp/spela-qshqtvkmyj was mutated and then removed.
+  next: Independent audit qshqtvkmyj; task intentionally remains in_progress.
+  publication_order: 11

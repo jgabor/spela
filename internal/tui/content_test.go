@@ -81,21 +81,21 @@ func TestContent_Update_ConfirmationCancelled(t *testing.T) {
 	}
 }
 
-func TestContent_Update_WithoutConfirmation(t *testing.T) {
+func TestContent_Update_ConfigCannotBypassConfirmation(t *testing.T) {
 	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	m := testContent(g)
 	m.hasUpdates = true
 	m.confirmDestructive = false
 
 	result, cmd := m.Update(keyMsg("u"))
-	if result.pendingAction != PendingNone {
-		t.Error("expected no pending action when confirmation disabled")
+	if result.pendingAction != PendingDLLUpdate {
+		t.Error("expected confirmation even when persisted setting is false")
 	}
-	if !result.dllOperating {
-		t.Error("expected dllOperating to be true")
+	if result.dllOperating {
+		t.Error("operation started before confirmation")
 	}
-	if cmd == nil {
-		t.Error("expected update command returned directly")
+	if cmd != nil {
+		t.Error("unexpected update command before confirmation")
 	}
 }
 
@@ -237,6 +237,10 @@ func TestContent_InstallWizard_VersionToDownload(t *testing.T) {
 	m.dllVersionCursor = 0
 
 	result, cmd := m.Update(keyMsg("enter"))
+	if result.confirmation == nil || cmd != nil {
+		t.Fatal("expected install confirmation before execution")
+	}
+	result, cmd = result.Update(keyMsg("enter"))
 	if result.dllInstallState != DLLInstallDownloading {
 		t.Errorf("expected DLLInstallDownloading, got %d", result.dllInstallState)
 	}

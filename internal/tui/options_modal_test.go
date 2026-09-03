@@ -49,7 +49,7 @@ func TestSettingsTUIInventoryContainsOnlyRuntimeBackedControls(t *testing.T) {
 			keys = append(keys, option.Key)
 		}
 	}
-	if got, want := strings.Join(keys, ","), "show_hints,confirm_destructive,rescan_on_startup,steam_path"; got != want {
+	if got, want := strings.Join(keys, ","), "show_hints,rescan_on_startup,steam_path"; got != want {
 		t.Fatalf("visible Settings keys = %q, want %q", got, want)
 	}
 }
@@ -233,7 +233,7 @@ func TestOptionsModal_CompactWidthKeepsValuesOnOptionRows(t *testing.T) {
 	modal.SetSize(34, 14)
 
 	view := stripANSI(modal.renderOptionsBody())
-	for _, row := range []string{"Show hints: true", "Confirm destr…: true"} {
+	for _, row := range []string{"Show hints: true"} {
 		if !strings.Contains(view, row) {
 			t.Errorf("compact settings missing row %q:\n%s", row, view)
 		}

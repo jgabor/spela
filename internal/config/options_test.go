@@ -32,7 +32,7 @@ func TestOptionsClassifyEveryConfigField(t *testing.T) {
 		{"preferred_dll_source", "preferredDLLSource", nav.SettingsDLLPolicy, KindEnum, VisibilityGUI | VisibilityWails},
 		{"theme", "theme", nav.SettingsDisplay, KindEnum, VisibilityGUI | VisibilityWails},
 		{"compact_mode", "compactMode", nav.SettingsDisplay, KindBool, VisibilityGUI | VisibilityWails},
-		{"confirm_destructive", "confirmDestructive", nav.SettingsDisplay, KindBool, VisibilityTUI | VisibilityGUI | VisibilityWails},
+		{"confirm_destructive", "confirmDestructive", nav.SettingsDisplay, KindBool, VisibilityGUI | VisibilityWails},
 	}
 	if reflect.TypeOf(Config{}).NumField() != len(want) || len(Options()) != len(want) {
 		t.Fatalf("Config fields = %d, options = %d, want %d", reflect.TypeOf(Config{}).NumField(), len(Options()), len(want))

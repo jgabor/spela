@@ -26,7 +26,7 @@ and **GUI** columns describe visible settings controls.
 | `PreferredDLLSource` | `preferred_dll_source` | `preferredDLLSource` | `techpowerup` | `techpowerup`, `github` | DLL policy | no | yes | yes | Used by subsequent DLL downloads. |
 | `Theme` | `theme` | `theme` | `default` | `default`, `dark`, `light` | Display | no | yes | yes | GUI theme changes immediately; all three historically accepted values remain catalogued. |
 | `CompactMode` | `compact_mode` | `compactMode` | `false` | boolean | Display | no | yes | yes | Persisted display preference; no additional live adapter action. |
-| `ConfirmDestructive` | `confirm_destructive` | `confirmDestructive` | `true` | boolean | Display | no | yes | yes | Used when destructive-action presentation is initialized. |
+| `ConfirmDestructive` | `confirm_destructive` | `confirmDestructive` | `true` | boolean | Display | no | no | yes | Persisted for GUI/Wails compatibility; TUI DLL mutations always require confirmation. |
 
 `shader_cache`, `additional_library_paths`, and `dll_manifest_url` are fully
 classified contract fields, not deprecated fields. Their lack of new TUI/GUI

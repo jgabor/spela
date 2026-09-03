@@ -12,6 +12,20 @@ import (
 
 // handleBatchMenuKeys handles key input when the batch-action menu is visible.
 func (m LayoutModel) handleBatchMenuKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, bool) {
+	if m.batchConfirmation != nil {
+		confirm, cancel := m.batchConfirmation.update(msg)
+		if cancel {
+			m.batchConfirmation = nil
+			return m, nil, true
+		}
+		if confirm && !m.batchBusy {
+			m.batchConfirmation = nil
+			m.batchBusy = true
+			m.batchMessage = "Updating DLLs..."
+			return m, m.executeBatchAction(), true
+		}
+		return m, nil, true
+	}
 	switch msg.String() {
 	case "ctrl+c", "q":
 		return m, tea.Quit, true
@@ -28,7 +42,11 @@ func (m LayoutModel) handleBatchMenuKeys(msg tea.KeyPressMsg) (LayoutModel, tea.
 			m.batchCursor++
 		}
 	case "enter":
-		return m, m.executeBatchAction(), true
+		if m.batchBusy {
+			return m, nil, true
+		}
+		m.batchConfirmation = newDLLMutationConfirmation("Confirm batch DLL update", m.batchGames, "latest available", "each current DLL is backed up before replacement")
+		return m, nil, true
 	}
 	return m, nil, true
 }
@@ -340,6 +358,7 @@ func (m LayoutModel) handleAppMessages(msg tea.Msg, cmds []tea.Cmd) (LayoutModel
 		m.batchMessage = ""
 
 	case batchCompleteMsg:
+		m.batchBusy = false
 		for _, item := range msg.batch.Items {
 			m.pane.content.applyDLLResult(item.Result)
 		}

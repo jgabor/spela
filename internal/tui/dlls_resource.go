@@ -30,6 +30,7 @@ type DLLsResourceModel struct {
 	lastBatchResult  map[string]string
 	lastBatchSummary string
 	busy             bool
+	confirmation     *dllMutationConfirmation
 	width            int
 	height           int
 }
@@ -258,6 +259,20 @@ func (m DLLsResourceModel) isStale(installed, manifestKey string) bool {
 func (m DLLsResourceModel) Update(msg tea.Msg) (DLLsResourceModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
+		if m.confirmation != nil {
+			confirm, cancel := m.confirmation.update(msg)
+			if cancel {
+				m.confirmation = nil
+				return m, nil
+			}
+			if confirm && !m.busy {
+				m.confirmation = nil
+				m.busy = true
+				m.lastBatchSummary = "Updating DLLs..."
+				return m, m.updateAllCmd()
+			}
+			return m, nil
+		}
 		switch msg.String() {
 		case "U", "ctrl+u":
 			if m.busy {
@@ -266,8 +281,8 @@ func (m DLLsResourceModel) Update(msg tea.Msg) (DLLsResourceModel, tea.Cmd) {
 			if !m.hasStaleCells() {
 				return m, nil
 			}
-			m.busy = true
-			return m, m.updateAllCmd()
+			m.confirmation = newDLLMutationConfirmation("Confirm all stale DLL updates", m.staleGames(), "latest cached", "each current DLL is backed up before replacement")
+			return m, nil
 		}
 	case dllsUpdateAllCompleteMsg:
 		m.busy = false
@@ -305,6 +320,22 @@ func (m DLLsResourceModel) hasStaleCells() bool {
 		}
 	}
 	return false
+}
+
+func (m DLLsResourceModel) staleGames() []*game.Game {
+	var games []*game.Game
+	for _, entry := range m.deploymentGames {
+		for _, installed := range entry.DLLs {
+			for _, info := range m.typesInUse {
+				if installed.Type == info.Type && m.isStale(installed.Version, info.ManifestKey) {
+					games = append(games, entry)
+					goto nextGame
+				}
+			}
+		}
+	nextGame:
+	}
+	return games
 }
 
 // installedVersionFor returns the version string of the installed DLL of
@@ -359,6 +390,9 @@ func (m DLLsResourceModel) updateAllCmd() tea.Cmd {
 }
 
 func (m DLLsResourceModel) View(paneFocused bool, section nav.DLLCatalogSection) string {
+	if m.confirmation != nil {
+		return m.confirmation.view(m.styles)
+	}
 	s := m.styles
 	borderColor := s.BorderColor(paneFocused)
 

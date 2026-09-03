@@ -4,9 +4,34 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jgabor/spela/internal/dll"
+	"github.com/jgabor/spela/internal/game"
 )
 
 func (m ContentModel) updateBlockingFlow(msg tea.Msg) (ContentModel, tea.Cmd, bool) {
+	if m.confirmation != nil {
+		key, ok := msg.(tea.KeyPressMsg)
+		if !ok {
+			return m, nil, true
+		}
+		confirm, cancel := m.confirmation.update(key)
+		if cancel {
+			m.confirmation = nil
+			if m.pendingAction != PendingNone {
+				m.pendingAction = PendingNone
+			} else {
+				m.dllInstallState = DLLInstallSelectVersion
+			}
+			return m, nil, true
+		}
+		if !confirm {
+			return m, nil, true
+		}
+		m.confirmation = nil
+		if m.pendingAction == PendingNone {
+			m.dllInstallState = DLLInstallDownloading
+			return m, m.installSelectedDLL(), true
+		}
+	}
 	if m.dllInstallState != DLLInstallNone {
 		m, cmd := m.updateDLLInstall(msg)
 		return m, cmd, true
@@ -21,7 +46,7 @@ func (m ContentModel) updateBlockingFlow(msg tea.Msg) (ContentModel, tea.Cmd, bo
 
 func (m ContentModel) updatePendingAction(msg tea.KeyPressMsg) (ContentModel, tea.Cmd, bool) {
 	switch msg.String() {
-	case "esc", "escape":
+	case "esc", "escape", "q":
 		m.pendingAction = PendingNone
 		return m, nil, true
 	case "y", "Y":
@@ -159,22 +184,14 @@ func (m ContentModel) updateDLLKey(msg tea.KeyPressMsg) (ContentModel, tea.Cmd, 
 				return contentNoticeMsg{text: "DLLs already up to date", messageType: MessageInfo}
 			}, true
 		}
-		if m.confirmDestructive {
-			m.pendingAction = PendingDLLUpdate
-			return m, nil, true
-		}
-		m.dllOperating = true
-		m.dllOperatingLabel = "Updating DLLs..."
-		return m, m.updateDLLs(), true
+		m.pendingAction = PendingDLLUpdate
+		m.confirmation = newDLLMutationConfirmation("Confirm DLL update", []*game.Game{m.game}, "latest available", "current DLL is backed up before replacement")
+		return m, nil, true
 	case "f6":
 		if m.game != nil && m.hasBackup && !m.dllOperating {
-			if m.confirmDestructive {
-				m.pendingAction = PendingDLLRestore
-				return m, nil, true
-			}
-			m.dllOperating = true
-			m.dllOperatingLabel = "Restoring DLLs..."
-			return m, m.restoreDLLs(), true
+			m.pendingAction = PendingDLLRestore
+			m.confirmation = newDLLMutationConfirmation("Confirm DLL restore", []*game.Game{m.game}, "backup", "existing backup is restored; current DLL is not backed up again")
+			return m, nil, true
 		}
 	}
 	return m, nil, false

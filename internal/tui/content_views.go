@@ -9,6 +9,9 @@ import (
 
 // renderDLLInstallDialog renders the multi-step DLL install wizard.
 func (m ContentModel) renderDLLInstallDialog() string {
+	if m.confirmation != nil {
+		return m.confirmation.view(m.styles)
+	}
 	s := m.styles
 	var b strings.Builder
 
@@ -80,6 +83,9 @@ func (m ContentModel) renderDLLInstallDialog() string {
 
 // renderDLLs renders the DLL versions section including any pending-action prompts.
 func (m ContentModel) renderDLLs() string {
+	if m.confirmation != nil {
+		return m.confirmation.view(m.styles)
+	}
 	s := m.styles
 	var b strings.Builder
 

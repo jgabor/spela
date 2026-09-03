@@ -51,8 +51,9 @@ type ContentModel struct {
 	detail              DetailModel
 	persistedProfile    *profile.Profile
 	profileSaves        *profileSaveState
-	confirmDestructive  bool
+	confirmDestructive  bool // persisted compatibility; TUI mutations always confirm
 	pendingAction       PendingAction
+	confirmation        *dllMutationConfirmation
 	width               int
 	height              int
 	dllOperating        bool
@@ -175,10 +176,9 @@ type dllTypesLoadedMsg struct {
 
 func NewContent(styles *Styles, confirmDestructive bool, svc *Services) ContentModel {
 	return ContentModel{
-		styles:             styles,
-		services:           svc,
-		profileSaves:       &profileSaveState{},
-		confirmDestructive: confirmDestructive,
+		styles:       styles,
+		services:     svc,
+		profileSaves: &profileSaveState{},
 	}
 }
 
@@ -258,7 +258,7 @@ func (m ContentModel) updateDLLs() tea.Cmd {
 	}
 	appID := m.game.AppID
 	return func() tea.Msg {
-		return dllUpdateMsg{batch: dll.UpdateGame(appID, "", nil)}
+		return dllUpdateMsg{batch: m.services.updateGameDLLs(appID)}
 	}
 }
 
@@ -268,7 +268,7 @@ func (m ContentModel) restoreDLLs() tea.Cmd {
 	}
 	appID := m.game.AppID
 	return func() tea.Msg {
-		result, err := dll.Restore(appID, nil)
+		result, err := m.services.restoreDLLs(appID)
 		return dllRestoreMsg{result: result, err: err}
 	}
 }
@@ -357,8 +357,9 @@ func (m ContentModel) updateDLLInstall(msg tea.Msg) (ContentModel, tea.Cmd) {
 				m.dllVersionsLoaded = false
 				return m, m.loadDLLVersions()
 			} else if m.dllInstallState == DLLInstallSelectVersion && len(m.dllVersions) > 0 {
-				m.dllInstallState = DLLInstallDownloading
-				return m, m.installSelectedDLL()
+				selected := m.dllVersions[m.dllVersionCursor]
+				m.confirmation = newDLLMutationConfirmation("Confirm DLL install", []*game.Game{m.game}, selected.Version, "original DLL is backed up before replacement")
+				return m, nil
 			}
 		}
 
@@ -438,7 +439,7 @@ func (m ContentModel) installSelectedDLL() tea.Cmd {
 	appID := m.game.AppID
 
 	return func() tea.Msg {
-		result, err := dll.Install(appID, dllType, dllInfo.Version, nil)
+		result, err := m.services.installDLL(appID, dllType, dllInfo.Version)
 		return dllInstallMsg{result: result, err: err}
 	}
 }

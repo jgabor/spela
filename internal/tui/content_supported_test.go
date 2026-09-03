@@ -246,8 +246,8 @@ func TestContentSupportedMessageAndKeyRouting(t *testing.T) {
 	content.hasBackup = true
 	content.confirmDestructive = false
 	content, command = content.Update(keyMsg("f6"))
-	if !content.dllOperating || command == nil {
-		t.Fatal("restore key did not start direct supported restoration")
+	if content.confirmation == nil || content.dllOperating || command != nil {
+		t.Fatal("restore key did not request confirmation")
 	}
 }
 

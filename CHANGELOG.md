@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Require explicit, detailed confirmation before every TUI DLL file mutation and retain accurate no-op, failure, and busy outcomes.
 - Keep TUI Settings limited to working controls, distinguish saved and draft values, and preserve compatible YAML values across saves.
 - Open the TUI on a game overview and provide explicit detail navigation, no-match clearing, readable paths, and actionable startup recovery.
 - Keep Help's body and active key guidance limited to executable close, quit, and overflow scroll controls.

@@ -36,28 +36,30 @@ const (
 // LayoutModel owns the non-focusable destination bar and the two-pane
 // List/Detail workspace.
 type LayoutModel struct {
-	styles         *Styles
-	services       *Services
-	header         HeaderModel
-	destinationBar DestinationBarModel
-	listPane       ListPaneModel
-	pane           resourcePaneModel
-	navState       *nav.State
-	focus          KeyFocus
-	inputMode      InputMode
-	messageBar     MessageBarModel
-	help           HelpModel
-	config         *config.Config
-	db             *game.Database
-	showHelp       bool
-	showBatchMenu  bool
-	batchGames     []*game.Game
-	batchCursor    int
-	batchMessage   string
-	densityMode    DensityMode
-	width          int
-	height         int
-	initCmd        tea.Cmd
+	styles            *Styles
+	services          *Services
+	header            HeaderModel
+	destinationBar    DestinationBarModel
+	listPane          ListPaneModel
+	pane              resourcePaneModel
+	navState          *nav.State
+	focus             KeyFocus
+	inputMode         InputMode
+	messageBar        MessageBarModel
+	help              HelpModel
+	config            *config.Config
+	db                *game.Database
+	showHelp          bool
+	showBatchMenu     bool
+	batchGames        []*game.Game
+	batchCursor       int
+	batchMessage      string
+	batchConfirmation *dllMutationConfirmation
+	batchBusy         bool
+	densityMode       DensityMode
+	width             int
+	height            int
+	initCmd           tea.Cmd
 }
 
 func NewLayout(db *game.Database, svc *Services) LayoutModel {
@@ -70,7 +72,7 @@ func NewLayout(db *game.Database, svc *Services) LayoutModel {
 
 	games := db.List()
 	sidebar, sidebarCmd := NewSidebar(games, styles, svc)
-	content := NewContent(styles, cfg.ConfirmDestructive, svc)
+	content := NewContent(styles, true, svc)
 	content.database = db
 	pane := newResourcePane(styles, content)
 	pane.dllsResource.database = db
@@ -660,19 +662,22 @@ func (m LayoutModel) executeBatchAction() tea.Cmd {
 		appIDs[index] = entry.AppID
 	}
 	return func() tea.Msg {
-		return executeBatchDLLUpdate(appIDs)
+		return summarizeBatchDLLUpdate(m.services.updateGamesDLLs(appIDs), len(appIDs))
 	}
 }
 
 func executeBatchDLLUpdate(appIDs []uint64) batchCompleteMsg {
-	batch := dll.UpdateGames(appIDs, "", nil)
+	return summarizeBatchDLLUpdate(dll.UpdateGames(appIDs, "", nil), len(appIDs))
+}
+
+func summarizeBatchDLLUpdate(batch dll.BatchResult, requested int) batchCompleteMsg {
 	updatedGames := make(map[uint64]bool)
 	for _, item := range batch.Items {
 		if item.Err == nil && item.Result.Outcome == dll.OutcomeChanged && item.Result.Game != nil {
 			updatedGames[item.Result.Game.AppID] = true
 		}
 	}
-	message := fmt.Sprintf("Updated DLLs for %d/%d games", len(updatedGames), len(appIDs))
+	message := fmt.Sprintf("Updated DLLs for %d/%d games", len(updatedGames), requested)
 	if batch.Updated == 0 && batch.Failed == 0 {
 		message = "Selected games are already current"
 	}
@@ -687,6 +692,9 @@ func (m LayoutModel) renderBatchContent() string {
 }
 
 func (m LayoutModel) renderBatchMenu() string {
+	if m.batchConfirmation != nil {
+		return m.batchConfirmation.view(m.styles)
+	}
 	var b strings.Builder
 
 	s := m.styles
@@ -707,7 +715,7 @@ func (m LayoutModel) renderBatchMenu() string {
 
 	if m.batchMessage != "" {
 		b.WriteString("\n")
-		b.WriteString(s.Success.Render(m.batchMessage))
+		b.WriteString(s.Normal.Render(m.batchMessage))
 		b.WriteString("\n")
 	}
 
