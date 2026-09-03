@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Make Profile inheritance and restoration language user-facing, and distinguish Monitor selection, metric availability, and alert recovery without color reliance.
 - Require explicit TUI confirmation bound to concrete DLL versions and selected paths before file mutation, make q/Escape cancel, and retain accurate no-op, failure, and busy outcomes.
 - Keep TUI Settings limited to working controls, distinguish saved and draft values, and preserve compatible YAML values across saves.
 - Open the TUI on a game overview and provide explicit detail navigation, no-match clearing, readable paths, and actionable startup recovery.

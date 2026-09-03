@@ -546,7 +546,7 @@ func (m DetailModel) View() string {
 		if i == focusedRow && m.editor.Active() {
 			value = m.editor.Value()
 		}
-		semantics := m.formatFieldSemantics(row.field)
+		semantics := m.formatFieldState(row.field, overridden)
 
 		marker := "  "
 		if i == focusedRow {
@@ -586,6 +586,13 @@ func (m DetailModel) View() string {
 			focusedLabel = row.label
 		}
 		lines = append(lines, "  "+marker+body)
+		if i == focusedRow {
+			explanation := "    Effect: " + m.formatFieldSemantics(row.field)
+			if m.width > 0 {
+				explanation = ansi.Truncate(explanation, max(m.width-4, 1), "…")
+			}
+			lines = append(lines, s.Dim.Render(explanation))
+		}
 	}
 	lines = strings.Split(strings.Join(lines, "\n"), "\n")
 	focusedLine := 0
@@ -609,7 +616,7 @@ func (m DetailModel) formatFieldSemantics(field string) string {
 		return ""
 	}
 	if m.isRoot {
-		return fmt.Sprintf("impact %s · restore %s", descriptor.Impact, descriptor.Restore)
+		return fieldEffect(descriptor)
 	}
 	raw := m.raw
 	if raw == nil {
@@ -617,9 +624,37 @@ func (m DetailModel) formatFieldSemantics(field string) string {
 	}
 	explanation, err := raw.ExplainField(field, m.defaults)
 	if err != nil {
-		return fmt.Sprintf("impact %s · restore %s", descriptor.Impact, descriptor.Restore)
+		return fieldEffect(descriptor)
 	}
-	return fmt.Sprintf("source %s · impact %s · restore %s", explanation.Source, explanation.Impact, explanation.Restore)
+	return fieldEffect(profile.FieldDescriptor{Impact: explanation.Impact, Restore: explanation.Restore})
+}
+
+func (m DetailModel) formatFieldState(_ string, overridden bool) string {
+	if m.isRoot {
+		return "○ Default for all games"
+	}
+	if overridden {
+		return "Override for this game"
+	}
+	return "↳ Inherited from defaults"
+}
+
+func fieldEffect(descriptor profile.FieldDescriptor) string {
+	effect := "Applied when the game starts"
+	switch descriptor.Impact {
+	case profile.LaunchImpactSystemState:
+		effect = "Changes system settings while the game runs"
+	case profile.LaunchImpactOverlay:
+		effect = "Changes the in-game overlay"
+	}
+	restore := "ends with the game"
+	switch descriptor.Restore {
+	case profile.RestoreCoverageRestorableMutation:
+		restore = "restored when the game exits"
+	case profile.RestoreCoverageNotApplicable:
+		restore = "no system setting to restore"
+	}
+	return effect + "; " + restore
 }
 
 func rootFieldOptions(field string) []string {

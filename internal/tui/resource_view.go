@@ -106,7 +106,7 @@ func (p *resourcePaneModel) SetMetricsData(h HeaderModel) {
 		h.utilBuffer,
 		h.powerBuffer,
 		h.cpuBuffer,
-	)
+	).SetStates(h.gpuState, h.cpuState)
 }
 
 // View renders the content pane for the current navigation state.

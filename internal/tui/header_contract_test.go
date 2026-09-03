@@ -85,9 +85,34 @@ func TestHeaderAndMonitorRenderLiveUnavailableAndAlertStates(t *testing.T) {
 		}
 	}
 	empty := NewMetricsResource(styles)
-	for section, fragment := range []string{"N/A", "N/A", "No active alerts"} {
+	for section, fragment := range []string{"Loading metrics", "Loading metrics", "No active alerts"} {
 		if view := stripANSI(empty.View(false, nav.MonitorSection(section))); !strings.Contains(view, fragment) {
 			t.Errorf("empty monitor section %d missing %q:\n%s", section, fragment, view)
+		}
+	}
+}
+
+func TestMonitorUsesTextMarkersAndDistinctMetricStates(t *testing.T) {
+	styles := NewStyles(DefaultTheme, true)
+	for _, state := range []metricState{metricLoading, metricUnsupported, metricFailed, metricStale} {
+		monitor := NewMetricsResource(styles).SetStates(state, state)
+		view := stripANSI(monitor.View(true, nav.MonitorGPU))
+		if !strings.Contains(view, "› GPU") || !strings.Contains(view, string(state)) {
+			t.Fatalf("monitor state %q was not explicit:\n%s", state, view)
+		}
+		if strings.Count(view, "GPU") != 1 || strings.Contains(view, "header sample loop") {
+			t.Fatalf("monitor repeated its heading or exposed developer copy:\n%s", view)
+		}
+	}
+}
+
+func TestMonitorAlertNamesCauseAndRecovery(t *testing.T) {
+	styles := NewStyles(DefaultTheme, true)
+	alert := overlay.Alert{Type: overlay.AlertThermalThrottle, Severity: overlay.AlertCritical, Message: "GPU thermal throttling at 92°C", Suggestion: "Reduce the GPU power limit"}
+	view := stripANSI(NewMetricsResource(styles).SetData(nil, nil, []overlay.Alert{alert}, nil, nil, nil, nil).View(true, nav.MonitorAlerts))
+	for _, text := range []string{"› Alerts", "GPU thermal throttling at 92°C", "Recovery: Reduce the GPU power limit"} {
+		if !strings.Contains(view, text) {
+			t.Fatalf("alert missing %q:\n%s", text, view)
 		}
 	}
 }

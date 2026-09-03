@@ -288,17 +288,17 @@ func TestDetail_ProfileSemanticsPreserveReloadMeaning_Pass(t *testing.T) {
 
 	d := NewDetail(styles, raw, &profile.Profile{GPU: profile.GPUSettings{PowerLimit: 350}})
 	focusField(t, &d, profile.FieldGPUPowerLimit)
-	line := detailLineContaining(d.View(), "Power limit")
-	for _, want := range []string{"350", "source default", "impact system_state", "restore restorable_mutation"} {
-		if !strings.Contains(line, want) {
-			t.Fatalf("inherited line missing %q: %q", want, line)
+	view := d.View()
+	for _, want := range []string{"350", "↳ Inherited from defaults", "Changes system settings while the game runs", "restored when the game exits"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("inherited selection missing %q: %q", want, view)
 		}
 	}
 
 	d = NewDetail(styles, raw, &profile.Profile{GPU: profile.GPUSettings{PowerLimit: 420}})
 	focusField(t, &d, profile.FieldGPUPowerLimit)
-	line = detailLineContaining(d.View(), "Power limit")
-	if !strings.Contains(line, "420") || !strings.Contains(line, "source default") || strings.Contains(line, "◆") {
+	line := detailLineContaining(d.View(), "Power limit")
+	if !strings.Contains(line, "420") || !strings.Contains(line, "Inherited from defaults") || strings.Contains(line, "◆") {
 		t.Fatalf("default reload should stay inherited without override marker: %q", line)
 	}
 
@@ -307,7 +307,7 @@ func TestDetail_ProfileSemanticsPreserveReloadMeaning_Pass(t *testing.T) {
 	d = NewDetail(styles, raw, &profile.Profile{GPU: profile.GPUSettings{PowerLimit: 420}})
 	focusField(t, &d, profile.FieldGPUPowerLimit)
 	line = detailLineContaining(d.View(), "Power limit")
-	if !strings.Contains(line, "400") || !strings.Contains(line, "source override") || !strings.Contains(line, "◆") {
+	if !strings.Contains(line, "400") || !strings.Contains(line, "Override for this game") || !strings.Contains(line, "◆") {
 		t.Fatalf("override reload should preserve explicit intent: %q", line)
 	}
 }
@@ -317,12 +317,13 @@ func TestDetail_ProfileSemanticsPreserveReloadMeaning_Pass(t *testing.T) {
 func TestDetail_ProfileSemanticsInheritedNeverImpliesOverride_Fail(t *testing.T) {
 	styles := NewStyles(DefaultTheme, true)
 	d := NewDetail(styles, &profile.Profile{}, &profile.Profile{Proton: profile.ProtonSettings{EnableHDR: true}})
-	line := detailLineContaining(d.View(), "HDR")
-	if strings.Contains(line, "source override") || strings.Contains(line, "◆") {
+	view := d.View()
+	line := detailLineContaining(view, "HDR")
+	if strings.Contains(line, "Override for this game") || strings.Contains(line, "◆") {
 		t.Fatalf("inherited HDR must not imply override: %q", line)
 	}
-	if !strings.Contains(line, "source default") || !strings.Contains(line, "impact compatibility") || !strings.Contains(line, "restore ephemeral_launch_environment") {
-		t.Fatalf("inherited HDR line missing shared semantics: %q", line)
+	if !strings.Contains(view, "Inherited from defaults") || !strings.Contains(view, "Applied when the game starts") || !strings.Contains(view, "ends with the game") {
+		t.Fatalf("inherited HDR selection missing shared semantics: %q", view)
 	}
 }
 

@@ -1,0 +1,15 @@
+id: ttapqfljte
+artifact: progress
+record:
+  timestamp: 2026-09-03 18:27
+  type: fix
+  phase: build
+  what: "Updated internal/tui/detail.go and metrics_resource.go: Profile rows distinguish defaults, inheritance, overrides, destination, and selection in user-facing text and symbols; Monitor marks the selected section, distinguishes metric states, and shows alert cause and recovery."
+  context:
+    intent: Simplify Profile and Monitor language without changing their behavior.
+    constraints: No DLL cancellation or presentation work, E2E transport, final sync, privileged actions, or real game-file mutation.
+    unknowns: Terminal Control exercised live metric and no-alert states; deterministic loading, unsupported, failed, stale, and alert recovery fixtures are asserted by focused rendering tests.
+    scope: Profile labels/state explanations and Monitor selection, metric state, and alert copy only.
+  verified: go test -race ./internal/tui ./internal/profile; go test ./...; mage lint; mage build; git diff --check. Isolated Terminal Control reviewed Profile default/inherited/override and Monitor GPU/CPU/Alerts at 120x40 and 80x24; fixture and session removed.
+  next: Keep zyfnmqxuce in_progress for independent audit.
+  publication_order: 13

@@ -269,7 +269,7 @@ func TestContentFirstGameProfileSaveClearsInheritedBannerAndRetainsFocus(t *test
 	content := NewContent(NewStyles(DefaultTheme, true), true, services).SetGame(entry)
 	content.SetSize(100, 30)
 	wantField := content.detail.FocusedField()
-	if !content.usingDefaultProfile || !strings.Contains(stripANSI(content.ViewProfileAspect()), "Using default profile values") {
+	if !content.usingDefaultProfile || !strings.Contains(stripANSI(content.ViewProfileAspect()), "Destination: this game · values inherited from Defaults") {
 		t.Fatal("profile-free game did not begin with inherited-only banner")
 	}
 
@@ -298,7 +298,7 @@ func TestContentFirstGameProfileSaveClearsInheritedBannerAndRetainsFocus(t *test
 	if command != nil {
 		t.Fatal("profile save result unexpectedly scheduled more work")
 	}
-	if routed.usingDefaultProfile || strings.Contains(stripANSI(routed.ViewProfileAspect()), "Using default profile values") {
+	if routed.usingDefaultProfile || strings.Contains(stripANSI(routed.ViewProfileAspect()), "values inherited from Defaults") {
 		t.Fatal("successful first game-profile save retained inherited-only banner")
 	}
 	if got := routed.detail.FocusedField(); got != wantField {

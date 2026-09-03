@@ -7,7 +7,7 @@ record:
     - xlnuugbhom
     - gaewoncior
     - lamvzkrgxu
-  status: pending
+  status: in_progress
   acceptance:
     - GIVEN a Profile field list WHEN it renders THEN rows use user-facing language and the selected field provides any needed effect or restoration explanation without exposing raw identifiers on every row.
     - GIVEN default, inherited, overridden, destination, and selection states WHEN they render THEN text or distinct symbols make each meaning distinguishable without relying on color alone.

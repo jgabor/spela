@@ -172,7 +172,7 @@ func (m ContentModel) renderDLLs() string {
 func (m ContentModel) renderProfile() string {
 	var b strings.Builder
 	if m.usingDefaultProfile {
-		b.WriteString(m.styles.Dim.Render("Using default profile values (inherited)"))
+		b.WriteString(m.styles.Dim.Render("Destination: this game · values inherited from Defaults"))
 		b.WriteString("\n")
 	}
 	profileHeight := m.profileSectionHeight()

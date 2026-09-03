@@ -35,12 +35,28 @@ type MetricsResourceModel struct {
 	cpuBuffer   *MetricsBuffer
 	width       int
 	height      int
+	gpuState    metricState
+	cpuState    metricState
 }
+
+type metricState string
+
+const (
+	metricLoading     metricState = "Loading metrics…"
+	metricUnsupported metricState = "Unsupported on this system"
+	metricFailed      metricState = "Metrics failed to load"
+	metricStale       metricState = "Stale metrics — refresh failed"
+)
 
 // NewMetricsResource constructs an empty Metrics pane. Buffers and metrics
 // must be wired via SetData before rendering.
 func NewMetricsResource(styles *Styles) MetricsResourceModel {
-	return MetricsResourceModel{styles: styles}
+	return MetricsResourceModel{styles: styles, gpuState: metricLoading, cpuState: metricLoading}
+}
+
+func (m MetricsResourceModel) SetStates(gpuState, cpuState metricState) MetricsResourceModel {
+	m.gpuState, m.cpuState = gpuState, cpuState
+	return m
 }
 
 // SetSize stores the pane dimensions so the sparkline width can adapt.
@@ -81,9 +97,7 @@ func (m MetricsResourceModel) View(paneFocused bool, section nav.MonitorSection)
 		Padding(0, 1)
 
 	var b strings.Builder
-	b.WriteString(s.Title.Render(nav.MonitorSectionLabels[section]))
-	b.WriteString("\n")
-	b.WriteString(s.Dim.Render("Live GPU and CPU telemetry. Sparklines and gauges share the header sample loop."))
+	b.WriteString(s.Title.Render("› " + nav.MonitorSectionLabels[section]))
 	b.WriteString("\n\n")
 
 	sparklineWidth := 30
@@ -115,8 +129,6 @@ func (m MetricsResourceModel) View(paneFocused bool, section nav.MonitorSection)
 }
 
 func (m MetricsResourceModel) renderGPUBlock(b *strings.Builder, s *Styles, t Theme, sparklineWidth, gaugeWidth int, labelStyle, valueStyle, freqStyle lipgloss.Style) {
-	b.WriteString(m.sectionHeader("GPU"))
-	b.WriteString("\n")
 	if m.gpuMetrics != nil {
 		g := m.gpuMetrics
 
@@ -181,14 +193,12 @@ func (m MetricsResourceModel) renderGPUBlock(b *strings.Builder, s *Styles, t Th
 			b.WriteString("\n")
 		}
 	} else {
-		b.WriteString(labelStyle.Render("Temp   ") + valueStyle.Render("N/A"))
+		b.WriteString(valueStyle.Render(string(m.gpuState)))
 		b.WriteString("\n")
 	}
 }
 
 func (m MetricsResourceModel) renderCPUBlock(b *strings.Builder, s *Styles, t Theme, sparklineWidth, gaugeWidth int, labelStyle, valueStyle, freqStyle lipgloss.Style) {
-	b.WriteString(m.sectionHeader("CPU"))
-	b.WriteString("\n")
 	if m.cpuMetrics != nil {
 		c := m.cpuMetrics
 		utilStyle := ThermalStyle(c.Utilization, 0, 100, &t)
@@ -219,14 +229,12 @@ func (m MetricsResourceModel) renderCPUBlock(b *strings.Builder, s *Styles, t Th
 			b.WriteString("\n")
 		}
 	} else {
-		b.WriteString(labelStyle.Render("Util   ") + valueStyle.Render("N/A"))
+		b.WriteString(valueStyle.Render(string(m.cpuState)))
 		b.WriteString("\n")
 	}
 }
 
 func (m MetricsResourceModel) renderAlertsBlock(b *strings.Builder, s *Styles) {
-	b.WriteString(m.sectionHeader("Alerts"))
-	b.WriteString("\n")
 	if len(m.alerts) == 0 {
 		b.WriteString(s.Dim.Render("No active alerts"))
 		b.WriteString("\n")
@@ -239,16 +247,16 @@ func (m MetricsResourceModel) renderAlertsBlock(b *strings.Builder, s *Styles) {
 			icon = "✗"
 			style = s.Error
 		}
-		b.WriteString(style.Render(fmt.Sprintf("%s %s", icon, alertLabel(&a))))
+		message := a.Message
+		if message == "" {
+			message = alertLabel(&a)
+		}
+		b.WriteString(style.Render(fmt.Sprintf("%s %s", icon, message)))
+		if a.Suggestion != "" {
+			b.WriteString("\n  Recovery: " + a.Suggestion)
+		}
 		b.WriteString("\n")
 	}
-}
-
-func (m MetricsResourceModel) sectionHeader(name string) string {
-	return lipgloss.NewStyle().
-		Foreground(m.styles.Theme.AccentOverride).
-		Bold(true).
-		Render(name)
 }
 
 // max100 returns v clamped to a minimum of 100 — sparkline ranges need a

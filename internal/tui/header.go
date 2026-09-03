@@ -30,6 +30,8 @@ type metricsMsg struct {
 	gpuMetrics *gpu.GPUMetrics
 	cpuMetrics *cpu.CPUMetrics
 	alerts     []overlay.Alert
+	gpuError   error
+	cpuError   error
 }
 
 type HeaderModel struct {
@@ -44,6 +46,8 @@ type HeaderModel struct {
 	utilBuffer  *MetricsBuffer
 	powerBuffer *MetricsBuffer
 	cpuBuffer   *MetricsBuffer
+	gpuState    metricState
+	cpuState    metricState
 }
 
 func NewHeader(styles *Styles) HeaderModel {
@@ -53,6 +57,8 @@ func NewHeader(styles *Styles) HeaderModel {
 		utilBuffer:  NewMetricsBuffer(20),
 		powerBuffer: NewMetricsBuffer(20),
 		cpuBuffer:   NewMetricsBuffer(20),
+		gpuState:    metricLoading,
+		cpuState:    metricLoading,
 	}
 }
 
@@ -73,8 +79,8 @@ func tickHeader() tea.Cmd {
 // fetchMetrics returns a command that reads GPU/CPU metrics off the main loop.
 func fetchMetrics() tea.Cmd {
 	return func() tea.Msg {
-		gpuMetrics, _ := gpu.GetGPUMetrics()
-		cpuMetrics, _ := cpu.GetCPUMetrics()
+		gpuMetrics, gpuError := gpu.GetGPUMetrics()
+		cpuMetrics, cpuError := cpu.GetCPUMetrics()
 		var alerts []overlay.Alert
 		if gpuMetrics != nil {
 			input := overlay.AlertInput{
@@ -90,7 +96,7 @@ func fetchMetrics() tea.Cmd {
 			}
 			alerts = overlay.Evaluate(input, overlay.DefaultThresholds())
 		}
-		return metricsMsg{gpuMetrics: gpuMetrics, cpuMetrics: cpuMetrics, alerts: alerts}
+		return metricsMsg{gpuMetrics: gpuMetrics, cpuMetrics: cpuMetrics, alerts: alerts, gpuError: gpuError, cpuError: cpuError}
 	}
 }
 
@@ -99,6 +105,8 @@ func (m HeaderModel) Update(msg tea.Msg) (HeaderModel, tea.Cmd) {
 	case headerTickMsg:
 		return m, fetchMetrics()
 	case metricsMsg:
+		m.gpuState = nextMetricState(m.gpuMetrics != nil, msg.gpuMetrics != nil, msg.gpuError)
+		m.cpuState = nextMetricState(m.cpuMetrics != nil, msg.cpuMetrics != nil, msg.cpuError)
 		m.gpuMetrics = msg.gpuMetrics
 		m.cpuMetrics = msg.cpuMetrics
 		m.alerts = msg.alerts
@@ -113,6 +121,19 @@ func (m HeaderModel) Update(msg tea.Msg) (HeaderModel, tea.Cmd) {
 		return m, tickHeader()
 	}
 	return m, nil
+}
+
+func nextMetricState(hadData, hasData bool, err error) metricState {
+	if err != nil {
+		if hadData {
+			return metricStale
+		}
+		return metricFailed
+	}
+	if !hasData {
+		return metricUnsupported
+	}
+	return ""
 }
 
 func (m HeaderModel) View() string {

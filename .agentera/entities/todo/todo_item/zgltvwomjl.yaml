@@ -1,0 +1,24 @@
+id: zgltvwomjl
+artifact: todo
+record:
+  severity: degraded
+  kind: bug
+  target_version: null
+  title: Show accurate DLL cancellation outcomes
+  requirements:
+    - Show a retained cancellation outcome after install, per-game update or restore, catalog update-all, and selected-game batch confirmation is cancelled.
+    - Clear or replace any earlier success message so cancellation can never leave stale success visible.
+  acceptance:
+    - GIVEN any DLL confirmation WHEN q or Escape cancels it THEN the prior view visibly identifies that no operation ran.
+    - GIVEN an earlier DLL success exists WHEN a later confirmation is cancelled THEN the visible outcome reports cancellation rather than stale success.
+    - GIVEN cancellation journeys run at 120x40 and 80x24 WHEN every mutation surface is exercised THEN no file changes and accurate retained outcomes are verified.
+  release_blocker: false
+  status: open
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[bug] Show accurate DLL cancellation outcomes"
+      severity: degraded
+      status: open
+      order: 1
