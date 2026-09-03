@@ -212,6 +212,9 @@ func Coverage() error {
 	if err := runGoCoverage("gui", testPackages, "dev", "webkit2_41"); err != nil {
 		return err
 	}
+	if err := runGoCoverage("e2e", testPackages, "e2e"); err != nil {
+		return err
+	}
 	taggedPackages := []string{"./cmd/spela", "./internal/gui"}
 	if err := runGoCoverage("production", taggedPackages, "wails", "production", "webkit2_41"); err != nil {
 		return err
@@ -225,6 +228,7 @@ func Coverage() error {
 	if err := runWithEnv(environment, "go", "run", "./tools/coverage-inventory",
 		"--profile", filepath.Join(coverageDir, "go-default.out"),
 		"--profile", filepath.Join(coverageDir, "go-gui.out"),
+		"--profile", filepath.Join(coverageDir, "go-e2e.out"),
 		"--profile", filepath.Join(coverageDir, "go-production.out"),
 		"--profile", filepath.Join(coverageDir, "go-embedded.out")); err != nil {
 		return err
@@ -232,6 +236,7 @@ func Coverage() error {
 	return runWithEnv(environment, "python3", "scripts/merge-coverage.py",
 		"--go", filepath.Join(coverageDir, "go-default.out"),
 		"--go", filepath.Join(coverageDir, "go-gui.out"),
+		"--go", filepath.Join(coverageDir, "go-e2e.out"),
 		"--go", filepath.Join(coverageDir, "go-production.out"),
 		"--go", filepath.Join(coverageDir, "go-embedded.out"),
 		"--frontend", filepath.Join(frontendDir, "coverage", "lcov.info"),

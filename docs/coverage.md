@@ -38,15 +38,16 @@ silently pass the gate.
   `tests/contracts/`. The tagged TUI tests in `tests/e2e/` remain end-to-end
   verification and are not production code or part of the headless unit
   coverage run.
-- **Build tags:** four package graphs are measured and merged by source line:
-  default; `dev,webkit2_41`; `wails,production,webkit2_41`; and
+- **Build tags:** five package graphs are measured and merged by source line:
+  default; `dev,webkit2_41`; `e2e`; `wails,production,webkit2_41`; and
   `wails,production,embed_assets,webkit2_41`. Together they include the normal
-  CLI graph, Wails process startup, development GUI code, non-embedded
-  production assets, and embedded production assets in the maintained-source
-  denominator. The embedded graph runs after a locked frontend build so the
+  CLI graph, tagged E2E hooks, Wails process startup, development GUI code,
+  non-embedded production assets, and embedded production assets in the
+  maintained-source denominator. The embedded graph runs after a locked
+  frontend build so the
   `go:embed` input exists in clean checkouts. A Go AST inventory scans every
   non-test source under the production roots and fails if a file containing an
-  executable function body is absent from all four raw profiles. Declaration-only
+  executable function body is absent from all five raw profiles. Declaration-only
   files are allowed to be absent because Go cannot instrument them. There are
   currently no generated or non-runtime Go source exclusions.
 - **Frontend production:** every tracked `src/**/*.js` and `src/**/*.svelte`
