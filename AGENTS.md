@@ -62,7 +62,8 @@ go test ./...        # alternative
 ### TUI testing
 
 Use [Terminal Control](https://github.com/anomalyco/terminal-control) for every
-change that can affect Spela's interactive terminal. Build the compiled
+change that can affect Spela's interactive terminal. Use version 1.2.1 or a newer
+version that passes the terminal compatibility test documented below. Build the compiled
 executable, run it in a named session, wait for visible content instead of
 sleeping, and read the rendered terminal with `termctrl show`:
 
@@ -75,23 +76,32 @@ termctrl show spela-tui-review
 ```
 
 Use a unique session name when reviews may run concurrently, and use that name
-for every later command. Send text and keys as separate arguments:
+for every later command. Send only keys displayed in the current frame. Use
+numbers, arrows, Tab, Enter, Space, and Ctrl+S for commands. Send text and keys as
+separate arguments; punctuation is ordinary text only inside an input:
 
 ```bash
-termctrl send spela-tui-review 'text:?'
-termctrl wait spela-tui-review "Keyboard shortcuts" --timeout 20000
+termctrl send spela-tui-review 'text:0'
+termctrl wait spela-tui-review "Actions ·" --timeout 20000
 termctrl show spela-tui-review
-termctrl send spela-tui-review escape
+termctrl send spela-tui-review tab
+termctrl wait spela-tui-review "▸ Close" --timeout 20000
+termctrl show spela-tui-review
+termctrl send spela-tui-review enter
 ```
 
 Visual review means reading the visible screen returned by `termctrl show`.
 Do not substitute process logs, raw stdout, screenshots, or unit tests. Exercise
-relevant keyboard paths, then inspect standard and constrained layouts:
+relevant keyboard paths, selecting Actions rows by their visible labels. At
+80x24 the compact header and active pane must fit; Tab reveals the other pane.
+Resize the same running session and inspect standard and constrained layouts:
 
 ```bash
 termctrl resize spela-tui-review --cols 80 --rows 24
+termctrl wait spela-tui-review "Library" --timeout 20000
 termctrl show spela-tui-review
 termctrl resize spela-tui-review --cols 120 --rows 40
+termctrl wait spela-tui-review "Library" --timeout 20000
 termctrl show spela-tui-review
 ```
 

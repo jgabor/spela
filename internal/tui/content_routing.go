@@ -1,91 +1,39 @@
 package tui
 
 import (
+	"fmt"
+
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jgabor/spela/internal/dll"
 )
 
 func (m ContentModel) updateBlockingFlow(msg tea.Msg) (ContentModel, tea.Cmd, bool) {
-	if m.confirmation != nil {
-		key, ok := msg.(tea.KeyPressMsg)
-		if !ok {
-			return m, nil, true
+	if key, ok := msg.(tea.KeyPressMsg); ok {
+		if m.HasModalOpen() {
+			next, command := m.UpdateDLLAction(dllOverlayAction(key))
+			return next, command, true
 		}
-		confirm, cancel := m.confirmation.update(key)
-		if cancel {
-			m.confirmation = nil
-			if m.pendingAction != PendingNone {
-				if m.pendingAction == PendingDLLUpdate {
-					m.lastDLLResult = dllCancellationResult("DLL update")
-				} else {
-					m.lastDLLResult = dllCancellationResult("DLL restore")
-				}
-				m.pendingAction = PendingNone
-			} else {
-				m.lastDLLResult = dllCancellationResult("DLL install")
-				m.dllInstallState = DLLInstallNone
-				m.dllOperating = false
-			}
-			return m, nil, true
-		}
-		if !confirm {
-			return m, nil, true
-		}
-		m.confirmation = nil
-		if m.pendingAction == PendingNone {
-			m.lastDLLResult = ""
-			m.dllInstallState = DLLInstallDownloading
-			return m, m.installSelectedDLL(), true
-		}
+		return m, nil, false
 	}
-	if m.dllInstallState != DLLInstallNone {
-		m, cmd := m.updateDLLInstall(msg)
-		return m, cmd, true
+	// Completions must reach their owner even while a dialog or progress view
+	// owns keyboard input. Otherwise a dispatched write can remain busy forever.
+	if next, command, handled := m.updateContentMessage(msg); handled {
+		return next, command, true
 	}
-	if m.pendingAction != PendingNone {
-		if key, ok := msg.(tea.KeyPressMsg); ok {
-			return m.updatePendingAction(key)
-		}
+	switch msg.(type) {
+	case dllTypesLoadedMsg, dllVersionsLoadedMsg, dllInstallMsg:
+		next, command := m.updateDLLInstall(msg)
+		return next, command, true
 	}
 	return m, nil, false
-}
-
-func (m ContentModel) updatePendingAction(msg tea.KeyPressMsg) (ContentModel, tea.Cmd, bool) {
-	switch msg.String() {
-	case "esc", "escape", "q":
-		if m.pendingAction == PendingDLLUpdate {
-			m.lastDLLResult = dllCancellationResult("DLL update")
-		} else {
-			m.lastDLLResult = dllCancellationResult("DLL restore")
-		}
-		m.pendingAction = PendingNone
-		return m, nil, true
-	case "enter", "y", "Y":
-		action := m.pendingAction
-		m.pendingAction = PendingNone
-		m.lastDLLResult = ""
-		switch action {
-		case PendingDLLUpdate:
-			m.dllOperating = true
-			m.dllOperatingLabel = "Updating DLLs..."
-			return m, m.updateDLLs(), true
-		case PendingDLLRestore:
-			m.dllOperating = true
-			m.dllOperatingLabel = "Restoring DLLs..."
-			return m, m.restoreDLLs(), true
-		}
-	default:
-		m.pendingAction = PendingNone
-	}
-	return m, nil, true
 }
 
 func (m ContentModel) updateContentMessage(msg tea.Msg) (ContentModel, tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case profileSaveMsg:
 		if m.game != nil && msg.request.appID == m.game.AppID {
-			m.detail.CompleteSave(msg.err)
+			m.detail.CompleteSaveSnapshot(msg.request.desired, msg.err)
 		}
 		if msg.err == nil && m.game != nil && msg.request.appID == m.game.AppID {
 			m.persistedProfile = msg.request.desired.Clone()
@@ -97,6 +45,9 @@ func (m ContentModel) updateContentMessage(msg tea.Msg) (ContentModel, tea.Cmd, 
 	case dllRestoreMsg:
 		return m.updateDLLRestoreMsg(msg), nil, true
 	case dllUpdatesCheckedMsg:
+		if m.game == nil || msg.appID != m.game.AppID {
+			return m, nil, true
+		}
 		if msg.err == nil {
 			m.hasUpdates = msg.hasUpdates
 			m.dllUpdateTargets = msg.targets
@@ -108,7 +59,16 @@ func (m ContentModel) updateContentMessage(msg tea.Msg) (ContentModel, tea.Cmd, 
 
 func (m ContentModel) updateDLLUpdateMsg(msg dllUpdateMsg) (ContentModel, tea.Cmd, bool) {
 	m.dllOperating = false
+	m.dllResultOpen, m.dllInstallControl, m.scrollOffset = true, 0, 0
+	if msg.err != nil {
+		m.lastDLLResult = "DLL update failed: " + msg.err.Error()
+	} else {
+		m.lastDLLResult = fmt.Sprintf("DLL update: %d updated, %d current, %d failed", msg.batch.Updated, msg.batch.Unchanged, msg.batch.Failed)
+	}
 	for _, item := range msg.batch.Items {
+		if item.Err != nil {
+			m.lastDLLResult += "\n" + item.Err.Error()
+		}
 		m.applyDLLResult(item.Result)
 	}
 	m.hasBackup = m.game != nil && m.services.BackupExists(m.game.AppID)
@@ -118,6 +78,14 @@ func (m ContentModel) updateDLLUpdateMsg(msg dllUpdateMsg) (ContentModel, tea.Cm
 
 func (m ContentModel) updateDLLRestoreMsg(msg dllRestoreMsg) ContentModel {
 	m.dllOperating = false
+	m.dllResultOpen, m.dllInstallControl, m.scrollOffset = true, 0, 0
+	if msg.err != nil {
+		m.lastDLLResult = "DLL restore failed: " + msg.err.Error()
+	} else if msg.result.Outcome == dll.OutcomeNoOp {
+		m.lastDLLResult = "DLL restore: already current"
+	} else {
+		m.lastDLLResult = "DLL restore completed"
+	}
 	if msg.result.Game != nil {
 		m.applyDLLResult(msg.result)
 		m.hasBackup = m.game != nil && m.services.BackupExists(m.game.AppID)
@@ -137,81 +105,8 @@ func (m *ContentModel) applyDLLResult(result dll.Result) {
 	}
 }
 
-func (m ContentModel) updateContentKey(msg tea.KeyPressMsg) (ContentModel, tea.Cmd, bool) {
-	if m.updateDetailNavigation(msg) {
-		return m, nil, true
-	}
-	if next, cmd, handled := m.updateProfileKey(msg); handled {
-		return next, cmd, true
-	}
-	return m.updateDLLKey(msg)
-}
-
-func (m *ContentModel) updateDetailNavigation(msg tea.KeyPressMsg) bool {
-	switch msg.String() {
-	case "j", "down", "k", "up":
-		detail, _, handled := m.detail.Update(msg)
-		if handled {
-			m.detail = detail
-			return true
-		}
-	}
-	return false
-}
-
-func (m ContentModel) updateProfileKey(msg tea.KeyPressMsg) (ContentModel, tea.Cmd, bool) {
-	if m.game == nil || m.dllOperating {
-		return m, nil, false
-	}
-	switch msg.String() {
-	case "r":
-		changed, err := m.detail.ResetFocused()
-		if err == nil && changed {
-			return m, m.saveResolvedProfile(), true
-		}
-		return m, nil, true
-	case "R":
-		if m.detail.ResetAll() {
-			return m, m.saveResolvedProfile(), true
-		}
-		return m, nil, true
-	}
-	return m, nil, false
-}
-
-func (m ContentModel) updateDLLKey(msg tea.KeyPressMsg) (ContentModel, tea.Cmd, bool) {
-	switch msg.String() {
-	case "i":
-		if m.game != nil && !m.dllOperating {
-			m.dllOperating = true
-			m.dllOperatingLabel = "Installing DLL..."
-			m.dllInstallState = DLLInstallSelectType
-			m.dllTypeCursor = 0
-			return m, m.loadDLLTypes(), true
-		}
-	case "u":
-		if m.game == nil || len(m.game.DLLs) == 0 || m.dllOperating {
-			return m, nil, false
-		}
-		if !m.hasUpdates {
-			m.lastDLLResult = "DLLs already up to date"
-			return m, func() tea.Msg {
-				return contentNoticeMsg{text: "DLLs already up to date", messageType: MessageInfo}
-			}, true
-		}
-		m.pendingAction = PendingDLLUpdate
-		m.confirmation = newDLLMutationConfirmation("Confirm DLL update", m.dllUpdateTargets, "current DLL is backed up before replacement")
-		return m, nil, true
-	case "f6":
-		if m.game != nil && m.hasBackup && !m.dllOperating {
-			m.pendingAction = PendingDLLRestore
-			targets := make([]dllMutationTarget, 0, len(m.game.DLLs))
-			for _, installed := range m.game.DLLs {
-				targets = append(targets, newDLLMutationTarget(m.game, installed, "backup"))
-			}
-			m.confirmation = newDLLMutationConfirmation("Confirm DLL restore", targets, "existing backup is restored; current DLL is not backed up again")
-			return m, nil, true
-		}
-	}
+// Browse commands are semantic actions owned by resourcePaneModel. Content
+// only consumes basic local overlay controls through updateBlockingFlow.
+func (m ContentModel) updateContentKey(_ tea.KeyPressMsg) (ContentModel, tea.Cmd, bool) {
 	return m, nil, false
 }

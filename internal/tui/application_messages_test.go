@@ -71,8 +71,11 @@ func TestLayoutApplicationMessagesMaintainCrossComponentState(t *testing.T) {
 
 	replacement := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.9.0"))
 	rescanned := testDatabase(replacement)
+	updated.showBatchMenu = false
+	updated.pane.content.dllResultOpen = false
+	updated.pane.content.dllInstallState = DLLInstallNone
 	updated, commands = updated.handleAppMessages(rescanGamesMsg{db: rescanned}, nil)
-	if updated.db != rescanned || updated.pane.content.game.DLLs[0].Version != "3.9.0" || len(commands) < 2 {
+	if updated.db != rescanned || updated.pane.content.game.DLLs[0].Version != "3.9.0" || len(commands) == 0 {
 		t.Fatalf("rescan synchronization = db %v, version %s, commands %d", updated.db == rescanned, updated.pane.content.game.DLLs[0].Version, len(commands))
 	}
 	updated, commands = updated.handleAppMessages(rescanGamesMsg{err: errors.New("Steam unavailable")}, nil)
@@ -107,15 +110,16 @@ func TestLayoutApplicationMessagesMaintainCrossComponentState(t *testing.T) {
 		t.Fatal("game messages did not synchronize selected content")
 	}
 	updated.pane.content.dllInstallState = DLLInstallSelectType
-	updated, commands = updated.handleAppMessages(dllTypesLoadedMsg{types: []string{"dlss"}}, nil)
+	updated, commands = updated.handleAppMessages(dllTypesLoadedMsg{requestID: updated.pane.content.dllRequestID, types: []string{"dlss"}}, nil)
 	updated.pane.content.dllInstallState = DLLInstallSelectVersion
-	updated, commands = updated.handleAppMessages(dllVersionsLoadedMsg{}, commands)
+	updated, commands = updated.handleAppMessages(dllVersionsLoadedMsg{requestID: updated.pane.content.dllRequestID}, commands)
 	updated.pane.content.dllInstallState = DLLInstallNone
-	updated, _ = updated.handleAppMessages(dllUpdatesCheckedMsg{hasUpdates: true}, commands)
+	updated, _ = updated.handleAppMessages(dllUpdatesCheckedMsg{appID: entry.AppID, hasUpdates: true}, commands)
 	if !updated.pane.content.hasUpdates || len(updated.pane.content.dllTypes) != 1 {
 		t.Fatal("DLL loading messages did not synchronize content")
 	}
 	updated, commands = updated.handleAppMessages(dllRestoreMsg{result: dll.Result{Outcome: dll.OutcomeChanged}}, nil)
+	updated.pane.content.dllOperating = true
 	updated, commands = updated.handleAppMessages(dllInstallMsg{result: dll.Result{Outcome: dll.OutcomeChanged}}, commands)
 	updated, commands = updated.handleAppMessages(profileSaveMsg{err: errors.New("read-only")}, commands)
 	if len(commands) < 3 {
@@ -128,15 +132,16 @@ func TestLayoutApplicationMessagesMaintainCrossComponentState(t *testing.T) {
 	updated.batchCursor = 1
 	updated, _, _ = updated.handleBatchMenuKeys(keyMsg("up"))
 	updated, _, _ = updated.handleBatchMenuKeys(keyMsg("down"))
-	updated, _, _ = updated.handleBatchMenuKeys(keyMsg("esc"))
+	updated, _, _ = updated.handleBatchMenuKeys(keyMsg("tab"))
+	updated, _, _ = updated.handleBatchMenuKeys(keyMsg("enter"))
 	if updated.showBatchMenu {
-		t.Fatal("batch escape did not close menu")
+		t.Fatal("batch Close did not close menu")
 	}
 	updated.showHelp = true
 	updated.showBatchMenu = true
 	updated.batchGames = []*game.Game{entry}
-	if modalView := stripANSI(updated.View().Content); !strings.Contains(modalView, "Keyboard") || !strings.Contains(modalView, "Batch action") {
-		t.Fatalf("stacked layout overlays missing:\n%s", modalView)
+	if modalView := stripANSI(updated.View().Content); !strings.Contains(modalView, "Keyboard") || strings.Contains(modalView, "Batch action") {
+		t.Fatalf("highest priority Help overlay was not exclusive:\n%s", modalView)
 	}
 }
 
@@ -153,13 +158,17 @@ func TestPerGameDLLOutcomesRemainAfterMessageBarClears(t *testing.T) {
 		want    string
 	}{
 		{name: "success", message: dllUpdateMsg{batch: dll.BatchResult{Updated: 1, Items: []dll.BatchItem{{Result: dll.Result{Outcome: dll.OutcomeChanged, Game: entry}}}}}, want: "DLL update: 1 updated, 0 current, 0 failed"},
-		{name: "no-op", message: dllUpdateMsg{batch: dll.BatchResult{Unchanged: 1}}, want: "DLLs already up to date"},
-		{name: "denied", message: dllInstallMsg{err: errors.New("DLL swap denied for app 1091500")}, want: "Install failed: DLL swap denied"},
+		{name: "no-op", message: dllUpdateMsg{batch: dll.BatchResult{Unchanged: 1}}, want: "DLL update: 0 updated, 1 current, 0 failed"},
+		{name: "denied", message: dllInstallMsg{err: errors.New("DLL swap denied for app 1091500")}, want: "DLL install failed: DLL swap denied"},
 		{name: "partial", message: dllRestoreMsg{result: partial.Result, err: partial}, want: "DLL files changed but metadata did not fully persist"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			layout := testLayoutWithGame(entry)
+			layout.pane.content.dllOperating = true
+			if _, installing := test.message.(dllInstallMsg); installing {
+				layout.pane.content.dllInstallState = DLLInstallDownloading
+			}
 			updated, _ := layout.handleAppMessages(test.message, nil)
 			timestamp := updated.messageBar.timestamp
 			updated, _ = updated.handleAppMessages(messageClearMsg{timestamp: timestamp}, nil)

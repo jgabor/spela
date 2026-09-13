@@ -1,162 +1,175 @@
 # TUI navigation and shell contract
 
-This document is the behavioral source of truth for the terminal shell. It describes the
-replacement navigation model, not the legacy primary/context/content implementation. Widgets,
-pane models, cursors, and rendered tabs may implement this contract, but they are not additional
-navigation state.
+This is the behavioral contract for the terminal shell. The completed
+[basic-key implementation plan](tui-basic-key-navigation-plan.md) records the
+2026-09-13 audit, decisions, and acceptance criteria. The TUI edits profiles and
+configuration, manages DLLs, and displays metrics. Game launching and privileged
+GPU/CPU tuning remain outside its interactive workflows.
 
-## Navigation state
+## Navigation state and controls
 
-The shell state has exactly these user-visible dimensions:
+The shell owns a destination, its selection, visible List or Detail focus, and
+one active input layer. The destination bar is not focusable. Each destination
+retains its own cursor, group, filters, and applicable draft when revisited.
 
-- **Destination**: `Library`, `DLL Catalog`, `Monitor`, or `Settings`.
-- **Selection**: the destination-owned item or items that drive the Detail pane. A selection is
-  tagged with its destination and cannot be reused by another destination.
-- **Visible focus**: either `List` or `Detail`. There is one visible focus target. The destination
-  bar is never focusable.
-- **Input mode**: `Browse`, `Search`, or `Edit`.
-- **Overlay**: absent, or one identified overlay with its own local state and return focus.
-
-Destination-local presentation state (cursor, filters, sorting, scrolling, multi-selection, and
-the chosen detail subsection) belongs to the corresponding List or Detail pane. It must not create
-another shell focus zone. A destination change restores valid local state when it exists and
-otherwise uses that destination's defaults. Stale selections are cleared or moved to the nearest
-valid item before rendering.
-
-`Tab` and reverse-`Tab` move focus only between visible panes that can currently accept input. If
-only one pane can accept input, they are explicit no-ops. A destination change chooses the List
-when it can accept input; otherwise it chooses Detail. Opening a game always selects that game and
-opens its `Overview`, regardless of the detail subsection used for the previous game.
-
-## Input routing and precedence
-
-Input is routed in this order:
-
-1. Terminal lifecycle messages, including resize, update the viewport regardless of mode.
-2. An open Overlay receives applicable keys first.
-3. In `Edit`, the active editor receives applicable keys first.
-4. In `Search`, the search control receives applicable keys first.
-5. Documented global actions are considered.
-6. The visibly focused pane receives the key.
-
-“Applicable” includes text entry, cursor movement, confirmation, and mode-specific cancellation.
-Once a layer handles a key, routing stops. A layer may deliberately decline a non-applicable key,
-allowing the next layer to consider it. Printable destination shortcuts (`1` through `4`) are
-global only in `Browse`; in Search or Edit they are input, and an Overlay may consume them. This
-rule also applies to every other printable shortcut: typing must never trigger a hidden action.
-
-`Escape` closes or cancels only the highest active layer: Overlay first, then Edit (discarding the
-uncommitted edit), then Search (clearing and leaving search). In Browse it performs only an action
-explicitly registered for the current scope; it does not silently move focus or change selection.
-
-Hidden panes and hidden controls receive no keys. In particular, profile subsection controls
-cannot consume List movement, and a search result update changes the displayed search scope in the
-same state transition. `Enter` may accept a result, but is never needed to repair stale scope text.
-
-## Canonical keymap
-
-Behavior, the status bar, and full help are projections of one ordered keymap. A binding contains:
-
-| Field | Meaning |
+| Control | Browse behavior |
 | --- | --- |
-| Mode | Modes in which the binding can be considered |
-| Scope | Global, Overlay, List, Detail, Search, or Edit, plus any destination/action qualifier |
-| Action | Stable semantic action identifier handled by routing |
-| Keys | Normalized input keys used for matching |
-| Labels | User-facing key and action labels used by status and help |
-| Availability | Predicate and disabled reason derived from current state |
+| 0 | Open Actions for the current destination, pane, and selection |
+| 1, 2, 3, 4 | Library, DLL Catalog, Monitor, Settings; return focus to List |
+| Tab | Move between eligible List and Detail panes |
+| Up, Down | Move the focused list or profile field; scroll read-only detail when needed |
+| Left, Right | Change groups in Catalog/Settings List; change a selected game's Detail view |
+| Enter | Open List selection in Detail; edit a selected editable field |
+| Space | Toggle a Library game's selection |
+| Ctrl+S | Save the owning profile or Settings draft when that save context is available |
 
-Key handling must resolve a semantic action from this model; views must not maintain parallel help
-bindings. The compact status bar includes only currently relevant bindings, while full help may
-also show unavailable bindings with their reason. Neither surface may advertise a key that routing
-cannot execute in the shown mode and scope.
+Every workflow is reachable with arrows, Tab, Enter, Space, and numbers. Ctrl+S
+is an optional alternative to selectable Save controls. Commands do not require
+Escape, Shift+Tab, letters, punctuation, or function keys. Ctrl+C remains an
+emergency terminal interruption, outside the normal guarded Quit workflow.
 
-At minimum, the model registers `1`–`4` as Browse-only destination actions, pane traversal as a
-shell action, help as a global action, and each destination's List and Detail actions in their
-own scope. Exact labels and alternate keys live in the keymap rather than in this design document.
+Text inputs accept ordinary content, including digits, punctuation, spaces,
+non-English text, and negative numbers. Cursor and deletion keys remain local
+to text inputs. The restriction above applies to commands, not entered data.
 
-Any input that does not resolve to an available action is an explicit no-op: it leaves destination,
-selection, focus, mode, overlay, search scope, cursor, and draft state unchanged and launches no
-command. Unsupported keys must never fall through to a hidden widget.
+## Input ownership and hints
 
-## Destinations and ownership
+Resize and asynchronous completion messages always update their owning state.
+Keys go to exactly one active layer: decision dialog, Actions, Help, batch or DLL
+flow, Search, field editor, then Browse. A rejected key is a no-op in that layer;
+it cannot reach a hidden pane or invoke a Browse command.
 
-### Library
+The destination numbers and global Actions shortcut appear only in Browse.
+During Search or Edit, digits belong to the focused text input. When a button
+owns focus, typing cannot alter the input behind it. Overlays hide underlying
+shortcuts and expose their own focus, scroll, confirm, and dismissal controls.
 
-Default entry: all games, List focus, no filter, the configured/default sort, no multi-selection,
-and the first game selected when one exists. The Detail pane opens the selected game's `Overview`.
+`CanonicalKeymap` resolves semantic actions and their availability. Actions,
+Help, and status labels use the same context, including destination, pane,
+selection, editor kind, target count, and pending work. The footer shows only
+executable keys. Actions may show a relevant unavailable operation with its
+reason; Enter is advertised only when the selected row can run.
 
-- **List owns** game cursor and scrolling, search/filter scope, sorting, multi-selection, and batch
-  actions. Search results and the visible scope label are one state update.
-- **Detail owns** the selected game's Overview, Profile, and DLL views and all actions on that game.
-  Profile filters/subsections are Detail-local and cannot intercept List keys.
+The active pane has a focus label and border. Editors and dialogs use a visible
+selection marker or focused control styling. Essential navigation and dismissal
+controls remain visible when verbose hints are disabled.
 
-With no games, List renders the empty-library explanation and discovery/rescan action; Detail
-renders “No game selected.” During a scan, List renders bounded loading progress and keeps any
-still-valid results usable. A scan failure is a List error with retry guidance. Game-specific data
-that cannot be read is an inline Detail error; a feature unavailable for the selected game is a
-Detail unavailable state, not an empty list.
+## Actions and Help
 
-### DLL Catalog
+Actions uses Up/Down to choose a row, Enter to run an available action, and Tab
+to reach Close. Contextual rows expose search, filters, explicit sort choices,
+visible selection operations, profile reset/discard/save, and applicable DLL
+operations. Every Browse context also exposes the three layout choices, Help,
+and guarded Quit.
 
-Default entry: catalog Library section, List focus, default DLL-type/profile filters, no
-multi-selection, and the first available catalog item selected.
+Help distinguishes reference information from active controls. It lists the
+captured Browse context and describes other scoped controls as reference only.
+Up/Down scroll its body when it overflows. Tab reaches Close; Enter closes Help
+only while Close has focus. Dismissing either overlay retains the invoking pane.
 
-- **List owns** the Library/Deployment collection being browsed, its cursor, scrolling, DLL and
-  profile filters, multi-selection, and batch download/update/deployment actions.
-- **Detail owns** metadata, cached versions, affected deployments, and actions for the selected DLL
-  or deployment row.
+## Library and drafts
 
-An empty catalog or deployment result is explained in List and leaves Detail with “No DLL
-selected.” Manifest/cache loading appears in List without stale rows masquerading as current data.
-Manifest or cache failures are retryable List errors. Network-dependent operations render a clear
-unavailable state when offline; cached information remains browsable where possible.
+Library starts on the first game, or an empty state with Actions rescan and
+Settings path recovery. The pinned All games item edits the default profile.
+Enter opens a game in Overview with Detail focus. Left/Right change between
+Overview, Profile, and DLLs only while game Detail has focus.
 
-### Monitor
+The List owns search, DLL/profile filters, four explicit sort choices, and game
+selection. Search has Input, Apply, Clear, and Cancel controls. Results and Detail
+selection update together. Apply retains the query; Cancel restores the query
+and selection captured when Search opened. Clear removes the query. Actions
+Clear filters also resets filters and sort to A-Z.
 
-Default entry: GPU section, List focus, with the first available source selected.
+Space toggles a game; All games cannot be selected for a DLL batch. Selection
+counts distinguish total selected from selected within the current filter.
+Select all and Clear selected affect filtered games. Enter with visible selected
+games opens their batch actions. Hidden selections never silently join that
+batch. Rescanning removes selections for games that no longer exist.
 
-- **List owns** the GPU, CPU, and Alerts source/device collection, cursor, scrolling, and any
-  monitor filter.
-- **Detail owns** live readings, history, alerts, and actions for the selected source.
+Root and per-game profile drafts are separate. Reopening the same item or making
+a destination detour preserves its draft. A transition that would replace a
+dirty owner, including cursor movement, filtering, search, or rescan results,
+requires Save and continue, Discard and continue, or Cancel. Cancel is selected
+first. List selection and Detail scope change only after the decision succeeds.
 
-Before the first sample, Detail shows loading rather than zero-valued measurements. No compatible
-device is an unavailable state with the detected limitation. Collector failures are Detail errors
-with retry/recovery guidance; stale last-known values must be labeled stale. “No alerts” is an
-empty success state, not an error.
+Reset field on All games means the system default. Reset field on a game means
+inheritance. Reset all and Discard draft require explicit confirmation. Discard
+restores the saved baseline. Semantically empty override maps are not dirty, but
+an explicit override pin remains meaningful even when its value is false.
 
-### Settings
+## Field editing and persistence
 
-Default entry: Display group, List focus, first setting selected, and Browse mode.
+Profile and Settings editors use Input, Apply, Cancel, and Save controls. Tab
+cycles through them; Left/Right choose buttons while a button owns focus. Bool
+and choice inputs accept arrows or Space. Text and number inputs accept their
+normal content and cursor controls.
 
-- **List owns** the Display, Startup, Paths, DLL policy, and Logging groups, the setting cursor,
-  scrolling, and filtering.
-- **Detail owns** the selected setting's description, effective/saved value, validation feedback,
-  and edit/save/cancel actions.
+Enter on Input or Apply validates the field and applies it to the draft. Cancel
+drops only the current raw edit and retains earlier draft changes. Save and
+Ctrl+S validate the field, apply it, and persist the owning document. Validation
+and save failures remain visible and preserve input for correction or retry.
 
-An empty group renders an explanatory List state and no Detail selection. Loading is used while
-configuration is read. Read or persistence failures are inline errors that preserve visible focus
-and any recoverable draft. A setting unsupported on the current host is shown as unavailable and
-cannot enter Edit. Entering Edit must not mutate the saved or live value; cancel restores the saved
-display, and only a successful save replaces it.
+Browse Save on Library belongs to the focused Profile Detail, including All
+games. Settings Save belongs to its configuration draft from either pane. A
+successful save updates only the captured snapshot's baseline; edits made after
+that snapshot remain dirty. Existing save serialization is preserved.
 
-## Layout contract
+Normal Quit waits for pending writes/scans. It resolves both profile and Settings
+drafts before exiting. Cancel returns to the invoking state. Failure to save
+keeps the dialog and drafts available for retry.
 
-Terminal size is measured once by the shell and passed down as bounded rectangles. Every pane,
-table, status line, help view, and overlay clamps both width and height to its rectangle; content
-may truncate or scroll but may not expand the application beyond the viewport.
+## DLL Catalog and mutations
 
-- **120×40 (normal):** destination bar, side-by-side List and Detail, and status hints are visible.
-  Full labels and useful Detail context should be preferred.
-- **80×24 (supported minimum):** the same navigation state remains operative. List and Detail may
-  use narrower proportions, condensed labels, or a single-pane presentation, provided the active
-  pane is obvious and `Tab`/reverse-`Tab`, status hints, and help remain reachable. Nothing is
-  clipped outside the 80×24 viewport.
-- **Below 80×24:** replace the workspace and overlays with a bounded resize prompt stating the
-  80×24 minimum and current size. Resize events are still handled. No hidden workspace receives
-  keys, no domain action runs, and returning to a supported size restores a valid destination,
-  selection, and visible focus without panic.
+Catalog List owns its Library/Deployment group and row. Detail displays cached
+versions or deployments. Read-only views expose scrolling only when needed and
+do not advertise field editing or profile saving. Update all stale deployments
+is an explicit Catalog operation, available from either pane when targets exist.
+If invoked from List, its dialog reveals Detail and returns to List on dismissal.
 
-Overlays never assume the normal fixture. At supported sizes they fit within the current viewport,
-retain a visible dismissal path, and return to the focus captured when opened if that pane remains
-available; otherwise focus is normalized using the destination rules above.
+Library DLL Actions identifies the game and applicable install/update/restore
+target count. Install uses selectable type and version lists plus Back/Cancel.
+All mutations show concrete files, versions, and backup/restore policy before
+execution. Cancel is the default. Tab accesses long details; arrows scroll them
+or select confirmation buttons according to focus. Busy operations expose a
+wait state until completion. Results have a scrollable body and pinned Close.
+
+Completion messages update all views' game references. Request identities reject
+obsolete installer and update-check responses. Restore targets come from the
+actual backup metadata, including files absent from the current detection list.
+Existing deny-list, backup, mutation, and persistence services remain authoritative.
+
+## Monitor, Settings, and scans
+
+Monitor List owns GPU, CPU, and Alerts selection. Enter opens the source in
+Detail. Detail provides inspection and scrolling, with Tab returning to List.
+It exposes no edit/save action.
+
+Settings List owns the configured option groups and fields. Left/Right changes
+group, Up/Down selects a setting, and Enter opens Detail. A second Enter edits the
+field. Destination changes preserve its existing configuration draft.
+
+A scan captures its configuration snapshot and has one request identity. A
+pending scan disables another scan and normal Quit. Obsolete completions cannot
+replace newer state. Results that arrive during an editor or overlay wait until
+Browse can apply them, including any required dirty-profile decision.
+
+## Layout and terminal verification
+
+The shell allocates bounded rectangles before rendering content. It reserves
+orientation, active controls, and overlay dismissal before allocating body space.
+
+- At 120x40, Standard shows the header, destination bar, List and Detail side by
+  side, message line, and two footer rows.
+- At 80x24, or below the split layout's width/height threshold, the active pane
+  fills the content area. Tab changes the displayed pane. Selected field cards,
+  editor controls, confirmation policy, and result dismissal remain reachable.
+- Compact reduces the header; Focused removes it and uses one active pane.
+- Below 80x24, the bounded resize prompt replaces all interactive content.
+  Workspace keys are suspended; resizing restores the prior state. Pending
+  completions still update their owners. Emergency Ctrl+C remains available.
+
+Live terminal review uses compiled executables, isolated XDG fixtures, and
+`termctrl show`. Terminal Control 1.2.1 is the verified baseline; 0.3.1 mishandles
+cursor backward tabs and cannot validate these rendered frames. The pinned
+Ultraviolet renderer includes the upstream fix for expanded resize columns.
+See [the testing guide](../tui-testing.md) for commands, evidence, and cleanup.

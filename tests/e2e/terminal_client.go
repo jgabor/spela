@@ -73,6 +73,15 @@ func (s *Session) SendKeys(keys ...string) error {
 	return nil
 }
 
+// SendText always sends literal text, including words such as "enter" that
+// SendKeys treats as named keys.
+func (s *Session) SendText(text string) error {
+	if output, err := s.command("send", s.name, "text:"+text).CombinedOutput(); err != nil {
+		return fmt.Errorf("send text to %s: %w: %s", s.name, err, strings.TrimSpace(string(output)))
+	}
+	return nil
+}
+
 // Capture reads the rendered visible screen.
 func (s *Session) Capture() (string, error) {
 	var stdout, stderr bytes.Buffer
@@ -91,6 +100,16 @@ func (s *Session) WaitForText(text string, timeout time.Duration) error {
 	if err != nil {
 		screen, _ := s.Capture()
 		return fmt.Errorf("wait for %q in %s: %w: %s\nLast screen:\n%s", text, s.name, err, strings.TrimSpace(string(output)), screen)
+	}
+	return nil
+}
+
+// Resize changes the running PTY and terminal emulator dimensions together.
+// Callers must wait for a visible frame before inspecting the new layout.
+func (s *Session) Resize(width, height int) error {
+	output, err := s.command("resize", s.name, "--cols", strconv.Itoa(width), "--rows", strconv.Itoa(height)).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("resize session %s to %dx%d: %w: %s", s.name, width, height, err, strings.TrimSpace(string(output)))
 	}
 	return nil
 }

@@ -64,6 +64,8 @@ func TestContentSupportedProfileDLLAndInstallViews(t *testing.T) {
 	}
 	for _, test := range installStates {
 		content.dllInstallState = test.state
+		content.dllOperating = test.state == DLLInstallDownloading
+		content.dllOperatingLabel = "Installing DLL..."
 		test.prepare(&content)
 		view := stripANSI(content.ViewDLLAspect())
 		if !strings.Contains(view, test.fragment) || !content.HasModalOpen() {
@@ -90,7 +92,7 @@ func TestDLLPresentationUsesCanonicalFamiliesAcrossViews(t *testing.T) {
 	resource := makeDLLsResource([]*game.Game{entry}, nil, nil)
 	deploymentView := stripANSI(resource.renderSelectedDetail(nav.SectionDLLDeployment))
 	for index, info := range knownTypes {
-		if !strings.Contains(gameView, fmt.Sprintf("%-10s", info.Label)) {
+		if !strings.Contains(gameView, info.Label+":") {
 			t.Errorf("game view missing canonical family %q:\n%s", info.Label, gameView)
 		}
 		resource.typeCursor = index
@@ -105,7 +107,7 @@ func TestDLLPresentationUsesCanonicalFamiliesAcrossViews(t *testing.T) {
 
 	content = testContent(testGame("No DLL Game"))
 	view := stripANSI(content.ViewDLLAspect())
-	for _, want := range []string{"No managed DLL installed", "i: install", "DLSS", "DLSS-G", "DLSS-D", "XeSS", "FSR"} {
+	for _, want := range []string{"No managed DLL installed", "Supported families", "DLSS", "DLSS-G", "DLSS-D", "XeSS", "FSR"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("no-DLL view missing %q:\n%s", want, view)
 		}
@@ -127,12 +129,12 @@ func TestContentInstallConfirmationUsesCanonicalFamilyLabels(t *testing.T) {
 			entry := testGame("No DLL Game")
 			content := testContent(entry)
 			content.dllInstallState = DLLInstallSelectVersion
-			content.dllOperating = true
+			content.dllOperating = false
 			content.selectedDLLType = info.ManifestKey
 			content.dllVersions = []dll.DLL{{Version: "1.0.0", Filename: info.Filename}}
 
 			versionView := stripANSI(content.ViewDLLAspect())
-			if !strings.Contains(versionView, "Select "+info.Label+" version:") {
+			if !strings.Contains(versionView, "Select "+info.Label+" version") {
 				t.Fatalf("version view missing canonical family %q:\n%s", info.Label, versionView)
 			}
 
@@ -141,7 +143,7 @@ func TestContentInstallConfirmationUsesCanonicalFamilyLabels(t *testing.T) {
 				t.Fatal("expected install confirmation before execution")
 			}
 			view := stripANSI(content.ViewDLLAspect())
-			want := fmt.Sprintf("• %s — %s — %s — 1.0.0", entry.Name, info.Label, filepath.Join(entry.InstallDir, info.Filename))
+			want := fmt.Sprintf("%s · %s · 1.0.0", entry.Name, info.Label)
 			if !strings.Contains(view, want) {
 				t.Fatalf("confirmation missing canonical family row %q:\n%s", want, view)
 			}
@@ -166,19 +168,19 @@ func TestContentInstallStateMachineSupportedMessagesAndKeys(t *testing.T) {
 	if content.selectedDLLType != "xess" || content.dllInstallState != DLLInstallSelectVersion || command == nil {
 		t.Fatalf("type selection = type %q, state %d, command %v", content.selectedDLLType, content.dllInstallState, command)
 	}
-	content, _ = content.Update(dllVersionsLoadedMsg{versions: []dll.DLL{{Version: "1.3.1"}, {Version: "1.2.0"}}})
+	content, _ = content.Update(dllVersionsLoadedMsg{requestID: content.dllRequestID, versions: []dll.DLL{{Version: "1.3.1"}, {Version: "1.2.0"}}})
 	content, _ = content.Update(keyMsg("down"))
 	content, _ = content.Update(keyMsg("up"))
 	if content.dllVersionCursor != 0 || !content.dllVersionsLoaded {
 		t.Fatalf("version navigation = cursor %d loaded %v", content.dllVersionCursor, content.dllVersionsLoaded)
 	}
-	content, _ = content.Update(dllInstallMsg{err: errors.New("download failed")})
+	content, _ = content.Update(dllInstallMsg{requestID: content.dllRequestID, err: errors.New("download failed")})
 	if content.dllInstallState != DLLInstallNone || content.dllOperating {
 		t.Fatal("failed install did not close and clear operating state")
 	}
 	content.dllInstallState = DLLInstallDownloading
 	content.dllOperating = true
-	content, _ = content.Update(dllInstallMsg{result: dll.Result{Outcome: dll.OutcomeChanged, Game: testGame("Fixture", testDLL(game.DLLTypeDLSS, "3.8.10"))}})
+	content, _ = content.Update(dllInstallMsg{requestID: content.dllRequestID, result: dll.Result{Outcome: dll.OutcomeChanged, Game: testGame("Fixture", testDLL(game.DLLTypeDLSS, "3.8.10"))}})
 	if content.game.DLLs[0].Version != "3.8.10" || content.dllInstallState != DLLInstallNone {
 		t.Fatalf("successful install state = %+v", content)
 	}
@@ -186,7 +188,7 @@ func TestContentInstallStateMachineSupportedMessagesAndKeys(t *testing.T) {
 	partialResult := dll.Result{Outcome: dll.OutcomeChanged, FilesChanged: true, Game: partialGame}
 	partialErr := &dll.PartialFailure{Result: partialResult, Stage: dll.StageSaving, Err: errors.New("disk full")}
 	content.dllInstallState = DLLInstallDownloading
-	content, _ = content.Update(dllInstallMsg{result: partialResult, err: partialErr})
+	content, _ = content.Update(dllInstallMsg{requestID: content.dllRequestID, result: partialResult, err: partialErr})
 	if content.game.DLLs[0].Version != "3.8.11" {
 		t.Fatalf("partial install did not apply scanned metadata: %+v", content.game.DLLs)
 	}
@@ -198,8 +200,12 @@ func TestContentInstallStateMachineSupportedMessagesAndKeys(t *testing.T) {
 		t.Fatalf("partial restore did not apply scanned metadata: %+v", content.game.DLLs)
 	}
 
-	content.dllInstallState = DLLInstallSelectType
-	content, _ = content.Update(keyMsg("q"))
+	content.dllResultOpen = false
+	content.dllInstallState, content.dllInstallControl = DLLInstallSelectType, 0
+	content, _ = content.Update(keyMsg("tab"))
+	content, _ = content.Update(keyMsg("enter"))
+	content, _ = content.Update(keyMsg("tab"))
+	content, _ = content.Update(keyMsg("enter"))
 	if content.HasModalOpen() {
 		t.Fatal("install cancel did not close modal")
 	}
@@ -217,6 +223,7 @@ func TestContentDLLCommandsCompleteAgainstIsolatedGameFiles(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(state, "config"))
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(state, "cache"))
 	t.Setenv("XDG_DATA_HOME", filepath.Join(state, "data"))
+	t.Setenv("XDG_RUNTIME_DIR", filepath.Join(state, "runtime"))
 	installDirectory := filepath.Join(state, "game")
 	if err := os.MkdirAll(installDirectory, 0o755); err != nil {
 		t.Fatal(err)
@@ -302,26 +309,22 @@ func TestContentSupportedMessageAndKeyRouting(t *testing.T) {
 	if content.dllOperating || content.hasBackup {
 		t.Fatal("DLL restore success did not update operation/backup state")
 	}
+	content.dllResultOpen = false
 	content.hasUpdates = false
-	content, command = content.Update(keyMsg("u"))
-	if command == nil {
-		t.Fatal("up-to-date key did not return user notice")
+	if available, reason := content.DLLActionAvailability(ActionDetailUpdate); available || reason == "" {
+		t.Fatal("up-to-date DLLs did not provide an unavailable reason")
 	}
-	if notice, ok := command().(contentNoticeMsg); !ok || !strings.Contains(notice.text, "up to date") {
-		t.Fatalf("up-to-date notice = %#v", notice)
-	}
-	content.dllOperating = false
-	content, command = content.Update(keyMsg("i"))
+	content, command = content.UpdateDLLAction(ActionDetailInstall)
 	if content.dllInstallState != DLLInstallSelectType || command == nil {
-		t.Fatal("install key did not begin install wizard")
+		t.Fatal("install action did not begin install wizard")
 	}
 	content.dllInstallState = DLLInstallNone
 	content.dllOperating = false
 	content.hasBackup = true
 	content.confirmDestructive = false
-	content, command = content.Update(keyMsg("f6"))
+	content, command = content.UpdateDLLAction(ActionDetailRestore)
 	if content.confirmation == nil || content.dllOperating || command != nil {
-		t.Fatal("restore key did not request confirmation")
+		t.Fatal("restore action did not request confirmation")
 	}
 }
 

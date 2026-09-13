@@ -107,7 +107,8 @@ func TestDLLsResource_StaleCellIsMarked(t *testing.T) {
 
 func TestDLLPresentationVersionStatesAndLongDeploymentRow(t *testing.T) {
 	longName := "A Very Long Deterministic Deployment Fixture Game Name That Must Stay On One Navigable Row"
-	entry := testGame(longName,
+	entry := testGame(
+		longName,
 		testDLL(game.DLLTypeDLSS, "3.7.0"),
 		testDLL(game.DLLTypeXeSS, ""),
 		testDLL(game.DLLTypeFSR, "3.8.0"),
@@ -189,7 +190,7 @@ func TestDLLsResource_ZeroGameMessageRenders(t *testing.T) {
 	}
 }
 
-func TestDLLsResource_JKNavigatesRows(t *testing.T) {
+func TestDLLsResource_ArrowsNavigateRows(t *testing.T) {
 	g1 := testGame("Alpha", testDLL(game.DLLTypeDLSS, "3.7.0"))
 	g2 := testGame("Beta", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	g2.AppID = 2
@@ -200,19 +201,19 @@ func TestDLLsResource_JKNavigatesRows(t *testing.T) {
 	if m.gameRowCursor != 0 {
 		t.Fatalf("initial cursor expected 0, got %d", m.gameRowCursor)
 	}
-	m = m.UpdateList(keyMsg("j"), nav.SectionDLLDeployment)
+	m = m.UpdateList(keyMsg("down"), nav.SectionDLLDeployment)
 	if m.gameRowCursor != 1 {
-		t.Errorf("after j: cursor = %d, want 1", m.gameRowCursor)
+		t.Errorf("after Down: cursor = %d, want 1", m.gameRowCursor)
 	}
-	m = m.UpdateList(keyMsg("j"), nav.SectionDLLDeployment) // clamp at end
+	m = m.UpdateList(keyMsg("down"), nav.SectionDLLDeployment) // clamp at end
 	if m.gameRowCursor != 1 {
 		t.Errorf("cursor should clamp at %d, got %d", 1, m.gameRowCursor)
 	}
-	m = m.UpdateList(keyMsg("k"), nav.SectionDLLDeployment)
+	m = m.UpdateList(keyMsg("up"), nav.SectionDLLDeployment)
 	if m.gameRowCursor != 0 {
-		t.Errorf("after k: cursor = %d, want 0", m.gameRowCursor)
+		t.Errorf("after Up: cursor = %d, want 0", m.gameRowCursor)
 	}
-	m = m.UpdateList(keyMsg("k"), nav.SectionDLLDeployment) // clamp at start
+	m = m.UpdateList(keyMsg("up"), nav.SectionDLLDeployment) // clamp at start
 	if m.gameRowCursor != 0 {
 		t.Errorf("cursor should clamp at 0, got %d", m.gameRowCursor)
 	}
@@ -224,10 +225,11 @@ func TestDLLsResource_UpdateAllNoop_WhenNothingStale(t *testing.T) {
 		"dlss": {"3.8.10"},
 	}, nil)
 
-	next, cmd := m.Update(keyMsg("U"))
+	next, cmd := m.UpdateAction(ActionDetailUpdate)
 	if cmd != nil {
 		t.Fatal("update started before confirmation")
 	}
+	next, _ = next.Update(keyMsg("right"))
 	next, cmd = next.Update(keyMsg("enter"))
 	if cmd != nil {
 		t.Errorf("expected no command when nothing is stale")
@@ -278,7 +280,7 @@ func TestDLLsResource_UpdateAll_PassReportsEachCell(t *testing.T) {
 		"dlss": {"3.8.10"},
 	}, svc)
 
-	next, cmd := m.Update(keyMsg("U"))
+	next, cmd := m.UpdateAction(ActionDetailUpdate)
 	if cmd != nil {
 		t.Fatal("update started before confirmation")
 	}
@@ -286,6 +288,7 @@ func TestDLLsResource_UpdateAll_PassReportsEachCell(t *testing.T) {
 	if !strings.Contains(confirmation, "3.7.0 → 3.8.10") {
 		t.Fatalf("confirmation target is not concrete:\n%s", confirmation)
 	}
+	next, _ = next.Update(keyMsg("right"))
 	next, cmd = next.Update(keyMsg("enter"))
 	if cmd == nil || !next.busy {
 		t.Fatalf("expected update command and busy state")
@@ -317,10 +320,11 @@ func TestDLLsResource_UpdateAll_FailReportsFailedCellWithoutSuccessFooter(t *tes
 		"dlss": {"3.8.10"},
 	}, svc)
 
-	next, cmd := m.Update(keyMsg("U"))
+	next, cmd := m.UpdateAction(ActionDetailUpdate)
 	if cmd != nil {
 		t.Fatal("update started before confirmation")
 	}
+	next, _ = next.Update(keyMsg("right"))
 	next, cmd = next.Update(keyMsg("enter"))
 	if cmd == nil {
 		t.Fatalf("expected update command")
@@ -354,10 +358,11 @@ func TestDLLsResource_UpdateAllAppliesSaveStagePartialMetadata(t *testing.T) {
 	}
 	model := makeDLLsResourceWithServices([]*game.Game{entry}, map[string][]string{"dlss": {"3.8.10"}}, services)
 	model.database = &game.Database{Games: map[uint64]*game.Game{entry.AppID: entry}}
-	next, command := model.Update(keyMsg("U"))
+	next, command := model.UpdateAction(ActionDetailUpdate)
 	if command != nil {
 		t.Fatal("update started before confirmation")
 	}
+	next, _ = next.Update(keyMsg("right"))
 	next, command = next.Update(keyMsg("enter"))
 	message := execCmd(command).(dllsUpdateAllCompleteMsg)
 	next, _ = next.Update(message)

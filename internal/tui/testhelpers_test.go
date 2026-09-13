@@ -42,6 +42,7 @@ func testServices() *Services {
 		BackupExists: func(appID uint64) bool {
 			return false
 		},
+		LoadDLLBackup: func(appID uint64) (*dll.Backup, error) { return nil, nil },
 		KnownDLLTypes: dll.KnownDLLTypes,
 		ListCachedDLLs: func(manifestKey string) ([]string, error) {
 			return nil, nil
@@ -117,6 +118,8 @@ func testLayout(games ...*game.Game) LayoutModel {
 	svc := testServices()
 	db := testDatabase(games...)
 	m := NewLayout(db, svc)
+	// Unit models skip Init and start after the synthetic startup scan.
+	m.rescanBusy, m.rescanRequestID = false, 0
 	sized, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	return sized.(LayoutModel)
 }
@@ -150,11 +153,21 @@ func testLayoutWithGame(g *game.Game) LayoutModel {
 // testContent creates a ContentModel with fake services and optional game.
 func testContent(g *game.Game) ContentModel {
 	svc := testServices()
+	svc.LoadDLLBackup = func(appID uint64) (*dll.Backup, error) {
+		backup := &dll.Backup{AppID: appID}
+		if g != nil {
+			for _, installed := range g.DLLs {
+				backup.Files = append(backup.Files, dll.BackedUpFile{OriginalPath: installed.Path, DLLName: installed.Name, Version: installed.Version})
+			}
+		}
+		return backup, nil
+	}
 	svc.LoadProfile = func(appID uint64) (*profile.Profile, error) {
 		return &profile.Profile{}, nil
 	}
 	styles := NewStyles(DefaultTheme, true)
 	m := NewContent(styles, true, svc)
+	m.SetSize(100, 30)
 	if g != nil {
 		m.database = &game.Database{Games: map[uint64]*game.Game{g.AppID: g}}
 		m = m.SetGame(g)
@@ -177,6 +190,29 @@ func testSidebar(games ...*game.Game) SidebarModel {
 // sendKey sends a single key press through a model's Update and returns the result.
 func sendKey(m tea.Model, key string) (tea.Model, tea.Cmd) {
 	return m.Update(keyMsg(key))
+}
+
+// sendAction selects an advertised Actions row using only its visible keys.
+func sendAction(m tea.Model, action KeyAction) (tea.Model, tea.Cmd) {
+	opened, _ := sendKey(m, "0")
+	layout := opened.(LayoutModel)
+	if layout.actions == nil {
+		panic("Actions unavailable in test context")
+	}
+	for index, item := range layout.menuBindings() {
+		if item.Binding.Action != action {
+			continue
+		}
+		if !item.Available {
+			panic("test action unavailable: " + item.Reason)
+		}
+		for step := 0; step < index; step++ {
+			next, _ := sendKey(&layout, "down")
+			layout = next.(LayoutModel)
+		}
+		return sendKey(&layout, "enter")
+	}
+	panic("test action missing from Actions")
 }
 
 // sendKeys sends multiple key presses sequentially and returns the final model
@@ -317,10 +353,9 @@ func TestFactories_Smoke(t *testing.T) {
 
 	t.Run("sendKey toggles help", func(t *testing.T) {
 		m := testLayout(testGame("Cyberpunk 2077"))
-		result, _ := sendKey(&m, "?")
-		layout := result.(LayoutModel)
+		layout, _ := m.dispatchAction(ActionShowHelp)
 		if !layout.showHelp {
-			t.Error("expected help to be shown after pressing ?")
+			t.Error("expected Help action to open Help")
 		}
 	})
 

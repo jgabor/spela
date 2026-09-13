@@ -64,9 +64,9 @@ func (m ListPaneModel) updateSectionList(key tea.KeyPressMsg, count int) (ListPa
 		return m, nil, false
 	}
 	switch key.String() {
-	case "j", "down":
+	case "down":
 		m.cursor = min(m.cursor+1, count-1)
-	case "k", "up":
+	case "up":
 		m.cursor = max(m.cursor-1, 0)
 	default:
 		return m, nil, false
@@ -114,14 +114,16 @@ func (m ListPaneModel) View(focused bool) string {
 	var builder strings.Builder
 	for index, label := range labels {
 		style := m.styles.Dim
+		prefix := "  "
 		if index == m.cursor {
 			if focused {
 				style = m.styles.FocusStyle()
+				prefix = "▸ "
 			} else {
 				style = lipgloss.NewStyle().Foreground(m.styles.Theme.Fg)
 			}
 		}
-		builder.WriteString(style.Render("  " + label))
+		builder.WriteString(style.Render(prefix + label))
 		builder.WriteString("\n")
 	}
 	if len(labels) == 0 {

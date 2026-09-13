@@ -2,11 +2,11 @@ package tui
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/nav"
@@ -26,10 +26,14 @@ type OptionsModalModel struct {
 	pathInput     textinput.Model
 	editor        EditorHost
 	width         int
+	height        int
 	saveError     error
 }
 
-func (m *OptionsModalModel) SetSize(width, _ int) { m.width = width }
+func (m *OptionsModalModel) SetSize(width, height int) {
+	m.width, m.height = width, height
+	m.pathInput.SetWidth(max(width-6, 1))
+}
 
 type optionsSavedMsg struct{ config *config.Config }
 
@@ -79,94 +83,228 @@ func (m *OptionsModalModel) OpenEmbedded(cfg *config.Config) {
 		m.modified = false
 		m.saveError = nil
 	}
-	m.editingPath = false
 }
 
+func (m OptionsModalModel) Editing() bool                    { return m.editor.Active() }
+func (m OptionsModalModel) Dirty() bool                      { return m.modified }
+func (m OptionsModalModel) Busy() bool                       { return m.saving }
+func (m OptionsModalModel) SaveError() error                 { return m.saveError }
+func (m OptionsModalModel) EditorInputFocused() bool         { return m.editor.InputFocused() }
+func (m OptionsModalModel) EditorInputKind() EditorValueKind { return m.editor.Kind() }
+func (m OptionsModalModel) EditorEnterLabel() string         { return m.editor.EnterLabel() }
+
+// Update keeps standalone basic-key input working. Shell command routing uses
+// UpdateAction after resolving the active pane and input mode.
 func (m OptionsModalModel) Update(msg tea.Msg) (OptionsModalModel, tea.Cmd) {
 	if m.saving {
 		return m, nil
 	}
-	if m.editingPath {
-		return m.updatePathEditing(msg)
+	key, ok := msg.(tea.KeyPressMsg)
+	if !ok {
+		return m.UpdateEditorInput(msg)
 	}
-
-	switch msg := msg.(type) {
-	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "up", "k":
-			m.moveCursor(-1)
-		case "down", "j":
-			m.moveCursor(1)
-		case "left", "h":
-			m.cycleValue(-1)
-		case "right", "l":
-			m.cycleValue(1)
+	var action KeyAction
+	if m.Editing() {
+		switch key.String() {
+		case "tab":
+			action = ActionFocusNext
 		case "enter":
-			opt := m.getCurrentOption()
-			if opt != nil && opt.Kind == config.KindPath {
-				m.startPathEditing()
-				return m, nil
-			}
-		case "s":
-			return m.save()
+			action = ActionEditCommit
+		case "ctrl+s":
+			action = ActionEditSave
+		case "left":
+			action = ActionDetailDecrease
+		case "right":
+			action = ActionDetailIncrease
+		case "up":
+			action = ActionDetailPreviousItem
+		case "down":
+			action = ActionDetailNextItem
+		case "space":
+			action = ActionEditToggle
+		default:
+			return m.UpdateEditorInput(msg)
+		}
+	} else {
+		switch key.String() {
+		case "up":
+			action = ActionDetailPreviousItem
+		case "down":
+			action = ActionDetailNextItem
+		case "enter":
+			action = ActionDetailConfirm
+		case "ctrl+s":
+			action = ActionDetailSave
+		default:
+			return m, nil
 		}
 	}
+	return m.UpdateAction(action)
+}
 
+// UpdateAction applies semantic commands; Browse arrows never mutate a value.
+func (m OptionsModalModel) UpdateAction(action KeyAction) (OptionsModalModel, tea.Cmd) {
+	if m.saving {
+		return m, nil
+	}
+	if m.Editing() {
+		switch action {
+		case ActionFocusNext:
+			m.editor.FocusNext()
+			m.syncInputFocus()
+		case ActionEditCancel:
+			m.cancelEditor()
+		case ActionEditCommit:
+			if m.editor.focus == EditorFocusCancel {
+				m.cancelEditor()
+				return m, nil
+			}
+			save := m.editor.focus == EditorFocusSave
+			if m.applyEditor() && save {
+				return m.save()
+			}
+		case ActionEditSave:
+			if m.applyEditor() {
+				return m.save()
+			}
+		case ActionEditDelete:
+			return m.UpdateEditorInput(tea.KeyPressMsg{Code: tea.KeyBackspace})
+		case ActionDetailDecrease, ActionDetailIncrease:
+			direction, code := 1, tea.KeyRight
+			if action == ActionDetailDecrease {
+				direction, code = -1, tea.KeyLeft
+			}
+			if m.EditorInputFocused() && m.editingPath {
+				return m.UpdateEditorInput(tea.KeyPressMsg{Code: code})
+			}
+			m.editor.Move(direction)
+		case ActionDetailPreviousItem:
+			if m.EditorInputFocused() {
+				m.editor.Cycle(-1)
+			}
+		case ActionDetailNextItem:
+			if m.EditorInputFocused() {
+				m.editor.Cycle(1)
+			}
+		case ActionEditToggle:
+			if m.EditorInputFocused() && m.editingPath {
+				return m.UpdateEditorInput(tea.KeyPressMsg{Code: ' ', Text: " "})
+			}
+			m.editor.Toggle()
+		}
+		return m, nil
+	}
+	switch action {
+	case ActionDetailPreviousItem, ActionListPrevious:
+		m.moveCursor(-1)
+	case ActionDetailNextItem, ActionListNext:
+		m.moveCursor(1)
+	case ActionDetailConfirm:
+		m.beginEditor()
+	case ActionDetailSave:
+		return m.save()
+	case ActionCancelDraft:
+		m.CancelDraft()
+	}
 	return m, nil
 }
 
-func (m *OptionsModalModel) startPathEditing() {
-	opt := m.getCurrentOption()
-	if opt == nil {
+func (m *OptionsModalModel) beginEditor() {
+	option := m.getCurrentOption()
+	if option == nil || m.draft == nil || m.saving {
 		return
 	}
-
-	currentValue := m.getConfigValue(opt.Key)
-	if currentValue == "(default)" {
-		currentValue = ""
+	value := option.Get(m.draft)
+	kind := EditorChoice
+	switch option.Kind {
+	case config.KindBool:
+		kind = EditorBool
+	case config.KindPath:
+		kind = EditorPath
+	case config.KindInt:
+		kind = EditorInteger
 	}
+	m.editor.Begin(EditorSpec{
+		Key: option.Key, Kind: kind, Choices: append([]string(nil), option.Choices...),
+		Validate: func(value string) error { return option.Set(m.draft.Clone(), value) },
+	}, value)
+	m.saveError = nil
+	m.editingPath = option.Kind == config.KindPath
+	if m.editingPath {
+		m.pathInput.SetValue(value)
+		m.pathInput.CursorEnd()
+		m.pathInput.Focus()
+	}
+}
 
-	m.pathInput.SetValue(currentValue)
-	m.pathInput.Focus()
-	m.editor.Begin(EditorSpec{Key: opt.Key, Kind: EditorPath}, currentValue)
-	m.editingPath = true
+func (m *OptionsModalModel) startPathEditing() { m.beginEditor() }
+
+func (m *OptionsModalModel) syncInputFocus() {
+	if m.editingPath && m.EditorInputFocused() {
+		m.pathInput.Focus()
+	} else {
+		m.pathInput.Blur()
+	}
+}
+
+func (m *OptionsModalModel) cancelEditor() {
+	m.editor.Cancel()
+	m.editingPath = false
+	m.pathInput.Blur()
+}
+
+func (m *OptionsModalModel) applyEditor() bool {
+	if m.editingPath {
+		m.editor.Set(m.pathInput.Value())
+	}
+	value, err := m.editor.Commit()
+	if err != nil {
+		m.syncInputFocus()
+		return false
+	}
+	option := m.getCurrentOption()
+	if option == nil {
+		return false
+	}
+	if err := option.Set(m.draft, value); err != nil {
+		m.editor.active = true
+		m.editor.focus = EditorFocusInput
+		m.editor.err = err
+		m.syncInputFocus()
+		return false
+	}
+	m.modified = m.config == nil || !configsEqual(m.config, m.draft)
+	m.saveError = nil
+	m.editingPath = false
+	m.pathInput.Blur()
+	return true
+}
+
+// UpdateEditorInput accepts text and cursor operations only in the active input.
+func (m OptionsModalModel) UpdateEditorInput(msg tea.Msg) (OptionsModalModel, tea.Cmd) {
+	if m.saving || !m.EditorInputFocused() {
+		return m, nil
+	}
+	if m.editingPath {
+		var command tea.Cmd
+		m.pathInput, command = m.pathInput.Update(msg)
+		m.editor.Set(m.pathInput.Value())
+		return m, command
+	}
+	if key, ok := msg.(tea.KeyPressMsg); ok {
+		m.editor.UpdateInput(key)
+	}
+	return m, nil
 }
 
 func (m OptionsModalModel) updatePathEditing(msg tea.Msg) (OptionsModalModel, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "enter":
-			opt := m.getCurrentOption()
-			if opt != nil {
-				m.editor.Set(m.pathInput.Value())
-				value, err := m.editor.Commit()
-				if err != nil {
-					return m, nil
-				}
-				if value == "" {
-					value = "(default)"
-				}
-				m.setConfigValue(opt.Key, value)
-			}
-			m.editingPath = false
-			m.pathInput.Blur()
-			return m, nil
-		case "esc":
-			m.editor.Cancel()
-			m.editingPath = false
-			m.pathInput.Blur()
-			return m, nil
-		}
-	}
-
-	var cmd tea.Cmd
-	m.pathInput, cmd = m.pathInput.Update(msg)
-	m.editor.Set(m.pathInput.Value())
-	return m, cmd
+	return m.Update(msg)
 }
 
 func (m *OptionsModalModel) moveCursor(direction int) {
+	if m.sectionCursor < 0 || m.sectionCursor >= len(m.sections) {
+		return
+	}
 	section := m.sections[m.sectionCursor]
 	if len(section.Options) == 0 {
 		return
@@ -176,10 +314,10 @@ func (m *OptionsModalModel) moveCursor(direction int) {
 
 func (m *OptionsModalModel) UpdateList(key tea.KeyPressMsg) bool {
 	switch key.String() {
-	case "up", "k":
+	case "up":
 		m.moveCursor(-1)
 		return true
-	case "down", "j":
+	case "down":
 		m.moveCursor(1)
 		return true
 	}
@@ -194,8 +332,11 @@ func (m OptionsModalModel) ListView(focused bool) string {
 	var builder strings.Builder
 	builder.WriteString(m.styles.Title.Render(section.Title))
 	builder.WriteString("\n")
-	builder.WriteString(m.styles.Dim.Render("←/→ group"))
-	builder.WriteString("\n\n")
+	if focused && !m.Editing() && !m.saving {
+		builder.WriteString(m.styles.Dim.Render("←/→ group"))
+		builder.WriteString("\n")
+	}
+	builder.WriteString("\n")
 	for index, option := range section.Options {
 		style := m.styles.Dim
 		prefix := "  "
@@ -213,61 +354,92 @@ func (m OptionsModalModel) ListView(focused bool) string {
 	return builder.String()
 }
 
-func (m OptionsModalModel) DetailView() string {
+func (m OptionsModalModel) DetailView() string { return m.DetailViewFocused(true) }
+
+func (m OptionsModalModel) DetailViewFocused(focused bool) string {
 	option := m.getCurrentOption()
 	if option == nil {
 		return m.styles.Dim.Render("No setting selected")
 	}
-	var builder strings.Builder
-	builder.WriteString(m.styles.Title.Render(option.Label))
-	builder.WriteString("\n\n")
-	builder.WriteString(option.Description)
-	builder.WriteString("\n\n")
-	builder.WriteString(m.styles.Dim.Render("Saved value"))
-	builder.WriteString("\n")
-	builder.WriteString(m.styles.DLSS.Render(option.Get(m.config)))
-	builder.WriteString("\n\n")
-	builder.WriteString(m.styles.Dim.Render("Draft value"))
-	builder.WriteString("\n")
-	draft := m.getConfigValue(option.Key)
-	if m.editingPath {
-		draft = m.pathInput.View()
+	if m.Editing() {
+		return m.editorView()
 	}
-	builder.WriteString(m.styles.DLSS.Render(draft))
-	builder.WriteString("\n\n")
-	if m.editingPath {
-		builder.WriteString(m.styles.Selected.Render("Enter:commit  Esc:cancel"))
-	} else if m.saving {
-		builder.WriteString(m.styles.Dim.Render("Saving…"))
-	} else if m.saveError != nil {
-		builder.WriteString(m.styles.Error.Render("Save failed: " + m.saveError.Error()))
-		builder.WriteString("\n")
-		builder.WriteString(m.styles.Selected.Render("Draft retained  s:retry  Esc:cancel"))
-	} else if m.modified {
-		builder.WriteString(m.styles.Selected.Render("Unsaved changes  s:save"))
-	} else if option.Kind == config.KindPath {
-		builder.WriteString(m.styles.Dim.Render("Enter:edit"))
-	} else {
-		builder.WriteString(m.styles.Dim.Render("←/→:change"))
+	styles := m.styles
+	lines := []string{
+		styles.Title.Render(option.Label),
+		styles.Dim.Render("Saved value"),
+		styles.DLSS.Render(option.Get(m.config)),
+		styles.Dim.Render("Draft value"),
+		styles.DLSS.Render(m.getConfigValue(option.Key)),
 	}
-	return builder.String()
+	switch {
+	case m.saving:
+		lines = append(lines, styles.Dim.Render("Saving…"))
+	case m.saveError != nil:
+		lines = append(lines, styles.Error.Render("Save failed: "+m.saveError.Error()), styles.Selected.Render("Draft retained"))
+	case m.modified:
+		lines = append(lines, styles.Warning.Render("Unsaved changes"))
+	}
+	// Descriptions are supplementary. Values and operation results come first.
+	if m.height <= 0 || len(lines)+2 <= m.height {
+		lines = append(lines, "", styles.Dim.Render(option.Description))
+	}
+	for index, line := range lines {
+		if m.width > 0 {
+			lines[index] = ansi.Truncate(line, max(m.width-4, 1), "…")
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
+func (m OptionsModalModel) editorView() string {
+	styles := m.styles
+	option := m.getCurrentOption()
+	if option == nil {
+		return styles.Dim.Render("No setting selected")
+	}
+	value := m.editor.InputView(max(m.width-4, 1))
+	if m.editingPath {
+		value = m.pathInput.View()
+	}
+	lines := []string{
+		styles.Title.Render("Edit " + option.Label),
+		styles.Dim.Render("Value before edit: " + m.editor.original),
+		value,
+	}
+	if m.editor.Error() != nil {
+		lines = append(lines, styles.Error.Render("Invalid value: "+m.editor.Error().Error()))
+	}
+	if m.EditorInputFocused() && (m.editor.Kind() == EditorBool || m.editor.Kind() == EditorChoice) {
+		lines = append(lines, styles.Dim.Render("Arrows change value; Space toggles"))
+	}
+	controls := []string{
+		m.editor.Controls(styles),
+		styles.Dim.Render("Tab control  Enter " + m.EditorEnterLabel() + "  Ctrl+S save"),
+	}
+	if m.height > 0 && len(lines)+len(controls) > m.height {
+		// Keep input and validation errors ahead of the original-value summary.
+		lines = append(lines[:1], lines[2:]...)
+	}
+	lines = append(lines, controls...)
+	for index, line := range lines {
+		if m.width > 0 {
+			lines[index] = ansi.Truncate(line, max(m.width-4, 1), "…")
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// cycleValue is a draft operation used by catalog-level callers. It is not a
+// Browse key binding: interactive changes go through the visible editor.
 func (m *OptionsModalModel) cycleValue(direction int) {
-	opt := m.getCurrentOption()
-	if opt == nil || opt.Kind == config.KindPath || len(opt.Choices) == 0 {
+	option := m.getCurrentOption()
+	if option == nil || option.Kind == config.KindPath || len(option.Choices) == 0 || m.saving {
 		return
 	}
-	current := m.getConfigValue(opt.Key)
-	currentIndex := max(slices.Index(opt.Choices, current), 0)
-	newIndex := (currentIndex + direction + len(opt.Choices)) % len(opt.Choices)
-	m.editor.Begin(EditorSpec{Key: opt.Key, Kind: EditorChoice, Choices: append([]string(nil), opt.Choices...)}, current)
-	m.editor.Set(opt.Choices[newIndex])
-	value, err := m.editor.Commit()
-	if err != nil {
-		return
-	}
-	m.setConfigValue(opt.Key, value)
+	m.beginEditor()
+	m.editor.Cycle(direction)
+	m.applyEditor()
 }
 
 func (m OptionsModalModel) getConfigValue(key string) string {
@@ -307,7 +479,7 @@ func (m *OptionsModalModel) setConfigValue(key, value string) {
 }
 
 func (m OptionsModalModel) save() (OptionsModalModel, tea.Cmd) {
-	if m.draft == nil || !m.modified {
+	if m.saving || m.draft == nil || !m.modified {
 		return m, nil
 	}
 	cfg := m.draft.Clone()
@@ -323,12 +495,14 @@ func (m OptionsModalModel) save() (OptionsModalModel, tea.Cmd) {
 }
 
 func (m *OptionsModalModel) CancelDraft() {
+	if m.saving {
+		return
+	}
 	if m.config != nil {
 		m.draft = m.config.Clone()
 	}
 	m.modified = false
-	m.editingPath = false
-	m.pathInput.Blur()
+	m.cancelEditor()
 	m.saveError = nil
 }
 
@@ -365,7 +539,7 @@ func (m *OptionsModalModel) renderOptionsBody() string {
 	labelWidth := 22
 	compactLabels := m.width < 60
 
-	if m.sectionCursor >= len(m.sections) {
+	if m.sectionCursor < 0 || m.sectionCursor >= len(m.sections) {
 		return ""
 	}
 	section := m.sections[m.sectionCursor]
@@ -413,30 +587,21 @@ func (m *OptionsModalModel) renderOptionsBody() string {
 		b.WriteString("\n")
 	}
 
-	var hint string
-	if m.editingPath {
-		hint = "\nenter:confirm • esc:cancel"
-	} else if currentOption != nil && currentOption.Kind == config.KindPath {
-		hint = "\n↑↓:navigate • enter:edit • s:save • esc:close"
-	} else {
-		hint = "\n↑↓:navigate • ←→:change • s:save • esc:close"
-	}
-	if compactLabels {
-		hint = "\n↑↓ • ←→ • s:save"
-	}
-	if h := s.RenderHint(hint); h != "" {
-		b.WriteString(h)
+	if m.Editing() {
+		b.WriteString(m.editor.Controls(s))
+		b.WriteString("\n")
+		b.WriteString(s.Dim.Render("Tab control  Enter " + m.EditorEnterLabel() + "  Ctrl+S save"))
 	}
 
 	return b.String()
 }
 
 func (m OptionsModalModel) getCurrentOption() *config.Option {
-	if m.sectionCursor >= len(m.sections) {
+	if m.sectionCursor < 0 || m.sectionCursor >= len(m.sections) {
 		return nil
 	}
 	section := m.sections[m.sectionCursor]
-	if m.optionCursor >= len(section.Options) {
+	if m.optionCursor < 0 || m.optionCursor >= len(section.Options) {
 		return nil
 	}
 	return &section.Options[m.optionCursor]

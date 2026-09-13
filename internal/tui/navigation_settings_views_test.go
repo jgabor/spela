@@ -26,7 +26,7 @@ func TestListPaneSupportedStateTransitionsAndViews(t *testing.T) {
 	for _, destination := range []nav.Destination{nav.DestinationDLLCatalog, nav.DestinationMonitor, nav.DestinationSettings} {
 		state = state.SelectDestination(destination)
 		list.SetState(state)
-		for _, key := range []string{"down", "j", "up", "k"} {
+		for _, key := range []string{"down", "up"} {
 			next, _, handled := list.Update(keyMsg(key))
 			list = next
 			if !handled {
@@ -62,7 +62,7 @@ func TestOptionsModalSupportedSaveFailureAndInlineSections(t *testing.T) {
 	modal.OpenEmbedded(config.Default())
 	modal.SyncNavSection(nav.SettingsSection(-1))
 	modal.SyncNavSection(nav.SettingsSection(99))
-	for _, key := range []string{"down", "j", "up", "k", "left", "h", "right", "l"} {
+	for _, key := range []string{"down", "up", "left", "right"} {
 		next, _ := modal.Update(keyMsg(key))
 		modal = next
 	}
@@ -93,10 +93,12 @@ func TestOptionsModalSupportedSaveFailureAndInlineSections(t *testing.T) {
 		t.Fatal("path option did not enter editor")
 	}
 	modal.pathInput.SetValue("/cancelled")
-	next, _ = modal.Update(keyMsg("esc"))
+	modal, _ = modal.Update(keyMsg("tab"))
+	modal, _ = modal.Update(keyMsg("tab"))
+	next, _ = modal.Update(keyMsg("enter"))
 	modal = next
 	if modal.editingPath || modal.config.SteamPath != "" {
-		t.Fatal("path editor escape did not cancel edit")
+		t.Fatal("selected Cancel did not cancel the path edit")
 	}
 	next, _ = modal.Update(keyMsg("enter"))
 	modal = next
@@ -115,7 +117,7 @@ func TestOptionsModalSupportedSaveFailureAndInlineSections(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", configHomeFile)
 	modal.OpenEmbedded(config.Default())
 	modal.modified = true
-	_, command := modal.Update(keyMsg("s"))
+	_, command := modal.Update(keyMsg("ctrl+s"))
 	if command == nil {
 		t.Fatal("save failure path did not return command")
 	}
@@ -142,25 +144,42 @@ func TestSidebarSupportedRenderedSelectionFilterAndBatchStates(t *testing.T) {
 		}
 	}
 
-	for _, key := range []string{"down", "space", "down", "space", "a", "A", "d", "p", "s", "s", "s", "s", "C"} {
+	for _, key := range []string{"space", "down", "space"} {
 		next, _ := sidebar.Update(keyMsg(key))
 		sidebar = next
-		_ = sidebar.View()
 	}
-	if sidebar.InSelectMode() && sidebar.SelectionCount() != 0 {
+	if !sidebar.InSelectMode() || sidebar.SelectionCount() != 2 {
+		t.Fatalf("Space selection count = %d, want both games", sidebar.SelectionCount())
+	}
+	sidebar, _ = sidebar.UpdateAction(ActionListSelectAll)
+	sidebar, _ = sidebar.UpdateAction(ActionListClearSelection)
+	if sidebar.InSelectMode() || sidebar.SelectionCount() != 0 {
 		t.Fatalf("batch selection after clear = %d", sidebar.SelectionCount())
 	}
-	sidebar, _ = sidebar.FocusSearch()
-	if !sidebar.search.Focused() {
+	for _, action := range []KeyAction{ActionListToggleDLLFilter, ActionListToggleProfile, ActionSortNameAsc, ActionSortNameDesc, ActionSortDLLsFirst, ActionSortProfileFirst, ActionListClearFilters} {
+		sidebar, _ = sidebar.UpdateAction(action)
+		_ = sidebar.View()
+	}
+	if sidebar.filters.IsActive() || sidebar.sortMode != SortNameAsc || len(sidebar.filtered) != 3 {
+		t.Fatal("Clear filters did not restore both games, root profile, and A-Z sort")
+	}
+
+	layout := testLayout(first, second)
+	layout.listPane.sidebar = sidebar
+	layout, _ = layout.startSearch()
+	if !layout.listPane.sidebar.search.Focused() {
 		t.Fatal("search focus contract failed")
 	}
-	sidebar, _ = sidebar.Update(keyMsg("z"))
-	if view := stripANSI(sidebar.View()); !strings.Contains(view, `No games match "z"`) || !strings.Contains(view, "Esc, then C to clear search") {
-		t.Fatalf("empty filtered sidebar:\n%s", view)
+	layout, _ = layout.routeKey(keyMsg("z"))
+	if view := stripANSI(layout.View().Content); !strings.Contains(view, `No games match "z"`) || !strings.Contains(view, "Clear search") || !strings.Contains(view, "Cancel") {
+		t.Fatalf("empty filtered sidebar omitted selectable recovery:\n%s", view)
 	}
-	sidebar, _ = sidebar.Update(keyMsg("esc"))
-	if sidebar.search.Focused() {
-		t.Fatal("escape did not leave sidebar search")
+	for _, key := range []string{"tab", "tab", "tab", "enter"} {
+		layout, _ = layout.routeKey(keyMsg(key))
+	}
+	sidebar = layout.listPane.sidebar
+	if sidebar.search.Focused() || layout.searchSession != nil || layout.inputMode != ModeBrowse {
+		t.Fatal("selectable Cancel did not leave search")
 	}
 	empty := sidebar.SetGames(nil)
 	if empty.Selected() != nil || empty.SelectedItem() != nil {

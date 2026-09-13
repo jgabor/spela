@@ -21,7 +21,7 @@ func TestRenderContextBar_ZeroWidth(t *testing.T) {
 }
 
 func TestRenderContextBar_ContainsGlobalKeys(t *testing.T) {
-	result := RenderContextBar(globalKeys, 200, &DefaultTheme)
+	result := stripANSI(RenderContextBar(globalKeys, 200, &DefaultTheme))
 	for _, key := range globalKeys {
 		if !strings.Contains(result, key.Key) {
 			t.Errorf("rendered bar missing global key %q", key.Key)
@@ -61,23 +61,23 @@ func TestRenderContextBar_Truncation(t *testing.T) {
 }
 
 func TestRenderContextBar_PreservesCurrentActionBeforeOverflow(t *testing.T) {
-	keys := append([]ContextKey{{Key: "F6", Action: "restore DLLs", Enabled: true}, {Key: "i", Action: "install DLL", Enabled: true}}, globalKeys...)
+	keys := append([]ContextKey{{Key: "Enter", Action: "restore DLLs", Enabled: true}, {Key: "Tab", Action: "next control", Enabled: true}}, globalKeys...)
 	result := stripANSI(RenderContextBar(keys, 38, &DefaultTheme))
-	if !strings.Contains(result, "F6:restore DLLs") || !strings.Contains(result, "...") {
+	if !strings.Contains(result, "Enter:restore DLLs") || !strings.Contains(result, "...") {
 		t.Fatalf("narrow bar did not prioritize current action before overflow: %q", result)
 	}
 }
 
-func TestHelpGroupsHandledKeysWithReadableSpacing(t *testing.T) {
+func TestHelpGroupsReferenceKeysWithReadableSpacing(t *testing.T) {
 	out := stripANSI(NewHelp(NewStyles(DefaultTheme, true)).content())
-	for _, want := range []string{"? / Esc", "Close Help", "q / Ctrl+C", "Quit"} {
+	for _, want := range []string{"Reference only", "After closing Help", "0: Actions", "Actions: Quit", "Reference: browse controls"} {
 		if !strings.Contains(out, want) {
-			t.Fatalf("Help body is missing %q:\n%s", want, out)
+			t.Fatalf("Help missing %q: %s", want, out)
 		}
 	}
-	for _, forbidden := range []string{"Enter", "Open selection"} {
+	for _, forbidden := range []string{"? / Esc", "q / Ctrl+C", "F5", "F11", "Ctrl+R", "Ctrl+F"} {
 		if strings.Contains(out, forbidden) {
-			t.Fatalf("Help body advertises inactive action %q:\n%s", forbidden, out)
+			t.Fatalf("Help advertises retired shortcut %q", forbidden)
 		}
 	}
 }
@@ -103,22 +103,24 @@ func TestRenderContextBar_EnabledVsDisabledStyling(t *testing.T) {
 }
 
 func TestRenderContextBar_GlobalKeysOnly(t *testing.T) {
-	result := RenderContextBar(globalKeys, 200, &DefaultTheme)
-	if result == "" || !strings.Contains(result, "shortcuts") || !strings.Contains(result, "quit") {
+	result := stripANSI(RenderContextBar(globalKeys, 200, &DefaultTheme))
+	if result == "" || !strings.Contains(result, "0:actions") {
 		t.Errorf("global-only bar = %q", result)
 	}
 }
 
 func TestHelp_UsesCanonicalShellWithoutLegacyNavigation(t *testing.T) {
-	out := strings.ToLower(NewHelp(NewStyles(DefaultTheme, true)).View())
-	for _, want := range []string{"close help", "quit", "keyboard shortcuts"} {
+	help := NewHelp(NewStyles(DefaultTheme, true))
+	help.SetSize(100, 30)
+	out := strings.ToLower(stripANSI(help.View()))
+	for _, want := range []string{"close", "keyboard shortcuts", "tab: next control"} {
 		if !strings.Contains(out, want) {
-			t.Errorf("canonical help missing %q:\n%s", want, out)
+			t.Errorf("Help missing %q", want)
 		}
 	}
-	for _, forbidden := range []string{"rail", "primary", "context", "three-zone", "deferred"} {
+	for _, forbidden := range []string{"rail", "primary", "three-zone", "deferred"} {
 		if strings.Contains(out, forbidden) {
-			t.Errorf("help retains legacy term %q:\n%s", forbidden, out)
+			t.Errorf("Help retains legacy term %q", forbidden)
 		}
 	}
 }

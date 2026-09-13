@@ -26,6 +26,7 @@ type resourcePaneModel struct {
 	settings          OptionsModalModel
 	width             int
 	height            int
+	scrollOffset      int
 }
 
 func newResourcePane(styles *Styles, content ContentModel) resourcePaneModel {
@@ -48,6 +49,9 @@ func (p *resourcePaneModel) setServices(svc *Services) {
 }
 
 func (p *resourcePaneModel) refreshDefaultsDetail() {
+	if p.defaultsDetail.Dirty() || p.defaultsDetail.Editing() {
+		return
+	}
 	preserveField := p.defaultsDetail.FocusedField()
 	preserveCursor := p.defaultsDetail.Cursor()
 	var defaults *profile.Profile
@@ -117,14 +121,17 @@ func (p resourcePaneModel) View(contentFocused bool) string {
 	case nav.DestinationDLLCatalog:
 		return p.dllsResource.View(contentFocused, p.State().DLLCatalogSection)
 	case nav.DestinationMonitor:
-		return p.metricsView.View(contentFocused, p.State().MonitorSection)
+		return p.readOnlyView()
 	case nav.DestinationSettings:
 		return p.renderSettings(contentFocused)
 	}
 	return ""
 }
 
-func (p resourcePaneModel) renderLibrary(_ bool) string {
+func (p resourcePaneModel) renderLibrary(contentFocused bool) string {
+	if p.content.HasModalOpen() {
+		return p.content.ViewDLLAspect()
+	}
 	s := p.styles
 
 	var body strings.Builder
@@ -140,15 +147,14 @@ func (p resourcePaneModel) renderLibrary(_ bool) string {
 			}
 		}
 		body.WriteString("\n")
-		body.WriteString(s.Dim.Render("[ / ] change view"))
-		body.WriteString("\n\n")
+		body.WriteString("\n")
 	}
 	switch p.State().Aspect {
 	case nav.AspectOverview:
 		if p.State().Scope.Kind != nav.ScopeGame {
 			body.WriteString(s.Dim.Render("Overview is available for a selected game."))
 		} else {
-			body.WriteString(p.overview.View())
+			body.WriteString(p.readOnlyView())
 		}
 	case nav.AspectDLLs:
 		if p.State().Scope.Kind != nav.ScopeGame {
@@ -160,13 +166,15 @@ func (p resourcePaneModel) renderLibrary(_ bool) string {
 		if p.State().Scope.Kind == nav.ScopeGlobal {
 			body.WriteString(s.Title.Render("All games (default profile)"))
 			body.WriteString("\n")
-			body.WriteString(ansi.Truncate(s.Dim.Render("Root profile — fields here feed games by inheritance."), max(p.width-2, 1), "…"))
+			body.WriteString(ansi.Truncate(s.Dim.Render("Root profile: inherited by games."), max(p.width-2, 1), "…"))
 			body.WriteString("\n\n")
-			body.WriteString(p.defaultsDetail.View())
+			body.WriteString(p.defaultsDetail.ViewFocused(contentFocused))
 		} else if p.content.game == nil {
 			body.WriteString(s.Dim.Render("Select a game from the scope list"))
 		} else {
-			body.WriteString(p.content.ViewProfileAspect())
+			detail := p.content.detail
+			detail.SetSize(max(p.width-4, 1), max(p.height-3, 1))
+			body.WriteString(detail.ViewFocused(contentFocused))
 		}
 	default:
 		body.WriteString(s.Dim.Render("Select an aspect"))
@@ -175,13 +183,13 @@ func (p resourcePaneModel) renderLibrary(_ bool) string {
 	return body.String()
 }
 
-func (p resourcePaneModel) renderSettings(_ bool) string {
+func (p resourcePaneModel) renderSettings(contentFocused bool) string {
 	s := p.styles
 
 	var b strings.Builder
 	b.WriteString(s.Title.Render("Settings"))
 	b.WriteString("\n\n")
-	b.WriteString(p.settings.DetailView())
+	b.WriteString(p.settings.DetailViewFocused(contentFocused))
 	return b.String()
 }
 
@@ -234,55 +242,30 @@ func (p resourcePaneModel) updateLibrary(msg tea.Msg) (resourcePaneModel, tea.Cm
 }
 
 func (p resourcePaneModel) updateProfileDetail(msg tea.Msg) (resourcePaneModel, tea.Cmd) {
-	detail := &p.defaultsDetail
-	save := p.saveDefaultProfile
-	if p.State().Scope.Kind == nav.ScopeGame {
-		detail = &p.content.detail
-		save = p.content.saveResolvedProfile
-	}
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return p, nil
 	}
-	if detail.Editing() {
-		detail.UpdateEditor(key)
-		return p, nil
+	context := BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, ProfileScope: true, GameScope: p.State().Scope.Kind == nav.ScopeGame, Aspect: nav.AspectProfile, HasFields: true, Editable: true, Dirty: p.profileDetail().Dirty(), SaveAvailable: true}
+	if p.Editing() {
+		context.Mode = ModeEdit
 	}
-	switch key.String() {
-	case "left", "h":
-		detail.CycleFocusedField(-1)
-		return p, nil
-	case "right", "l":
-		detail.CycleFocusedField(1)
-		return p, nil
-	case "enter":
-		detail.BeginEdit()
-		return p, nil
-	case "s", "ctrl+s":
-		if detail.Dirty() {
-			return p, save()
-		}
-		return p, nil
-	case "esc":
-		detail.CancelDraft()
-		return p, nil
-	case "r":
-		_, _ = detail.ResetFocused()
-		return p, nil
-	case "R":
-		detail.ResetAll()
-		return p, nil
+	resolution := CanonicalKeymap.Lookup(context, key.String())
+	if resolution.Binding.Action == ActionEditInput || !resolution.Supported && p.Editing() {
+		return p.UpdateEditorInput(key)
 	}
-	next, command, _ := detail.Update(msg)
-	*detail = next
-	return p, command
+	if resolution.Supported && resolution.Available {
+		return p.UpdateAction(resolution.Binding.Action)
+	}
+	return p, nil
 }
 
 // HasModalOpen reports modals that should suppress global hotkeys.
 func (p resourcePaneModel) HasModalOpen() bool {
 	destination := p.State().Destination
 	return destination == nav.DestinationLibrary && p.content.HasModalOpen() ||
-		destination == nav.DestinationSettings && p.settings.editingPath
+		destination == nav.DestinationDLLCatalog && p.dllsResource.HasModalOpen() ||
+		destination == nav.DestinationSettings && p.settings.Editing()
 }
 
 func (p resourcePaneModel) HasDLLMutationConfirmation() bool {
@@ -298,7 +281,7 @@ func (p resourcePaneModel) HasDLLMutationConfirmation() bool {
 
 func (p resourcePaneModel) Editing() bool {
 	if p.State().Destination == nav.DestinationSettings {
-		return p.settings.editingPath
+		return p.settings.Editing()
 	}
 	if p.State().Destination == nav.DestinationLibrary && p.State().Aspect == nav.AspectProfile {
 		if p.State().Scope.Kind == nav.ScopeGlobal {
@@ -331,7 +314,7 @@ func (p *resourcePaneModel) saveDefaultProfile() tea.Cmd {
 }
 
 func (p *resourcePaneModel) completeDefaultSave(message profileSaveMsg) tea.Cmd {
-	p.defaultsDetail.CompleteSave(message.err)
+	p.defaultsDetail.CompleteSaveSnapshot(message.request.desired, message.err)
 	if message.err == nil && message.request.desired != nil {
 		p.persistedDefaults = message.request.desired.Clone()
 	}
@@ -345,7 +328,10 @@ func (p *resourcePaneModel) loadGlobalScope() {
 	}
 	*p.navState = p.State().SelectScope(nav.Scope{Kind: nav.ScopeGlobal})
 	*p.navState = p.State().SelectAspect(nav.AspectProfile)
-	p.refreshDefaultsDetail()
+	p.scrollOffset = 0
+	if p.defaultsDetail.raw == nil {
+		p.refreshDefaultsDetail()
+	}
 }
 
 // loadGameScope prepares per-game content.
@@ -359,6 +345,7 @@ func (p *resourcePaneModel) loadGameScope(g *game.Game) {
 		AppID:    g.AppID,
 	}).SelectAspect(nav.AspectOverview)
 	p.content = p.content.SetGame(g)
+	p.scrollOffset = 0
 	p.overview = p.overview.SetGame(g, p.services)
 }
 

@@ -24,51 +24,45 @@ import (
 // Help overlay
 // ---------------------------------------------------------------------------
 
-func TestLayout_HelpToggle(t *testing.T) {
+func TestLayout_HelpOpensFromActionsAndClosesWithItsButton(t *testing.T) {
 	m := testLayout()
-
-	result, _ := sendKey(&m, "?")
-	layout := result.(LayoutModel)
+	opened, _ := sendAction(&m, ActionShowHelp)
+	layout := opened.(LayoutModel)
 	if !layout.showHelp {
-		t.Error("expected help to be shown")
+		t.Fatal("Help did not open")
 	}
-
-	result, _ = sendKey(&layout, "?")
-	layout = result.(LayoutModel)
-	if layout.showHelp {
-		t.Error("expected help to be hidden")
+	closed, _ := sendKeys(&layout, "tab", "enter")
+	if closed.(LayoutModel).showHelp {
+		t.Fatal("Help Close did not close")
 	}
 }
 
-func TestLayout_HelpEscCloses(t *testing.T) {
+func TestLayout_HelpIgnoresObsoleteShortcuts(t *testing.T) {
 	m := testLayout()
-	result, _ := sendKey(&m, "?")
-	layout := result.(LayoutModel)
-
-	result, _ = sendKey(&layout, "esc")
-	layout = result.(LayoutModel)
-	if layout.showHelp {
-		t.Error("expected esc to close help")
+	opened, _ := sendAction(&m, ActionShowHelp)
+	for _, key := range []string{"esc", "?", "q", "0", "1", "2", "3", "4"} {
+		next, command := sendKey(opened, key)
+		layout := next.(LayoutModel)
+		if command != nil || !layout.showHelp || layout.navState.Destination != nav.DestinationLibrary {
+			t.Fatalf("%q escaped Help", key)
+		}
+		opened = next
 	}
 }
 
-func TestLayout_HelpQQuits(t *testing.T) {
+func TestLayout_HelpRequiresCloseBeforeQuit(t *testing.T) {
 	m := testLayout()
-	result, _ := sendKey(&m, "?")
-	layout := result.(LayoutModel)
-
-	_, command := sendKey(&layout, "q")
-	if command == nil {
-		t.Fatal("expected q to quit while help is open")
-	}
-	if _, ok := command().(tea.QuitMsg); !ok {
-		t.Fatalf("q command returned %T, want tea.QuitMsg", command())
+	opened, _ := sendAction(&m, ActionShowHelp)
+	closed, _ := sendKeys(opened, "tab", "enter")
+	_, command := sendAction(closed, ActionQuit)
+	if _, ok := execCmd(command).(tea.QuitMsg); !ok {
+		t.Fatal("Quit did not terminate after closing Help")
 	}
 }
 
 func TestLayout_HelpCtrlCQuits(t *testing.T) {
 	m := testLayout()
-	result, _ := sendKey(&m, "?")
+	result, _ := sendAction(&m, ActionShowHelp)
 	layout := result.(LayoutModel)
 
 	_, command := sendKey(&layout, "ctrl+c")
@@ -80,51 +74,48 @@ func TestLayout_HelpCtrlCQuits(t *testing.T) {
 	}
 }
 
-func TestLayout_HelpDoesNotAdvertiseOrHandleEnter(t *testing.T) {
+func TestLayout_HelpEnterOnlyClosesTheFocusedButton(t *testing.T) {
 	m := testLayout()
-	result, _ := sendKey(&m, "?")
-	layout := result.(LayoutModel)
+	opened, _ := sendAction(&m, ActionShowHelp)
+	layout := opened.(LayoutModel)
 	body := stripANSI(layout.help.content())
-	for _, want := range []string{"? / Esc", "Close Help", "q / Ctrl+C", "Quit"} {
-		if !strings.Contains(body, want) {
-			t.Fatalf("Help body is missing executable action %q:\n%s", want, body)
-		}
+	if !strings.Contains(body, "Reference only") || !strings.Contains(body, "After closing Help") {
+		t.Fatalf("Help scopes its reference incorrectly: %s", body)
 	}
-	for _, forbidden := range []string{"Enter", "Open selection"} {
-		if strings.Contains(body, forbidden) {
-			t.Fatalf("Help body advertises inactive action %q:\n%s", forbidden, body)
-		}
+	before := stripANSI(layout.help.View())
+	if strings.Contains(strings.Split(before, "\n")[len(strings.Split(before, "\n"))-1], "Enter") {
+		t.Fatal("Help advertises Enter while body owns focus")
 	}
-	if status := layout.renderCanonicalStatus(); status != "" {
-		t.Fatalf("help rendered generic overlay guidance: %q", stripANSI(status))
+	next, command := sendKey(&layout, "enter")
+	layout = next.(LayoutModel)
+	if command != nil || !layout.showHelp || stripANSI(layout.help.View()) != before {
+		t.Fatal("body Enter changed Help")
 	}
-
-	guidance := stripANSI(layout.help.View())
-	result, command := sendKey(&layout, "enter")
-	layout = result.(LayoutModel)
-	if command != nil || !layout.showHelp {
-		t.Fatalf("Enter changed Help state: command=%v showHelp=%t", command, layout.showHelp)
-	}
-	if got := stripANSI(layout.help.View()); got != guidance {
-		t.Fatalf("Enter changed Help guidance from %q to %q", guidance, got)
-	}
-
 	layout.help.SetHeight(5)
-	result, _ = sendKey(&layout, "down")
-	layout = result.(LayoutModel)
+	next, _ = sendKey(&layout, "down")
+	layout = next.(LayoutModel)
 	if layout.help.offset != 1 {
-		t.Fatalf("visible scroll-down action moved to offset %d, want 1", layout.help.offset)
+		t.Fatal("Help did not scroll")
 	}
-	result, _ = sendKey(&layout, "up")
-	layout = result.(LayoutModel)
+	next, _ = sendKey(&layout, "up")
+	layout = next.(LayoutModel)
 	if layout.help.offset != 0 {
-		t.Fatalf("visible scroll-up action moved to offset %d, want 0", layout.help.offset)
+		t.Fatal("Help did not scroll back")
+	}
+	next, _ = sendKey(&layout, "tab")
+	layout = next.(LayoutModel)
+	if !strings.Contains(stripANSI(layout.help.View()), "Enter: close") {
+		t.Fatalf("focused Close lacks Enter guidance: %s", layout.help.View())
+	}
+	next, _ = sendKey(&layout, "enter")
+	if next.(LayoutModel).showHelp {
+		t.Fatal("focused Close failed")
 	}
 }
 
 func TestLayout_HelpBlocksOtherKeys(t *testing.T) {
 	m := testLayout()
-	result, _ := sendKey(&m, "?")
+	result, _ := sendAction(&m, ActionShowHelp)
 	layout := result.(LayoutModel)
 
 	// Tab should NOT toggle focus while help is shown.
@@ -172,7 +163,7 @@ func TestLayout_SettingsPathInputReceivesQuestionMark(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestLayout_TabTogglesFocus(t *testing.T) {
-	m := testLayout()
+	m := testLayout(testGame("Cyberpunk 2077"))
 	if m.focus != FocusList {
 		t.Fatal("precondition: List should be focused initially")
 	}
@@ -221,54 +212,54 @@ func TestLayout_CtrlCQuits(t *testing.T) {
 	}
 }
 
-func TestLayout_QFromRailQuits(t *testing.T) {
+func TestLayout_QuitFromRailQuits(t *testing.T) {
 	m := testLayout()
-	_, cmd := sendKey(&m, "q")
+	_, cmd := sendAction(&m, ActionQuit)
 	msg := execCmd(cmd)
 	if _, ok := msg.(tea.QuitMsg); !ok {
 		t.Errorf("expected tea.QuitMsg from q on rail, got %T", msg)
 	}
 }
 
-func TestLayout_F5TogglesDensity(t *testing.T) {
+func TestLayout_ActionsSelectDensity(t *testing.T) {
 	m := testLayout()
 	if m.densityMode != DensityStandard {
 		t.Fatal("precondition: should start in standard density")
 	}
 
-	result, _ := sendKey(&m, "f5")
+	result, _ := sendAction(&m, ActionLayoutCompact)
 	layout := result.(LayoutModel)
 	if layout.densityMode != DensityCompact {
 		t.Errorf("expected DensityCompact, got %d", layout.densityMode)
 	}
 
-	result, _ = sendKey(&layout, "f5")
+	result, _ = sendAction(&layout, ActionLayoutStandard)
 	layout = result.(LayoutModel)
 	if layout.densityMode != DensityStandard {
 		t.Errorf("expected DensityStandard, got %d", layout.densityMode)
 	}
 }
 
-func TestLayout_F11TogglesFocused(t *testing.T) {
+func TestLayout_ActionsSelectFocused(t *testing.T) {
 	m := testLayout()
 
-	result, _ := sendKey(&m, "f11")
+	result, _ := sendAction(&m, ActionLayoutFocused)
 	layout := result.(LayoutModel)
 	if layout.densityMode != DensityFocused {
 		t.Errorf("expected DensityFocused, got %d", layout.densityMode)
 	}
 
-	result, _ = sendKey(&layout, "f11")
+	result, _ = sendAction(&layout, ActionLayoutStandard)
 	layout = result.(LayoutModel)
 	if layout.densityMode != DensityStandard {
 		t.Errorf("expected DensityStandard, got %d", layout.densityMode)
 	}
 }
 
-func TestLayout_CtrlFActivatesSearch(t *testing.T) {
+func TestLayout_ActionsActivateSearch(t *testing.T) {
 	m := testLayout(testGame("Cyberpunk 2077"))
 
-	result, _ := sendKey(&m, "ctrl+f")
+	result, _ := sendAction(&m, ActionStartSearch)
 	layout := result.(LayoutModel)
 	if layout.focus != FocusList || layout.inputMode != ModeSearch {
 		t.Error("expected ctrl+f to focus Library search")
@@ -294,9 +285,9 @@ func TestLayout_SettingsDestination(t *testing.T) {
 // Rescan — displaced from `r` to `ctrl+r` as part of the keymap audit
 // ---------------------------------------------------------------------------
 
-func TestLayout_RescanOnCtrlR(t *testing.T) {
+func TestLayout_ActionsRescan(t *testing.T) {
 	m := testLayout()
-	_, cmd := sendKey(&m, "ctrl+r")
+	_, cmd := sendAction(&m, ActionRescanLibrary)
 	if cmd == nil {
 		t.Error("expected rescan command from ctrl+r")
 	}
@@ -411,17 +402,17 @@ func TestLayout_ResourceKeysStayScopedToActiveResource(t *testing.T) {
 	result, _ = sendKey(&m, "right")
 	m = result.(LayoutModel)
 	listCursor := m.pane.dllsResource.gameRowCursor
-	result, _ = sendKey(&m, "j")
+	result, _ = sendKey(&m, "down")
 	m = result.(LayoutModel)
 	if got := m.pane.dllsResource.gameRowCursor; got != 1 {
-		t.Errorf("DLL List j should move deployment cursor from %d to 1, got %d", listCursor, got)
+		t.Errorf("DLL List down should move deployment cursor from %d to 1, got %d", listCursor, got)
 	}
 	result, _ = sendKey(&m, "tab")
 	m = result.(LayoutModel)
-	result, _ = sendKey(&m, "j")
+	result, _ = sendKey(&m, "down")
 	m = result.(LayoutModel)
 	if m.pane.dllsResource.gameRowCursor != 1 {
-		t.Error("DLL Detail j moved hidden List cursor")
+		t.Error("DLL Detail down moved hidden List cursor")
 	}
 
 	result, _ = sendKey(&m, "1")
@@ -431,13 +422,13 @@ func TestLayout_ResourceKeysStayScopedToActiveResource(t *testing.T) {
 	m.focus = FocusDetail
 	m.syncNavToComponents()
 	defaultCursor := m.pane.defaultsDetail.Cursor()
-	result, _ = sendKey(&m, "j")
+	result, _ = sendKey(&m, "down")
 	m = result.(LayoutModel)
 	if got := m.pane.defaultsDetail.Cursor(); got != defaultCursor+1 {
-		t.Errorf("global profile j should move detail cursor to %d, got %d", defaultCursor+1, got)
+		t.Errorf("global profile down should move detail cursor to %d, got %d", defaultCursor+1, got)
 	}
 	if m.pane.dllsResource.gameRowCursor != 1 {
-		t.Error("profile j should not mutate DLL row cursor")
+		t.Error("profile down should not mutate DLL row cursor")
 	}
 }
 
@@ -464,14 +455,14 @@ func TestLayout_DLLUpdateAllMessageReachesDLLsWhenMetricsActive(t *testing.T) {
 // Navigation — q / esc
 // ---------------------------------------------------------------------------
 
-func TestLayout_QFromContent_QuitsWithoutChangingFocus(t *testing.T) {
+func TestLayout_QuitFromContent_QuitsWithoutChangingFocus(t *testing.T) {
 	g := testGame("Cyberpunk 2077")
 	m := testLayoutWithGame(g)
 	if m.focus != FocusDetail {
 		t.Fatalf("precondition: expected Detail, got %v", m.focus)
 	}
 
-	result, command := sendKey(&m, "q")
+	result, command := sendAction(&m, ActionQuit)
 	layout := result.(LayoutModel)
 	if command == nil {
 		t.Fatal("q did not return the quit command")
@@ -498,50 +489,59 @@ func TestLayout_EscInBrowseDoesNotChangePaneFocus(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestLayout_ModalInterceptsInput(t *testing.T) {
-	m := testLayout()
-	m.pane.content.pendingAction = PendingDLLUpdate
-	m.focus = FocusDetail
-
-	focused := m.focus
-	result, _ := sendKey(&m, "tab")
-	layout := result.(LayoutModel)
-	if layout.focus != focused {
-		t.Error("expected pending DLL confirm to block pane focus change")
+	entry := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.7.0"))
+	layout := testLayoutWithGame(entry)
+	layout.navState.Aspect = nav.AspectDLLs
+	layout.pane.SetState(*layout.navState)
+	layout.pane.content.hasUpdates = true
+	layout.pane.content.dllUpdateTargets = []dllMutationTarget{newDLLMutationTarget(entry, entry.DLLs[0], "3.8.0")}
+	layout.focus = FocusDetail
+	layout, _ = layout.updatePaneAction(ActionDetailUpdate)
+	result, command := sendKey(&layout, "tab")
+	updated := result.(LayoutModel)
+	if command != nil || updated.focus != FocusDetail || updated.pane.content.confirmation == nil || !updated.pane.content.confirmation.bodyFocused {
+		t.Fatal("Tab did not remain inside the confirmation's local focus cycle")
 	}
 }
 
 func TestLayout_ModalClosesOnCancel(t *testing.T) {
-	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.7.0"))
-	m := testLayoutWithGame(g)
-	m.navState.Aspect = nav.AspectDLLs
-	m.pane.SetState(*m.navState)
-	m.pane.content.pendingAction = PendingDLLUpdate
-	m.focus = FocusDetail
-
-	result, _ := sendKey(&m, "esc")
-	layout := result.(LayoutModel)
-	if layout.pane.content.pendingAction != PendingNone {
-		t.Error("expected esc to clear pending action")
+	entry := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.7.0"))
+	layout := testLayoutWithGame(entry)
+	layout.navState.Aspect = nav.AspectDLLs
+	layout.pane.SetState(*layout.navState)
+	layout.pane.content.hasUpdates = true
+	layout.pane.content.dllUpdateTargets = []dllMutationTarget{newDLLMutationTarget(entry, entry.DLLs[0], "3.8.0")}
+	layout.focus = FocusDetail
+	layout, _ = layout.updatePaneAction(ActionDetailUpdate)
+	result, command := sendKey(&layout, "enter")
+	layout = result.(LayoutModel)
+	if command != nil || layout.pane.content.pendingAction != PendingNone || layout.pane.content.confirmation != nil || layout.pane.content.dllOperating || !layout.pane.content.dllResultOpen {
+		t.Fatal("initial Enter did not cancel safely into a visible result")
+	}
+	result, _ = sendKey(&layout, "tab")
+	layout = result.(LayoutModel)
+	result, command = sendKey(&layout, "enter")
+	layout = result.(LayoutModel)
+	if command != nil || layout.pane.content.HasModalOpen() || layout.focus != FocusDetail {
+		t.Fatal("Tab then Enter did not close the result and retain pane focus")
 	}
 }
 
-func TestLayout_ModalQQuitsAsPrompted(t *testing.T) {
-	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.7.0"))
-	m := testLayoutWithGame(g)
-	m.navState.Aspect = nav.AspectDLLs
-	m.pane.SetState(*m.navState)
-	m.pane.content.pendingAction = PendingDLLUpdate
-	m.focus = FocusDetail
-
-	if prompt := stripANSI(m.pane.content.renderDLLs()); !strings.Contains(prompt, "Esc cancel • q/Ctrl+C quit") {
-		t.Fatalf("dialog prompt does not document quit policy: %q", prompt)
+func TestLayout_ModalRejectsRemovedQuitShortcut(t *testing.T) {
+	entry := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.7.0"))
+	layout := testLayoutWithGame(entry)
+	layout.navState.Aspect = nav.AspectDLLs
+	layout.pane.SetState(*layout.navState)
+	layout.pane.content.pendingAction = PendingDLLUpdate
+	layout.pane.content.confirmation = newDLLMutationConfirmation("Confirm DLL update", []dllMutationTarget{newDLLMutationTarget(entry, entry.DLLs[0], "3.8.0")}, "backup")
+	prompt := stripANSI(layout.pane.content.ViewDLLAspect())
+	if strings.Contains(prompt, "Esc") || strings.Contains(prompt, "q/") || !strings.Contains(prompt, "Enter Activate") {
+		t.Fatalf("dialog advertises removed shortcuts or lacks basic controls: %q", prompt)
 	}
-	_, command := sendKey(&m, "q")
-	if command == nil {
-		t.Fatal("expected q to quit while dialog is open")
-	}
-	if _, ok := command().(tea.QuitMsg); !ok {
-		t.Fatalf("q command returned %T, want tea.QuitMsg", command())
+	result, command := sendKey(&layout, "q")
+	updated := result.(LayoutModel)
+	if command != nil || updated.pane.content.confirmation == nil || updated.pane.content.dllOperating {
+		t.Fatal("removed q shortcut changed the confirmation or quit")
 	}
 }
 
@@ -549,31 +549,36 @@ func TestLayout_ModalQQuitsAsPrompted(t *testing.T) {
 // Batch menu
 // ---------------------------------------------------------------------------
 
-func TestLayout_BatchMenu_EscCloses(t *testing.T) {
-	m := testLayout()
-	m.showBatchMenu = true
-	m.batchGames = []*game.Game{testGame("Test")}
-
-	result, _ := sendKey(&m, "esc")
-	layout := result.(LayoutModel)
-	if layout.showBatchMenu {
-		t.Error("expected esc to close batch menu")
+func TestLayout_BatchMenu_BasicClose(t *testing.T) {
+	layout := testLayout()
+	layout.showBatchMenu = true
+	layout.batchGames = []*game.Game{testGame("Test")}
+	result, _ := sendKey(&layout, "tab")
+	layout = result.(LayoutModel)
+	if !layout.batchCloseFocused || !strings.Contains(stripANSI(layout.renderBatchMenu()), "Enter: close") {
+		t.Fatal("Tab did not expose the batch Close control")
 	}
-	if layout.batchGames != nil {
-		t.Error("expected batch games to be cleared")
+	result, command := sendKey(&layout, "enter")
+	layout = result.(LayoutModel)
+	if command != nil || layout.showBatchMenu || layout.batchGames != nil {
+		t.Fatal("Enter on Close did not close and clear the batch menu")
 	}
 }
 
 func TestLayout_BatchMenu_Navigation(t *testing.T) {
-	m := testLayout()
-	m.showBatchMenu = true
-	m.batchGames = []*game.Game{testGame("Test")}
-	m.batchCursor = 0
-
-	result, _ := sendKey(&m, "up")
-	layout := result.(LayoutModel)
-	if layout.batchCursor != 0 {
-		t.Error("expected cursor to clamp at 0")
+	layout := testLayout()
+	layout.showBatchMenu = true
+	layout.batchGames = []*game.Game{testGame("Test")}
+	originalFocus := layout.focus
+	result, _ := sendKey(&layout, "tab")
+	layout = result.(LayoutModel)
+	if !layout.batchCloseFocused || layout.focus != originalFocus {
+		t.Fatal("Tab failed to focus the local Close control")
+	}
+	result, _ = sendKey(&layout, "tab")
+	layout = result.(LayoutModel)
+	if layout.batchCloseFocused || layout.focus != originalFocus {
+		t.Fatal("Tab failed to wrap back to the batch action")
 	}
 }
 
@@ -589,6 +594,8 @@ func TestLayout_BatchMenu_EnterExecutes(t *testing.T) {
 	if view := stripANSI(confirmed.batchConfirmation.view(confirmed.styles)); !strings.Contains(view, "3.7.0 → 3.8.0") {
 		t.Fatalf("batch confirmation target is not concrete:\n%s", view)
 	}
+	result, _ = sendKey(&confirmed, "right")
+	confirmed = result.(LayoutModel)
 	_, cmd := sendKey(&confirmed, "enter")
 	if cmd == nil {
 		t.Error("expected enter in batch menu to return a command")
@@ -596,14 +603,14 @@ func TestLayout_BatchMenu_EnterExecutes(t *testing.T) {
 }
 
 func TestLayout_DLLConfirmationsCancelBeforeGlobalQuit(t *testing.T) {
-	for _, key := range []string{"q", "esc"} {
+	for _, key := range []string{"enter"} {
 		t.Run("content/"+key, func(t *testing.T) {
 			entry := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.7.0"))
 			layout := testLayoutWithGame(entry)
 			layout.pane.content.pendingAction = PendingDLLUpdate
 			layout.pane.content.confirmation = newDLLMutationConfirmation("Confirm DLL update", []dllMutationTarget{newDLLMutationTarget(entry, entry.DLLs[0], "3.8.0")}, "backup")
 			status := stripANSI(layout.renderCanonicalStatus())
-			if !strings.Contains(status, "Enter/Y:confirm") || !strings.Contains(status, "Esc/q:cancel") || strings.Contains(status, "q:quit") {
+			if !strings.Contains(status, "Enter Activate") || !strings.Contains(status, "Tab Details") || strings.Contains(status, "q:quit") {
 				t.Fatalf("confirmation status keys disagree with behavior: %s", status)
 			}
 
@@ -643,14 +650,16 @@ func TestLayout_DLLConfirmationsCancelBeforeGlobalQuit(t *testing.T) {
 }
 
 func TestLayout_BatchMenu_BlocksGlobalKeys(t *testing.T) {
-	m := testLayout()
-	m.showBatchMenu = true
-	m.batchGames = []*game.Game{testGame("Test")}
-
-	result, _ := sendKey(&m, "?")
-	layout := result.(LayoutModel)
-	if layout.showHelp {
-		t.Error("expected batch menu to block ? from opening help")
+	layout := testLayout()
+	layout.showBatchMenu = true
+	layout.batchGames = []*game.Game{testGame("Test")}
+	destination := layout.navState.Destination
+	for _, key := range []string{"0", "2", "3", "4"} {
+		result, command := sendKey(&layout, key)
+		layout = result.(LayoutModel)
+		if command != nil || layout.actions != nil || layout.showHelp || layout.navState.Destination != destination {
+			t.Fatalf("batch overlay passed global key %q through", key)
+		}
 	}
 }
 
@@ -696,6 +705,7 @@ func TestExecuteBatchDLLUpdatePersists(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", base)
 	t.Setenv("XDG_CACHE_HOME", base)
 	t.Setenv("XDG_CONFIG_HOME", base)
+	t.Setenv("XDG_RUNTIME_DIR", filepath.Join(base, "runtime"))
 
 	payload := []byte("new-dll-payload")
 	hash := sha256.Sum256(payload)
@@ -755,6 +765,10 @@ func TestExecuteBatchDLLUpdatePersists(t *testing.T) {
 		t.Fatal("expected batch completion message")
 	}
 
+	if data, err := os.ReadFile(dllPath); err != nil || string(data) != string(payload) {
+		t.Fatalf("batch did not persist selected DLL payload: %q, %v", data, err)
+	}
+
 	reloaded, err := game.LoadDatabase()
 	if err != nil {
 		t.Fatalf("LoadDatabase() error = %v", err)
@@ -768,9 +782,9 @@ func TestExecuteBatchDLLUpdatePersists(t *testing.T) {
 	}
 }
 
-func TestLayout_SlashOpensSearchFromPrimary(t *testing.T) {
+func TestLayout_ActionsOpenSearchFromPrimary(t *testing.T) {
 	m := testLayout()
-	result, _ := sendKey(&m, "/")
+	result, _ := sendAction(&m, ActionStartSearch)
 	layout := result.(LayoutModel)
 	if layout.focus != FocusList || layout.inputMode != ModeSearch {
 		t.Fatalf("expected List Search after /, got focus=%v mode=%v", layout.focus, layout.inputMode)

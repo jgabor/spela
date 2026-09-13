@@ -24,8 +24,7 @@ func TestBrowseDestinationShortcutWorksFromVisiblePane(t *testing.T) {
 func TestSearchConsumesPrintableDestinationShortcut(t *testing.T) {
 	layout := testLayout()
 	layout.focus = FocusList
-	layout.inputMode = ModeSearch
-	layout.listPane.sidebar.search.Focus()
+	layout, _ = layout.startSearch()
 
 	result, _ := sendKey(&layout, "2")
 	updated := result.(LayoutModel)
@@ -54,8 +53,8 @@ func TestUnsupportedKeyDoesNotChangeNavigationState(t *testing.T) {
 
 func TestSearchConsumesReservedKeysBeforeGlobals(t *testing.T) {
 	layout := testLayout()
-	model, _ := sendKey(&layout, "/")
-	searching := model.(LayoutModel)
+	searching, _ := layout.startSearch()
+	var model tea.Model
 
 	for _, key := range []string{"?", "/", "tab", "ctrl+r"} {
 		beforeFocus := searching.focus
@@ -77,6 +76,7 @@ func TestProfileEditConsumesPrintableDestinationShortcut(t *testing.T) {
 	layout := testLayout()
 	layout.pane.loadGlobalScope()
 	layout.focus = FocusDetail
+	focusField(t, &layout.pane.defaultsDetail, profile.FieldGPUShaderCachePath)
 	if !layout.pane.defaultsDetail.BeginEdit() {
 		t.Fatal("could not start profile editor")
 	}
@@ -124,11 +124,11 @@ func TestHorizontalListKeysRunOnlyForGroupedLists(t *testing.T) {
 			layout := testLayoutWithGame(testGame("Cyberpunk 2077"))
 			layout.selectDestination(test.destination)
 			before := *layout.navState
-			model, _ := sendKey(&layout, "l")
+			model, _ := sendKey(&layout, "right")
 			updated := model.(LayoutModel)
 			changed := *updated.navState != before
 			if changed != test.grouped {
-				t.Fatalf("l changed navigation = %t, want %t", changed, test.grouped)
+				t.Fatalf("right changed navigation = %t, want %t", changed, test.grouped)
 			}
 			if visible := hasHelpAction(CanonicalKeymap.HelpBindings(updated.bindingContext()), ActionListNextGroup); visible != test.grouped {
 				t.Fatalf("next-group help visibility = %t, want %t", visible, test.grouped)
@@ -137,54 +137,43 @@ func TestHorizontalListKeysRunOnlyForGroupedLists(t *testing.T) {
 	}
 }
 
-func TestHorizontalDetailKeysCycleOnlyAdjustableValues(t *testing.T) {
+func TestValueAdjustmentRequiresAnExplicitEditor(t *testing.T) {
 	layout := testLayout()
 	layout.pane.loadGlobalScope()
 	layout.focus = FocusDetail
 	focusField(t, &layout.pane.defaultsDetail, profile.FieldProtonVKD3DHeap)
-	if !layout.bindingContext().DetailAdjustable {
-		t.Fatal("root bool field did not advertise horizontal adjustment")
+	model, _ := sendKey(&layout, "right")
+	layout = model.(LayoutModel)
+	if layout.pane.defaultsDetail.Dirty() {
+		t.Fatal("Browse arrow changed a value")
 	}
-	model, _ := sendKey(&layout, "l")
+	model, _ = sendKeys(&layout, "enter", "right", "enter")
 	layout = model.(LayoutModel)
 	if !layout.pane.defaultsDetail.RawProfile().Proton.VKD3DHeap {
-		t.Fatal("l did not increase the focused root profile value")
+		t.Fatal("explicit editor did not apply the choice")
 	}
-	model, _ = sendKey(&layout, "h")
-	layout = model.(LayoutModel)
-	if layout.pane.defaultsDetail.RawProfile().IsOverridden(profile.FieldProtonVKD3DHeap) {
-		t.Fatal("h did not decrease the focused root profile value")
-	}
-
 	layout.selectDestination(nav.DestinationSettings)
 	layout.focus = FocusDetail
-	if !layout.bindingContext().DetailAdjustable {
-		t.Fatal("boolean setting did not advertise horizontal adjustment")
-	}
-	model, _ = sendKey(&layout, "l")
+	model, _ = sendKey(&layout, "right")
 	layout = model.(LayoutModel)
-	if !layout.pane.settings.modified {
-		t.Fatal("l did not change an adjustable setting")
+	if layout.pane.settings.Dirty() {
+		t.Fatal("Settings Browse arrow changed a value")
 	}
-
+	model, _ = sendKeys(&layout, "enter", "right", "enter")
+	layout = model.(LayoutModel)
+	if !layout.pane.settings.Dirty() {
+		t.Fatal("Settings editor did not apply the choice")
+	}
 	layout.navState.SettingsSection = nav.SettingsPaths
 	layout.pane.SetState(*layout.navState)
-	layout.pane.settings.SyncNavSection(nav.SettingsPaths)
-	if layout.bindingContext().DetailAdjustable {
-		t.Fatal("path setting advertised horizontal adjustment")
-	}
-	model, _ = sendKey(&layout, "enter")
-	layout = model.(LayoutModel)
-	model, _ = sendKey(&layout, "h")
-	layout = model.(LayoutModel)
-	model, _ = sendKey(&layout, "l")
+	model, _ = sendKeys(&layout, "enter", "h", "l")
 	layout = model.(LayoutModel)
 	if !strings.HasSuffix(layout.pane.settings.pathInput.Value(), "hl") {
-		t.Fatalf("path editor value = %q, want printable h/l suffix", layout.pane.settings.pathInput.Value())
+		t.Fatal("path input consumed printable commands")
 	}
 }
 
-func TestProfileDraftEscapeRestoresPersistedState(t *testing.T) {
+func TestProfileDraftDiscardRequiresItsVisibleConfirmation(t *testing.T) {
 	layout := testLayoutWithGame(testGame("Cyberpunk 2077"))
 	layout.focus = FocusDetail
 	*layout.navState = layout.navState.SelectAspect(nav.AspectProfile)
@@ -197,20 +186,26 @@ func TestProfileDraftEscapeRestoresPersistedState(t *testing.T) {
 
 	model, _ := sendKey(&layout, "esc")
 	updated := model.(LayoutModel)
+	if !updated.pane.content.detail.Dirty() {
+		t.Fatal("obsolete Escape discarded draft")
+	}
+	updated, _ = updated.dispatchAction(ActionCancelDraft)
+	model, _ = sendKeys(&updated, "right", "enter")
+	updated = model.(LayoutModel)
 	if updated.pane.content.detail.Dirty() {
-		t.Fatal("escape retained unsaved profile draft")
+		t.Fatal("confirmed discard retained draft")
 	}
 }
 
-func TestDestinationChangeClearsMultiSelection(t *testing.T) {
+func TestDestinationChangePreservesLibraryMultiSelection(t *testing.T) {
 	layout := testLayoutWithGame(testGame("Cyberpunk 2077"))
 	layout.listPane.sidebar.selectMode = true
 	layout.listPane.sidebar.selected[layout.listPane.sidebar.games[0].AppID] = true
 
 	model, _ := sendKey(&layout, "2")
 	updated := model.(LayoutModel)
-	if updated.listPane.sidebar.selectMode || len(updated.listPane.sidebar.selected) != 0 {
-		t.Fatal("destination change retained hidden multi-selection")
+	if !updated.listPane.sidebar.selectMode || len(updated.listPane.sidebar.selected) != 1 {
+		t.Fatal("destination change lost Library selection")
 	}
 	if updated.navState.Destination != nav.DestinationDLLCatalog || updated.pane.State().Destination != nav.DestinationDLLCatalog {
 		t.Fatal("destination and detail state diverged")
@@ -234,8 +229,8 @@ func TestClearingFinalMarkedGameReturnsToBrowsing(t *testing.T) {
 func TestEmptySearchClearsStaleGameDetail(t *testing.T) {
 	layout := testLayoutWithGame(testGame("Cyberpunk 2077"))
 	layout.focus = FocusList
-	model, _ := sendKey(&layout, "/")
-	searching := model.(LayoutModel)
+	searching, _ := layout.startSearch()
+	var model tea.Model
 	for _, key := range []string{"n", "o", "m", "a", "t", "c", "h"} {
 		model, _ = sendKey(&searching, key)
 		searching = model.(LayoutModel)
@@ -267,8 +262,8 @@ func TestBelowMinimumViewportSuppressesHiddenWorkspaceInput(t *testing.T) {
 		}
 	}
 
-	_, command := sendKey(&layout, "q")
+	_, command := sendKey(&layout, "ctrl+c")
 	if _, ok := command().(tea.QuitMsg); !ok {
-		t.Fatal("below-minimum q did not quit")
+		t.Fatal("terminal interrupt did not quit")
 	}
 }

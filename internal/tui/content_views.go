@@ -3,177 +3,116 @@ package tui
 import (
 	"fmt"
 	"strings"
-
-	"github.com/jgabor/spela/internal/game"
 )
 
-// renderDLLInstallDialog renders the multi-step DLL install wizard.
+// renderDLLInstallDialog keeps chooser controls visible even with verbose
+// hints disabled. The active list and each local button have a distinct focus.
 func (m ContentModel) renderDLLInstallDialog() string {
 	if m.confirmation != nil {
-		return m.confirmation.view(m.styles)
+		return m.confirmation.viewSized(m.styles, m.width, m.height)
 	}
-	s := m.styles
-	var b strings.Builder
-
-	b.WriteString(s.Title.Render("Install DLL"))
-	b.WriteString("\n\n")
-
-	switch m.dllInstallState {
-	case DLLInstallSelectType:
-		b.WriteString(s.Dim.Render("Select a supported DLL family:"))
-		b.WriteString("\n\n")
-
-		if len(m.dllTypes) == 0 {
-			b.WriteString(s.Dim.Render("Loading..."))
-		} else {
-			for i, t := range m.dllTypes {
-				cursor := "  "
-				style := s.Normal
-				if i == m.dllTypeCursor {
-					cursor = "> "
-					style = s.Selected
-				}
-				b.WriteString(style.Render(fmt.Sprintf("%s%s", cursor, dllFamilyName(t))))
-				b.WriteString("\n")
+	if m.dllOperating || m.dllInstallState == DLLInstallDownloading {
+		return m.styles.Title.Render("DLL operation") + "\n\n" + m.styles.Warning.Render(m.dllOperatingLabel) + "\n\nWork is running. Controls return when it finishes."
+	}
+	width, height := max(m.width, 20), max(m.height, 7)
+	var builder strings.Builder
+	builder.WriteString(m.styles.Title.Render("Install DLL"))
+	builder.WriteByte('\n')
+	labels := make([]string, 0)
+	cursor := m.dllTypeCursor
+	prompt := "Select a supported DLL family"
+	if m.dllInstallState == DLLInstallSelectVersion {
+		prompt, cursor = "Select "+dllFamilyName(m.selectedDLLType)+" version", m.dllVersionCursor
+		for index, version := range m.dllVersions {
+			label := version.Version
+			if index == 0 {
+				label += " (latest)"
+			}
+			labels = append(labels, label)
+		}
+	} else {
+		for _, family := range m.dllTypes {
+			labels = append(labels, dllFamilyName(family))
+		}
+	}
+	builder.WriteString(m.styles.Dim.Render(truncate(prompt, width)) + "\n")
+	capacity := max(height-5, 1)
+	start, end := visibleRange(cursor, len(labels), capacity)
+	if len(labels) == 0 {
+		message := "Loading..."
+		if m.dllInstallState == DLLInstallSelectVersion && m.dllVersionsLoaded {
+			message = "No versions available"
+		}
+		builder.WriteString(m.styles.Dim.Render(message) + "\n")
+		capacity--
+	}
+	for index := start; index < end; index++ {
+		style, prefix := m.styles.Normal, "  "
+		if index == cursor {
+			style, prefix = m.styles.Selected, "> "
+			if m.dllInstallControl == 0 {
+				style = m.styles.FocusStyle()
 			}
 		}
-
-	case DLLInstallSelectVersion:
-		b.WriteString(s.Dim.Render(fmt.Sprintf("Select %s version:", dllFamilyName(m.selectedDLLType))))
-		b.WriteString("\n\n")
-
-		if len(m.dllVersions) == 0 {
-			if m.dllVersionsLoaded {
-				b.WriteString(s.Error.Render("No versions available"))
-			} else {
-				b.WriteString(s.Dim.Render("Loading..."))
-			}
-		} else {
-			start, end := visibleRange(m.dllVersionCursor, len(m.dllVersions), max(m.height-8, 1))
-			for i := start; i < end; i++ {
-				v := m.dllVersions[i]
-				cursor := "  "
-				style := s.Normal
-				if i == m.dllVersionCursor {
-					cursor = "> "
-					style = s.Selected
-				}
-				label := v.Version
-				if i == 0 {
-					label += " (latest)"
-				}
-				b.WriteString(style.Render(truncate(fmt.Sprintf("%s%s", cursor, label), max(m.width-2, 1))))
-				b.WriteString("\n")
-			}
-			if len(m.dllVersions) > end-start {
-				b.WriteString(s.Dim.Render(fmt.Sprintf(" %d/%d", m.dllVersionCursor+1, len(m.dllVersions))))
-			}
+		builder.WriteString(style.Render(truncate(prefix+labels[index], width)) + "\n")
+	}
+	for padding := end - start; padding < capacity; padding++ {
+		builder.WriteByte('\n')
+	}
+	buttons := []string{"Cancel"}
+	if m.dllInstallState == DLLInstallSelectVersion {
+		buttons = []string{"Back", "Cancel"}
+	}
+	for index, label := range buttons {
+		style := m.styles.Normal
+		if m.dllInstallControl == index+1 {
+			style = m.styles.FocusStyle()
 		}
-
-	case DLLInstallDownloading:
-		b.WriteString(s.Dim.Render("Installing DLL..."))
+		builder.WriteString(style.Render("[ "+label+" ]") + "  ")
 	}
-
-	if hint := s.RenderHint("\n\n↑/↓ select • enter confirm • esc cancel"); hint != "" {
-		b.WriteString(hint)
-	}
-
-	return b.String()
+	builder.WriteString("\n" + m.styles.Dim.Render(m.DLLOverlayHint()))
+	return builder.String()
 }
 
-// renderDLLs renders the DLL versions section including any pending-action prompts.
+// renderDLLs is read-only. Applicable operations are exposed by the shell's
+// contextual Actions menu rather than focus-blind edit and save shortcuts.
 func (m ContentModel) renderDLLs() string {
 	if m.confirmation != nil {
-		return m.confirmation.view(m.styles)
+		return m.confirmation.viewSized(m.styles, m.width, m.height)
 	}
-	s := m.styles
-	var b strings.Builder
-
-	sectionStyle := s.Title.Foreground(s.Theme.Secondary)
-
-	b.WriteString(sectionStyle.Render("DLL versions"))
-	b.WriteString("\n")
-
+	if m.dllResultOpen {
+		return dllResultView(m.styles, "DLL result", m.lastDLLResult, m.dllInstallControl == 0, m.scrollOffset, m.width, m.height)
+	}
+	if m.dllOperating {
+		return m.styles.Title.Render("DLL operation") + "\n\n" + m.styles.Warning.Render(m.dllOperatingLabel) + "\n\nWork is running. Controls return when it finishes."
+	}
+	var builder strings.Builder
+	builder.WriteString(m.styles.Title.Render("DLL versions"))
+	builder.WriteByte('\n')
 	if len(m.game.DLLs) == 0 {
-		b.WriteString(s.Dim.Render("  No managed DLL installed"))
-		b.WriteString("\n")
-		b.WriteString(s.Normal.Render("  i: install a supported family"))
-		b.WriteString("\n")
+		builder.WriteString(m.styles.Dim.Render("No managed DLL installed"))
+		builder.WriteString("\nSupported families: ")
 		families := make([]string, 0, len(dllDisplayColumns))
 		for _, info := range dllDisplayColumns {
 			families = append(families, info.Label)
 		}
-		b.WriteString(s.Dim.Render("  Choices: " + strings.Join(families, ", ")))
-		b.WriteString("\n")
+		builder.WriteString(strings.Join(families, ", "))
 	} else {
-		// Build DLL type -> version mapping using DLLType constants directly
-		dllVersions := make(map[game.DLLType]string)
-		for _, d := range m.game.DLLs {
-			version := d.Version
+		for _, installed := range m.game.DLLs {
+			version := installed.Version
 			if version == "" {
-				version = "?"
+				version = "unknown"
 			}
-			dllVersions[d.Type] = version
+			fmt.Fprintf(&builder, "%s: %s\n", dllFamilyName(string(installed.Type)), version)
 		}
-
-		// Column layout: type headers then versions
-		columnWidth := 10
-
-		// Header row
-		b.WriteString("  ")
-		for _, col := range dllDisplayColumns {
-			b.WriteString(s.Dim.Render(fmt.Sprintf("%-*s", columnWidth, col.Label)))
-		}
-		b.WriteString("\n")
-
-		// Version row
-		b.WriteString("  ")
-		for _, col := range dllDisplayColumns {
-			version := dllVersions[col.Type]
-			if version == "" {
-				version = "-"
-			}
-			b.WriteString(s.DLSS.Render(fmt.Sprintf("%-*s", columnWidth, version)))
-		}
-		b.WriteString("\n")
-
-		if m.pendingAction != PendingNone {
-			var prompt string
-			switch m.pendingAction {
-			case PendingDLLUpdate:
-				prompt = "Update DLLs? [Y]es • Esc cancel • q/Ctrl+C quit"
-			case PendingDLLRestore:
-				prompt = "Restore original DLLs? [Y]es • Esc cancel • q/Ctrl+C quit"
-			}
-			b.WriteString(s.Warning.Render("  " + prompt))
-			b.WriteString("\n")
-		} else if m.dllOperating {
-			b.WriteString(s.Warning.Render("  ⟳ " + m.dllOperatingLabel))
-			b.WriteString("\n")
-		} else if s.ShowHints {
-			var actions []string
-			if m.hasUpdates {
-				actions = append(actions, "u:update")
-			}
-			if m.hasBackup {
-				actions = append(actions, "F6:restore")
-			}
-			if m.hasBackup {
-				actions = append(actions, "(backup exists)")
-			}
-
-			if len(actions) > 0 {
-				b.WriteString(s.RenderHint("  " + strings.Join(actions, " • ")))
-				b.WriteString("\n")
-			}
+		if m.hasBackup {
+			builder.WriteString(m.styles.Dim.Render("Backup available") + "\n")
 		}
 	}
 	if m.lastDLLResult != "" {
-		b.WriteString(s.Dim.Render("  " + m.lastDLLResult))
-		b.WriteString("\n")
+		builder.WriteString("\n" + m.styles.Dim.Render(m.lastDLLResult))
 	}
-
-	return b.String()
+	return builder.String()
 }
 
 // renderProfile renders the profile detail section.

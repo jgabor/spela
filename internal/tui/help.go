@@ -19,11 +19,12 @@ type HelpBinding struct {
 }
 
 type HelpModel struct {
-	styles   *Styles
-	sections []HelpSection
-	height   int
-	width    int
-	offset   int
+	styles       *Styles
+	sections     []HelpSection
+	height       int
+	width        int
+	offset       int
+	closeFocused bool
 }
 
 func (m *HelpModel) SetHeight(height int) {
@@ -42,81 +43,98 @@ func (m *HelpModel) Move(delta int) {
 }
 
 func (m *HelpModel) clampOffset() {
-	maximum := max(len(strings.Split(m.content(), "\n"))-(m.height-2), 0)
+	maximum := max(len(strings.Split(m.content(), "\n"))-(m.height-3), 0)
 	m.offset = min(max(m.offset, 0), maximum)
 }
 
 func NewHelp(styles *Styles) HelpModel {
-	return HelpModel{
-		styles: styles,
-		sections: []HelpSection{{
-			Title: "Help",
-			Bindings: []HelpBinding{
-				{Key: "? / Esc", Description: "Close Help"},
-				{Key: "q / Ctrl+C", Description: "Quit"},
-			},
-		}},
+	return NewHelpForContext(styles, BindingContext{Mode: ModeBrowse, Focus: FocusList})
+}
+
+func NewHelpForContext(styles *Styles, context BindingContext) HelpModel {
+	current := HelpSection{Title: fmt.Sprintf("After closing Help: %s · %s", context.Destination, context.Focus)}
+	for _, resolution := range CanonicalKeymap.HelpBindings(context) {
+		binding := describeBinding(resolution.Binding, context)
+		if binding.Mode == ModeAny || len(binding.Keys) == 0 {
+			continue
+		}
+		var labels []string
+		for _, candidate := range binding.Keys {
+			if !candidate.Printable {
+				labels = append(labels, candidate.Label)
+			}
+		}
+		if len(labels) > 0 {
+			current.Bindings = append(current.Bindings, HelpBinding{Key: strings.Join(labels, " "), Description: binding.Description})
+		}
 	}
+	menu := HelpSection{Title: "Actions in this context (open with 0 after closing Help)"}
+	for _, resolution := range CanonicalKeymap.MenuBindings(context) {
+		description := resolution.Binding.Description
+		if !resolution.Available {
+			description += " (" + resolution.Reason + ")"
+		}
+		menu.Bindings = append(menu.Bindings, HelpBinding{Key: "Actions", Description: description})
+	}
+	sections := []HelpSection{current, menu}
+	for _, mode := range []InputMode{ModeBrowse, ModeEdit, ModeSearch, ModeOverlay} {
+		section := HelpSection{Title: "Reference: " + string(mode) + " controls"}
+		for _, binding := range CanonicalKeymap.bindings {
+			if binding.Mode != mode || len(binding.Keys) == 0 {
+				continue
+			}
+			var labels []string
+			for _, candidate := range binding.Keys {
+				labels = append(labels, candidate.Label)
+			}
+			description := binding.Description
+			if binding.Focus != FocusAny {
+				description += " (" + string(binding.Focus) + " pane)"
+			}
+			if binding.Availability != nil {
+				_, reason := binding.Availability(context)
+				if reason != "" {
+					description += "; " + reason
+				}
+			}
+			section.Bindings = append(section.Bindings, HelpBinding{Key: strings.Join(labels, " "), Description: description})
+		}
+		sections = append(sections, section)
+	}
+	return HelpModel{styles: styles, sections: sections}
 }
 
 func (m HelpModel) View() string {
 	lines := strings.Split(m.content(), "\n")
-	if m.width > 0 {
-		for index := range lines {
-			lines[index] = ansi.Truncate(lines[index], m.width, "…")
-		}
+	visible := max(m.height-3, 1)
+	offset := min(m.offset, max(len(lines)-visible, 0))
+	end := min(offset+visible, len(lines))
+	body := strings.Join(lines[offset:end], "\n")
+	hint := "Tab: next control"
+	if m.closeFocused {
+		hint += "  Enter: close"
+	} else if len(lines) > visible {
+		hint += "  ↑ ↓: scroll"
 	}
-	if m.height == 0 {
-		return strings.Join(lines, "\n") + m.styles.Dim.Render("? / Esc close • q / Ctrl+C quit")
-	}
-	visible := max(m.height-2, 1)
-	if len(lines) <= visible {
-		return strings.Join(lines, "\n") + "\n" + m.styles.Dim.Render("? / Esc close • q / Ctrl+C quit")
-	}
-	end := min(m.offset+visible, len(lines))
-	position := m.styles.Dim.Render(fmt.Sprintf("↑/↓ scroll  %d-%d/%d", m.offset+1, end, len(lines)))
-	return strings.Join(lines[m.offset:end], "\n") + "\n" + position + "\n" + m.styles.Dim.Render("? / Esc close • q / Ctrl+C quit")
+	return body + "\n" + renderControl("Close", m.closeFocused, m.styles) + "\n" + m.styles.Dim.Render(hint)
 }
 
 func (m HelpModel) content() string {
-	s := m.styles
-	t := s.Theme
-
-	helpTitleStyle := s.Title.Foreground(t.Primary).MarginBottom(1)
-
-	sectionStyle := s.Normal.
-		Foreground(t.Secondary).
-		Bold(true)
-
-	keyStyle := s.Normal.
-		Foreground(t.Accent).
-		Width(18)
-
-	descStyle := s.Normal.
-		Foreground(t.Text)
-
-	var b strings.Builder
-
-	b.WriteString(helpTitleStyle.Render("Keyboard shortcuts"))
-	b.WriteString("\n\n")
-
-	for i, section := range m.sections {
-		b.WriteString(sectionStyle.Render(section.Title))
-		b.WriteString("\n")
-
-		for _, binding := range section.Bindings {
-			b.WriteString("  ")
-			b.WriteString(keyStyle.Render(binding.Key))
-			b.WriteString(descStyle.Render(binding.Description))
-			b.WriteString("\n")
-		}
-
-		if i < len(m.sections)-1 {
-			b.WriteString("\n")
-		}
+	var lines []string
+	width := m.width
+	if width <= 0 {
+		width = 60
 	}
-
-	return b.String()
+	lines = append(lines, m.styles.Title.Render("Keyboard shortcuts"), "Reference only. Close Help before using these controls.", "")
+	for _, section := range m.sections {
+		lines = append(lines, m.styles.Title.Render(section.Title))
+		for _, binding := range section.Bindings {
+			text := "  " + binding.Key + ": " + binding.Description
+			lines = append(lines, ansi.Hardwrap(text, width, true))
+		}
+		lines = append(lines, "")
+	}
+	return strings.Join(lines, "\n")
 }
 
 // ContextKey represents a keybinding with its current state.
@@ -127,15 +145,14 @@ type ContextKey struct {
 	Reason  string // shown when disabled (e.g., "no backup")
 }
 
-// globalKeys are projected from the canonical behavior keymap and appended to
-// every legacy pane context until those panes also publish canonical actions.
+// globalKeys project the basic entry point into the Actions menu.
 var globalKeys = canonicalGlobalContextKeys()
 
 func canonicalGlobalContextKeys() []ContextKey {
 	var keys []ContextKey
 	for _, resolution := range CanonicalKeymap.HelpBindings(BindingContext{Mode: ModeBrowse, Focus: FocusList}) {
 		binding := resolution.Binding
-		if binding.Scope != ScopeGlobal || (binding.Action != ActionShowHelp && binding.Action != ActionQuit) {
+		if binding.Scope != ScopeGlobal || binding.Action != ActionShowActions {
 			continue
 		}
 		for _, candidate := range binding.Keys {

@@ -37,7 +37,7 @@ type detailRow struct {
 func (r detailRow) isHeader() bool { return r.headerLabel != "" }
 
 // DetailModel is the shared profile detail renderer used by both
-// the Games and Defaults resources. Navigation: j/k moves cursor through the
+// the Games and Defaults resources. Navigation: arrows move the cursor through the
 // focusable field rows, skipping group headers; the focused row renders with
 // the accent-focus token. Actual field values come from ResolveForApply so
 // Games view reflects inherited defaults without the caller pre-resolving.
@@ -121,7 +121,33 @@ func buildDetail(styles *Styles, raw, defaults *profile.Profile, isRoot bool) De
 func (m DetailModel) Editing() bool { return m.editor.Active() }
 
 // Dirty reports whether the draft differs from the last saved profile.
-func (m DetailModel) Dirty() bool { return !reflect.DeepEqual(m.raw, m.persisted) }
+func (m DetailModel) Dirty() bool {
+	var draft, saved profile.Profile
+	if m.raw != nil {
+		draft = *m.raw
+	}
+	if m.persisted != nil {
+		saved = *m.persisted
+	}
+	draftOverrides, savedOverrides := draft.Overrides, saved.Overrides
+	draft.Overrides, saved.Overrides = nil, nil
+	if !reflect.DeepEqual(draft, saved) {
+		return true
+	}
+	// An absent override and a false map entry both mean inheritance. Preserve
+	// true pins, including explicit false/zero values, when comparing drafts.
+	for field, overridden := range draftOverrides {
+		if overridden && !savedOverrides[field] {
+			return true
+		}
+	}
+	for field, overridden := range savedOverrides {
+		if overridden && !draftOverrides[field] {
+			return true
+		}
+	}
+	return false
+}
 
 // SaveError is retained until the draft is changed, cancelled, or saved.
 func (m DetailModel) SaveError() error { return m.saveError }
@@ -144,44 +170,124 @@ func (m *DetailModel) BeginEdit() bool {
 	return true
 }
 
-// UpdateEditor applies input to the active editor. Enter commits to the draft;
-// Escape restores the field's pre-edit value.
-func (m *DetailModel) UpdateEditor(key tea.KeyPressMsg) bool {
-	if !m.editor.Active() {
+// EditorInputFocused reports whether the value input owns printable keys.
+func (m DetailModel) EditorInputFocused() bool         { return m.editor.InputFocused() }
+func (m DetailModel) EditorInputKind() EditorValueKind { return m.editor.Kind() }
+func (m DetailModel) EditorEnterLabel() string         { return m.editor.EnterLabel() }
+
+// UpdateEditorInput cannot invoke an application command. Text editing stays
+// inside the active Input control and never reaches an editor button.
+func (m *DetailModel) UpdateEditorInput(key tea.KeyPressMsg) bool {
+	return m.editor.UpdateInput(key)
+}
+
+// UpdateAction returns a save request only after valid input has been applied.
+// The owning profile pipeline remains responsible for persistence and results.
+func (m *DetailModel) UpdateAction(action KeyAction) (saveRequested bool, handled bool) {
+	if m.Editing() {
+		switch action {
+		case ActionFocusNext:
+			m.editor.FocusNext()
+		case ActionEditCancel:
+			m.editor.Cancel()
+		case ActionEditCommit:
+			if m.editor.focus == EditorFocusCancel {
+				m.editor.Cancel()
+				return false, true
+			}
+			save := m.editor.focus == EditorFocusSave
+			return m.applyEditor() && save, true
+		case ActionEditSave:
+			return m.applyEditor(), true
+		case ActionEditDelete:
+			if m.EditorInputFocused() {
+				m.editor.Delete()
+			}
+		case ActionDetailDecrease:
+			m.editor.Move(-1)
+		case ActionDetailIncrease:
+			m.editor.Move(1)
+		case ActionDetailPreviousItem:
+			if m.EditorInputFocused() {
+				m.editor.Cycle(-1)
+			}
+		case ActionDetailNextItem:
+			if m.EditorInputFocused() {
+				m.editor.Cycle(1)
+			}
+		case ActionEditToggle:
+			m.editor.Toggle()
+		default:
+			return false, false
+		}
+		return false, true
+	}
+	switch action {
+	case ActionDetailPreviousItem, ActionListPrevious:
+		m.cursor = max(m.cursor-1, 0)
+	case ActionDetailNextItem, ActionListNext:
+		m.cursor = max(min(m.cursor+1, len(m.focusableRows)-1), 0)
+	case ActionDetailConfirm:
+		m.BeginEdit()
+	case ActionDetailSave:
+		return m.Dirty(), true
+	case ActionDetailReset:
+		_, err := m.ResetFocused()
+		m.saveError = err
+	case ActionDetailResetAll:
+		m.ResetAll()
+		m.saveError = nil
+	case ActionCancelDraft:
+		m.CancelDraft()
+	default:
+		return false, false
+	}
+	return false, true
+}
+
+func (m *DetailModel) applyEditor() bool {
+	value, err := m.editor.Commit()
+	if err != nil {
 		return false
 	}
-	switch key.String() {
-	case "esc":
-		m.editor.Cancel()
-		return true
-	case "enter", "ctrl+s":
-		value, err := m.editor.Commit()
-		if err != nil {
-			return true
-		}
-		if err := m.setFocusedEditorValue(value); err != nil {
-			m.editor.Begin(profileEditorSpec(m.focusedDescriptor()), value)
-			m.editor.err = err
-			return true
-		}
-		m.saveError = nil
-		m.rebuildResolved()
-		return true
-	case "backspace":
-		m.editor.Delete()
-		return true
-	case "left":
-		m.editor.Cycle(-1)
-		return true
-	case "right":
-		m.editor.Cycle(1)
-		return true
+	if err := m.setFocusedEditorValue(value); err != nil {
+		m.editor.active = true
+		m.editor.focus = EditorFocusInput
+		m.editor.err = err
+		return false
 	}
-	if key.Text != "" {
-		m.editor.Append(key.Text)
-		return true
-	}
+	m.saveError = nil
+	m.rebuildResolved()
 	return true
+}
+
+// UpdateEditor is retained for input consumers that do not own persistence.
+// Save requests are routed through UpdateAction by the document owner.
+func (m *DetailModel) UpdateEditor(key tea.KeyPressMsg) bool {
+	if !m.Editing() {
+		return false
+	}
+	var action KeyAction
+	switch key.String() {
+	case "enter":
+		action = ActionEditCommit
+	case "tab":
+		action = ActionFocusNext
+	case "left":
+		action = ActionDetailDecrease
+	case "right":
+		action = ActionDetailIncrease
+	case "up":
+		action = ActionDetailPreviousItem
+	case "down":
+		action = ActionDetailNextItem
+	case "space":
+		action = ActionEditToggle
+	default:
+		return m.UpdateEditorInput(key)
+	}
+	_, handled := m.UpdateAction(action)
+	return handled
 }
 
 func (m DetailModel) focusedDescriptor() profile.FieldDescriptor {
@@ -261,11 +367,17 @@ func (m *DetailModel) CancelDraft() {
 // CompleteSave advances the baseline on success or retains the draft and error
 // for an in-place retry on failure.
 func (m *DetailModel) CompleteSave(err error) {
+	m.CompleteSaveSnapshot(m.raw, err)
+}
+
+// CompleteSaveSnapshot advances only the saved baseline. A completion for an
+// earlier snapshot cannot mark a later edit saved or replace its value.
+func (m *DetailModel) CompleteSaveSnapshot(saved *profile.Profile, err error) {
 	if err != nil {
 		m.saveError = err
 		return
 	}
-	m.persisted = m.raw.Clone()
+	m.persisted = saved.Clone()
 	m.saveError = nil
 }
 
@@ -323,33 +435,24 @@ func (m DetailModel) FocusedField() string {
 // FieldCount returns the number of focusable field rows.
 func (m DetailModel) FieldCount() int { return len(m.focusableRows) }
 
-// Update handles cursor navigation. Contract:
-//
-//   - "j" / "down" moves focus to the next field, crossing group-header
-//     boundaries transparently (clamped at the last field).
-//   - "k" / "up"   moves focus to the previous field (clamped at zero).
-//
-// All other keys pass through (return handled=false) so the caller can route
-// them elsewhere — for example the pane's parent handlers for tab/esc, or
-// the Games-resource r/shift+r/p reset/pin bindings that live on the caller.
+// Update accepts basic cursor keys for standalone detail consumers. Shell
+// routing uses UpdateAction so focus and availability are resolved once.
 func (m DetailModel) Update(msg tea.Msg) (DetailModel, tea.Cmd, bool) {
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return m, nil, false
 	}
+	var action KeyAction
 	switch key.String() {
-	case "j", "down":
-		if m.cursor < len(m.focusableRows)-1 {
-			m.cursor++
-		}
-		return m, nil, true
-	case "k", "up":
-		if m.cursor > 0 {
-			m.cursor--
-		}
-		return m, nil, true
+	case "down":
+		action = ActionDetailNextItem
+	case "up":
+		action = ActionDetailPreviousItem
+	default:
+		return m, nil, false
 	}
-	return m, nil, false
+	_, handled := m.UpdateAction(action)
+	return m, nil, handled
 }
 
 // CycleFocusedField cycles the focused field on a root defaults profile.
@@ -505,12 +608,18 @@ const overrideMarkerGlyph = "◆"
 //     render in InheritedStyle (fg-muted) with no marker.
 //   - In the root defaults view (isRoot=true), all fields render in Normal
 //     style with no marker.
-func (m DetailModel) View() string {
+func (m DetailModel) View() string { return m.ViewFocused(true) }
+
+// ViewFocused omits active controls when another pane owns input.
+func (m DetailModel) ViewFocused(focused bool) string {
 	s := m.styles
 	if s == nil {
 		return ""
 	}
 
+	if m.Editing() {
+		return m.editorView()
+	}
 	var lines []string
 	focusedRow := -1
 	if len(m.focusableRows) > 0 {
@@ -523,7 +632,7 @@ func (m DetailModel) View() string {
 		lines = append(lines, s.Error.Render("Save failed: "+m.saveError.Error()))
 	}
 	if m.Dirty() {
-		lines = append(lines, s.Warning.Render("Unsaved changes  s:save  Esc:cancel"))
+		lines = append(lines, s.Warning.Render("Unsaved changes"))
 	}
 
 	focusedLabel := ""
@@ -559,18 +668,11 @@ func (m DetailModel) View() string {
 			marker = s.OverrideMarkerStyle().Render(overrideMarkerGlyph) + " "
 		}
 		body := fmt.Sprintf("%-20s  %-12s  %s", row.label, value, semantics)
-		if i == focusedRow && m.editor.Active() {
-			body += s.Dim.Render("  [Enter apply · Esc cancel]")
-		} else if i == focusedRow && !m.isRoot {
-			body += s.Dim.Render("  [Enter edit · r Inherited · Shift+R all]")
-		} else if i == focusedRow && m.isRoot {
-			body += s.Dim.Render("  [Enter edit · r System default]")
-		}
 		if m.width > 0 {
 			body = ansi.Truncate(body, max(m.width-7, 1), "…")
 		}
 
-		if i == focusedRow {
+		if i == focusedRow && focused {
 			// Focus styling applies to the whole row body (the marker keeps
 			// its own magenta so the override signal stays readable on top
 			// of the focus highlight).
@@ -611,13 +713,45 @@ func (m DetailModel) View() string {
 	return strings.Join(lines, "\n")
 }
 
+// editorView reserves the local controls before allocating explanatory content.
+func (m DetailModel) editorView() string {
+	styles := m.styles
+	descriptor := m.focusedDescriptor()
+	width := max(m.width, 1)
+	lines := []string{
+		styles.Title.Render("Edit " + descriptor.Label),
+		styles.Dim.Render("Value before edit: " + m.editor.original),
+		styles.FocusStyle().Render(m.editor.InputView(width)),
+	}
+	if m.editor.Error() != nil {
+		lines = append(lines, styles.Error.Render("Invalid value: "+m.editor.Error().Error()))
+	}
+	if m.EditorInputFocused() && (m.editor.Kind() == EditorBool || m.editor.Kind() == EditorChoice) {
+		lines = append(lines, styles.Dim.Render("Arrows change value; Space toggles"))
+	}
+	controls := []string{
+		m.editor.Controls(styles),
+		styles.Dim.Render("Tab control  Enter " + m.EditorEnterLabel() + "  Ctrl+S save"),
+	}
+	if m.height > 0 && len(lines)+len(controls) > m.height {
+		lines = append(lines[:1], lines[2:]...)
+	}
+	lines = append(lines, controls...)
+	for index, line := range lines {
+		if m.width > 0 {
+			lines[index] = ansi.Truncate(line, width, "…")
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
 func (m DetailModel) formatFieldSemantics(field string) string {
 	descriptor, ok := profile.Field(field)
 	if !ok {
 		return ""
 	}
 	if m.isRoot {
-		return fieldEffect(descriptor)
+		return "System default when reset. " + fieldEffect(descriptor)
 	}
 	raw := m.raw
 	if raw == nil {

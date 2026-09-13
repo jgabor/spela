@@ -137,11 +137,14 @@ func TestResourcePaneSupportedDestinationsScopesAndDefaultMutations(t *testing.T
 		t.Fatalf("settings pane:\n%s", view)
 	}
 	pane, _ = pane.Update(keyMsg("down"))
-	pane.settings.editingPath = true
-	if !pane.HasModalOpen() {
+	state.SettingsSection = nav.SettingsPaths
+	pane.SetState(state)
+	pane, _ = pane.UpdateAction(ActionDetailConfirm)
+	if !pane.Editing() || !pane.HasModalOpen() {
 		t.Fatal("path editor was not reported as modal input")
 	}
 
+	pane, _ = pane.UpdateAction(ActionEditCancel)
 	state = pane.State().SelectDestination(nav.DestinationMonitor)
 	pane.SetState(state)
 	if pane.View(false) == "" {
@@ -154,8 +157,8 @@ func TestResourcePaneSupportedDestinationsScopesAndDefaultMutations(t *testing.T
 	pane.loadGlobalScope()
 	state = pane.State().SelectDestination(nav.DestinationLibrary).SelectAspect(nav.AspectProfile)
 	pane.SetState(state)
-	for _, key := range []string{"left", "h", "right", "l", "r", "R", "down"} {
-		next, _ := pane.Update(keyMsg(key))
+	for _, action := range []KeyAction{ActionDetailConfirm, ActionEditToggle, ActionEditCommit, ActionDetailReset, ActionDetailResetAll, ActionDetailNextItem} {
+		next, _ := pane.UpdateAction(action)
 		pane = next
 	}
 	if pane.contentModel() != nil {
@@ -201,6 +204,7 @@ func TestDefaultServicesCachedDLLMutationAndNoticeContracts(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(root, "config"))
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(root, "cache"))
 	t.Setenv("XDG_DATA_HOME", filepath.Join(root, "data"))
+	t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
 	services := DefaultServices()
 	if configuration, err := services.LoadConfig(); err != nil || configuration == nil {
 		t.Fatalf("default config = %+v, %v", configuration, err)

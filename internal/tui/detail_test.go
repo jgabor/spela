@@ -31,16 +31,16 @@ func TestDetail_FieldEnumeration_GroupOrder(t *testing.T) {
 		t.Fatalf("FieldCount = %d, want %d", got, len(want))
 	}
 
-	// Walk j/k forward and confirm the order.
+	// Walk down/up forward and confirm the order.
 	for i, field := range want {
 		if got := d.FocusedField(); got != field {
 			t.Errorf("position %d: FocusedField = %q, want %q", i, got, field)
 		}
 		if i < len(want)-1 {
 			var handled bool
-			d, _, handled = d.Update(keyMsg("j"))
+			d, _, handled = d.Update(keyMsg("down"))
 			if !handled {
-				t.Fatalf("expected j to be handled at position %d", i)
+				t.Fatalf("expected down to be handled at position %d", i)
 			}
 		}
 	}
@@ -142,12 +142,12 @@ func TestDetail_JKCrossesGroupHeaders(t *testing.T) {
 	}
 
 	for i := 0; i < 4; i++ {
-		d, _, _ = d.Update(keyMsg("j"))
+		d, _, _ = d.Update(keyMsg("down"))
 	}
 
 	got := d.FocusedField()
 	if got != dlssFields[0] {
-		t.Errorf("after 4 j presses: FocusedField = %q, want %q (first DLSS field)", got, dlssFields[0])
+		t.Errorf("after 4 down presses: FocusedField = %q, want %q (first DLSS field)", got, dlssFields[0])
 	}
 }
 
@@ -158,7 +158,7 @@ func TestDetail_JKClampsAtEnds(t *testing.T) {
 	d := NewRootDetail(styles, &profile.Profile{})
 
 	// Up from the first field is a no-op.
-	d, _, _ = d.Update(keyMsg("k"))
+	d, _, _ = d.Update(keyMsg("up"))
 	if d.Cursor() != 0 {
 		t.Errorf("up-from-zero: cursor = %d, want 0", d.Cursor())
 	}
@@ -166,7 +166,7 @@ func TestDetail_JKClampsAtEnds(t *testing.T) {
 	// Down all the way.
 	total := d.FieldCount()
 	for i := 0; i < total*2; i++ {
-		d, _, _ = d.Update(keyMsg("j"))
+		d, _, _ = d.Update(keyMsg("down"))
 	}
 	if d.Cursor() != total-1 {
 		t.Errorf("down-past-end: cursor = %d, want %d", d.Cursor(), total-1)
@@ -424,9 +424,9 @@ func TestResourcePane_DefaultsUsesRootDetail(t *testing.T) {
 	}
 }
 
-// TestResourcePane_DefaultsJKMovesFieldFocus verifies that pressing j/k
+// TestResourcePane_DefaultsArrowsMoveFieldFocus verifies that pressing arrows
 // while the defaults pane is active moves field focus inside it.
-func TestResourcePane_DefaultsJKMovesFieldFocus(t *testing.T) {
+func TestResourcePane_DefaultsArrowsMoveFieldFocus(t *testing.T) {
 	styles := NewStyles(DefaultTheme, true)
 	svc := testServices()
 	content := NewContent(styles, true, svc)
@@ -438,15 +438,15 @@ func TestResourcePane_DefaultsJKMovesFieldFocus(t *testing.T) {
 	pane.SetSize(100, 30)
 
 	before := pane.defaultsDetail.Cursor()
-	pane, _ = pane.Update(keyMsg("j"))
+	pane, _ = pane.Update(keyMsg("down"))
 	after := pane.defaultsDetail.Cursor()
 	if after != before+1 {
-		t.Errorf("j should advance defaults cursor %d → %d, got %d", before, before+1, after)
+		t.Errorf("down should advance defaults cursor %d → %d, got %d", before, before+1, after)
 	}
 
-	pane, _ = pane.Update(keyMsg("k"))
+	pane, _ = pane.Update(keyMsg("up"))
 	if pane.defaultsDetail.Cursor() != before {
-		t.Errorf("k should move defaults cursor back to %d, got %d", before, pane.defaultsDetail.Cursor())
+		t.Errorf("up should move defaults cursor back to %d, got %d", before, pane.defaultsDetail.Cursor())
 	}
 }
 
@@ -475,7 +475,7 @@ func TestResourcePane_RootMutationPersistsAndRetainsSelection(t *testing.T) {
 	mutated, _ := pane.Update(keyMsg("enter"))
 	mutated, _ = mutated.Update(keyMsg("right"))
 	mutated, _ = mutated.Update(keyMsg("enter"))
-	mutated, saveCommand := mutated.Update(keyMsg("s"))
+	mutated, saveCommand := mutated.Update(keyMsg("ctrl+s"))
 	if saveCommand == nil {
 		t.Fatal("root mutation returned no save command")
 	}
@@ -546,6 +546,7 @@ func TestOverviewWrapsLongPathsAndLabelsLaunchOptions(t *testing.T) {
 
 func TestLayoutHandlers_TabIntoLibraryProfile(t *testing.T) {
 	m := testLayout()
+	m.pane.loadGlobalScope()
 	result, _ := sendKey(&m, "tab")
 	m = result.(LayoutModel)
 	if m.focus != FocusDetail {
@@ -586,7 +587,7 @@ func focusField(t *testing.T, d *DetailModel, field string) {
 		if d.FocusedField() == field {
 			return
 		}
-		updated, _, handled := d.Update(keyMsg("j"))
+		updated, _, handled := d.Update(keyMsg("down"))
 		if !handled {
 			break
 		}

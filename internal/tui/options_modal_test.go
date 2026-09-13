@@ -86,7 +86,7 @@ func TestSettingsPathEditingPreservesPrintableInputAndDocumentsKeys(t *testing.T
 	modal.SyncNavSection(nav.SettingsPaths)
 	modal, _ = modal.Update(keyMsg("enter"))
 	modal.pathInput.SetValue("  /Steam Library/#1  ")
-	if view := stripANSI(modal.DetailView()); !strings.Contains(view, "Enter:commit  Esc:cancel") {
+	if view := stripANSI(modal.DetailView()); !strings.Contains(view, "Tab control  Enter apply to draft  Ctrl+S save") {
 		t.Fatalf("path editor omitted key contract:\n%s", view)
 	}
 	modal, _ = modal.Update(keyMsg("enter"))
@@ -95,7 +95,7 @@ func TestSettingsPathEditingPreservesPrintableInputAndDocumentsKeys(t *testing.T
 	}
 	modal, _ = modal.Update(keyMsg("enter"))
 	modal.pathInput.SetValue("discard me")
-	modal, _ = modal.Update(keyMsg("esc"))
+	modal, _ = modal.UpdateAction(ActionEditCancel)
 	if modal.draft.SteamPath != "  /Steam Library/#1  " {
 		t.Fatalf("cancel changed path to %q", modal.draft.SteamPath)
 	}
@@ -182,7 +182,7 @@ func TestOptionsModal_SavePendingSerializesEditsAndRecovers(t *testing.T) {
 	modal, first := modal.save()
 	before := configuration.ShowHints
 	modal, edit := modal.Update(keyMsg("right"))
-	modal, second := modal.Update(keyMsg("s"))
+	modal, second := modal.UpdateAction(ActionDetailSave)
 	if first == nil || edit != nil || second != nil || configuration.ShowHints != before {
 		t.Fatal("an edit or second save passed an in-flight save")
 	}
@@ -192,7 +192,7 @@ func TestOptionsModal_SavePendingSerializesEditsAndRecovers(t *testing.T) {
 	if layout.pane.settings.saving || !layout.pane.settings.modified {
 		t.Fatal("failed save was not left retryable")
 	}
-	layout.pane.settings, second = layout.pane.settings.Update(keyMsg("s"))
+	layout.pane.settings, second = layout.pane.settings.UpdateAction(ActionDetailSave)
 	if second == nil || !layout.pane.settings.saving {
 		t.Fatal("failed save could not be retried")
 	}

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jgabor/spela/internal/config"
+	"github.com/jgabor/spela/internal/nav"
 	"github.com/jgabor/spela/internal/profile"
 )
 
@@ -61,17 +62,12 @@ func TestProfileAndSettingsUseSharedEditorHost(t *testing.T) {
 
 	settings := NewOptionsModal(NewStyles(DefaultTheme, true))
 	settings.OpenEmbedded(config.Default())
-	for index, option := range settings.sections[settings.sectionCursor].Options {
-		if option.Kind == config.KindPath {
-			settings.optionCursor = index
-			break
-		}
-	}
+	settings.SyncNavSection(nav.SettingsPaths)
 	settings.startPathEditing()
 	if !settings.editor.Active() || !settings.editingPath {
 		t.Fatal("settings path did not activate EditorHost")
 	}
-	settings, _ = settings.updatePathEditing(keyMsg("esc"))
+	settings, _ = settings.UpdateAction(ActionEditCancel)
 	if settings.editor.Active() || settings.editingPath {
 		t.Fatal("settings cancellation did not close EditorHost")
 	}

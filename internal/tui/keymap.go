@@ -48,6 +48,20 @@ type KeyAction string
 
 const (
 	ActionNoOp                KeyAction = "no-op"
+	ActionShowActions         KeyAction = "show-actions"
+	ActionEditToggle          KeyAction = "edit-toggle"
+	ActionOverlayFocusNext    KeyAction = "overlay-focus-next"
+	ActionOverlayLeft         KeyAction = "overlay-left"
+	ActionOverlayRight        KeyAction = "overlay-right"
+	ActionSortNameAsc         KeyAction = "sort-name-asc"
+	ActionSortNameDesc        KeyAction = "sort-name-desc"
+	ActionSortDLLsFirst       KeyAction = "sort-dlls-first"
+	ActionSortProfileFirst    KeyAction = "sort-profile-first"
+	ActionLayoutStandard      KeyAction = "layout-standard"
+	ActionLayoutCompact       KeyAction = "layout-compact"
+	ActionLayoutFocused       KeyAction = "layout-focused"
+	ActionBatchUpdate         KeyAction = "batch-update"
+	ActionSearchClear         KeyAction = "search-clear"
 	ActionQuit                KeyAction = "quit"
 	ActionShowHelp            KeyAction = "show-help"
 	ActionDestinationLibrary  KeyAction = "destination-library"
@@ -112,19 +126,44 @@ type KeyLabel struct {
 
 // BindingContext is the complete state needed to select a binding.
 type BindingContext struct {
-	Mode             InputMode
-	Focus            KeyFocus
-	Destination      nav.Destination
-	GameScope        bool
-	Aspect           nav.Aspect
-	HasBackup        bool
-	DLLSection       nav.DLLCatalogSection
-	ListGroups       bool
-	DetailAdjustable bool
+	Mode                 InputMode
+	Focus                KeyFocus
+	Destination          nav.Destination
+	GameScope            bool
+	Aspect               nav.Aspect
+	HasBackup            bool
+	DLLSection           nav.DLLCatalogSection
+	ListGroups           bool
+	DetailAdjustable     bool
+	ProfileScope         bool
+	CanMoveList          bool
+	CanOpen              bool
+	CanSelect            bool
+	CanSwitchPane        bool
+	Editable             bool
+	HasFields            bool
+	Scrollable           bool
+	Dirty                bool
+	SaveAvailable        bool
+	Busy                 bool
+	HasUpdates           bool
+	SelectedCount        int
+	VisibleSelectedCount int
+	SelectedUpdateCount  int
+	EditorKind           EditorValueKind
+	DLLActions           map[KeyAction]actionAvailability
+	DLLLabels            map[KeyAction]string
+	EditorInput          bool
+	EditorEnterLabel     string
 }
 
 // Availability lets behavior and help make the same enabled/disabled
 // decision. A nil function means the binding is available.
+type actionAvailability struct {
+	available bool
+	reason    string
+}
+
 type Availability func(BindingContext) (available bool, reason string)
 
 // KeyBinding is the canonical description of one user action.
@@ -136,6 +175,7 @@ type KeyBinding struct {
 	Description  string
 	Keys         []KeyLabel
 	Availability Availability
+	Menu         bool
 }
 
 // BindingResolution is returned for every key, including unsupported keys.
@@ -177,6 +217,7 @@ func (k Keymap) Lookup(context BindingContext, key string) BindingResolution {
 				if !bindingMatchesKey(binding, key) {
 					continue
 				}
+				binding = describeBinding(binding, context)
 				available, reason := bindingAvailability(binding, context)
 				resolution := BindingResolution{Binding: binding, Key: key, Available: available, Reason: reason, Supported: true}
 				if available {
@@ -266,16 +307,9 @@ func listGroupsAvailable(context BindingContext) (bool, string) {
 	return true, ""
 }
 
-func detailAdjustmentAvailable(context BindingContext) (bool, string) {
-	if !context.DetailAdjustable {
-		return false, "focused value is not adjustable"
-	}
-	return true, ""
-}
-
 func libraryProfileAvailable(context BindingContext) (bool, string) {
-	if available, reason := libraryGameAvailable(context); !available {
-		return false, reason
+	if context.Destination != nav.DestinationLibrary || !context.ProfileScope {
+		return false, "select a profile"
 	}
 	if context.Aspect != nav.AspectProfile {
 		return false, "open Profile"
@@ -294,6 +328,12 @@ func libraryDLLAvailable(context BindingContext) (bool, string) {
 }
 
 func dllUpdateAvailable(context BindingContext) (bool, string) {
+	if !actionRelevant(ActionDetailUpdate, context) {
+		return false, "open a DLL view"
+	}
+	if state, ok := context.DLLActions[ActionDetailUpdate]; ok {
+		return state.available, state.reason
+	}
 	if context.Destination == nav.DestinationDLLCatalog {
 		if context.DLLSection != nav.SectionDLLDeployment {
 			return false, "open Deployment"
@@ -304,6 +344,9 @@ func dllUpdateAvailable(context BindingContext) (bool, string) {
 }
 
 func libraryDLLRestoreAvailable(context BindingContext) (bool, string) {
+	if state, ok := context.DLLActions[ActionDetailRestore]; ok {
+		return state.available, state.reason
+	}
 	if available, reason := libraryDLLAvailable(context); !available {
 		return false, reason
 	}
@@ -313,67 +356,171 @@ func libraryDLLRestoreAvailable(context BindingContext) (bool, string) {
 	return true, ""
 }
 
-func settingsAvailable(context BindingContext) (bool, string) {
-	if context.Destination != nav.DestinationSettings {
-		return false, "Settings only"
-	}
-	return true, ""
-}
-
-// CanonicalKeymap defines the shell-level actions shared by routing and help.
-// Pane-specific actions can be appended when their replacement widgets land.
+// CanonicalKeymap defines commands, menu entries, and visible key hints together.
 var CanonicalKeymap = NewKeymap(
-	KeyBinding{Mode: ModeAny, Scope: ScopeGlobal, Action: ActionQuit, Description: "Quit", Keys: []KeyLabel{key("ctrl+c", "Ctrl+C")}},
-	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionQuit, Description: "Quit", Keys: []KeyLabel{key("q", "q")}},
-	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionShowHelp, Description: "Keyboard shortcuts", Keys: []KeyLabel{key("?", "?")}},
+	KeyBinding{Mode: ModeAny, Scope: ScopeGlobal, Action: ActionQuit, Description: "Interrupt", Keys: []KeyLabel{key("ctrl+c", "Ctrl+C")}},
+	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionShowActions, Description: "Actions", Keys: []KeyLabel{key("0", "0")}},
 	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionDestinationLibrary, Description: "Library", Keys: []KeyLabel{key("1", "1")}},
 	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionDestinationDLLs, Description: "DLL Catalog", Keys: []KeyLabel{key("2", "2")}},
 	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionDestinationMonitor, Description: "Monitor", Keys: []KeyLabel{key("3", "3")}},
 	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionDestinationSettings, Description: "Settings", Keys: []KeyLabel{key("4", "4")}},
-	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionFocusNext, Description: "Next pane", Keys: []KeyLabel{key("tab", "Tab")}},
-	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionFocusPrevious, Description: "Previous pane", Keys: []KeyLabel{key("shift+tab", "Shift+Tab")}},
-	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionToggleCompact, Description: "Toggle compact layout", Keys: []KeyLabel{key("f5", "F5")}},
-	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionToggleFocused, Description: "Toggle focused layout", Keys: []KeyLabel{key("f11", "F11")}},
-	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionRescanLibrary, Description: "Rescan games", Keys: []KeyLabel{key("ctrl+r", "Ctrl+R")}, Availability: libraryAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailPrevious, Description: "Previous detail view", Keys: []KeyLabel{key("[", "[")}, Availability: libraryGameAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailNext, Description: "Next detail view", Keys: []KeyLabel{key("]", "]")}, Availability: libraryGameAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListPrevious, Description: "Previous item", Keys: []KeyLabel{key("up", "↑"), key("k", "k")}},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListNext, Description: "Next item", Keys: []KeyLabel{key("down", "↓"), key("j", "j")}},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListSelect, Description: "Open selection", Keys: []KeyLabel{key("enter", "Enter")}},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListPreviousGroup, Description: "Previous group", Keys: []KeyLabel{key("left", "←"), key("h", "h")}, Availability: listGroupsAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListNextGroup, Description: "Next group", Keys: []KeyLabel{key("right", "→"), key("l", "l")}, Availability: listGroupsAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListToggleDLLFilter, Description: "Toggle DLL filter", Keys: []KeyLabel{key("d", "d")}, Availability: libraryAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListToggleProfile, Description: "Toggle profile filter", Keys: []KeyLabel{key("p", "p")}, Availability: libraryAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListSort, Description: "Change sort", Keys: []KeyLabel{key("s", "s")}, Availability: libraryAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListClearFilters, Description: "Clear filters", Keys: []KeyLabel{key("C", "C")}, Availability: libraryAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListMultiSelect, Description: "Toggle selection", Keys: []KeyLabel{key("space", "Space")}, Availability: libraryAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListSelectAll, Description: "Select all", Keys: []KeyLabel{key("a", "a")}, Availability: libraryAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListClearSelection, Description: "Clear selection", Keys: []KeyLabel{key("A", "A")}, Availability: libraryAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailPreviousItem, Description: "Previous field", Keys: []KeyLabel{key("up", "↑"), key("k", "k")}},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailNextItem, Description: "Next field", Keys: []KeyLabel{key("down", "↓"), key("j", "j")}},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailDecrease, Description: "Decrease value", Keys: []KeyLabel{key("left", "←"), key("h", "h")}, Availability: detailAdjustmentAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailIncrease, Description: "Increase value", Keys: []KeyLabel{key("right", "→"), key("l", "l")}, Availability: detailAdjustmentAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailConfirm, Description: "Edit or confirm", Keys: []KeyLabel{key("enter", "Enter")}},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailSave, Description: "Save changes", Keys: []KeyLabel{key("s", "s")}},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionCancelDraft, Description: "Discard changes", Keys: []KeyLabel{key("esc", "Esc")}, Availability: libraryProfileAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionCancelDraft, Description: "Discard changes", Keys: []KeyLabel{key("esc", "Esc")}, Availability: settingsAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailReset, Description: "Reset field", Keys: []KeyLabel{key("r", "r")}, Availability: libraryProfileAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailResetAll, Description: "Reset all fields", Keys: []KeyLabel{key("R", "R")}, Availability: libraryProfileAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailInstall, Description: "Install DLL", Keys: []KeyLabel{key("i", "i")}, Availability: libraryDLLAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailUpdate, Description: "Update stale DLLs", Keys: []KeyLabel{key("u", "u"), key("U", "U"), key("ctrl+u", "Ctrl+U")}, Availability: dllUpdateAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailRestore, Description: "Restore DLLs", Keys: []KeyLabel{key("f6", "F6")}, Availability: libraryDLLRestoreAvailable},
-	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionStartSearch, Description: "Search", Keys: []KeyLabel{key("/", "/"), key("ctrl+f", "Ctrl+F")}, Availability: libraryAvailable},
-	KeyBinding{Mode: ModeSearch, Scope: ScopeSearch, Action: ActionSearchCancel, Description: "Cancel search", Keys: []KeyLabel{key("esc", "Esc")}},
-	KeyBinding{Mode: ModeSearch, Scope: ScopeSearch, Action: ActionSearchAccept, Description: "Accept search", Keys: []KeyLabel{key("enter", "Enter")}},
-	KeyBinding{Mode: ModeSearch, Scope: ScopeSearch, Action: ActionSearchDelete, Description: "Delete character", Keys: []KeyLabel{key("backspace", "Backspace")}},
+	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionFocusNext, Description: "Switch pane", Keys: []KeyLabel{key("tab", "Tab")}, Availability: func(c BindingContext) (bool, string) { return c.CanSwitchPane, "no other eligible pane" }},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailPrevious, Description: "Previous view", Keys: []KeyLabel{key("left", "←")}, Availability: libraryGameAvailable},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailNext, Description: "Next view", Keys: []KeyLabel{key("right", "→")}, Availability: libraryGameAvailable},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListPrevious, Description: "Previous item", Keys: []KeyLabel{key("up", "↑")}, Availability: func(c BindingContext) (bool, string) { return c.CanMoveList, "no items" }},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListNext, Description: "Next item", Keys: []KeyLabel{key("down", "↓")}, Availability: func(c BindingContext) (bool, string) { return c.CanMoveList, "no items" }},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListSelect, Description: "Open selection", Keys: []KeyLabel{key("enter", "Enter")}, Availability: func(c BindingContext) (bool, string) { return c.CanOpen, "no selection" }},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListPreviousGroup, Description: "Previous group", Keys: []KeyLabel{key("left", "←")}, Availability: listGroupsAvailable},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListNextGroup, Description: "Next group", Keys: []KeyLabel{key("right", "→")}, Availability: listGroupsAvailable},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListMultiSelect, Description: "Select game", Keys: []KeyLabel{key("space", "Space")}, Availability: func(c BindingContext) (bool, string) {
+		return c.Destination == nav.DestinationLibrary && c.CanSelect, "select a game row"
+	}},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailPreviousItem, Description: "Previous field", Keys: []KeyLabel{key("up", "↑")}, Availability: detailMovementAvailable},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailNextItem, Description: "Next field", Keys: []KeyLabel{key("down", "↓")}, Availability: detailMovementAvailable},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailConfirm, Description: "Edit field", Keys: []KeyLabel{key("enter", "Enter")}, Availability: func(c BindingContext) (bool, string) { return c.Editable, "no editable field" }, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionDetailSave, Description: "Save", Keys: []KeyLabel{key("ctrl+s", "Ctrl+S")}, Availability: saveAvailable, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionStartSearch, Description: "Search games", Availability: libraryAvailable, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListToggleDLLFilter, Description: "Toggle DLL filter", Availability: libraryAvailable, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListToggleProfile, Description: "Toggle profile filter", Availability: libraryAvailable, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListClearFilters, Description: "Clear filters (reset sort to A-Z)", Availability: libraryAvailable, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionSortNameAsc, Description: "Sort: A-Z", Availability: libraryAvailable, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionSortNameDesc, Description: "Sort: Z-A", Availability: libraryAvailable, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionSortDLLsFirst, Description: "Sort: DLLs first", Availability: libraryAvailable, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionSortProfileFirst, Description: "Sort: profiles first", Availability: libraryAvailable, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListSelectAll, Description: "Select all filtered games", Availability: libraryAvailable, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListClearSelection, Description: "Clear selected filtered games", Availability: func(c BindingContext) (bool, string) {
+		return c.Destination == nav.DestinationLibrary && c.VisibleSelectedCount > 0, "no selected filtered games"
+	}, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionBatchUpdate, Description: "Update selected games", Availability: func(c BindingContext) (bool, string) {
+		if c.Busy {
+			return false, "wait for pending work"
+		}
+		return c.Destination == nav.DestinationLibrary && c.VisibleSelectedCount > 0 && c.SelectedUpdateCount > 0, "no updates for selected filtered games"
+	}, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionRescanLibrary, Description: "Rescan games", Availability: func(c BindingContext) (bool, string) {
+		if c.Busy {
+			return false, "wait for pending work"
+		}
+		return libraryAvailable(c)
+	}, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionCancelDraft, Description: "Discard draft", Availability: discardAvailable, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailReset, Description: "Reset field", Availability: libraryProfileAvailable, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailResetAll, Description: "Reset all fields", Availability: libraryProfileAvailable, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailInstall, Description: "Install DLL", Availability: func(c BindingContext) (bool, string) {
+		if state, ok := c.DLLActions[ActionDetailInstall]; ok {
+			return state.available, state.reason
+		}
+		return libraryDLLAvailable(c)
+	}, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionDetailUpdate, Description: "Update stale DLLs", Availability: dllUpdateAvailable, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailRestore, Description: "Restore DLL backups", Availability: libraryDLLRestoreAvailable, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionLayoutStandard, Description: "Layout: Standard", Menu: true},
+	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionLayoutCompact, Description: "Layout: Compact", Menu: true},
+	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionLayoutFocused, Description: "Layout: Focused", Menu: true},
+	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionShowHelp, Description: "Help", Menu: true},
+	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionQuit, Description: "Quit", Availability: func(c BindingContext) (bool, string) { return !c.Busy, "wait for pending operations" }, Menu: true},
+	KeyBinding{Mode: ModeSearch, Scope: ScopeSearch, Action: ActionFocusNext, Description: "Next control", Keys: []KeyLabel{key("tab", "Tab")}},
+	KeyBinding{Mode: ModeSearch, Scope: ScopeSearch, Action: ActionSearchAccept, Description: "Apply search", Keys: []KeyLabel{key("enter", "Enter")}},
 	KeyBinding{Mode: ModeSearch, Scope: ScopeSearch, Action: ActionSearchInput, Description: "Search text", Keys: []KeyLabel{printable("Text")}},
-	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionEditCancel, Description: "Discard edits", Keys: []KeyLabel{key("esc", "Esc")}},
-	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionEditCommit, Description: "Apply value to draft", Keys: []KeyLabel{key("enter", "Enter"), key("ctrl+s", "Ctrl+S")}},
-	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionEditDelete, Description: "Delete character", Keys: []KeyLabel{key("backspace", "Backspace")}},
-	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionEditInput, Description: "Edit value", Keys: []KeyLabel{printable("Text")}},
-	KeyBinding{Mode: ModeOverlay, Scope: ScopeOverlay, Action: ActionOverlayClose, Description: "Close overlay", Keys: []KeyLabel{key("esc", "Esc")}},
-	KeyBinding{Mode: ModeOverlay, Scope: ScopeOverlay, Action: ActionQuit, Description: "Quit", Keys: []KeyLabel{key("q", "q")}},
-	KeyBinding{Mode: ModeOverlay, Scope: ScopeOverlay, Action: ActionOverlayConfirm, Description: "Confirm", Keys: []KeyLabel{key("enter", "Enter")}},
-	KeyBinding{Mode: ModeOverlay, Scope: ScopeOverlay, Action: ActionOverlayPrevious, Description: "Previous option", Keys: []KeyLabel{key("up", "Up"), key("k", "k")}},
-	KeyBinding{Mode: ModeOverlay, Scope: ScopeOverlay, Action: ActionOverlayNext, Description: "Next option", Keys: []KeyLabel{key("down", "Down"), key("j", "j")}},
+	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionFocusNext, Description: "Next control", Keys: []KeyLabel{key("tab", "Tab")}},
+	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionEditCommit, Description: "Apply to draft", Keys: []KeyLabel{key("enter", "Enter")}},
+	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionEditSave, Description: "Save", Keys: []KeyLabel{key("ctrl+s", "Ctrl+S")}},
+	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionDetailDecrease, Description: "Previous choice", Keys: []KeyLabel{key("left", "←")}},
+	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionDetailIncrease, Description: "Next choice", Keys: []KeyLabel{key("right", "→")}},
+	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionDetailPreviousItem, Description: "Previous choice", Keys: []KeyLabel{key("up", "↑")}, Availability: editorChoiceAvailable},
+	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionDetailNextItem, Description: "Next choice", Keys: []KeyLabel{key("down", "↓")}, Availability: editorChoiceAvailable},
+	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionEditToggle, Description: "Toggle", Keys: []KeyLabel{key("space", "Space")}, Availability: func(c BindingContext) (bool, string) { return c.EditorInput, "focus the input" }},
+	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionEditInput, Description: "Edit text", Keys: []KeyLabel{printable("Text")}},
+	KeyBinding{Mode: ModeOverlay, Scope: ScopeOverlay, Action: ActionOverlayFocusNext, Description: "Next control", Keys: []KeyLabel{key("tab", "Tab")}},
+	KeyBinding{Mode: ModeOverlay, Scope: ScopeOverlay, Action: ActionOverlayConfirm, Description: "Activate", Keys: []KeyLabel{key("enter", "Enter")}},
+	KeyBinding{Mode: ModeOverlay, Scope: ScopeOverlay, Action: ActionOverlayPrevious, Description: "Previous", Keys: []KeyLabel{key("up", "↑")}},
+	KeyBinding{Mode: ModeOverlay, Scope: ScopeOverlay, Action: ActionOverlayNext, Description: "Next", Keys: []KeyLabel{key("down", "↓")}},
+	KeyBinding{Mode: ModeOverlay, Scope: ScopeOverlay, Action: ActionOverlayLeft, Description: "Previous button", Keys: []KeyLabel{key("left", "←")}},
+	KeyBinding{Mode: ModeOverlay, Scope: ScopeOverlay, Action: ActionOverlayRight, Description: "Next button", Keys: []KeyLabel{key("right", "→")}},
 )
+
+func detailMovementAvailable(c BindingContext) (bool, string) {
+	return c.HasFields || c.Scrollable, "no fields or overflowing content"
+}
+
+func saveAvailable(c BindingContext) (bool, string) {
+	if !c.SaveAvailable {
+		return false, "open a Profile or Settings document"
+	}
+	if !c.Dirty {
+		return false, "no unsaved changes"
+	}
+	return true, ""
+}
+
+func discardAvailable(c BindingContext) (bool, string) {
+	return saveAvailable(c)
+}
+
+func describeBinding(binding KeyBinding, c BindingContext) KeyBinding {
+	switch binding.Action {
+	case ActionDetailDecrease, ActionDetailIncrease:
+		if c.Mode == ModeEdit && !c.EditorInput {
+			binding.Description = "Choose button"
+		} else if c.Mode == ModeEdit && c.EditorKind != EditorBool && c.EditorKind != EditorChoice {
+			binding.Description = "Move cursor"
+		}
+	case ActionEditToggle:
+		if c.EditorKind != EditorBool && c.EditorKind != EditorChoice {
+			binding.Description = "Type space"
+		}
+
+	case ActionListSelect:
+		if c.Destination == nav.DestinationLibrary && c.VisibleSelectedCount > 0 {
+			binding.Description = "Batch actions"
+		}
+	case ActionDetailPreviousItem:
+		if !c.HasFields && c.Mode == ModeBrowse {
+			binding.Description = "Scroll up"
+		}
+	case ActionDetailNextItem:
+		if !c.HasFields && c.Mode == ModeBrowse {
+			binding.Description = "Scroll down"
+		}
+	case ActionDetailReset:
+		if !c.GameScope {
+			binding.Description = "Reset field to system default"
+		} else {
+			binding.Description = "Reset field to inherit"
+		}
+	case ActionDetailResetAll:
+		if !c.GameScope {
+			binding.Description = "Reset all to system defaults"
+		} else {
+			binding.Description = "Reset all to inherit"
+		}
+	case ActionDetailUpdate, ActionDetailInstall, ActionDetailRestore:
+		if label := c.DLLLabels[binding.Action]; label != "" {
+			binding.Description = label
+		} else if binding.Action == ActionDetailUpdate && c.Destination == nav.DestinationDLLCatalog {
+			binding.Description = "Update all stale deployments"
+		}
+	case ActionEditCommit, ActionSearchAccept:
+		if c.EditorEnterLabel != "" {
+			binding.Description = c.EditorEnterLabel
+		}
+	}
+	return binding
+}
+
+// Action returns the same scoped availability used by keys and menu invocation.
+func (k Keymap) Action(context BindingContext, action KeyAction) BindingResolution {
+	for _, binding := range k.bindings {
+		if binding.Action != action || binding.Mode != context.Mode || (binding.Focus != FocusAny && binding.Focus != context.Focus) {
+			continue
+		}
+		binding = describeBinding(binding, context)
+		available, reason := bindingAvailability(binding, context)
+		return BindingResolution{Binding: binding, Available: available, Reason: reason, Supported: true}
+	}
+	return BindingResolution{Binding: KeyBinding{Action: ActionNoOp}, Reason: "unavailable in this context"}
+}
+
+func editorChoiceAvailable(c BindingContext) (bool, string) {
+	return c.EditorInput && (c.EditorKind == EditorBool || c.EditorKind == EditorChoice), "focus a choice input"
+}

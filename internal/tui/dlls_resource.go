@@ -14,7 +14,7 @@ import (
 )
 
 // DLLsResourceModel renders cached DLL inventory and installed deployment.
-// U updates every stale deployment cell in one batch.
+// The explicit update action updates stale deployment cells in one batch.
 type DLLsResourceModel struct {
 	styles     *Styles
 	services   *Services
@@ -31,20 +31,38 @@ type DLLsResourceModel struct {
 	lastBatchSummary string
 	busy             bool
 	confirmation     *dllMutationConfirmation
+	resultOpen       bool
+	resultBodyFocus  bool
+	scrollOffset     int
 	width            int
 	height           int
 }
 
+// UpdateList accepts only the basic keys displayed for a focused list.
 func (m DLLsResourceModel) UpdateList(key tea.KeyPressMsg, section nav.DLLCatalogSection) DLLsResourceModel {
+	action := ActionNoOp
+	if key.String() == "up" {
+		action = ActionListPrevious
+	} else if key.String() == "down" {
+		action = ActionListNext
+	}
+	return m.UpdateListAction(action, section)
+}
+
+func (m DLLsResourceModel) UpdateListAction(action KeyAction, section nav.DLLCatalogSection) DLLsResourceModel {
+	if m.HasModalOpen() {
+		return m
+	}
 	delta := 0
-	switch key.String() {
-	case "j", "down":
+	switch action {
+	case ActionListNext:
 		delta = 1
-	case "k", "up":
+	case ActionListPrevious:
 		delta = -1
 	default:
 		return m
 	}
+	m.scrollOffset = 0
 	if section == nav.SectionDLLDeployment {
 		if len(m.deploymentGames) > 0 {
 			m.gameRowCursor = min(max(m.gameRowCursor+delta, 0), len(m.deploymentGames)-1)
@@ -63,7 +81,9 @@ func (m DLLsResourceModel) ListView(focused bool, section nav.DLLCatalogSection)
 	sectionLabel := nav.DLLCatalogSectionLabels[int(section)]
 	builder.WriteString(m.styles.Title.Render(sectionLabel))
 	builder.WriteString("\n")
-	builder.WriteString(m.styles.Dim.Render("←/→ section"))
+	if focused {
+		builder.WriteString(m.styles.Dim.Render("←/→ Group"))
+	}
 	builder.WriteString("\n\n")
 	if section == nav.SectionDLLDeployment {
 		if len(m.deploymentGames) == 0 {
@@ -272,40 +292,123 @@ func (m DLLsResourceModel) isStale(installed, manifestKey string) bool {
 	return dll.IsNewer(installed, latest)
 }
 
-// Update routes Detail actions. List navigation is owned by UpdateList.
+// HasModalOpen separates an active workflow from ordinary read-only detail.
+func (m DLLsResourceModel) HasModalOpen() bool {
+	return m.confirmation != nil || m.busy || m.resultOpen
+}
+
+func (m DLLsResourceModel) DLLOverlayHint() string {
+	if m.confirmation != nil {
+		return m.confirmation.hint()
+	}
+	if m.busy {
+		return "Work is running"
+	}
+	if m.resultOpen {
+		return dllResultHint(m.batchResultMessage(), m.resultBodyFocus, m.width, m.height)
+	}
+	return ""
+}
+
+func (m DLLsResourceModel) DLLActionAvailability(action KeyAction, section nav.DLLCatalogSection) (bool, string) {
+	if action != ActionDetailUpdate {
+		return false, "not a catalog action"
+	}
+	if section != nav.SectionDLLDeployment {
+		return false, "open Deployment"
+	}
+	if m.HasModalOpen() {
+		return false, "finish the current DLL operation"
+	}
+	if !m.hasStaleCells() {
+		return false, "no stale cached deployments"
+	}
+	return true, ""
+}
+
+func (m DLLsResourceModel) UpdateTargetCount() int {
+	return len(m.staleDLLMutationTargets())
+}
+
+func (m DLLsResourceModel) DLLActionLabel(action KeyAction) string {
+	if action == ActionDetailUpdate {
+		unit := "DLLs"
+		if m.UpdateTargetCount() == 1 {
+			unit = "DLL"
+		}
+		return fmt.Sprintf("Update all stale deployments (%d %s)", m.UpdateTargetCount(), unit)
+	}
+	return ""
+}
+
+// UpdateAction is usable from either pane. The owning destination supplies the
+// section availability gate; confirmations and progress capture all input.
+func (m DLLsResourceModel) UpdateAction(action KeyAction) (DLLsResourceModel, tea.Cmd) {
+	if m.confirmation != nil {
+		confirm, cancel := m.confirmation.updateAction(action)
+		if cancel {
+			m.confirmation = nil
+			m.lastBatchResult = nil
+			m.lastBatchSummary = dllCancellationResult("DLL update-all")
+			m.resultOpen, m.resultBodyFocus, m.scrollOffset = true, true, 0
+			return m, nil
+		}
+		if confirm && !m.busy {
+			targets := append([]dllMutationTarget(nil), m.confirmation.targets...)
+			m.confirmation = nil
+			if len(targets) == 0 {
+				m.lastBatchSummary = "DLL update-all unavailable: no current target"
+				m.resultOpen, m.resultBodyFocus = true, true
+				return m, nil
+			}
+			m.busy = true
+			m.lastBatchSummary = "Updating DLLs..."
+			return m, m.updateAllCmd(targets)
+		}
+		return m, nil
+	}
+	if m.busy {
+		return m, nil
+	}
+	if m.resultOpen {
+		switch action {
+		case ActionOverlayFocusNext:
+			m.resultBodyFocus = !m.resultBodyFocus
+		case ActionOverlayPrevious:
+			if m.resultBodyFocus {
+				m.scrollOffset = max(m.scrollOffset-1, 0)
+			}
+		case ActionOverlayNext:
+			if m.resultBodyFocus {
+				m.scrollOffset = min(m.scrollOffset+1, dllResultMaximumScroll(m.batchResultMessage(), m.width, m.height))
+			}
+		case ActionOverlayClose:
+			m.resultOpen = false
+		case ActionOverlayConfirm:
+			if !m.resultBodyFocus {
+				m.resultOpen = false
+			}
+		}
+		return m, nil
+	}
+	if action == ActionDetailUpdate && m.hasStaleCells() {
+		m.scrollOffset = 0
+		m.confirmation = newDLLMutationConfirmation("Confirm all stale DLL updates", m.staleDLLMutationTargets(), "each current DLL is backed up before replacement")
+	}
+	return m, nil
+}
+
+// Update consumes completions and basic overlay controls. Browse commands enter
+// through UpdateAction rather than through old letter or modifier shortcuts.
 func (m DLLsResourceModel) Update(msg tea.Msg) (DLLsResourceModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		if m.confirmation != nil {
-			confirm, cancel := m.confirmation.update(msg)
-			if cancel {
-				m.confirmation = nil
-				m.lastBatchResult = nil
-				m.lastBatchSummary = dllCancellationResult("DLL update-all")
-				return m, nil
-			}
-			if confirm && !m.busy {
-				targets := m.confirmation.targets
-				m.confirmation = nil
-				m.busy = true
-				m.lastBatchSummary = "Updating DLLs..."
-				return m, m.updateAllCmd(targets)
-			}
-			return m, nil
-		}
-		switch msg.String() {
-		case "u", "U", "ctrl+u":
-			if m.busy {
-				return m, nil
-			}
-			if !m.hasStaleCells() {
-				return m, nil
-			}
-			m.confirmation = newDLLMutationConfirmation("Confirm all stale DLL updates", m.staleDLLMutationTargets(), "each current DLL is backed up before replacement")
-			return m, nil
+		if m.HasModalOpen() {
+			return m.UpdateAction(dllOverlayAction(msg))
 		}
 	case dllsUpdateAllCompleteMsg:
 		m.busy = false
+		m.resultOpen, m.resultBodyFocus, m.scrollOffset = true, true, 0
 		for appID, updated := range msg.games {
 			if m.database != nil {
 				m.database.Games[appID] = updated
@@ -319,10 +422,7 @@ func (m DLLsResourceModel) Update(msg tea.Msg) (DLLsResourceModel, tea.Cmd) {
 		m = m.SetGames(m.games)
 		m.lastBatchResult = msg.results
 		m.lastBatchSummary = msg.summary
-		// Freshly-downloaded payloads may have been cached; refresh so the
-		// library section and stale markers reflect the new state.
 		m = m.RefreshCached()
-		return m, nil
 	}
 	return m, nil
 }
@@ -401,19 +501,65 @@ func (m DLLsResourceModel) updateAllCmd(targets []dllMutationTarget) tea.Cmd {
 
 func (m DLLsResourceModel) View(_ bool, section nav.DLLCatalogSection) string {
 	if m.confirmation != nil {
-		return m.confirmation.view(m.styles)
+		return m.confirmation.viewSized(m.styles, m.width, m.height)
 	}
-	var b strings.Builder
-	b.WriteString(m.renderSelectedDetail(section))
 	if m.busy {
-		b.WriteString("\n\n")
-		b.WriteString(m.styles.Warning.Render("Updating DLLs..."))
-	} else if m.lastBatchSummary != "" {
-		b.WriteString("\n\n")
-		b.WriteString(m.styles.Dim.Render(m.lastBatchSummary))
+		return m.styles.Title.Render("DLL update-all") + "\n\n" + m.styles.Warning.Render("Updating DLLs...") + "\n\nWork is running. Controls return when it finishes."
 	}
+	if m.resultOpen {
+		return dllResultView(m.styles, "DLL update-all result", m.batchResultMessage(), m.resultBodyFocus, m.scrollOffset, m.width, m.height)
+	}
+	lines := m.detailLines(section)
+	start := min(max(m.scrollOffset, 0), max(len(lines)-max(m.height, 1), 0))
+	return strings.Join(lines[start:min(start+max(m.height, 1), len(lines))], "\n")
+}
 
-	return b.String()
+func (m DLLsResourceModel) batchResultMessage() string {
+	var builder strings.Builder
+	builder.WriteString(m.lastBatchSummary)
+	keys := make([]string, 0, len(m.lastBatchResult))
+	for key, result := range m.lastBatchResult {
+		if strings.HasPrefix(result, "err:") {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		label := key
+		for _, entry := range m.games {
+			if strings.HasPrefix(key, fmt.Sprintf("%d:", entry.AppID)) {
+				label = entry.Name + " · " + dllFamilyName(strings.SplitN(key, ":", 2)[1])
+				break
+			}
+		}
+		builder.WriteString("\n\n" + label + ": " + strings.TrimPrefix(m.lastBatchResult[key], "err: "))
+	}
+	return builder.String()
+}
+
+func (m DLLsResourceModel) detailLines(section nav.DLLCatalogSection) []string {
+	body := m.renderSelectedDetail(section)
+	if m.lastBatchSummary != "" {
+		body += "\n\n" + m.styles.Dim.Render(m.lastBatchSummary)
+	}
+	return strings.Split(lipgloss.NewStyle().Width(max(m.width, 20)).Render(body), "\n")
+}
+
+func (m DLLsResourceModel) DetailScrollable(section nav.DLLCatalogSection) bool {
+	return len(m.detailLines(section)) > max(m.height, 1)
+}
+
+func (m DLLsResourceModel) ScrollDetail(action KeyAction, section nav.DLLCatalogSection) DLLsResourceModel {
+	if m.HasModalOpen() {
+		return m
+	}
+	switch action {
+	case ActionDetailPreviousItem:
+		m.scrollOffset = max(m.scrollOffset-1, 0)
+	case ActionDetailNextItem:
+		m.scrollOffset = min(m.scrollOffset+1, max(len(m.detailLines(section))-max(m.height, 1), 0))
+	}
+	return m
 }
 
 func (m DLLsResourceModel) renderSelectedDetail(section nav.DLLCatalogSection) string {
@@ -445,7 +591,7 @@ func (m DLLsResourceModel) renderSelectedDetail(section nav.DLLCatalogSection) s
 		}
 		if m.hasStaleCells() {
 			builder.WriteString("\n")
-			builder.WriteString(m.styles.Dim.Render("U: update all stale deployments"))
+			builder.WriteString(m.styles.Dim.Render(fmt.Sprintf("%d stale DLL target(s) can be updated", m.UpdateTargetCount())))
 		}
 		return builder.String()
 	}
@@ -609,7 +755,7 @@ func (m DLLsResourceModel) renderFooter() string {
 	s := m.styles
 	var parts []string
 	if s.ShowHints {
-		parts = append(parts, s.Dim.Render("j/k select row  U update-all"))
+		parts = append(parts, s.Dim.Render("Read-only deployment status"))
 	}
 	if m.busy {
 		parts = append(parts, s.Warning.Render("updating..."))

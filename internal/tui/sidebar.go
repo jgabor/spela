@@ -52,6 +52,7 @@ type SidebarModel struct {
 	filtered   []sidebarItem
 	cursor     int
 	search     textinput.Model
+	searching  bool
 	filters    FilterState
 	sortMode   SortMode
 	width      int
@@ -89,123 +90,102 @@ func (m *SidebarModel) SetSize(width, height int) {
 }
 
 func (m SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
-	var cmd tea.Cmd
-
-	switch msg := msg.(type) {
-	case tea.KeyPressMsg:
-		if m.search.Focused() {
-			switch msg.String() {
-			case "enter", "esc":
-				m.search.Blur()
-			default:
-				m.search, cmd = m.search.Update(msg)
-				m.applyFiltersAndSort()
-				cmd = tea.Batch(cmd, m.selectCurrentItem())
-			}
-			return m, cmd
-		}
-
-		switch msg.String() {
-		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
-				if !m.selectMode {
-					return m, m.selectCurrentItem()
-				}
-			}
-		case "down", "j":
-			if m.cursor < len(m.filtered)-1 {
-				m.cursor++
-				if !m.selectMode {
-					return m, m.selectCurrentItem()
-				}
-			}
-		case "/":
-			cmd = m.search.Focus()
-			return m, cmd
-		case "d":
-			m.filters.hasDLLs = !m.filters.hasDLLs
-			m.applyFiltersAndSort()
-		case "p":
-			// `p` is reserved for the Task 5 pin-field binding; profile
-			// filter was displaced to `P` (shift+p) during the Task 3
-			// keymap audit. Displacement documented in the help screen.
-			m.filters.hasProfile = !m.filters.hasProfile
-			m.applyFiltersAndSort()
-		case "s":
-			m.sortMode = (m.sortMode + 1) % 4
-			m.applyFiltersAndSort()
-		case "C":
-			m.clearFilters()
-		case "space":
-			if m.cursor < len(m.filtered) {
-				item := m.filtered[m.cursor]
-				if item.kind != sidebarItemGame || item.game == nil {
-					return m, nil
-				}
-				if !m.selectMode {
-					m.selectMode = true
-					m.selected[item.game.AppID] = true
-				} else {
-					if m.selected[item.game.AppID] {
-						delete(m.selected, item.game.AppID)
-						if len(m.selected) == 0 {
-							m.selectMode = false
-							return m, m.selectCurrentItem()
-						}
-					} else {
-						m.selected[item.game.AppID] = true
-					}
-				}
-			}
-		case "a":
-			if m.selectMode {
-				for _, item := range m.filtered {
-					if item.kind == sidebarItemGame && item.game != nil {
-						m.selected[item.game.AppID] = true
-					}
-				}
-			}
-		case "A":
-			if m.selectMode {
-				for _, item := range m.filtered {
-					if item.kind == sidebarItemGame && item.game != nil {
-						delete(m.selected, item.game.AppID)
-					}
-				}
-			}
-		case "esc":
-			if m.selectMode {
-				m.selectMode = false
-				m.selected = make(map[uint64]bool)
-			} else if m.search.Value() != "" {
-				m.search.SetValue("")
-				m.applyFiltersAndSort()
-			} else if m.filters.IsActive() {
-				m.clearFilters()
-			}
-		case "enter":
-			if m.selectMode && len(m.selected) > 0 {
-				return m, func() tea.Msg {
-					return batchActionRequestMsg{selected: m.SelectedGames()}
-				}
-			}
-			if selected := m.SelectedItem(); selected != nil {
-				if selected.kind == sidebarItemDefaultProfile {
-					return m, func() tea.Msg {
-						return defaultProfileConfirmedMsg{}
-					}
-				}
-				if selected.game != nil {
-					return m, func() tea.Msg {
-						return gameConfirmedMsg{game: selected.game}
-					}
-				}
-			}
-		}
+	key, ok := msg.(tea.KeyPressMsg)
+	if !ok {
+		return m, nil
 	}
+	if m.search.Focused() {
+		var command tea.Cmd
+		m.search, command = m.search.Update(key)
+		m.applyFiltersAndSort()
+		return m, command
+	}
+	resolution := CanonicalKeymap.Lookup(BindingContext{Mode: ModeBrowse, Focus: FocusList, Destination: 0, CanMoveList: len(m.filtered) > 0, CanOpen: m.SelectedItem() != nil, CanSelect: m.Selected() != nil}, key.String())
+	if !resolution.Supported || !resolution.Available || resolution.Binding.Scope != ScopeList {
+		return m, nil
+	}
+	return m.UpdateAction(resolution.Binding.Action)
+}
 
+// UpdateAction changes only List-owned state. The shell guards any resulting
+// profile owner change before publishing the new List and Detail together.
+func (m SidebarModel) UpdateAction(action KeyAction) (SidebarModel, tea.Cmd) {
+	switch action {
+	case ActionListPrevious:
+		m.cursor = max(m.cursor-1, 0)
+	case ActionListNext:
+		m.cursor = min(m.cursor+1, max(len(m.filtered)-1, 0))
+	case ActionListToggleDLLFilter:
+		m.filters.hasDLLs = !m.filters.hasDLLs
+		m.applyFiltersAndSort()
+	case ActionListToggleProfile:
+		m.filters.hasProfile = !m.filters.hasProfile
+		m.applyFiltersAndSort()
+	case ActionSortNameAsc, ActionSortNameDesc, ActionSortDLLsFirst, ActionSortProfileFirst:
+		m.sortMode = map[KeyAction]SortMode{ActionSortNameAsc: SortNameAsc, ActionSortNameDesc: SortNameDesc, ActionSortDLLsFirst: SortDLLsFirst, ActionSortProfileFirst: SortProfileFirst}[action]
+		m.applyFiltersAndSort()
+	case ActionListSort:
+		m.sortMode = (m.sortMode + 1) % 4
+		m.applyFiltersAndSort()
+	case ActionListClearFilters:
+		m.clearFilters()
+	case ActionListMultiSelect:
+		if item := m.Selected(); item != nil {
+			if m.selected[item.AppID] {
+				delete(m.selected, item.AppID)
+			} else {
+				m.selected[item.AppID] = true
+			}
+			m.selectMode = len(m.selected) > 0
+			m.applyFiltersAndSort()
+		}
+	case ActionListSelectAll:
+		for _, item := range m.filtered {
+			if item.game != nil {
+				m.selected[item.game.AppID] = true
+			}
+		}
+		m.selectMode = len(m.selected) > 0
+		m.applyFiltersAndSort()
+	case ActionListClearSelection:
+		for _, item := range m.filtered {
+			if item.game != nil {
+				delete(m.selected, item.game.AppID)
+			}
+		}
+		m.selectMode = len(m.selected) > 0
+		m.applyFiltersAndSort()
+	case ActionListSelect, ActionBatchUpdate:
+		if len(m.SelectedGames()) > 0 {
+			return m, func() tea.Msg { return batchActionRequestMsg{selected: m.SelectedGames()} }
+		}
+		if item := m.SelectedItem(); item != nil {
+			if item.kind == sidebarItemDefaultProfile {
+				return m, func() tea.Msg { return defaultProfileConfirmedMsg{} }
+			}
+			return m, func() tea.Msg { return gameConfirmedMsg{game: item.game} }
+		}
+	default:
+		return m, nil
+	}
+	if !m.selectMode {
+		return m, m.selectCurrentItem()
+	}
 	return m, nil
+}
+
+func (m SidebarModel) cloneSelection() SidebarModel {
+	selected := make(map[uint64]bool, len(m.selected))
+	for id, value := range m.selected {
+		selected[id] = value
+	}
+	m.selected = selected
+	// The text input stores a rune slice. A struct copy alone would let edits
+	// overwrite the query retained by a pending navigation or search decision.
+	position := m.search.Position()
+	m.search.SetValue(m.search.Value())
+	m.search.SetCursor(position)
+	return m
 }
 
 func (m *SidebarModel) clearFilters() {
@@ -317,7 +297,7 @@ func (m SidebarModel) View() string {
 
 	titleLine := "Scope"
 	if m.selectMode {
-		titleLine = fmt.Sprintf("Select (%d)", len(m.selected))
+		titleLine = fmt.Sprintf("Selected: %d total, %d visible", len(m.selected), len(m.SelectedGames()))
 	} else if m.sortMode != SortNameAsc {
 		titleLine += " [" + sortModeNames[m.sortMode] + "]"
 	}
@@ -336,24 +316,24 @@ func (m SidebarModel) View() string {
 		b.WriteString("\n")
 	}
 
-	if m.search.Focused() || m.search.Value() != "" {
+	if m.searching || m.search.Focused() || m.search.Value() != "" {
 		b.WriteString(m.search.View())
 		b.WriteString("\n")
 	}
 
 	if len(m.games) == 0 && m.search.Value() == "" {
 		b.WriteString("No games found\n")
-		b.WriteString(s.Dim.Render("Ctrl+R scan  •  4 set paths"))
+		b.WriteString(s.Dim.Render("Use Actions to rescan or Settings for paths"))
 		return b.String()
 	}
 
 	if len(m.filtered) == 0 {
 		if query := m.search.Value(); query != "" {
 			fmt.Fprintf(&b, "No games match %q\n", query)
-			b.WriteString(s.Dim.Render("Esc, then C to clear search"))
+			b.WriteString(s.Dim.Render("Use Clear search or Cancel below"))
 		} else {
 			b.WriteString("No games match filters\n")
-			b.WriteString(s.Dim.Render("Press C to clear filters"))
+			b.WriteString(s.Dim.Render("Clear filters in Actions"))
 		}
 		return b.String()
 	}
@@ -362,7 +342,7 @@ func (m SidebarModel) View() string {
 	if m.filters.IsActive() {
 		headerLines++
 	}
-	if m.search.Focused() || m.search.Value() != "" {
+	if m.searching || m.search.Focused() || m.search.Value() != "" {
 		headerLines++
 	}
 
@@ -425,9 +405,6 @@ func (m SidebarModel) View() string {
 	legend := s.DLSS.Render("●") + s.Dim.Render(" DLLs  ") + s.DLSS.Render("◆") + s.Dim.Render(" profile")
 	b.WriteString(legend)
 	b.WriteString("\n")
-	if !m.selectMode && s.ShowHints {
-		b.WriteString(s.Dim.Render("space:multi-select"))
-	}
 
 	return b.String()
 }
@@ -448,6 +425,16 @@ func (m SidebarModel) SelectedItem() *sidebarItem {
 
 func (m SidebarModel) SetGames(games []*game.Game) SidebarModel {
 	m.games = games
+	present := make(map[uint64]bool, len(games))
+	for _, item := range games {
+		present[item.AppID] = true
+	}
+	for id := range m.selected {
+		if !present[id] {
+			delete(m.selected, id)
+		}
+	}
+	m.selectMode = len(m.selected) > 0
 	m.applyFiltersAndSort()
 	if m.cursor >= len(m.filtered) {
 		m.cursor = max(len(m.filtered)-1, 0)

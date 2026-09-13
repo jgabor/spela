@@ -50,7 +50,7 @@ func TestSidebar_CursorDown_ClampsAtEnd(t *testing.T) {
 	}
 }
 
-func TestSidebar_JK_Navigation(t *testing.T) {
+func TestSidebar_ArrowNavigation(t *testing.T) {
 	g1 := testGame("Alpha")
 	g1.AppID = 100
 	g2 := testGame("Beta")
@@ -58,12 +58,12 @@ func TestSidebar_JK_Navigation(t *testing.T) {
 	m := testSidebar(g1, g2)
 	m.cursor = 0
 
-	m, _ = m.Update(keyMsg("j"))
+	m, _ = m.Update(keyMsg("down"))
 	if m.cursor != 1 {
 		t.Error("expected j to move cursor down")
 	}
 
-	m, _ = m.Update(keyMsg("k"))
+	m, _ = m.Update(keyMsg("up"))
 	if m.cursor != 0 {
 		t.Error("expected k to move cursor up")
 	}
@@ -82,7 +82,7 @@ func TestSidebar_DLLFilter(t *testing.T) {
 
 	initialCount := len(m.filtered)
 
-	m, _ = m.Update(keyMsg("d"))
+	m, _ = m.UpdateAction(ActionListToggleDLLFilter)
 	if !m.filters.hasDLLs {
 		t.Error("expected DLL filter to be active")
 	}
@@ -90,7 +90,7 @@ func TestSidebar_DLLFilter(t *testing.T) {
 		t.Error("expected filtered list to be smaller with DLL filter")
 	}
 
-	m, _ = m.Update(keyMsg("d"))
+	m, _ = m.UpdateAction(ActionListToggleDLLFilter)
 	if m.filters.hasDLLs {
 		t.Error("expected DLL filter to be inactive after second toggle")
 	}
@@ -115,7 +115,7 @@ func TestSidebar_ProfileFilter(t *testing.T) {
 	initialCount := len(m.filtered)
 
 	// Profile filtering uses p now that profile editing creates overrides.
-	m, _ = m.Update(keyMsg("p"))
+	m, _ = m.UpdateAction(ActionListToggleProfile)
 	if !m.filters.hasProfile {
 		t.Error("expected profile filter to be active after 'p'")
 	}
@@ -129,41 +129,26 @@ func TestSidebar_ProfileFilter(t *testing.T) {
 	}
 }
 
-func TestSidebar_SortCycles(t *testing.T) {
-	m := testSidebar(testGame("Alpha"))
-
-	if m.sortMode != SortNameAsc {
-		t.Fatal("precondition: should start with SortNameAsc")
-	}
-
-	m, _ = m.Update(keyMsg("s"))
-	if m.sortMode != SortNameDesc {
-		t.Errorf("expected SortNameDesc, got %d", m.sortMode)
-	}
-
-	m, _ = m.Update(keyMsg("s"))
-	if m.sortMode != SortDLLsFirst {
-		t.Errorf("expected SortDLLsFirst, got %d", m.sortMode)
-	}
-
-	m, _ = m.Update(keyMsg("s"))
-	if m.sortMode != SortProfileFirst {
-		t.Errorf("expected SortProfileFirst, got %d", m.sortMode)
-	}
-
-	m, _ = m.Update(keyMsg("s"))
-	if m.sortMode != SortNameAsc {
-		t.Errorf("expected SortNameAsc after full cycle, got %d", m.sortMode)
+func TestSidebar_ExplicitSortChoices(t *testing.T) {
+	m := testSidebar(testGame("Alpha"), testGame("Beta", testDLL(game.DLLTypeDLSS, "3.7.0")))
+	for _, test := range []struct {
+		action KeyAction
+		mode   SortMode
+	}{{ActionSortNameDesc, SortNameDesc}, {ActionSortDLLsFirst, SortDLLsFirst}, {ActionSortProfileFirst, SortProfileFirst}, {ActionSortNameAsc, SortNameAsc}} {
+		m, _ = m.UpdateAction(test.action)
+		if m.sortMode != test.mode {
+			t.Fatalf("%s selected mode %v", test.action, m.sortMode)
+		}
 	}
 }
 
 func TestSidebar_ClearFilters(t *testing.T) {
 	m := testSidebar(testGame("Alpha", testDLL(game.DLLTypeDLSS, "3.8.10")))
 
-	m, _ = m.Update(keyMsg("d"))
+	m, _ = m.UpdateAction(ActionListToggleDLLFilter)
 	m, _ = m.Update(keyMsg("s"))
 
-	m, _ = m.Update(keyMsg("C"))
+	m, _ = m.UpdateAction(ActionListClearFilters)
 	if m.filters.hasDLLs || m.filters.hasProfile {
 		t.Error("expected C to clear all filters")
 	}
@@ -226,24 +211,24 @@ func TestSidebar_SelectAll_DeselectAll(t *testing.T) {
 	m := testSidebar(g1, g2)
 	m.selectMode = true
 
-	m, _ = m.Update(keyMsg("a"))
+	m, _ = m.UpdateAction(ActionListSelectAll)
 	if !m.selected[100] || !m.selected[200] {
 		t.Error("expected a to select all games")
 	}
 
-	m, _ = m.Update(keyMsg("A"))
+	m, _ = m.UpdateAction(ActionListClearSelection)
 	if len(m.selected) != 0 {
 		t.Error("expected A to deselect all games")
 	}
 }
 
-func TestSidebar_EscExitsSelectMode(t *testing.T) {
+func TestSidebar_ClearSelectedLeavesSelectionMode(t *testing.T) {
 	g := testGame("Alpha")
 	m := testSidebar(g)
 	m.selectMode = true
 	m.selected[g.AppID] = true
 
-	m, _ = m.Update(keyMsg("esc"))
+	m, _ = m.UpdateAction(ActionListClearSelection)
 	if m.selectMode {
 		t.Error("expected esc to exit select mode")
 	}
@@ -290,31 +275,30 @@ func TestSidebar_EnterConfirmsGame(t *testing.T) {
 // Search
 // ---------------------------------------------------------------------------
 
-func TestSidebar_SlashActivatesSearch(t *testing.T) {
+func TestSidebar_ObsoleteCommandsCannotChangeBrowseState(t *testing.T) {
 	m := testSidebar(testGame("Alpha"))
-
-	m, _ = m.Update(keyMsg("/"))
-	if !m.search.Focused() {
-		t.Error("expected / to activate search")
+	for _, key := range []string{"/", "j", "k", "d", "p", "s", "a", "A", "[", "]", "?"} {
+		next, _ := m.Update(keyMsg(key))
+		if next.cursor != m.cursor || next.search.Focused() || next.sortMode != m.sortMode || len(next.selected) != 0 || next.filters != m.filters {
+			t.Fatalf("obsolete key %q changed browse state", key)
+		}
 	}
 }
 
-func TestSidebar_SearchEscBlurs(t *testing.T) {
+func TestSidebar_TextInputDoesNotOwnSearchCancellation(t *testing.T) {
 	m := testSidebar(testGame("Alpha"))
 	m.search.Focus()
-
 	m, _ = m.Update(keyMsg("esc"))
-	if m.search.Focused() {
-		t.Error("expected esc to blur search")
+	if !m.search.Focused() {
+		t.Fatal("Sidebar escaped the shell-owned search controls")
 	}
 }
 
-func TestSidebar_SearchEnterBlurs(t *testing.T) {
+func TestSidebar_TextInputDoesNotOwnSearchApply(t *testing.T) {
 	m := testSidebar(testGame("Alpha"))
 	m.search.Focus()
-
 	m, _ = m.Update(keyMsg("enter"))
-	if m.search.Focused() {
-		t.Error("expected enter to blur search")
+	if !m.search.Focused() {
+		t.Fatal("Sidebar bypassed the shell-owned search Apply")
 	}
 }

@@ -52,14 +52,14 @@ func TestSidebarSupportedSortSearchAndSelectionBoundaryContracts(t *testing.T) {
 	sidebar.search.SetValue("missing")
 	sidebar.search.Blur()
 	sidebar.applyFiltersAndSort()
-	sidebar, _ = sidebar.Update(keyMsg("esc"))
+	sidebar, _ = sidebar.UpdateAction(ActionListClearFilters)
 	if sidebar.search.Value() != "" {
-		t.Fatal("escape did not clear inactive search")
+		t.Fatal("Clear filters did not clear inactive search")
 	}
 	sidebar.filters.hasDLLs = true
-	sidebar, _ = sidebar.Update(keyMsg("esc"))
+	sidebar, _ = sidebar.UpdateAction(ActionListClearFilters)
 	if sidebar.filters.IsActive() {
-		t.Fatal("escape did not clear active filters")
+		t.Fatal("Clear filters did not clear active filters")
 	}
 	sidebar.cursor = 0
 	if command := sidebar.selectCurrentItem(); command == nil {

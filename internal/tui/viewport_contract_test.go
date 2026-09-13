@@ -107,7 +107,7 @@ func TestCompactAndFocusedLayoutsUseAvailableSpace(t *testing.T) {
 		layout.densityMode = DensityCompact
 		layout.calculateDimensions()
 		compact := layout.View().Content
-		if compact == standard || strings.Contains(stripANSI(compact), logo[0]) {
+		if strings.Contains(stripANSI(compact), logo[0]) || size[0] >= 100 && size[1] >= 30 && compact == standard {
 			t.Fatalf("%dx%d compact mode did not visibly reduce the header", size[0], size[1])
 		}
 
@@ -117,11 +117,18 @@ func TestCompactAndFocusedLayoutsUseAvailableSpace(t *testing.T) {
 			layout.calculateDimensions()
 			view := layout.View().Content
 			plainView := stripANSI(view)
-			if !strings.Contains(plainView, "Library") || !strings.Contains(plainView, "spela › Library") {
+			title := "List"
+			if focus == FocusDetail {
+				title = "Detail"
+			}
+			if !strings.Contains(plainView, "Library") || !strings.Contains(plainView, "▸ "+title) || !strings.Contains(plainView, "0: Actions") || !strings.Contains(plainView, "Tab: Switch pane") {
 				t.Fatalf("%dx%d focused %s view lacks orientation", size[0], size[1], focus)
 			}
-			if layout.listPane.width != size[0]-2 || layout.pane.width != size[0]-2 {
-				t.Fatalf("%dx%d focused panes did not receive full width", size[0], size[1])
+			if layout.listPane.sidebar.width != size[0]-2 || layout.pane.width != size[0]-2 {
+				t.Fatalf("%dx%d focused panes did not receive full content width", size[0], size[1])
+			}
+			if strings.Count(plainView, "╭ ▸ ") != 1 || lipgloss.Width(view) > size[0] || lipgloss.Height(view) > size[1] {
+				t.Fatalf("%dx%d focused view exposed extra panes or exceeded its viewport:\n%s", size[0], size[1], plainView)
 			}
 		}
 	}
@@ -146,8 +153,10 @@ func TestLayoutBelowMinimumRendersBoundedResizePrompt(t *testing.T) {
 		if !strings.Contains(view, "Resize") {
 			t.Fatalf("%dx%d view does not explain recovery: %q", fixture.width, fixture.height, view)
 		}
-		if fixture.width >= len("q quit") && !strings.Contains(view, "q quit") {
-			t.Fatalf("%dx%d view does not retain quit: %q", fixture.width, fixture.height, view)
+		for _, hiddenControl := range []string{"q quit", "0: Actions", "Tab:", "Enter:"} {
+			if strings.Contains(view, hiddenControl) {
+				t.Fatalf("%dx%d resize prompt advertises hidden input %q: %q", fixture.width, fixture.height, hiddenControl, view)
+			}
 		}
 		if got := lipgloss.Width(view); got > fixture.width {
 			t.Fatalf("%dx%d rendered width = %d", fixture.width, fixture.height, got)
@@ -158,18 +167,29 @@ func TestLayoutBelowMinimumRendersBoundedResizePrompt(t *testing.T) {
 	}
 }
 
-func TestLayoutBelowMinimumQuitsAndRecoversAfterResize(t *testing.T) {
-	layout := testLayout()
+func TestLayoutBelowMinimumSuspendsInputAndRecoversAfterResize(t *testing.T) {
+	layout := testLayoutWithGame(testGame("Cyberpunk 2077"))
+	beforeScope, beforeFocus := layout.navState.Scope, layout.focus
 	model, _ := layout.Update(tea.WindowSizeMsg{Width: 79, Height: 23})
 	layout = model.(LayoutModel)
-	_, command := layout.Update(keyMsg("q"))
+	for _, key := range []string{"q", "0", "1", "4", "tab", "enter", "space", "down"} {
+		model, command := layout.Update(keyMsg(key))
+		layout = model.(LayoutModel)
+		if command != nil || layout.navState.Scope != beforeScope || layout.focus != beforeFocus || layout.actions != nil || layout.decision != nil {
+			t.Fatalf("hidden workspace accepted %q below the supported size", key)
+		}
+	}
+	_, command := layout.Update(keyMsg("ctrl+c"))
+	if command == nil {
+		t.Fatal("emergency terminal interrupt was lost below minimum")
+	}
 	if _, ok := command().(tea.QuitMsg); !ok {
-		t.Fatal("q did not remain available below minimum")
+		t.Fatal("terminal interrupt did not quit below minimum")
 	}
 
 	model, _ = layout.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	recovered := model.(LayoutModel).View().Content
-	if strings.Contains(recovered, "Resize terminal") || !strings.Contains(recovered, "Library") {
+	if strings.Contains(recovered, "Resize terminal") || !strings.Contains(recovered, "Library") || !strings.Contains(recovered, "0: Actions") {
 		t.Fatalf("resized view did not recover: %q", recovered)
 	}
 }

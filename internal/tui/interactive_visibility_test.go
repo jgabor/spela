@@ -20,6 +20,7 @@ func TestProfileFocusStaysVisibleWhileEditingAndResizing(t *testing.T) {
 	detail := NewDetail(NewStyles(DefaultTheme, true), &profile.Profile{}, &profile.Profile{})
 	for _, height := range []int{40, 12} {
 		detail.SetSize(70, height)
+		detail.RestoreFocus("", 0)
 		for detail.Cursor() < detail.FieldCount()-1 {
 			detail, _, _ = detail.Update(keyMsg("down"))
 			label := detail.rows[detail.focusableRows[detail.Cursor()]].label
@@ -38,7 +39,12 @@ func TestProfileFocusStaysVisibleWhileEditingAndResizing(t *testing.T) {
 	if detail.FocusedField() != wantField || !detail.Editing() || !strings.Contains(stripANSI(detail.View()), focusedLabel) {
 		t.Fatal("resize lost the focused edit context")
 	}
-	detail.UpdateEditor(keyMsg("esc"))
+	detail.UpdateAction(ActionFocusNext)
+	detail.UpdateAction(ActionFocusNext)
+	if !strings.Contains(stripANSI(detail.View()), "Cancel") {
+		t.Fatal("local Cancel control is not visible")
+	}
+	detail.UpdateAction(ActionEditCommit)
 	if detail.Editing() || detail.FocusedField() != wantField {
 		t.Fatal("cancel lost the focused field")
 	}
@@ -118,8 +124,17 @@ func TestHelpFitsAndScrollsToEveryLineWithCloseGuidance(t *testing.T) {
 	help.SetHeight(5)
 	help.Move(1000)
 	view := stripANSI(help.View())
-	if !strings.Contains(view, "? / Esc close • q / Ctrl+C quit") || !strings.Contains(view, "↑/↓ scroll") || lipgloss.Height(help.View()) > 5 {
+	if !strings.Contains(view, "Close") || !strings.Contains(view, "Tab: next control") || !strings.Contains(view, "↑ ↓: scroll") || lipgloss.Height(help.View()) > 5 {
 		t.Fatalf("overflowing help did not expose its bounded final position:\n%s", view)
+	}
+	lastOffset := help.offset
+	help.Move(1)
+	if help.offset != lastOffset {
+		t.Fatal("Help scroll moved beyond its last bounded position")
+	}
+	help.closeFocused = true
+	if view := stripANSI(help.View()); !strings.Contains(view, "Enter: close") || strings.Contains(view, "↑ ↓: scroll") {
+		t.Fatalf("Close control did not own the active guidance:\n%s", view)
 	}
 }
 
@@ -140,12 +155,14 @@ func TestOverflowingCollectionsKeepCursorOnOneVisibleRow(t *testing.T) {
 	content := NewContent(styles, false, testServices())
 	content.SetSize(30, 10)
 	content.dllInstallState = DLLInstallSelectVersion
+	content.dllVersionsLoaded = true
+	content.selectedDLLType = "dlss"
 	for index := 0; index < 20; index++ {
 		content.dllVersions = append(content.dllVersions, dll.DLL{Version: fmt.Sprintf("1.0.%d", index)})
 	}
 	content.dllVersionCursor = 19
 	view = stripANSI(content.renderDLLInstallDialog())
-	if strings.Count(view, "> 1.0.19") != 1 || !strings.Contains(view, "20/20") {
+	if strings.Count(view, "> 1.0.19") != 1 || strings.Contains(view, "1.0.0\n") || lipgloss.Height(content.renderDLLInstallDialog()) > 10 {
 		t.Fatalf("version cursor is not one visible row:\n%s", view)
 	}
 }

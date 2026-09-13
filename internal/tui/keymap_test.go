@@ -67,69 +67,58 @@ func TestKeymapAvailabilityDrivesLookupAndHelp(t *testing.T) {
 	}
 }
 
-func TestCanonicalHelpOmitsUnavailableDestinationActions(t *testing.T) {
-	dllCatalog := CanonicalKeymap.HelpBindings(BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationDLLCatalog})
+func TestCanonicalHelpOmitsUnavailableDestinationKeys(t *testing.T) {
+	catalog := BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationDLLCatalog}
 	for _, action := range []KeyAction{ActionStartSearch, ActionRescanLibrary, ActionDetailInstall, ActionDetailUpdate, ActionDetailRestore} {
-		if hasHelpAction(dllCatalog, action) {
-			t.Fatalf("DLL Catalog help advertised unavailable action %q", action)
+		if hasHelpAction(CanonicalKeymap.HelpBindings(catalog), action) {
+			t.Fatalf("menu-only action %s became a keyboard shortcut", action)
 		}
 	}
-	deployment := BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationDLLCatalog, DLLSection: nav.SectionDLLDeployment}
-	if got := CanonicalKeymap.Lookup(deployment, "U"); !got.Available || got.Binding.Action != ActionDetailUpdate {
-		t.Fatalf("catalog update binding = %#v", got)
+	catalog.DLLSection = nav.SectionDLLDeployment
+	catalog.DLLActions = map[KeyAction]actionAvailability{ActionDetailUpdate: {true, ""}}
+	if result := CanonicalKeymap.Action(catalog, ActionDetailUpdate); !result.Available {
+		t.Fatalf("eligible deployment update unavailable: %#v", result)
 	}
-
-	dllDetail := BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, GameScope: true, Aspect: nav.AspectDLLs, HasBackup: true}
-	if got := CanonicalKeymap.Lookup(dllDetail, "f6"); !got.Available || got.Binding.Action != ActionDetailRestore {
-		t.Fatalf("portable restore binding = %#v", got)
+	catalog.DLLActions[ActionDetailUpdate] = actionAvailability{false, "no stale deployments"}
+	if result := CanonicalKeymap.Action(catalog, ActionDetailUpdate); result.Available || result.Reason != "no stale deployments" {
+		t.Fatalf("availability mismatch: %#v", result)
 	}
-	if got := CanonicalKeymap.Lookup(dllDetail, "ctrl+shift+r"); got.Supported {
-		t.Fatalf("non-portable restore binding remains supported: %#v", got)
-	}
-	dllDetail.HasBackup = false
-	if hasHelpAction(CanonicalKeymap.HelpBindings(dllDetail), ActionDetailRestore) {
-		t.Fatal("help advertised restore without a backup")
+	for _, key := range []string{"U", "f6", "ctrl+shift+r", "/", "[", "]"} {
+		if CanonicalKeymap.Lookup(catalog, key).Supported {
+			t.Fatalf("retired shortcut %q remains", key)
+		}
 	}
 }
 
 func TestCanonicalHorizontalBindingsMatchExecutableContexts(t *testing.T) {
 	tests := []struct {
-		name      string
-		context   BindingContext
-		hAction   KeyAction
-		lAction   KeyAction
-		available bool
-		supported bool
+		name           string
+		context        BindingContext
+		previous, next KeyAction
+		available      bool
 	}{
-		{"Library List", BindingContext{Mode: ModeBrowse, Focus: FocusList, Destination: nav.DestinationLibrary}, ActionListPreviousGroup, ActionListNextGroup, false, true},
-		{"DLL Catalog List", BindingContext{Mode: ModeBrowse, Focus: FocusList, Destination: nav.DestinationDLLCatalog, ListGroups: true}, ActionListPreviousGroup, ActionListNextGroup, true, true},
-		{"Monitor List", BindingContext{Mode: ModeBrowse, Focus: FocusList, Destination: nav.DestinationMonitor}, ActionListPreviousGroup, ActionListNextGroup, false, true},
-		{"Settings List", BindingContext{Mode: ModeBrowse, Focus: FocusList, Destination: nav.DestinationSettings, ListGroups: true}, ActionListPreviousGroup, ActionListNextGroup, true, true},
-		{"game Overview Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, GameScope: true, Aspect: nav.AspectOverview}, ActionDetailDecrease, ActionDetailIncrease, false, true},
-		{"game Profile Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, GameScope: true, Aspect: nav.AspectProfile}, ActionDetailDecrease, ActionDetailIncrease, false, true},
-		{"game DLL Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, GameScope: true, Aspect: nav.AspectDLLs}, ActionDetailDecrease, ActionDetailIncrease, false, true},
-		{"adjustable default Profile Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, Aspect: nav.AspectProfile, DetailAdjustable: true}, ActionDetailDecrease, ActionDetailIncrease, true, true},
-		{"non-adjustable default Profile Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, Aspect: nav.AspectProfile}, ActionDetailDecrease, ActionDetailIncrease, false, true},
-		{"DLL Catalog Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationDLLCatalog}, ActionDetailDecrease, ActionDetailIncrease, false, true},
-		{"Monitor Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationMonitor}, ActionDetailDecrease, ActionDetailIncrease, false, true},
-		{"adjustable Settings Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationSettings, DetailAdjustable: true}, ActionDetailDecrease, ActionDetailIncrease, true, true},
-		{"path Settings Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationSettings}, ActionDetailDecrease, ActionDetailIncrease, false, true},
-		{"Search input", BindingContext{Mode: ModeSearch, Focus: FocusList, Destination: nav.DestinationLibrary}, ActionSearchInput, ActionSearchInput, true, true},
-		{"Edit input", BindingContext{Mode: ModeEdit, Focus: FocusDetail, Destination: nav.DestinationSettings}, ActionEditInput, ActionEditInput, true, true},
-		{"Overlay", BindingContext{Mode: ModeOverlay, Focus: FocusDetail}, ActionNoOp, ActionNoOp, true, false},
+		{"Library List", BindingContext{Mode: ModeBrowse, Focus: FocusList, Destination: nav.DestinationLibrary}, ActionListPreviousGroup, ActionListNextGroup, false},
+		{"Catalog List", BindingContext{Mode: ModeBrowse, Focus: FocusList, Destination: nav.DestinationDLLCatalog, ListGroups: true}, ActionListPreviousGroup, ActionListNextGroup, true},
+		{"Settings List", BindingContext{Mode: ModeBrowse, Focus: FocusList, Destination: nav.DestinationSettings, ListGroups: true}, ActionListPreviousGroup, ActionListNextGroup, true},
+		{"Monitor List", BindingContext{Mode: ModeBrowse, Focus: FocusList, Destination: nav.DestinationMonitor}, ActionListPreviousGroup, ActionListNextGroup, false},
+		{"Game Overview", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, GameScope: true, Aspect: nav.AspectOverview}, ActionDetailPrevious, ActionDetailNext, true},
+		{"Game Profile", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, GameScope: true, Aspect: nav.AspectProfile}, ActionDetailPrevious, ActionDetailNext, true},
+		{"Game DLLs", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, GameScope: true, Aspect: nav.AspectDLLs}, ActionDetailPrevious, ActionDetailNext, true},
+		{"Root Profile", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, ProfileScope: true, Aspect: nav.AspectProfile}, ActionDetailPrevious, ActionDetailNext, false},
+		{"Settings Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationSettings}, ActionDetailPrevious, ActionDetailNext, false},
+		{"Monitor Detail", BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationMonitor}, ActionDetailPrevious, ActionDetailNext, false},
+		{"Choice Editor", BindingContext{Mode: ModeEdit, Focus: FocusDetail, EditorInput: true, EditorKind: EditorChoice}, ActionDetailDecrease, ActionDetailIncrease, true},
+		{"Overlay", BindingContext{Mode: ModeOverlay, Focus: FocusDetail}, ActionOverlayLeft, ActionOverlayRight, true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			for key, wantAction := range map[string]KeyAction{"h": test.hAction, "l": test.lAction} {
-				resolution := CanonicalKeymap.Lookup(test.context, key)
-				if resolution.Supported != test.supported || resolution.Available != test.available || resolution.Binding.Action != wantAction {
-					t.Errorf("%s resolution = %#v, want action %q, available %t, supported %t", key, resolution, wantAction, test.available, test.supported)
+			for key, want := range map[string]KeyAction{"left": test.previous, "right": test.next} {
+				result := CanonicalKeymap.Lookup(test.context, key)
+				if !result.Supported || result.Binding.Action != want || result.Available != test.available {
+					t.Errorf("%s result=%#v, want %s available=%t", key, result, want, test.available)
 				}
-				if test.context.Mode == ModeBrowse {
-					visible := hasHelpAction(CanonicalKeymap.HelpBindings(test.context), wantAction)
-					if visible != test.available {
-						t.Errorf("%s help visibility = %t, want %t", key, visible, test.available)
-					}
+				if test.context.Mode == ModeBrowse && hasHelpAction(CanonicalKeymap.HelpBindings(test.context), want) != test.available {
+					t.Errorf("%s visibility differs from availability", key)
 				}
 			}
 		})

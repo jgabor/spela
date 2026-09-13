@@ -22,7 +22,9 @@ func NewDestinationBar(styles *Styles) DestinationBarModel {
 func (m *DestinationBarModel) SetActive(destination nav.Destination) { m.active = destination }
 func (m *DestinationBarModel) SetWidth(width int)                    { m.width = width }
 
-func (m DestinationBarModel) View() string {
+func (m DestinationBarModel) View() string { return m.ViewWithKeys(true) }
+
+func (m DestinationBarModel) ViewWithKeys(showKeys bool) string {
 	entries := []struct {
 		destination nav.Destination
 		key         string
@@ -34,7 +36,10 @@ func (m DestinationBarModel) View() string {
 	}
 	parts := make([]string, 0, len(entries))
 	for _, entry := range entries {
-		label := fmt.Sprintf("[%s] %s", entry.key, entry.destination)
+		label := fmt.Sprintf("%s %s", entry.key, entry.destination)
+		if !showKeys {
+			label = entry.destination.String()
+		}
 		style := m.styles.Dim
 		if entry.destination == m.active {
 			style = lipgloss.NewStyle().Foreground(m.styles.Theme.AccentFocus).Bold(true)

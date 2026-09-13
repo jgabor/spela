@@ -10,7 +10,7 @@ import (
 )
 
 func TestShellStartsInLibraryListWithNonFocusableDestinationBar(t *testing.T) {
-	layout := testLayout()
+	layout := testLayout(testGame("Cyberpunk 2077"))
 	if got := layout.navState.Destination; got != nav.DestinationLibrary {
 		t.Fatalf("destination = %v, want Library", got)
 	}
@@ -27,7 +27,7 @@ func TestShellStartsInLibraryListWithNonFocusableDestinationBar(t *testing.T) {
 	if updated.focus != FocusDetail {
 		t.Fatalf("Tab focus = %v, want Detail", updated.focus)
 	}
-	result, _ = sendKey(&updated, "shift+tab")
+	result, _ = sendKey(&updated, "tab")
 	updated = result.(LayoutModel)
 	if updated.focus != FocusList {
 		t.Fatalf("reverse Tab focus = %v, want List", updated.focus)
@@ -39,7 +39,7 @@ func TestEmptyLibraryOffersScanAndPathRecovery(t *testing.T) {
 	layout.width, layout.height = 120, 40
 	layout.calculateDimensions()
 	view := stripANSI(layout.renderMain())
-	if !strings.Contains(view, "No games found") || !strings.Contains(view, "Ctrl+R scan") || !strings.Contains(view, "4 set paths") {
+	if !strings.Contains(view, "No games found") || !strings.Contains(view, "Actions") || !strings.Contains(view, "Settings") {
 		t.Fatalf("empty Library recovery missing:\n%s", view)
 	}
 	if strings.Contains(view, "All games (default profile)") {
@@ -53,7 +53,7 @@ func TestLibrarySearchSynchronizesDisplayedScopeBeforeEnter(t *testing.T) {
 	beta.AppID = 2
 	layout := testLayout(alpha, beta)
 
-	model, _ := sendKey(&layout, "/")
+	model, _ := sendAction(&layout, ActionStartSearch)
 	model, command := sendKey(model, "b")
 	updated := model.(LayoutModel)
 	message := execCmd(command)
@@ -93,7 +93,7 @@ func TestLibrarySearchNoMatchClearsDetailAndBreadcrumb(t *testing.T) {
 	if updated.pane.content.game != nil || strings.Contains(updated.renderBreadcrumbs(), "Cyberpunk") {
 		t.Fatal("no-match search retained stale game state")
 	}
-	if !strings.Contains(view, `No games match "zzz"`) || !strings.Contains(view, "Esc, then C to clear search") {
+	if !strings.Contains(view, `No games match "zzz"`) || !strings.Contains(view, "Clear") {
 		t.Fatalf("no-match recovery missing:\n%s", view)
 	}
 }
@@ -103,7 +103,7 @@ func TestLibraryDetailNavigationCannotMoveHiddenList(t *testing.T) {
 	layout := testLayoutWithGame(game)
 	listCursor := layout.listPane.sidebar.cursor
 
-	result, _ := sendKey(&layout, "]")
+	result, _ := sendKey(&layout, "right")
 	updated := result.(LayoutModel)
 	if updated.navState.Aspect != nav.AspectProfile {
 		t.Fatalf("detail aspect = %v, want Profile", updated.navState.Aspect)

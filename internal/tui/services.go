@@ -20,6 +20,7 @@ type Services struct {
 	LoadDefaultProfile func() (*profile.Profile, error)
 	ProfileExists      func(appID uint64) bool
 	BackupExists       func(appID uint64) bool
+	LoadDLLBackup      func(appID uint64) (*dll.Backup, error)
 	KnownDLLTypes      func() []dll.KnownDLLTypeInfo
 	ListCachedDLLs     func(manifestKey string) ([]string, error)
 	BatchUpdateDLLs    func([]dll.UpdateRequest) dll.BatchResult
@@ -41,6 +42,7 @@ func DefaultServices() *Services {
 		LoadDefaultProfile: profile.LoadDefault,
 		ProfileExists:      profile.Exists,
 		BackupExists:       dll.BackupExists,
+		LoadDLLBackup:      dll.LoadBackup,
 		KnownDLLTypes:      dll.KnownDLLTypes,
 		ListCachedDLLs:     dll.ListCachedVersions,
 		BatchUpdateDLLs:    func(requests []dll.UpdateRequest) dll.BatchResult { return dll.BatchUpdate(requests, nil) },
@@ -64,6 +66,13 @@ func (services *Services) restoreDLLs(appID uint64) (dll.Result, error) {
 		return services.RestoreDLLs(appID)
 	}
 	return dll.Restore(appID, nil)
+}
+
+func (services *Services) loadDLLBackup(appID uint64) (*dll.Backup, error) {
+	if services != nil && services.LoadDLLBackup != nil {
+		return services.LoadDLLBackup(appID)
+	}
+	return dll.LoadBackup(appID)
 }
 
 // defaultVKD3DNotice wires the production resolver + NVML driver probe

@@ -48,7 +48,7 @@ func TestContent_Update_WithConfirmation(t *testing.T) {
 	m.dllUpdateTargets = []dllMutationTarget{newDLLMutationTarget(g, g.DLLs[0], "3.9.0")}
 	m.confirmDestructive = true
 
-	result, cmd := m.Update(keyMsg("u"))
+	result, cmd := m.UpdateDLLAction(ActionDetailUpdate)
 	if result.pendingAction != PendingDLLUpdate {
 		t.Errorf("expected PendingDLLUpdate, got %d", result.pendingAction)
 	}
@@ -56,7 +56,8 @@ func TestContent_Update_WithConfirmation(t *testing.T) {
 		t.Error("expected no command when confirmation is pending")
 	}
 
-	result, cmd = result.Update(keyMsg("Y"))
+	result, _ = result.Update(keyMsg("right"))
+	result, cmd = result.Update(keyMsg("enter"))
 	if result.pendingAction != PendingNone {
 		t.Error("expected pending action cleared after confirmation")
 	}
@@ -76,14 +77,15 @@ func TestContent_Update_ConfirmationCancelled(t *testing.T) {
 	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	m := testContent(g)
 	m.hasUpdates = true
+	m.dllUpdateTargets = []dllMutationTarget{newDLLMutationTarget(g, g.DLLs[0], "3.9.0")}
 	m.confirmDestructive = true
 
-	result, _ := m.Update(keyMsg("u"))
+	result, _ := m.UpdateDLLAction(ActionDetailUpdate)
 	if result.pendingAction != PendingDLLUpdate {
 		t.Fatal("precondition: should be pending")
 	}
 
-	result, _ = result.Update(keyMsg("n"))
+	result, _ = result.Update(keyMsg("enter"))
 	if result.pendingAction != PendingNone {
 		t.Error("expected pending action cleared on cancel")
 	}
@@ -92,26 +94,27 @@ func TestContent_Update_ConfirmationCancelled(t *testing.T) {
 	}
 }
 
-func TestContent_PerGameConfirmationEnterAndYExecute(t *testing.T) {
-	for _, action := range []string{"update", "restore"} {
-		for _, key := range []string{"enter", "y", "Y"} {
-			t.Run(action+"/"+key, func(t *testing.T) {
-				entry := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
-				content := testContent(entry)
-				if action == "update" {
-					content.hasUpdates = true
-					content.dllUpdateTargets = []dllMutationTarget{newDLLMutationTarget(entry, entry.DLLs[0], "3.9.0")}
-					content, _ = content.Update(keyMsg("u"))
-				} else {
-					content.hasBackup = true
-					content, _ = content.Update(keyMsg("f6"))
+func TestContent_PerGameConfirmationRequiresExplicitConfirmChoice(t *testing.T) {
+	for _, action := range []KeyAction{ActionDetailUpdate, ActionDetailRestore} {
+		t.Run(string(action), func(t *testing.T) {
+			entry := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
+			content := testContent(entry)
+			content.hasUpdates, content.hasBackup = true, true
+			content.dllUpdateTargets = []dllMutationTarget{newDLLMutationTarget(entry, entry.DLLs[0], "3.9.0")}
+			content, _ = content.UpdateDLLAction(action)
+			for _, oldKey := range []string{"y", "Y", "q", "esc"} {
+				next, command := content.Update(keyMsg(oldKey))
+				content = next
+				if command != nil || content.confirmation == nil || content.dllOperating {
+					t.Fatalf("old shortcut %q altered confirmation", oldKey)
 				}
-				content, command := content.Update(keyMsg(key))
-				if command == nil || !content.dllOperating || content.pendingAction != PendingNone {
-					t.Fatalf("state = operating %v, pending %v, command %v", content.dllOperating, content.pendingAction, command)
-				}
-			})
-		}
+			}
+			content, _ = content.Update(keyMsg("right"))
+			content, command := content.Update(keyMsg("enter"))
+			if command == nil || !content.dllOperating || content.pendingAction != PendingNone {
+				t.Fatalf("state = operating %v, pending %v, command %v", content.dllOperating, content.pendingAction, command)
+			}
+		})
 	}
 }
 
@@ -119,9 +122,10 @@ func TestContent_Update_ConfigCannotBypassConfirmation(t *testing.T) {
 	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	m := testContent(g)
 	m.hasUpdates = true
+	m.dllUpdateTargets = []dllMutationTarget{newDLLMutationTarget(g, g.DLLs[0], "3.9.0")}
 	m.confirmDestructive = false
 
-	result, cmd := m.Update(keyMsg("u"))
+	result, cmd := m.UpdateDLLAction(ActionDetailUpdate)
 	if result.pendingAction != PendingDLLUpdate {
 		t.Error("expected confirmation even when persisted setting is false")
 	}
@@ -133,14 +137,12 @@ func TestContent_Update_ConfigCannotBypassConfirmation(t *testing.T) {
 	}
 }
 
-func TestContent_Update_NoUpdatesFeedback(t *testing.T) {
-	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
-	m := testContent(g)
-	m.hasUpdates = false
-
-	_, cmd := m.Update(keyMsg("u"))
-	if cmd == nil {
-		t.Error("expected feedback command when no updates available")
+func TestContent_Update_NoUpdatesHasAvailabilityReason(t *testing.T) {
+	m := testContent(testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10")))
+	available, reason := m.DLLActionAvailability(ActionDetailUpdate)
+	_, command := m.UpdateDLLAction(ActionDetailUpdate)
+	if available || reason == "" || command != nil {
+		t.Fatalf("unchanged DLL availability = %v, %q, command %v", available, reason, command)
 	}
 }
 
@@ -149,14 +151,12 @@ func TestContent_Update_NoUpdatesFeedback(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContent_Restore_WithConfirmation(t *testing.T) {
-	// F6 is distinguishable on terminals that cannot distinguish Ctrl+Shift+R,
-	// leaving bare Shift+R available to reset the entire profile to inherited.
 	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	m := testContent(g)
 	m.hasBackup = true
 	m.confirmDestructive = true
 
-	result, cmd := m.Update(keyMsg("f6"))
+	result, cmd := m.UpdateDLLAction(ActionDetailRestore)
 	if result.pendingAction != PendingDLLRestore {
 		t.Errorf("expected PendingDLLRestore, got %d", result.pendingAction)
 	}
@@ -164,7 +164,8 @@ func TestContent_Restore_WithConfirmation(t *testing.T) {
 		t.Error("expected no command when confirmation pending")
 	}
 
-	result, cmd = result.Update(keyMsg("y"))
+	result, _ = result.Update(keyMsg("right"))
+	result, cmd = result.Update(keyMsg("enter"))
 	if !result.dllOperating {
 		t.Error("expected dllOperating after Y")
 	}
@@ -178,9 +179,9 @@ func TestContent_Restore_NoBackupIgnored(t *testing.T) {
 	m := testContent(g)
 	m.hasBackup = false
 
-	_, cmd := m.Update(keyMsg("f6"))
+	_, cmd := m.UpdateDLLAction(ActionDetailRestore)
 	if cmd != nil {
-		t.Error("expected F6 to be ignored when no backup exists")
+		t.Error("expected restore to be ignored when no backup exists")
 	}
 }
 
@@ -192,12 +193,12 @@ func TestContent_InstallWizard_Start(t *testing.T) {
 	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	m := testContent(g)
 
-	result, cmd := m.Update(keyMsg("i"))
+	result, cmd := m.UpdateDLLAction(ActionDetailInstall)
 	if result.dllInstallState != DLLInstallSelectType {
 		t.Errorf("expected DLLInstallSelectType, got %d", result.dllInstallState)
 	}
-	if !result.dllOperating {
-		t.Error("expected dllOperating to be true")
+	if result.dllOperating || !result.HasModalOpen() {
+		t.Error("chooser should own input without claiming a dispatched write")
 	}
 	if cmd == nil {
 		t.Error("expected loadDLLTypes command")
@@ -209,7 +210,7 @@ func TestContent_InstallWizard_AlreadyOperating(t *testing.T) {
 	m := testContent(g)
 	m.dllOperating = true
 
-	result, cmd := m.Update(keyMsg("i"))
+	result, cmd := m.UpdateDLLAction(ActionDetailInstall)
 	if result.dllInstallState != DLLInstallNone {
 		t.Error("expected i to be ignored when already operating")
 	}
@@ -222,7 +223,7 @@ func TestContent_InstallWizard_TypeSelection(t *testing.T) {
 	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	m := testContent(g)
 	m.dllInstallState = DLLInstallSelectType
-	m.dllOperating = true
+	m.dllOperating = false
 	m.dllTypes = []string{"dlss", "dlssg", "dlssd"}
 	m.dllTypeCursor = 0
 
@@ -246,7 +247,7 @@ func TestContent_InstallWizard_TypeToVersion(t *testing.T) {
 	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	m := testContent(g)
 	m.dllInstallState = DLLInstallSelectType
-	m.dllOperating = true
+	m.dllOperating = false
 	m.dllTypes = []string{"dlss"}
 	m.dllTypeCursor = 0
 
@@ -266,7 +267,7 @@ func TestContent_InstallWizard_VersionToDownload(t *testing.T) {
 	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	m := testContent(g)
 	m.dllInstallState = DLLInstallSelectVersion
-	m.dllOperating = true
+	m.dllOperating = false
 	m.dllVersions = []dll.DLL{{Version: "3.9.0"}, {Version: "3.8.10"}}
 	m.dllVersionCursor = 0
 
@@ -274,6 +275,7 @@ func TestContent_InstallWizard_VersionToDownload(t *testing.T) {
 	if result.confirmation == nil || cmd != nil {
 		t.Fatal("expected install confirmation before execution")
 	}
+	result, _ = result.Update(keyMsg("right"))
 	result, cmd = result.Update(keyMsg("enter"))
 	if result.dllInstallState != DLLInstallDownloading {
 		t.Errorf("expected DLLInstallDownloading, got %d", result.dllInstallState)
@@ -287,7 +289,7 @@ func TestContent_InstallConfirmationListsOnlySelectedFamilyAndPath(t *testing.T)
 	entry := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"), testDLL(game.DLLTypeXeSS, "1.3.1"))
 	content := testContent(entry)
 	content.dllInstallState = DLLInstallSelectVersion
-	content.dllOperating = true
+	content.dllOperating = false
 	content.selectedDLLType = "dlss"
 	content.dllVersions = []dll.DLL{{Version: "3.9.0", Filename: entry.DLLs[0].Name}}
 
@@ -310,28 +312,31 @@ func TestContent_InstallWizard_Cancel(t *testing.T) {
 	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	m := testContent(g)
 	m.dllInstallState = DLLInstallSelectType
-	m.dllOperating = true
+	m.dllOperating = false
 	m.dllTypes = []string{"dlss"}
 
-	result, _ := m.Update(keyMsg("esc"))
+	m, _ = m.Update(keyMsg("tab"))
+	result, _ := m.Update(keyMsg("enter"))
 	if result.dllInstallState != DLLInstallNone {
-		t.Error("expected esc to cancel install wizard")
+		t.Error("expected Cancel to close install wizard")
 	}
 	if result.dllOperating {
 		t.Error("expected dllOperating to be false after cancel")
 	}
 }
 
-func TestContent_InstallWizard_QCancel(t *testing.T) {
+func TestContent_InstallWizard_VersionCancel(t *testing.T) {
 	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	m := testContent(g)
 	m.dllInstallState = DLLInstallSelectVersion
-	m.dllOperating = true
+	m.dllOperating = false
 	m.dllVersions = []dll.DLL{{Version: "3.9.0"}}
 
-	result, _ := m.Update(keyMsg("q"))
+	m, _ = m.Update(keyMsg("tab"))
+	m, _ = m.Update(keyMsg("tab"))
+	result, _ := m.Update(keyMsg("enter"))
 	if result.dllInstallState != DLLInstallNone {
-		t.Error("expected q to cancel install wizard")
+		t.Error("expected Cancel to close install wizard")
 	}
 }
 
@@ -369,7 +374,7 @@ func TestContent_DLLUpdatesCheckedMsg(t *testing.T) {
 	m := testContent(g)
 	m.hasUpdates = false
 
-	result, _ := m.Update(dllUpdatesCheckedMsg{hasUpdates: true})
+	result, _ := m.Update(dllUpdatesCheckedMsg{appID: g.AppID, hasUpdates: true})
 	if !result.hasUpdates {
 		t.Error("expected hasUpdates to be set to true")
 	}

@@ -73,23 +73,21 @@ func TestOptionsModalEditsEveryCatalogOptionThroughKeyboardContract(t *testing.T
 		for optionIndex, option := range section.Options {
 			modal.optionCursor = optionIndex
 			before := modal.getConfigValue(option.Key)
-			var key string
+			next, _ := modal.Update(keyMsg("enter"))
+			modal = next
+			if !modal.Editing() || modal.getConfigValue(option.Key) != before {
+				t.Fatalf("%s did not open an isolated field editor", option.Key)
+			}
 			switch option.Kind {
 			case config.KindPath:
-				key = "enter"
-			case config.KindBool, config.KindEnum, config.KindInt:
-				key = "right"
-			}
-			next, _ := modal.Update(keyMsg(key))
-			modal = next
-			if option.Kind == config.KindPath {
-				if !modal.editingPath {
-					t.Fatalf("%s did not enter path editing", option.Key)
-				}
 				modal.pathInput.SetValue("/contract/" + option.Key)
-				next, _ = modal.Update(keyMsg("enter"))
-				modal = next
+			case config.KindBool, config.KindEnum:
+				modal, _ = modal.Update(keyMsg("right"))
+			default:
+				t.Fatalf("add keyboard coverage for newly exposed option kind %v", option.Kind)
 			}
+			next, _ = modal.Update(keyMsg("enter"))
+			modal = next
 			after := modal.getConfigValue(option.Key)
 			if before == after {
 				t.Errorf("keyboard edit did not change %s from %q", option.Key, before)
@@ -102,7 +100,7 @@ func TestOptionsModalEditsEveryCatalogOptionThroughKeyboardContract(t *testing.T
 	if !modal.modified {
 		t.Fatal("catalog edits did not mark settings modified")
 	}
-	next, command := modal.Update(keyMsg("s"))
+	next, command := modal.Update(keyMsg("ctrl+s"))
 	modal = next
 	if command == nil {
 		t.Fatal("save key did not return a persistence command")

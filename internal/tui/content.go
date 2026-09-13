@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -65,6 +64,9 @@ type ContentModel struct {
 	usingDefaultProfile bool
 	scrollOffset        int
 
+	dllRequestID      uint64
+	dllInstallControl int
+	dllResultOpen     bool
 	dllInstallState   DLLInstallState
 	dllTypes          []string
 	dllTypeCursor     int
@@ -164,18 +166,21 @@ type dllRestoreMsg struct {
 }
 
 type dllUpdatesCheckedMsg struct {
+	appID      uint64
 	hasUpdates bool
 	targets    []dllMutationTarget
 	err        error
 }
 
 type dllInstallMsg struct {
-	result dll.Result
-	err    error
+	requestID uint64
+	result    dll.Result
+	err       error
 }
 
 type dllTypesLoadedMsg struct {
-	types []string
+	requestID uint64
+	types     []string
 }
 
 func NewContent(styles *Styles, confirmDestructive bool, svc *Services) ContentModel {
@@ -187,6 +192,11 @@ func NewContent(styles *Styles, confirmDestructive bool, svc *Services) ContentM
 }
 
 func (m ContentModel) SetGame(g *game.Game) ContentModel {
+	if m.game != nil && g != nil && m.game.AppID == g.AppID && (m.detail.Dirty() || m.detail.Editing()) {
+		m.game = g
+		m.hasBackup = m.services.BackupExists(g.AppID)
+		return m
+	}
 	m.game, m.dllOperating = g, false
 	m.scrollOffset, m.dllInstallState = 0, DLLInstallNone
 	m.hasUpdates, m.usingDefaultProfile, m.lastDLLResult = false, false, ""
@@ -279,7 +289,7 @@ func (m ContentModel) restoreDLLs() tea.Cmd {
 }
 
 func (m ContentModel) HasModalOpen() bool {
-	return m.dllInstallState != DLLInstallNone || m.pendingAction != PendingNone
+	return m.confirmation != nil || m.dllOperating || m.dllResultOpen || m.dllInstallState != DLLInstallNone || m.pendingAction != PendingNone
 }
 
 // ViewProfileAspect renders Library › Profile for the selected game.
@@ -303,10 +313,11 @@ func (m ContentModel) ViewDLLAspect() string {
 
 func (m ContentModel) loadDLLTypes() tea.Cmd {
 	g := m.game
+	requestID := m.dllRequestID
 	return func() tea.Msg {
 		manifest, err := dll.GetManifest(false, "")
 		if err != nil {
-			return dllInstallMsg{err: err}
+			return dllInstallMsg{requestID: requestID, err: err}
 		}
 
 		validTypes := make(map[string]bool, len(g.DLLs))
@@ -327,120 +338,51 @@ func (m ContentModel) loadDLLTypes() tea.Cmd {
 		}
 
 		if len(filteredTypes) == 0 {
-			return dllInstallMsg{err: fmt.Errorf("no supported DLL types detected in game")}
+			return dllInstallMsg{requestID: requestID, err: fmt.Errorf("no supported DLL types detected in game")}
 		}
 
-		return dllTypesLoadedMsg{types: filteredTypes}
+		return dllTypesLoadedMsg{requestID: requestID, types: filteredTypes}
 	}
-}
-
-func (m ContentModel) updateDLLInstall(msg tea.Msg) (ContentModel, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "esc", "q":
-			m.dllInstallState = DLLInstallNone
-			m.dllOperating = false
-			return m, nil
-		case "up", "k":
-			if m.dllInstallState == DLLInstallSelectType && m.dllTypeCursor > 0 {
-				m.dllTypeCursor--
-			} else if m.dllInstallState == DLLInstallSelectVersion && m.dllVersionCursor > 0 {
-				m.dllVersionCursor--
-			}
-		case "down", "j":
-			if m.dllInstallState == DLLInstallSelectType && m.dllTypeCursor < len(m.dllTypes)-1 {
-				m.dllTypeCursor++
-			} else if m.dllInstallState == DLLInstallSelectVersion && m.dllVersionCursor < len(m.dllVersions)-1 {
-				m.dllVersionCursor++
-			}
-		case "enter":
-			if m.dllInstallState == DLLInstallSelectType && len(m.dllTypes) > 0 {
-				m.selectedDLLType = m.dllTypes[m.dllTypeCursor]
-				m.dllInstallState = DLLInstallSelectVersion
-				m.dllVersionCursor = 0
-				m.dllVersionsLoaded = false
-				return m, m.loadDLLVersions()
-			} else if m.dllInstallState == DLLInstallSelectVersion && len(m.dllVersions) > 0 {
-				selected := m.dllVersions[m.dllVersionCursor]
-				path := filepath.Join(m.game.InstallDir, selected.Filename)
-				currentVersion := ""
-				for _, installed := range m.game.DLLs {
-					if installed.Name == selected.Filename {
-						path, currentVersion = installed.Path, installed.Version
-						break
-					}
-				}
-				m.confirmation = newDLLMutationConfirmation("Confirm DLL install", []dllMutationTarget{{
-					appID:          m.game.AppID,
-					gameName:       m.game.Name,
-					family:         dllFamilyName(m.selectedDLLType),
-					manifestKey:    m.selectedDLLType,
-					path:           path,
-					currentVersion: currentVersion,
-					targetVersion:  selected.Version,
-				}}, "original DLL is backed up before replacement")
-				return m, nil
-			}
-		}
-
-	case dllTypesLoadedMsg:
-		m.dllTypes = msg.types
-		return m, nil
-
-	case dllInstallMsg:
-		m.dllInstallState = DLLInstallNone
-		m.dllOperating = false
-		if msg.result.Game != nil {
-			m.applyDLLResult(msg.result)
-			m.hasBackup = m.game != nil && m.services.BackupExists(m.game.AppID)
-			return m, m.LoadDLLUpdates()
-		}
-		return m, nil
-
-	case dllVersionsLoadedMsg:
-		m.dllVersions = msg.versions
-		m.dllVersionsLoaded = true
-		return m, nil
-	}
-
-	return m, nil
 }
 
 func (m ContentModel) loadDLLVersions() tea.Cmd {
 	dllType := m.selectedDLLType
+	requestID := m.dllRequestID
 	return func() tea.Msg {
 		manifest, err := dll.GetManifest(false, "")
 		if err != nil {
-			return dllInstallMsg{err: err}
+			return dllInstallMsg{requestID: requestID, err: err}
 		}
 		versions := manifest.DLLs[dllType]
-		return dllVersionsLoadedMsg{versions: versions}
+		return dllVersionsLoadedMsg{requestID: requestID, versions: versions}
 	}
 }
 
 func (m ContentModel) LoadDLLUpdates() tea.Cmd {
 	var detected []game.DetectedDLL
+	var appID uint64
 	if m.game != nil {
+		appID = m.game.AppID
 		detected = append(detected, m.game.DLLs...)
 	}
 	return func() tea.Msg {
 		if len(detected) == 0 {
-			return dllUpdatesCheckedMsg{hasUpdates: false}
+			return dllUpdatesCheckedMsg{appID: appID, hasUpdates: false}
 		}
 
 		manifest, err := dll.GetManifest(false, "")
 		if err != nil {
-			return dllUpdatesCheckedMsg{err: fmt.Errorf("failed to fetch manifest: %w", err)}
+			return dllUpdatesCheckedMsg{appID: appID, err: fmt.Errorf("failed to fetch manifest: %w", err)}
 		}
 
 		targets := latestDLLMutationTargets([]*game.Game{m.game}, manifest)
-		return dllUpdatesCheckedMsg{hasUpdates: len(targets) > 0, targets: targets}
+		return dllUpdatesCheckedMsg{appID: appID, hasUpdates: len(targets) > 0, targets: targets}
 	}
 }
 
 type dllVersionsLoadedMsg struct {
-	versions []dll.DLL
+	requestID uint64
+	versions  []dll.DLL
 }
 
 func (m ContentModel) installSelectedDLL() tea.Cmd {
@@ -448,8 +390,9 @@ func (m ContentModel) installSelectedDLL() tea.Cmd {
 	dllInfo := m.dllVersions[m.dllVersionCursor]
 	appID := m.game.AppID
 
+	requestID := m.dllRequestID
 	return func() tea.Msg {
 		result, err := m.services.installDLL(appID, dllType, dllInfo.Version)
-		return dllInstallMsg{result: result, err: err}
+		return dllInstallMsg{requestID: requestID, result: result, err: err}
 	}
 }
