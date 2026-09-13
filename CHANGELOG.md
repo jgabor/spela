@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-09-13
+
+### Added
+
+- Selectable TUI Actions menu for search, filters, sorting, layouts, saving, Help, and Quit.
+- Direct Install DLL, Update DLLs, and Restore originals controls in each game's DLLs view, with target counts and unavailable reasons.
+
+### Changed
+
+- Navigate the TUI with arrows, Tab, Enter, Space, and numbers, with Ctrl+S available for saving.
+- Cycle profile booleans and finite choices directly with Space, including default inheritance, explicit false and empty values, and Multi-frame options.
+- Cycle Settings choices with Space while retaining Enter editors for text and free-number fields.
+
+### Fixed
+
+- Match displayed key hints to the active pane, view, input mode, and action availability.
+- Preserve unsaved drafts across navigation and save failures, and require an explicit decision before discarding changes.
+- Keep TUI frames, field focus, DLL versions, and action controls visible at 80×24 and 120×40, including repeated resizing and disabled verbose hints.
+- Pass optional SMT values through profile validation as booleans or an explicit unset value.
+
 ## [0.6.1] - 2026-09-03
 
 ### Added
@@ -396,7 +416,8 @@ This release introduces a new vkd3d_heap toggle that enables the PROTON_VKD3D_HE
 - Restore interactive redo flow
 - Change summary model
 
-[unreleased]: https://github.com/jgabor/spela/compare/v0.6.1..HEAD
+[unreleased]: https://github.com/jgabor/spela/compare/v0.6.2..HEAD
+[0.6.2]: https://github.com/jgabor/spela/compare/v0.6.1..v0.6.2
 [0.6.1]: https://github.com/jgabor/spela/compare/v0.6.0..v0.6.1
 [0.6.0]: https://github.com/jgabor/spela/compare/v0.5.1..v0.6.0
 [0.5.1]: https://github.com/jgabor/spela/compare/v0.5.0..v0.5.1
