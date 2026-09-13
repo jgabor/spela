@@ -19,8 +19,8 @@ retains its own cursor, group, filters, and applicable draft when revisited.
 | Tab | Move between eligible List and Detail panes |
 | Up, Down | Move the focused list or profile field; scroll read-only detail when needed |
 | Left, Right | Change groups in Catalog/Settings List; change a selected game's Detail view |
-| Enter | Open List selection in Detail; edit a selected editable field |
-| Space | Toggle a Library game's selection |
+| Enter | Open List selection in Detail; edit text or a free number; run a selected DLL action |
+| Space | Toggle a Library game's selection; cycle a focused Detail choice |
 | Ctrl+S | Save the owning profile or Settings draft when that save context is available |
 
 Every workflow is reachable with arrows, Tab, Enter, Space, and numbers. Ctrl+S
@@ -99,10 +99,22 @@ an explicit override pin remains meaningful even when its value is false.
 
 ## Field editing and persistence
 
-Profile and Settings editors use Input, Apply, Cancel, and Save controls. Tab
-cycles through them; Left/Right choose buttons while a button owns focus. Bool
-and choice inputs accept arrows or Space. Text and number inputs accept their
-normal content and cursor controls.
+In Profile Detail, Space cycles a focused boolean or finite choice directly in
+the draft. Ordinary booleans use `(default)`, `true`, `false`, then `(default)`.
+For a game, `(default)` means inheritance, with the effective value shown beside
+it. For All games it means the system default. Explicit false, zero, empty text,
+and optional no-value choices remain distinct from inheritance. Finite numeric
+choices, such as Multi-frame, also cycle with Space. Returning to the original
+value and override state clears the draft's unsaved status.
+
+Settings boolean and finite choices cycle between their configured values with
+Space. They have no inheritance state. Space never saves. Save in Actions or
+Ctrl+S persists the draft. Choice fields do not advertise or open an Enter editor.
+
+Free text and numeric fields use Enter to open an editor with Input, Apply,
+Cancel, and Save controls. Tab cycles through them; Left/Right choose buttons
+while a button owns focus. Text and number inputs accept their normal content
+and cursor controls. Space is literal text only while an input owns focus.
 
 Enter on Input or Apply validates the field and applies it to the draft. Cancel
 drops only the current raw edit and retains earlier draft changes. Save and
@@ -126,8 +138,15 @@ do not advertise field editing or profile saving. Update all stale deployments
 is an explicit Catalog operation, available from either pane when targets exist.
 If invoked from List, its dialog reveals Detail and returns to List on dismissal.
 
-Library DLL Actions identifies the game and applicable install/update/restore
-target count. Install uses selectable type and version lists plus Back/Cancel.
+The Library game's DLLs view shows a direct action list below its versions:
+Install DLL, Update DLLs, and Restore originals. With Detail focused, Up/Down
+selects an action and Enter starts it. All three rows remain visible, including
+target counts and reasons for unavailable actions, at the minimum terminal size
+and with verbose hints disabled. Unavailable selections have no Enter hint.
+With List focused, the DLL view shows Tab to focus its controls. The same
+workflows remain available in Actions.
+
+Install uses selectable type and version lists plus Back/Cancel.
 All mutations show concrete files, versions, and backup/restore policy before
 execution. Cancel is the default. Tab accesses long details; arrows scroll them
 or select confirmation buttons according to focus. Busy operations expose a
@@ -136,6 +155,8 @@ wait state until completion. Results have a scrollable body and pinned Close.
 Completion messages update all views' game references. Request identities reject
 obsolete installer and update-check responses. Restore targets come from the
 actual backup metadata, including files absent from the current detection list.
+Restore originals restores Spela's recorded backups. It does not delete newly
+installed DLLs that have no original backup.
 Existing deny-list, backup, mutation, and persistence services remain authoritative.
 
 ## Monitor, Settings, and scans
@@ -145,8 +166,9 @@ Detail. Detail provides inspection and scrolling, with Tab returning to List.
 It exposes no edit/save action.
 
 Settings List owns the configured option groups and fields. Left/Right changes
-group, Up/Down selects a setting, and Enter opens Detail. A second Enter edits the
-field. Destination changes preserve its existing configuration draft.
+group, Up/Down selects a setting, and Enter opens Detail. Space cycles a choice
+there; Enter opens a text or free-number editor. Destination changes preserve
+its existing configuration draft.
 
 A scan captures its configuration snapshot and has one request identity. A
 pending scan disables another scan and normal Quit. Obsolete completions cannot

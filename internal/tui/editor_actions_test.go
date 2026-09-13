@@ -32,39 +32,39 @@ func TestProfileEditorSaveValidatesBeforeRequestingPersistence(t *testing.T) {
 
 func TestProfileEditorTabControlsApplyCancelSaveAndWrap(t *testing.T) {
 	detail := NewRootDetail(NewStyles(DefaultTheme, false), &profile.Profile{})
-	focusField(t, &detail, profile.FieldProtonEnableHDR)
+	focusField(t, &detail, profile.FieldGPUPowerLimit)
 	detail.UpdateAction(ActionDetailConfirm)
-	detail.UpdateAction(ActionEditToggle)
+	detail.editor.Set("275")
 	detail.UpdateAction(ActionFocusNext)
 	if detail.EditorEnterLabel() != "apply to draft" || detail.EditorInputFocused() {
 		t.Fatal("first Tab did not focus Apply")
 	}
-	if save, _ := detail.UpdateAction(ActionEditCommit); save || !detail.RawProfile().Proton.EnableHDR || !detail.Dirty() {
+	if save, _ := detail.UpdateAction(ActionEditCommit); save || detail.RawProfile().GPU.PowerLimit != 275 || !detail.Dirty() {
 		t.Fatal("Apply did not retain an unsaved draft")
 	}
 
-	focusField(t, &detail, profile.FieldProtonEnableWayland)
+	focusField(t, &detail, profile.FieldGPUShaderCachePath)
 	detail.UpdateAction(ActionDetailConfirm)
-	detail.UpdateAction(ActionEditToggle)
+	detail.editor.Set("/cancelled")
 	detail.UpdateAction(ActionFocusNext)
 	detail.UpdateAction(ActionFocusNext)
 	if detail.EditorEnterLabel() != "cancel edit" {
 		t.Fatal("second Tab did not focus Cancel")
 	}
 	detail.UpdateAction(ActionEditCommit)
-	if detail.Editing() || detail.RawProfile().Proton.EnableWayland || !detail.RawProfile().Proton.EnableHDR {
+	if detail.Editing() || detail.RawProfile().GPU.ShaderCachePath != "" || detail.RawProfile().GPU.PowerLimit != 275 {
 		t.Fatal("Cancel discarded an earlier field draft or applied the active edit")
 	}
 
 	detail.UpdateAction(ActionDetailConfirm)
-	detail.UpdateAction(ActionEditToggle)
+	detail.editor.Set("/saved")
 	for range 3 {
 		detail.UpdateAction(ActionFocusNext)
 	}
 	if detail.EditorEnterLabel() != "save" {
 		t.Fatal("third Tab did not focus Save")
 	}
-	if save, _ := detail.UpdateAction(ActionEditCommit); !save || !detail.RawProfile().Proton.EnableWayland {
+	if save, _ := detail.UpdateAction(ActionEditCommit); !save || detail.RawProfile().GPU.ShaderCachePath != "/saved" || detail.RawProfile().GPU.PowerLimit != 275 {
 		t.Fatal("selectable Save did not request the same persistence as Ctrl+S")
 	}
 	detail.UpdateAction(ActionDetailConfirm)
@@ -110,8 +110,10 @@ func TestProfileResetRemovesFalseDirtinessButPreservesExplicitPins(t *testing.T)
 			}
 			focusField(t, &detail, profile.FieldProtonEnableHDR)
 			detail.UpdateAction(ActionDetailConfirm)
-			detail.UpdateAction(ActionEditToggle)
-			detail.UpdateAction(ActionEditCommit)
+			if detail.Editing() || detail.Dirty() {
+				t.Fatal("Enter opened an editor or changed a cyclic field")
+			}
+			detail.UpdateAction(ActionDetailCycle)
 			if !detail.Dirty() {
 				t.Fatal("changed HDR did not mark the draft dirty")
 			}
@@ -119,10 +121,10 @@ func TestProfileResetRemovesFalseDirtinessButPreservesExplicitPins(t *testing.T)
 			if detail.Dirty() || detail.RawProfile().Proton.EnableHDR {
 				t.Fatal("reset back to the saved value retained nil-versus-empty map dirtiness")
 			}
-			// Applying false explicitly must still create a concrete pin, even
+			// Cycling to explicit false must still create a concrete pin, even
 			// though its value matches the currently inherited/system value.
-			detail.UpdateAction(ActionDetailConfirm)
-			detail.UpdateAction(ActionEditCommit)
+			detail.UpdateAction(ActionDetailCycle)
+			detail.UpdateAction(ActionDetailCycle)
 			if !detail.Dirty() || !detail.RawProfile().IsOverridden(profile.FieldProtonEnableHDR) || detail.RawProfile().Proton.EnableHDR {
 				t.Fatal("explicit false pin was mistaken for an unchanged inherited value")
 			}
@@ -138,9 +140,7 @@ func TestSettingsEditorSaveWritesExactPathAndAllPriorDraftChanges(t *testing.T) 
 	settings := NewOptionsModal(NewStyles(DefaultTheme, false))
 	settings.OpenEmbedded(config.Default())
 	settings.SyncNavSection(nav.SettingsDisplay)
-	settings, _ = settings.UpdateAction(ActionDetailConfirm)
-	settings, _ = settings.UpdateAction(ActionEditToggle)
-	settings, _ = settings.UpdateAction(ActionEditCommit)
+	settings, _ = settings.UpdateAction(ActionDetailCycle)
 	settings.SyncNavSection(nav.SettingsPaths)
 	settings, _ = settings.UpdateAction(ActionDetailConfirm)
 	path := "  /Spel bibliotek/åäö #1/[0]  "
@@ -184,10 +184,10 @@ func TestSettingsEditorCancelPreservesEarlierDraftAndIgnoresButtonsText(t *testi
 	}
 }
 
-func TestSettingsBrowseArrowsAndRemovedShortcutsCannotChangeValues(t *testing.T) {
+func TestSettingsBrowseArrowsEnterAndRemovedShortcutsCannotChangeValues(t *testing.T) {
 	settings := NewOptionsModal(NewStyles(DefaultTheme, true))
 	settings.OpenEmbedded(config.Default())
-	for _, key := range []string{"left", "right", "h", "l", "s", "esc"} {
+	for _, key := range []string{"left", "right", "enter", "h", "l", "s", "esc"} {
 		next, command := settings.Update(keyMsg(key))
 		settings = next
 		if command != nil || settings.Editing() || settings.Dirty() || !settings.draft.ShowHints {
@@ -200,10 +200,12 @@ func TestEditorsKeepBasicControlsVisibleWithoutVerboseHints(t *testing.T) {
 	styles := NewStyles(DefaultTheme, false)
 	detail := NewRootDetail(styles, &profile.Profile{})
 	detail.SetSize(68, 9)
-	detail.BeginEdit()
+	focusField(t, &detail, profile.FieldGPUPowerLimit)
+	detail.UpdateAction(ActionDetailConfirm)
 	settings := NewOptionsModal(styles)
 	settings.OpenEmbedded(config.Default())
 	settings.SetSize(68, 9)
+	settings.SyncNavSection(nav.SettingsPaths)
 	settings, _ = settings.UpdateAction(ActionDetailConfirm)
 	for name, view := range map[string]string{"profile": detail.View(), "settings": settings.DetailView()} {
 		view = stripANSI(view)

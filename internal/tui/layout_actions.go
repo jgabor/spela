@@ -25,16 +25,23 @@ func (m LayoutModel) actionContext() BindingContext {
 		c.CanMoveList, c.CanOpen = len(m.listPane.sidebar.filtered) > 0, m.listPane.sidebar.SelectedItem() != nil
 		c.CanSelect = m.listPane.sidebar.Selected() != nil
 		c.HasFields = c.ProfileScope && c.Aspect == nav.AspectProfile
-		c.Editable = c.HasFields
 		c.Scrollable = c.Aspect == nav.AspectOverview && m.pane.detailScrollMaximum() > 0
 		c.SaveAvailable = c.HasFields && c.Focus == FocusDetail
 		if c.HasFields {
 			detail := m.pane.profileDetail()
+			c.CanCycle = detail.CanCycleFocusedField()
+			c.Editable = !c.CanCycle
 			c.Dirty, c.EditorInput, c.EditorEnterLabel, c.EditorKind = detail.Dirty(), detail.EditorInputFocused(), detail.EditorEnterLabel(), detail.EditorInputKind()
+		}
+		if c.GameScope && c.Aspect == nav.AspectDLLs {
+			c.DLLActionCount = m.pane.content.DLLActionCount()
+			c.DLLSelectedAction = m.pane.content.DLLSelectedAction()
+			c.DLLSelectedName = m.pane.content.DLLSelectedActionName()
 		}
 	case nav.DestinationSettings:
 		c.CanMoveList, c.CanOpen = m.pane.settings.getCurrentOption() != nil, m.pane.settings.getCurrentOption() != nil
-		c.Editable = c.CanOpen && !m.pane.settings.Busy()
+		c.CanCycle = m.pane.settings.CanCycleFocusedField()
+		c.Editable = c.CanOpen && !c.CanCycle && !m.pane.settings.Busy()
 		c.SaveAvailable = !m.pane.settings.Busy()
 		c.Dirty = m.pane.settings.Dirty()
 		c.EditorInput, c.EditorEnterLabel, c.EditorKind = m.pane.settings.EditorInputFocused(), m.pane.settings.EditorEnterLabel(), m.pane.settings.EditorInputKind()
@@ -139,7 +146,7 @@ func (m LayoutModel) updatePaneAction(action KeyAction) (LayoutModel, tea.Cmd) {
 	wasEditing := m.pane.Editing()
 	var command tea.Cmd
 	m.pane, command = m.pane.UpdateAction(action)
-	if !wasEditing && m.pane.Editing() {
+	if !wasEditing && m.pane.Editing() || action == ActionDetailCycle {
 		m.messageBar.Clear()
 	}
 	if m.navState.Destination == nav.DestinationDLLCatalog {

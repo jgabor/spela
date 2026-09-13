@@ -130,7 +130,7 @@ func (p resourcePaneModel) View(contentFocused bool) string {
 
 func (p resourcePaneModel) renderLibrary(contentFocused bool) string {
 	if p.content.HasModalOpen() {
-		return p.content.ViewDLLAspect()
+		return p.content.ViewDLLAspectFocused(contentFocused)
 	}
 	s := p.styles
 
@@ -160,7 +160,7 @@ func (p resourcePaneModel) renderLibrary(contentFocused bool) string {
 		if p.State().Scope.Kind != nav.ScopeGame {
 			body.WriteString(s.Dim.Render("DLL management requires a selected game."))
 		} else {
-			body.WriteString(p.content.ViewDLLAspect())
+			body.WriteString(p.content.ViewDLLAspectFocused(contentFocused))
 		}
 	case nav.AspectProfile:
 		if p.State().Scope.Kind == nav.ScopeGlobal {
@@ -246,9 +246,11 @@ func (p resourcePaneModel) updateProfileDetail(msg tea.Msg) (resourcePaneModel, 
 	if !ok {
 		return p, nil
 	}
-	context := BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, ProfileScope: true, GameScope: p.State().Scope.Kind == nav.ScopeGame, Aspect: nav.AspectProfile, HasFields: true, Editable: true, Dirty: p.profileDetail().Dirty(), SaveAvailable: true}
+	detail := p.profileDetail()
+	context := BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, ProfileScope: true, GameScope: p.State().Scope.Kind == nav.ScopeGame, Aspect: nav.AspectProfile, HasFields: true, Editable: !detail.CanCycleFocusedField(), CanCycle: detail.CanCycleFocusedField(), Dirty: detail.Dirty(), SaveAvailable: true}
 	if p.Editing() {
 		context.Mode = ModeEdit
+		context.EditorInput, context.EditorKind, context.EditorEnterLabel = detail.EditorInputFocused(), detail.EditorInputKind(), detail.EditorEnterLabel()
 	}
 	resolution := CanonicalKeymap.Lookup(context, key.String())
 	if resolution.Binding.Action == ActionEditInput || !resolution.Supported && p.Editing() {

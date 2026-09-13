@@ -9,6 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jgabor/spela/internal/profile"
+	"gopkg.in/yaml.v3"
 )
 
 func TestTUIProfileEditorKinds(t *testing.T) {
@@ -20,53 +23,55 @@ func TestTUIProfileEditorKinds(t *testing.T) {
 			defaultsPath := filepath.Join(environment.ConfigHome, "spela", "profiles", "default.yaml")
 			originalDefaults := readEditorFixture(t, defaultsPath)
 			session := startTUI(t, environment, size.width, size.height)
-			artifacts := editorJourneyArtifacts(t, session, environment, size.width, size.height)
+			artifacts := editorJourneyArtifacts(t, session, environment, size.width, size.height, "editor-kinds")
 			openGameProfile(t, session)
 
-			// Choice Apply changes only the draft. Cancelling a later edit must
-			// keep that earlier choice, and Save persists the explicit override.
+			// Space cycles a finite choice in Browse. Saving remains explicit
+			// and is also reachable through the visible Actions menu.
 			focusProfileField(t, session, "Super resolution")
 			beforeChoice := readEditorFixture(t, profilePath)
-			beginProfileFieldEdit(t, session, "Super resolution", "balanced")
-			sendDisplayed(t, session, "right")
-			waitVisible(t, session, "quality")
-			captureEditorPhase(t, session, artifacts, "01-choice-input")
-			selectControl(t, session, "Apply")
+			requireScreen(t, session, []string{"Space"}, "Enter: Edit field")
+			sendDisplayed(t, session, " ")
 			waitProfileField(t, session, "Super resolution", "quality")
+			requireScreen(t, session, nil, "Value before edit:", "> Input")
+			captureEditorPhase(t, session, artifacts, "01-choice-draft")
 			requireEditorFixtureUnchanged(t, profilePath, beforeChoice)
-			beginProfileFieldEdit(t, session, "Super resolution", "quality")
-			sendDisplayed(t, session, "right")
-			waitVisible(t, session, "dlaa")
-			selectControl(t, session, "Cancel")
-			waitProfileField(t, session, "Super resolution", "quality")
-			requireEditorFixtureUnchanged(t, profilePath, beforeChoice)
-			beginProfileFieldEdit(t, session, "Super resolution", "quality")
-			selectControl(t, session, "Save")
+			chooseAction(t, session, "Save")
 			waitSavedProfile(t, session, profilePath, beforeChoice)
 			requireYAMLValue(t, profilePath, "quality", "dlss", "sr_mode")
 			requireYAMLValue(t, profilePath, true, "overrides", "dlss.sr_mode")
 			captureEditorPhase(t, session, artifacts, "02-choice-saved")
 
-			// Reset returns to the effective default immediately, but removes
-			// the game value and its pin from YAML only after an explicit Save.
+			// Cycling past the final choice restores inheritance. The state
+			// column shows its effective value, while the value is (default).
 			beforeReset := readEditorFixture(t, profilePath)
-			chooseAction(t, session, "Reset field to inherit")
-			waitProfileField(t, session, "Super resolution", "balanced")
+			sendDisplayed(t, session, " ")
+			waitProfileField(t, session, "Super resolution", "dlaa")
+			sendDisplayed(t, session, " ")
+			waitProfileField(t, session, "Super resolution", "(empty)")
+			requireEditorFixtureUnchanged(t, profilePath, beforeReset)
+			sendDisplayed(t, session, "ctrl-s")
+			waitSavedProfile(t, session, profilePath, beforeReset)
+			requireYAMLValue(t, profilePath, nil, "dlss", "sr_mode")
+			requireYAMLValue(t, profilePath, true, "overrides", "dlss.sr_mode")
+			captureEditorPhase(t, session, artifacts, "03-choice-explicit-empty")
+			beforeReset = readEditorFixture(t, profilePath)
+			sendDisplayed(t, session, " ")
+			waitProfileField(t, session, "Super resolution", "(default)")
+			requireScreen(t, session, []string{"↳ Default: balanced"}, "> ◆ Super resolution")
 			requireEditorFixtureUnchanged(t, profilePath, beforeReset)
 			sendDisplayed(t, session, "ctrl-s")
 			waitSavedProfile(t, session, profilePath, beforeReset)
 			requireYAMLValue(t, profilePath, nil, "dlss", "sr_mode")
 			requireYAMLValue(t, profilePath, nil, "overrides", "dlss.sr_mode")
 			requireYAMLValue(t, defaultsPath, "balanced", "dlss", "sr_mode")
-			beginProfileFieldEdit(t, session, "Super resolution", "balanced")
 			captureEditorPhase(t, session, artifacts, "03-choice-inherited")
-			selectControl(t, session, "Cancel")
-			waitProfileField(t, session, "Super resolution", "balanced")
 
 			// Invalid integer input must remain available for recovery while
 			// the previous file stays intact. Cancel/reopen corrects it using
 			// displayed controls, without relying on an undisplayed delete key.
 			focusProfileField(t, session, "Clock offset")
+			requireScreen(t, session, []string{"Enter: Edit field"}, "Space:")
 			beforeInteger := readEditorFixture(t, profilePath)
 			beginProfileFieldEdit(t, session, "Clock offset", "0")
 			typeIntoInput(t, session, "x")
@@ -94,10 +99,13 @@ func TestTUIProfileEditorKinds(t *testing.T) {
 			// Digits, punctuation, spaces, and locale text are literal input.
 			// A local Cancel must retain the path applied by the previous edit.
 			focusProfileField(t, session, "Shader cache path")
+			requireScreen(t, session, []string{"Enter: Edit field"}, "Space:")
 			beforeText := readEditorFixture(t, profilePath)
 			beginProfileFieldEdit(t, session, "Shader cache path", "")
 			const cachePath = "01234 /åäö/[cache]"
-			typeIntoInput(t, session, cachePath)
+			typeIntoInput(t, session, "01234")
+			sendDisplayed(t, session, " ")
+			typeIntoInput(t, session, "/åäö/[cache]")
 			waitVisible(t, session, cachePath+"▏")
 			requireInputOwnsKeys(t, session)
 			captureEditorPhase(t, session, artifacts, "07-path-input")
@@ -123,6 +131,103 @@ func TestTUIProfileEditorKinds(t *testing.T) {
 			captureEditorPhase(t, session, artifacts, "09-path-saved")
 			quitTUI(t, session, environment)
 		})
+	}
+}
+
+func TestTUIProfileSpaceCycles(t *testing.T) {
+	for _, size := range []struct{ width, height int }{{80, 24}, {120, 40}} {
+		for _, scope := range []string{"root", "game"} {
+			t.Run(fmt.Sprintf("%dx%d/%s", size.width, size.height, scope), func(t *testing.T) {
+				environment, cleanup := SetupTestEnvironment(t)
+				t.Cleanup(cleanup)
+				defaultsPath := filepath.Join(environment.ConfigHome, "spela", "profiles", "default.yaml")
+				gamePath := filepath.Join(environment.ConfigHome, "spela", "profiles", "1091500.yaml")
+				activePath := defaultsPath
+				if scope == "game" {
+					// Inheritance can resolve to true while the field remains
+					// (default). Its first Space must still create an explicit pin.
+					var defaults, gameProfile profile.Profile
+					if err := yaml.Unmarshal(readEditorFixture(t, defaultsPath), &defaults); err != nil {
+						t.Fatal(err)
+					}
+					if err := yaml.Unmarshal(readEditorFixture(t, gamePath), &gameProfile); err != nil {
+						t.Fatal(err)
+					}
+					defaults.Proton.EnableHDR = true
+					gameProfile.Proton.EnableHDR = false
+					delete(gameProfile.Overrides, "proton.enable_hdr")
+					writeYAML(t, defaultsPath, &defaults)
+					writeYAML(t, gamePath, &gameProfile)
+					activePath = gamePath
+				}
+				originalDefaults := readEditorFixture(t, defaultsPath)
+				originalGame := readEditorFixture(t, gamePath)
+				before := readEditorFixture(t, activePath)
+				session := startTUI(t, environment, size.width, size.height)
+				artifacts := editorJourneyArtifacts(t, session, environment, size.width, size.height, "space-"+scope)
+				if scope == "root" {
+					sendDisplayed(t, session, "up")
+					waitVisible(t, session, "> All games")
+					sendDisplayed(t, session, "enter")
+					waitVisible(t, session, "▸ Detail")
+				} else {
+					openGameProfile(t, session)
+					waitProfileField(t, session, "HDR", "(default)")
+					requireScreen(t, session, []string{"↳ Default: true"}, "> ◆ HDR")
+
+					// The same displayed Space selects a game when List owns
+					// focus. It must not change the profile behind that pane.
+					sendDisplayed(t, session, "tab")
+					waitVisible(t, session, "▸ List")
+					sendDisplayed(t, session, " ")
+					waitVisible(t, session, "Selected: 1 total, 1 visible")
+					requireEditorFixtureUnchanged(t, activePath, before)
+					sendDisplayed(t, session, " ")
+					waitForScreen(t, session, "cleared List selection", func(screen string) bool {
+						return !strings.Contains(screen, "Selected:")
+					})
+					sendDisplayed(t, session, "tab")
+					waitVisible(t, session, "▸ Detail")
+					waitProfileField(t, session, "HDR", "(default)")
+					requireScreen(t, session, nil, "Unsaved changes")
+				}
+
+				for _, field := range []struct {
+					label, artifact string
+					values          []string
+				}{
+					{"HDR", "hdr", []string{"true", "false", "(default)"}},
+					{"VKD3D heap", "vkd3d", []string{"true", "false", "(default)"}},
+					{"Ray reconstruction", "ray", []string{"off", "ultra_performance", "performance", "balanced", "quality", "dlaa", "(empty)", "(default)"}},
+					{"Multi-frame", "multi-frame", []string{"0", "1", "2", "3", "4", "(default)"}},
+				} {
+					focusProfileField(t, session, field.label)
+					waitProfileField(t, session, field.label, "(default)")
+					for index, expected := range field.values {
+						requireScreen(t, session, []string{"Space"}, "Enter: Edit field")
+						sendDisplayed(t, session, " ")
+						waitProfileField(t, session, field.label, expected)
+						requireScreen(t, session, nil, "Value before edit:", "> Input")
+						if scope == "game" {
+							if expected == "(default)" {
+								requireScreen(t, session, nil, "> ◆ "+field.label)
+							} else {
+								requireScreen(t, session, []string{"> ◆ " + field.label})
+							}
+						}
+						requireEditorFixtureUnchanged(t, activePath, before)
+						if field.artifact == "hdr" || field.artifact == "vkd3d" || expected == "(default)" {
+							captureEditorPhase(t, session, artifacts, fmt.Sprintf("%s-%02d", field.artifact, index+1))
+						}
+					}
+					// A full cycle restores the original draft, including pins.
+					requireScreen(t, session, nil, "Unsaved changes", "Ctrl+S")
+				}
+				requireEditorFixtureUnchanged(t, defaultsPath, originalDefaults)
+				requireEditorFixtureUnchanged(t, gamePath, originalGame)
+				quitTUI(t, session, environment)
+			})
+		}
 	}
 }
 
@@ -152,7 +257,10 @@ func focusProfileField(t *testing.T, session *Session, label string) {
 	t.Helper()
 	seen := make(map[string]bool)
 	for range 64 {
-		screen := requireScreen(t, session, []string{"[Profile]", "▸ Detail"})
+		screen := requireScreen(t, session, []string{"▸ Detail"})
+		if !strings.Contains(screen, "[Profile]") && !strings.Contains(screen, "All games (default profile)") {
+			t.Fatalf("profile navigation requires the visible root or game Profile view:\n%s", screen)
+		}
 		selected := selectedProfileField(screen)
 		if strings.HasPrefix(selected, label+"  ") {
 			return
@@ -173,7 +281,11 @@ func waitProfileField(t *testing.T, session *Session, label, value string) {
 	t.Helper()
 	waitForScreen(t, session, label+" in profile Browse", func(screen string) bool {
 		selected := selectedProfileField(screen)
-		return strings.HasPrefix(selected, label+"  ") && strings.Contains(selected, value) && !strings.Contains(screen, "Value before edit:")
+		if !strings.HasPrefix(selected, label+"  ") || strings.Contains(screen, "Value before edit:") {
+			return false
+		}
+		columns := strings.Fields(strings.TrimPrefix(selected, label))
+		return len(columns) > 0 && columns[0] == value
 	})
 }
 
@@ -220,13 +332,13 @@ func captureEditorPhase(t *testing.T, session *Session, directory, phase string)
 	}
 }
 
-func editorJourneyArtifacts(t *testing.T, session *Session, environment *TestEnvironment, width, height int) string {
+func editorJourneyArtifacts(t *testing.T, session *Session, environment *TestEnvironment, width, height int, journey string) string {
 	t.Helper()
 	root := os.Getenv("SPELA_E2E_EDITOR_ARTIFACTS")
 	if root == "" {
 		return ""
 	}
-	directory := filepath.Join(root, fmt.Sprintf("%dx%d", width, height))
+	directory := filepath.Join(root, fmt.Sprintf("%dx%d", width, height), journey)
 	if err := os.MkdirAll(directory, 0o755); err != nil {
 		t.Fatal(err)
 	}

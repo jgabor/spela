@@ -73,21 +73,27 @@ func TestOptionsModalEditsEveryCatalogOptionThroughKeyboardContract(t *testing.T
 		for optionIndex, option := range section.Options {
 			modal.optionCursor = optionIndex
 			before := modal.getConfigValue(option.Key)
-			next, _ := modal.Update(keyMsg("enter"))
-			modal = next
-			if !modal.Editing() || modal.getConfigValue(option.Key) != before {
-				t.Fatalf("%s did not open an isolated field editor", option.Key)
-			}
 			switch option.Kind {
 			case config.KindPath:
+				modal, _ = modal.Update(keyMsg("enter"))
+				if !modal.Editing() || modal.getConfigValue(option.Key) != before {
+					t.Fatalf("%s did not open an isolated field editor", option.Key)
+				}
 				modal.pathInput.SetValue("/contract/" + option.Key)
+				modal, _ = modal.Update(keyMsg("enter"))
 			case config.KindBool, config.KindEnum:
-				modal, _ = modal.Update(keyMsg("right"))
+				modal, _ = modal.Update(keyMsg("enter"))
+				if modal.Editing() || modal.getConfigValue(option.Key) != before {
+					t.Fatalf("Enter changed cyclic setting %s or opened an editor", option.Key)
+				}
+				next, command := modal.Update(keyMsg("space"))
+				modal = next
+				if command != nil || modal.Editing() || option.Get(modal.config) != before {
+					t.Fatalf("Space saved %s or opened an editor", option.Key)
+				}
 			default:
 				t.Fatalf("add keyboard coverage for newly exposed option kind %v", option.Kind)
 			}
-			next, _ = modal.Update(keyMsg("enter"))
-			modal = next
 			after := modal.getConfigValue(option.Key)
 			if before == after {
 				t.Errorf("keyboard edit did not change %s from %q", option.Key, before)

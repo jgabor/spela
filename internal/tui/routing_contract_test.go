@@ -137,7 +137,7 @@ func TestHorizontalListKeysRunOnlyForGroupedLists(t *testing.T) {
 	}
 }
 
-func TestValueAdjustmentRequiresAnExplicitEditor(t *testing.T) {
+func TestFiniteChoicesCycleInBrowseAndTextStillUsesAnEditor(t *testing.T) {
 	layout := testLayout()
 	layout.pane.loadGlobalScope()
 	layout.focus = FocusDetail
@@ -147,10 +147,15 @@ func TestValueAdjustmentRequiresAnExplicitEditor(t *testing.T) {
 	if layout.pane.defaultsDetail.Dirty() {
 		t.Fatal("Browse arrow changed a value")
 	}
-	model, _ = sendKeys(&layout, "enter", "right", "enter")
+	model, _ = sendKey(&layout, "enter")
 	layout = model.(LayoutModel)
-	if !layout.pane.defaultsDetail.RawProfile().Proton.VKD3DHeap {
-		t.Fatal("explicit editor did not apply the choice")
+	if layout.pane.defaultsDetail.Editing() || layout.pane.defaultsDetail.Dirty() {
+		t.Fatal("Enter opened an editor or changed a cyclic profile field")
+	}
+	model, _ = sendKey(&layout, "space")
+	layout = model.(LayoutModel)
+	if layout.pane.defaultsDetail.Editing() || !layout.pane.defaultsDetail.Dirty() || !layout.pane.defaultsDetail.RawProfile().Proton.VKD3DHeap {
+		t.Fatal("Space did not cycle the profile draft directly")
 	}
 	layout.selectDestination(nav.DestinationSettings)
 	layout.focus = FocusDetail
@@ -159,10 +164,15 @@ func TestValueAdjustmentRequiresAnExplicitEditor(t *testing.T) {
 	if layout.pane.settings.Dirty() {
 		t.Fatal("Settings Browse arrow changed a value")
 	}
-	model, _ = sendKeys(&layout, "enter", "right", "enter")
+	model, _ = sendKey(&layout, "enter")
 	layout = model.(LayoutModel)
-	if !layout.pane.settings.Dirty() {
-		t.Fatal("Settings editor did not apply the choice")
+	if layout.pane.settings.Editing() || layout.pane.settings.Dirty() {
+		t.Fatal("Enter opened an editor or changed a cyclic Settings field")
+	}
+	model, _ = sendKey(&layout, "space")
+	layout = model.(LayoutModel)
+	if layout.pane.settings.Editing() || !layout.pane.settings.Dirty() {
+		t.Fatal("Space did not cycle the Settings draft directly")
 	}
 	layout.navState.SettingsSection = nav.SettingsPaths
 	layout.pane.SetState(*layout.navState)

@@ -133,6 +133,8 @@ func (m OptionsModalModel) Update(msg tea.Msg) (OptionsModalModel, tea.Cmd) {
 			action = ActionDetailNextItem
 		case "enter":
 			action = ActionDetailConfirm
+		case "space":
+			action = ActionDetailCycle
 		case "ctrl+s":
 			action = ActionDetailSave
 		default:
@@ -200,7 +202,11 @@ func (m OptionsModalModel) UpdateAction(action KeyAction) (OptionsModalModel, te
 	case ActionDetailNextItem, ActionListNext:
 		m.moveCursor(1)
 	case ActionDetailConfirm:
-		m.beginEditor()
+		if !m.CanCycleFocusedField() {
+			m.beginEditor()
+		}
+	case ActionDetailCycle:
+		m.cycleValue(1)
 	case ActionDetailSave:
 		return m.save()
 	case ActionCancelDraft:
@@ -430,16 +436,33 @@ func (m OptionsModalModel) editorView() string {
 	return strings.Join(lines, "\n")
 }
 
-// cycleValue is a draft operation used by catalog-level callers. It is not a
-// Browse key binding: interactive changes go through the visible editor.
-func (m *OptionsModalModel) cycleValue(direction int) {
+// CanCycleFocusedField reports whether Space can change the selected setting.
+func (m OptionsModalModel) CanCycleFocusedField() bool {
 	option := m.getCurrentOption()
-	if option == nil || option.Kind == config.KindPath || len(option.Choices) == 0 || m.saving {
+	return option != nil && m.draft != nil && option.Kind != config.KindPath && len(option.Choices) > 0 && !m.saving
+}
+
+// cycleValue changes only the draft and leaves focus on the setting.
+func (m *OptionsModalModel) cycleValue(direction int) {
+	if m.Editing() || !m.CanCycleFocusedField() {
 		return
 	}
-	m.beginEditor()
-	m.editor.Cycle(direction)
-	m.applyEditor()
+	option := m.getCurrentOption()
+	current := option.Get(m.draft)
+	index := 0
+	for choiceIndex, choice := range option.Choices {
+		if choice == current {
+			index = choiceIndex
+			break
+		}
+	}
+	step := 1
+	if direction < 0 {
+		step = -1
+	}
+	value := option.Choices[(index+step+len(option.Choices))%len(option.Choices)]
+	m.saveError = option.Set(m.draft, value)
+	m.modified = m.config == nil || !configsEqual(m.config, m.draft)
 }
 
 func (m OptionsModalModel) getConfigValue(key string) string {

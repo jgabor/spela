@@ -472,9 +472,14 @@ func TestResourcePane_RootMutationPersistsAndRetainsSelection(t *testing.T) {
 	wantField := pane.defaultsDetail.FocusedField()
 	wantCursor := pane.defaultsDetail.Cursor()
 
-	mutated, _ := pane.Update(keyMsg("enter"))
-	mutated, _ = mutated.Update(keyMsg("right"))
-	mutated, _ = mutated.Update(keyMsg("enter"))
+	mutated, command := pane.Update(keyMsg("space"))
+	if command != nil || mutated.defaultsDetail.Editing() || !mutated.defaultsDetail.Dirty() {
+		t.Fatal("Space must change only the draft without opening an editor or saving")
+	}
+	beforeSave, err := profile.LoadDefault()
+	if err != nil || beforeSave.DLSS.SROverride || beforeSave.IsOverridden(profile.FieldDLSSSROverride) {
+		t.Fatalf("Space changed persisted defaults before Save: profile=%#v, error=%v", beforeSave, err)
+	}
 	mutated, saveCommand := mutated.Update(keyMsg("ctrl+s"))
 	if saveCommand == nil {
 		t.Fatal("root mutation returned no save command")

@@ -34,7 +34,7 @@ func actionRelevant(action KeyAction, context BindingContext) bool {
 	case ActionDetailSave, ActionCancelDraft:
 		return context.SaveAvailable
 	case ActionDetailConfirm:
-		return context.Editable
+		return context.Editable || context.DLLActionCount > 0
 	default:
 		return true
 	}
@@ -43,6 +43,10 @@ func actionRelevant(action KeyAction, context BindingContext) bool {
 func (k Keymap) MenuBindings(context BindingContext) []BindingResolution {
 	var items []BindingResolution
 	for _, binding := range k.bindings {
+		// DLL workflows already have their own named menu entries.
+		if binding.Action == ActionDetailConfirm && context.DLLActionCount > 0 {
+			continue
+		}
 		if !binding.Menu || binding.Mode != context.Mode || (binding.Focus != FocusAny && binding.Focus != context.Focus) || !actionRelevant(binding.Action, context) {
 			continue
 		}

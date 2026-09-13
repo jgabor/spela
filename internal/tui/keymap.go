@@ -92,6 +92,7 @@ const (
 	ActionDetailDecrease      KeyAction = "detail-decrease"
 	ActionDetailIncrease      KeyAction = "detail-increase"
 	ActionDetailConfirm       KeyAction = "detail-confirm"
+	ActionDetailCycle         KeyAction = "detail-cycle"
 	ActionDetailSave          KeyAction = "detail-save"
 	ActionDetailReset         KeyAction = "detail-reset"
 	ActionDetailResetAll      KeyAction = "detail-reset-all"
@@ -141,6 +142,10 @@ type BindingContext struct {
 	CanSelect            bool
 	CanSwitchPane        bool
 	Editable             bool
+	CanCycle             bool
+	DLLActionCount       int
+	DLLSelectedAction    KeyAction
+	DLLSelectedName      string
 	HasFields            bool
 	Scrollable           bool
 	Dirty                bool
@@ -377,7 +382,14 @@ var CanonicalKeymap = NewKeymap(
 	}},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailPreviousItem, Description: "Previous field", Keys: []KeyLabel{key("up", "↑")}, Availability: detailMovementAvailable},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailNextItem, Description: "Next field", Keys: []KeyLabel{key("down", "↓")}, Availability: detailMovementAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailConfirm, Description: "Edit field", Keys: []KeyLabel{key("enter", "Enter")}, Availability: func(c BindingContext) (bool, string) { return c.Editable, "no editable field" }, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailConfirm, Description: "Edit field", Keys: []KeyLabel{key("enter", "Enter")}, Availability: func(c BindingContext) (bool, string) {
+		if c.DLLActionCount > 0 {
+			availability := c.DLLActions[c.DLLSelectedAction]
+			return availability.available, availability.reason
+		}
+		return c.Editable, "no editable field"
+	}, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailCycle, Description: "Next value", Keys: []KeyLabel{key("space", "Space")}, Availability: func(c BindingContext) (bool, string) { return c.CanCycle, "no choice field" }},
 	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionDetailSave, Description: "Save", Keys: []KeyLabel{key("ctrl+s", "Ctrl+S")}, Availability: saveAvailable, Menu: true},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionStartSearch, Description: "Search games", Availability: libraryAvailable, Menu: true},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListToggleDLLFilter, Description: "Toggle DLL filter", Availability: libraryAvailable, Menu: true},
@@ -440,7 +452,7 @@ var CanonicalKeymap = NewKeymap(
 )
 
 func detailMovementAvailable(c BindingContext) (bool, string) {
-	return c.HasFields || c.Scrollable, "no fields or overflowing content"
+	return c.HasFields || c.Scrollable || c.DLLActionCount > 0, "no fields, actions or overflowing content"
 }
 
 func saveAvailable(c BindingContext) (bool, string) {
@@ -475,12 +487,20 @@ func describeBinding(binding KeyBinding, c BindingContext) KeyBinding {
 			binding.Description = "Batch actions"
 		}
 	case ActionDetailPreviousItem:
-		if !c.HasFields && c.Mode == ModeBrowse {
+		if c.DLLActionCount > 0 && c.Mode == ModeBrowse {
+			binding.Description = "Previous action"
+		} else if !c.HasFields && c.Mode == ModeBrowse {
 			binding.Description = "Scroll up"
 		}
 	case ActionDetailNextItem:
-		if !c.HasFields && c.Mode == ModeBrowse {
+		if c.DLLActionCount > 0 && c.Mode == ModeBrowse {
+			binding.Description = "Next action"
+		} else if !c.HasFields && c.Mode == ModeBrowse {
 			binding.Description = "Scroll down"
+		}
+	case ActionDetailConfirm:
+		if c.DLLActionCount > 0 {
+			binding.Description = c.DLLSelectedName
 		}
 	case ActionDetailReset:
 		if !c.GameScope {

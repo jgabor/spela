@@ -228,7 +228,11 @@ func (m *DetailModel) UpdateAction(action KeyAction) (saveRequested bool, handle
 	case ActionDetailNextItem, ActionListNext:
 		m.cursor = max(min(m.cursor+1, len(m.focusableRows)-1), 0)
 	case ActionDetailConfirm:
-		m.BeginEdit()
+		if !m.CanCycleFocusedField() {
+			m.BeginEdit()
+		}
+	case ActionDetailCycle:
+		m.CycleFocusedField(1)
 	case ActionDetailSave:
 		return m.Dirty(), true
 	case ActionDetailReset:
@@ -342,13 +346,13 @@ func (m *DetailModel) setFocusedEditorValue(value string) error {
 		typed = parsed
 	case profile.PrimitiveOptionalBool:
 		if value == "" {
-			typed = (*bool)(nil)
+			typed = nil
 		} else {
 			parsed, err := strconv.ParseBool(value)
 			if err != nil {
 				return fmt.Errorf("invalid boolean: %s", value)
 			}
-			typed = &parsed
+			typed = parsed
 		}
 	}
 	return m.raw.Set(descriptor.Key, typed)
@@ -448,6 +452,8 @@ func (m DetailModel) Update(msg tea.Msg) (DetailModel, tea.Cmd, bool) {
 		action = ActionDetailNextItem
 	case "up":
 		action = ActionDetailPreviousItem
+	case "space":
+		action = ActionDetailCycle
 	default:
 		return m, nil, false
 	}
@@ -455,24 +461,28 @@ func (m DetailModel) Update(msg tea.Msg) (DetailModel, tea.Cmd, bool) {
 	return m, nil, handled
 }
 
-// CycleFocusedField cycles the focused field on a root defaults profile.
-// Bool fields rotate through "(default)", "true", and "false". Returns true
-// when the value changed.
+// CanCycleFocusedField identifies fields with a finite set of draft values.
+func (m DetailModel) CanCycleFocusedField() bool {
+	return m.raw != nil && len(fieldCycleOptions(m.FocusedField())) > 0
+}
+
+// CycleFocusedField advances a draft choice without opening an editor or saving.
+// The first choice resets the field to its inherited or system default.
 func (m *DetailModel) CycleFocusedField(direction int) bool {
-	if !m.isRoot || m.raw == nil {
+	if m.Editing() || !m.CanCycleFocusedField() {
 		return false
 	}
 	field := m.FocusedField()
-	if field == "" {
-		return false
+	options := fieldCycleOptions(field)
+	current := "(default)"
+	if m.isRoot && !m.rootFieldAtDefault(field) || !m.isRoot && m.raw.IsOverridden(field) {
+		value, err := profile.ReadField(m.raw, field)
+		if err != nil {
+			m.saveError = err
+			return false
+		}
+		current = profileEditorValue(value)
 	}
-
-	options := rootFieldOptions(field)
-	if len(options) == 0 {
-		return false
-	}
-
-	current := formatRootFieldValue(m.resolved, field)
 	idx := 0
 	for i, opt := range options {
 		if opt == current {
@@ -488,7 +498,14 @@ func (m *DetailModel) CycleFocusedField(direction int) bool {
 	if next == current {
 		return false
 	}
-	if !applyRootFieldValue(m.raw, field, next) {
+	var err error
+	if next == "(default)" {
+		err = m.raw.Reset(field)
+	} else {
+		err = m.setFocusedEditorValue(next)
+	}
+	m.saveError = err
+	if err != nil {
 		return false
 	}
 	m.rebuildResolved()
@@ -651,6 +668,8 @@ func (m DetailModel) ViewFocused(focused bool) string {
 			value = formatRootFieldValue(m.resolved, row.field)
 		} else if overridden {
 			value = formatExplicitFieldValue(m.raw, row.field)
+		} else if len(fieldCycleOptions(row.field)) > 0 {
+			value = "(default)"
 		}
 		if i == focusedRow && m.editor.Active() {
 			value = m.editor.Value()
@@ -764,12 +783,15 @@ func (m DetailModel) formatFieldSemantics(field string) string {
 	return fieldEffect(profile.FieldDescriptor{Impact: explanation.Impact, Restore: explanation.Restore})
 }
 
-func (m DetailModel) formatFieldState(_ string, overridden bool) string {
+func (m DetailModel) formatFieldState(field string, overridden bool) string {
 	if m.isRoot {
 		return "○ Default for all games"
 	}
 	if overridden {
 		return "Override for this game"
+	}
+	if len(fieldCycleOptions(field)) > 0 {
+		return "↳ Default: " + formatExplicitFieldValue(m.resolved, field)
 	}
 	return "↳ Inherited from defaults"
 }
@@ -792,22 +814,31 @@ func fieldEffect(descriptor profile.FieldDescriptor) string {
 	return effect + "; " + restore
 }
 
-func rootFieldOptions(field string) []string {
-	if descriptor, ok := profile.Field(field); ok && descriptor.Kind == profile.PrimitiveBool {
+func fieldCycleOptions(field string) []string {
+	descriptor, ok := profile.Field(field)
+	if !ok {
+		return nil
+	}
+	if descriptor.Kind == profile.PrimitiveBool {
 		return []string{"(default)", "true", "false"}
 	}
-	return nil
-}
-
-func applyRootFieldValue(p *profile.Profile, field, value string) bool {
-	descriptor, ok := profile.Field(field)
-	if !ok || descriptor.Kind != profile.PrimitiveBool {
-		return false
+	if len(descriptor.AllowedValues) == 0 {
+		return nil
 	}
-	if value == "(default)" {
-		return p.Reset(field) == nil
+	options := []string{"(default)"}
+	hasEmpty := false
+	for _, value := range descriptor.AllowedValues {
+		if value == "" {
+			hasEmpty = true
+		} else {
+			options = append(options, value)
+		}
 	}
-	return p.Set(field, value == "true") == nil
+	// An explicit empty value can disable a value inherited from defaults.
+	if hasEmpty {
+		options = append(options, "")
+	}
+	return options
 }
 
 func formatRootBoolField(p *profile.Profile, field string) string {

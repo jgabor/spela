@@ -11,6 +11,71 @@ import (
 	"github.com/jgabor/spela/internal/dll"
 )
 
+var gameDLLActions = [...]KeyAction{ActionDetailInstall, ActionDetailUpdate, ActionDetailRestore}
+
+// DLLActionCount includes unavailable controls, so their reasons stay reachable.
+func (m ContentModel) DLLActionCount() int {
+	if m.game == nil {
+		return 0
+	}
+	return len(gameDLLActions)
+}
+
+func (m ContentModel) DLLSelectedAction() KeyAction {
+	if m.DLLActionCount() == 0 {
+		return ""
+	}
+	return gameDLLActions[min(max(m.dllActionCursor, 0), len(gameDLLActions)-1)]
+}
+
+func (m ContentModel) DLLSelectedActionName() string {
+	return gameDLLActionName(m.DLLSelectedAction())
+}
+
+func gameDLLActionName(action KeyAction) string {
+	switch action {
+	case ActionDetailInstall:
+		return "Install DLL"
+	case ActionDetailUpdate:
+		return "Update DLLs"
+	case ActionDetailRestore:
+		return "Restore originals"
+	}
+	return ""
+}
+
+func (m ContentModel) dllActionTitle(action KeyAction) string {
+	name := gameDLLActionName(action)
+	switch action {
+	case ActionDetailUpdate:
+		unit := "files"
+		if len(m.dllUpdateTargets) == 1 {
+			unit = "file"
+		}
+		return fmt.Sprintf("%s (%d %s)", name, len(m.dllUpdateTargets), unit)
+	case ActionDetailRestore:
+		if count, known := m.dllBackupFileCount(); known {
+			unit := "files"
+			if count == 1 {
+				unit = "file"
+			}
+			return fmt.Sprintf("%s (%d %s)", name, count, unit)
+		}
+	}
+	return name
+}
+
+func (m ContentModel) dllBackupFileCount() (int, bool) {
+	if m.game == nil || !m.hasBackup {
+		return 0, true
+	}
+	backup, err := m.services.loadDLLBackup(m.game.AppID)
+	if err != nil || backup == nil {
+		return 0, false
+	}
+	return len(backup.Files), true
+}
+
 // DLLActionAvailability describes the current target and pending state for the
 // shell Actions menu. Dispatch checks it again before opening a workflow.
 func (m ContentModel) DLLActionAvailability(action KeyAction) (bool, string) {
@@ -32,6 +97,9 @@ func (m ContentModel) DLLActionAvailability(action KeyAction) (bool, string) {
 		if !m.hasBackup {
 			return false, "no backup for this game"
 		}
+		if count, known := m.dllBackupFileCount(); known && count == 0 {
+			return false, "backup has no original files"
+		}
 		return true, ""
 	}
 	return false, "not a DLL action"
@@ -48,15 +116,13 @@ func (m ContentModel) DLLActionLabel(action KeyAction) string {
 	case ActionDetailUpdate:
 		return fmt.Sprintf("Update stale DLLs: %s (%d)", name, len(m.dllUpdateTargets))
 	case ActionDetailRestore:
-		label := "Restore DLL backups: " + name
-		if m.game != nil && m.hasBackup {
-			if backup, err := m.services.loadDLLBackup(m.game.AppID); err == nil && backup != nil {
-				unit := "files"
-				if len(backup.Files) == 1 {
-					unit = "file"
-				}
-				label += fmt.Sprintf(" (%d %s)", len(backup.Files), unit)
+		label := "Restore originals: " + name
+		if count, known := m.dllBackupFileCount(); known {
+			unit := "files"
+			if count == 1 {
+				unit = "file"
 			}
+			label += fmt.Sprintf(" (%d %s)", count, unit)
 		}
 		return label
 	}
@@ -175,6 +241,16 @@ func (m ContentModel) UpdateDLLAction(action KeyAction) (ContentModel, tea.Cmd) 
 	}
 	if m.dllInstallState != DLLInstallNone {
 		return m.updateDLLChooserAction(action)
+	}
+	switch action {
+	case ActionDetailPreviousItem:
+		m.dllActionCursor = max(m.dllActionCursor-1, 0)
+		return m, nil
+	case ActionDetailNextItem:
+		m.dllActionCursor = min(m.dllActionCursor+1, max(m.DLLActionCount()-1, 0))
+		return m, nil
+	case ActionDetailConfirm:
+		action = m.DLLSelectedAction()
 	}
 	if available, _ := m.DLLActionAvailability(action); !available {
 		return m, nil

@@ -65,6 +65,7 @@ type ContentModel struct {
 	scrollOffset        int
 
 	dllRequestID      uint64
+	dllActionCursor   int
 	dllInstallControl int
 	dllResultOpen     bool
 	dllInstallState   DLLInstallState
@@ -192,6 +193,9 @@ func NewContent(styles *Styles, confirmDestructive bool, svc *Services) ContentM
 }
 
 func (m ContentModel) SetGame(g *game.Game) ContentModel {
+	if m.game == nil || g == nil || m.game.AppID != g.AppID {
+		m.dllActionCursor = 0
+	}
 	if m.game != nil && g != nil && m.game.AppID == g.AppID && (m.detail.Dirty() || m.detail.Editing()) {
 		m.game = g
 		m.hasBackup = m.services.BackupExists(g.AppID)
@@ -302,13 +306,7 @@ func (m ContentModel) ViewProfileAspect() string {
 
 // ViewDLLAspect renders Library › DLLs for the selected game.
 func (m ContentModel) ViewDLLAspect() string {
-	if m.dllInstallState != DLLInstallNone {
-		return m.renderDLLInstallDialog()
-	}
-	if m.game == nil {
-		return m.styles.Dim.Render("Select a game from the scope list")
-	}
-	return m.renderDLLs()
+	return m.ViewDLLAspectFocused(true)
 }
 
 func (m ContentModel) loadDLLTypes() tea.Cmd {

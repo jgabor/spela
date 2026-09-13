@@ -300,17 +300,30 @@ func openGameProfile(t *testing.T, session *Session) {
 	waitVisible(t, session, "[Profile]")
 }
 
-func setBooleanEditor(t *testing.T, session *Session, save bool) {
+func cycleBooleanDraft(t *testing.T, session *Session, save bool) {
 	t.Helper()
-	sendDisplayed(t, session, "enter")
-	waitVisible(t, session, "Value before edit:")
-	requireInputOwnsKeys(t, session)
+	requireScreen(t, session, []string{"Space"}, "Enter: Edit field", "Value before edit:")
 	sendDisplayed(t, session, " ")
+	waitVisible(t, session, "Ctrl+S")
+	requireScreen(t, session, nil, "Value before edit:", "> Input")
 	if save {
 		sendDisplayed(t, session, "ctrl-s")
-	} else {
-		sendDisplayed(t, session, "enter")
 	}
+}
+
+func waitSettingsDraftValue(t *testing.T, session *Session, value string) {
+	t.Helper()
+	waitForScreen(t, session, "Settings draft value "+value, func(screen string) bool {
+		lines := strings.Split(screen, "\n")
+		for index, line := range lines {
+			if !strings.Contains(line, "Draft value") || index+1 >= len(lines) {
+				continue
+			}
+			cells := strings.Split(lines[index+1], "│")
+			return len(cells) >= 3 && strings.TrimSpace(cells[len(cells)-2]) == value
+		}
+		return false
+	})
 }
 
 func TestTUILiveHeaderSuccessiveWidthChanges(t *testing.T) {
@@ -378,7 +391,7 @@ func TestTUIJourneyStandard(t *testing.T) {
 	})
 	requireScreen(t, session, []string{"Cyberpunk 2077"}, "Elden Ring")
 	openGameProfile(t, session)
-	setBooleanEditor(t, session, true)
+	cycleBooleanDraft(t, session, true)
 	waitVisible(t, session, "Profile saved!")
 	requireScreen(t, session, []string{"HDR", "false"}, "Unsaved changes", "Edit HDR")
 	requireProfileHDR(t, filepath.Join(environment.ConfigHome, "spela", "profiles", "1091500.yaml"), false)
@@ -411,7 +424,7 @@ func TestTUIDefaultDraftReopenResetAndDiscard(t *testing.T) {
 			waitVisible(t, session, "> All games")
 			sendDisplayed(t, session, "enter")
 			waitVisible(t, session, "▸ Detail")
-			setBooleanEditor(t, session, false)
+			cycleBooleanDraft(t, session, false)
 			waitVisible(t, session, "Unsaved changes")
 			sendDisplayed(t, session, "2")
 			waitForScreen(t, session, "DLL Catalog List", func(screen string) bool {
@@ -426,7 +439,7 @@ func TestTUIDefaultDraftReopenResetAndDiscard(t *testing.T) {
 			waitForScreen(t, session, "reset root draft", func(screen string) bool {
 				return !strings.Contains(screen, "Unsaved changes") && strings.Contains(screen, "HDR")
 			})
-			setBooleanEditor(t, session, false)
+			cycleBooleanDraft(t, session, false)
 			waitVisible(t, session, "Unsaved changes")
 			chooseAction(t, session, "Discard draft")
 			waitVisible(t, session, "Enter: Cancel")
@@ -447,7 +460,7 @@ func TestTUIUnsavedQuitCancelAndSave(t *testing.T) {
 	waitVisible(t, session, "> All games")
 	sendDisplayed(t, session, "enter")
 	waitVisible(t, session, "▸ Detail")
-	setBooleanEditor(t, session, false)
+	cycleBooleanDraft(t, session, false)
 	waitVisible(t, session, "Unsaved changes")
 	chooseAction(t, session, "Quit")
 	waitVisible(t, session, "Save and continue")
@@ -483,13 +496,26 @@ func TestTUISettingsEditorSaveAndHints(t *testing.T) {
 				height = 24
 			}
 			session := startTUI(t, environment, width, height)
+			artifacts := editorJourneyArtifacts(t, session, environment, width, height, "settings")
 			sendDisplayed(t, session, "4")
 			waitVisible(t, session, "Show hints")
 			sendDisplayed(t, session, "enter")
 			waitVisible(t, session, "▸ Detail")
-			setBooleanEditor(t, session, true)
+			configurationPath := filepath.Join(environment.ConfigHome, "spela", "config.yaml")
+			originalConfiguration := readEditorFixture(t, configurationPath)
+			cycleBooleanDraft(t, session, false)
+			waitSettingsDraftValue(t, session, "false")
+			requireEditorFixtureUnchanged(t, configurationPath, originalConfiguration)
+			captureEditorPhase(t, session, artifacts, "01-boolean-draft")
+			sendDisplayed(t, session, " ")
+			waitSettingsDraftValue(t, session, "true")
+			requireScreen(t, session, nil, "Unsaved changes", "Ctrl+S", "(default)", "> Input")
+			requireEditorFixtureUnchanged(t, configurationPath, originalConfiguration)
+			captureEditorPhase(t, session, artifacts, "02-boolean-round-trip")
+			cycleBooleanDraft(t, session, true)
 			waitVisible(t, session, "saved")
-			requireYAMLValue(t, filepath.Join(environment.ConfigHome, "spela", "config.yaml"), false, "show_hints")
+			requireYAMLValue(t, configurationPath, false, "show_hints")
+			captureEditorPhase(t, session, artifacts, "03-boolean-saved")
 			chooseAction(t, session, "Help")
 			waitVisible(t, session, "Keyboard shortcuts")
 			selectControl(t, session, "Close")
@@ -516,9 +542,11 @@ func TestTUISettingsEditorSaveAndHints(t *testing.T) {
 			typeIntoInput(t, session, steamPath)
 			waitVisible(t, session, "01234 [ö]")
 			requireInputOwnsKeys(t, session)
+			captureEditorPhase(t, session, artifacts, "04-path-input")
 			sendDisplayed(t, session, "ctrl-s")
 			waitVisible(t, session, "saved")
 			requireYAMLValue(t, filepath.Join(environment.ConfigHome, "spela", "config.yaml"), steamPath, "steam_path")
+			captureEditorPhase(t, session, artifacts, "05-path-saved")
 			sendDisplayed(t, session, "enter")
 			waitVisible(t, session, "Input")
 			typeIntoInput(t, session, " cancelled")

@@ -67,10 +67,8 @@ func draftEditHDR(t *testing.T, layout *LayoutModel) {
 	}
 	layout.focus = FocusDetail
 	focusField(t, layout.pane.profileDetail(), profile.FieldProtonEnableHDR)
-	for _, key := range []string{"enter", "space", "enter"} {
-		draftKey(layout, key)
-	}
-	if !layout.pane.profileDetail().Dirty() || !layout.pane.profileDetail().RawProfile().Proton.EnableHDR {
+	draftKey(layout, "space")
+	if layout.pane.profileDetail().Editing() || !layout.pane.profileDetail().Dirty() || !layout.pane.profileDetail().RawProfile().Proton.EnableHDR {
 		t.Fatal("keyboard setup did not create an HDR draft")
 	}
 }
@@ -344,7 +342,7 @@ func TestDraftNavigationOlderSaveResultPreservesLaterEdits(t *testing.T) {
 			}
 			draftEditHDR(t, &layout)
 			messages := draftSaveResults(t, draftKey(&layout, "ctrl+s"))
-			for _, key := range []string{"down", "enter", "space", "enter"} {
+			for _, key := range []string{"down", "space"} {
 				draftKey(&layout, key)
 			}
 			for _, message := range messages {
@@ -395,8 +393,13 @@ func TestDraftNavigationRescanWaitsForActiveEditor(t *testing.T) {
 			draftSelect(t, &layout, 1091500)
 			layout.navState.Aspect = nav.AspectProfile
 			layout.syncNavToComponents()
+			layout.focus = FocusDetail
+			focusField(t, &layout.pane.content.detail, profile.FieldGPUShaderCachePath)
 			draftKey(&layout, "enter")
-			draftKey(&layout, "space")
+			const draftPath = "/rescan draft 01234"
+			for _, character := range draftPath {
+				draftKey(&layout, string(character))
+			}
 			beforeDatabase, beforeScope := layout.db, layout.navState.Scope
 			replacement := testDatabase(layout.db.GetGame(1245620))
 			updated, _ := layout.Update(rescanGamesMsg{db: replacement})
@@ -413,7 +416,7 @@ func TestDraftNavigationRescanWaitsForActiveEditor(t *testing.T) {
 				t.Fatal("leaving the editor did not resume the pending rescan")
 			}
 			if choice == "Apply" {
-				if layout.decision == nil || layout.db != beforeDatabase || layout.navState.Scope != beforeScope || !layout.pane.content.detail.Dirty() {
+				if layout.decision == nil || layout.db != beforeDatabase || layout.navState.Scope != beforeScope || !layout.pane.content.detail.Dirty() || layout.pane.content.detail.RawProfile().GPU.ShaderCachePath != draftPath {
 					t.Fatal("applied editor value was replaced without a draft decision")
 				}
 			} else if layout.decision != nil || layout.db != replacement || layout.navState.Scope == beforeScope || layout.profileDirty() {

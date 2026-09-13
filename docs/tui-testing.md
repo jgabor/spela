@@ -5,6 +5,19 @@ change that can affect Spela's interactive terminal. Build a compiled executable
 run it in a named session, wait for visible content, and read `termctrl show`.
 Unit tests and raw terminal logs do not establish visual correctness.
 
+For profile choices, focus Detail and use its displayed Space control. Verify
+HDR and VKD3D heap through `(default)` to `true` to `false` to `(default)`, then
+save an explicit value with Ctrl+S or Actions > Save and inspect the isolated
+profile. Check both All games and a game with a nonempty inherited default.
+Space must stay with Library selection while List has focus. Text and free-number
+fields must show Enter in Detail and accept Space as text only inside the editor.
+
+For game DLLs, use the visible Install DLL, Update DLLs, and Restore originals
+rows directly with Up/Down and Enter. Verify disabled reasons and that Enter is
+absent for an unavailable selection. Review both pane focus states, both terminal
+sizes, and `show_hints: false`. Confirm fixture file contents after Update and
+Restore originals; merely opening a dialog does not verify the mutation.
+
 ## Terminal Control version
 
 Use Terminal Control 1.2.1 or a newer version that passes the compatibility test:
