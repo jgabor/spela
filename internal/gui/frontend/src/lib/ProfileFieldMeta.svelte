@@ -10,7 +10,7 @@
   const dispatch = createEventDispatcher()
   $: actionFields = fields.length ? fields : [field]
   $: operation = profileMode === 'default' || semantic?.source === 'override' ? 'reset' : 'pin'
-  $: label = profileMode === 'default' ? 'Unset' : operation === 'reset' ? 'Reset' : 'Pin'
+  $: label = profileMode === 'default' ? (field === 'gpu.vrr' ? 'Reset default' : 'Unset') : operation === 'reset' ? 'Reset' : 'Pin'
   $: text = semantic
     ? profileMode === 'default'
       ? `impact ${semantic.impact} · restore ${semantic.restore}`

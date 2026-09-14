@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/jgabor/spela/internal/cpu"
+	"github.com/jgabor/spela/internal/display"
 	"github.com/jgabor/spela/internal/env"
 	"github.com/jgabor/spela/internal/gpu"
 	"github.com/jgabor/spela/internal/logging"
@@ -40,6 +41,15 @@ func (p *Profile) Apply(e *env.Environment) []Cleanup {
 	cleanup = append(cleanup, p.applyProton(e)...)
 	cleanup = append(cleanup, p.applyDLSS(e)...)
 	cleanup = append(cleanup, p.applyGPU(e)...)
+
+	// Display policy belongs to the ordinary desktop session, not pkexec.
+	restoreDisplay, err := display.ApplyVRR(p.GPU.VRR)
+	if err != nil {
+		logging.Warn("failed to apply KDE VRR policy", "error", err)
+	}
+	if restoreDisplay != nil {
+		cleanup = append(cleanup, Cleanup{Area: "KDE VRR", Run: restoreDisplay})
+	}
 
 	if hwCleanup, err := p.applyHardware(); err != nil {
 		logging.Warn("failed to apply hardware settings", "error", err)

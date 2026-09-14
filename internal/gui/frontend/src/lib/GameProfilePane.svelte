@@ -8,6 +8,7 @@
     rrPresetOptions,
     multiFrameOptions,
     powerMizerOptions,
+    vrrOptions,
     frameGenerationOptions,
     clockOffsetOptions,
     memoryOffsetOptions,
@@ -230,6 +231,18 @@
         />
         <span class="hint">GPU power policy for the game.</span>
         <ProfileFieldMeta field="gpu.power_mizer" semantic={semanticsByField['gpu.power_mizer']} {profileMode} pendingOperation={pendingOperations['gpu.power_mizer']} on:action={forwardPatchAction} />
+      </div>
+
+      <div class="field">
+        <label for="vrr">KDE VRR</label>
+        <Dropdown
+          bind:value={profile.vrr}
+          options={vrrOptions}
+          placeholder="Unconfigured — leave KDE unchanged"
+          on:change={() => fieldChanged('gpu.vrr')}
+        />
+        <span class="hint">KDE Wayland primary display only. Restored after a tracked Steam wrapper launch. Unset prevents changes; {profileMode === 'default' ? 'Reset default clears the policy.' : 'Reset inherits defaults.'}</span>
+        <ProfileFieldMeta field="gpu.vrr" semantic={semanticsByField['gpu.vrr']} {profileMode} pendingOperation={pendingOperations['gpu.vrr']} on:action={forwardPatchAction} />
       </div>
 
       <div class="field">

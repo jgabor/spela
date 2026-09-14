@@ -1,0 +1,25 @@
+id: nepwfghtud
+artifact: plan
+record:
+  name: Expose, document, and verify the feature
+  depends_on:
+    - wtdynkqmeq
+    - uderzzxpja
+  status: complete
+  acceptance:
+    - GIVEN profile editors WHEN selecting, saving, inspecting, or resetting VRR THEN the setting and inheritance behave consistently.
+    - GIVEN documentation WHEN configuring VRR THEN users can understand choices, KDE requirements, inheritance, and restoration.
+    - GIVEN automated verification WHEN exercising scoped policies and failures THEN behavior passes without real display mutation.
+    - GIVEN final delivery WHEN build, test, lint, and isolated TUI and GUI visual checks run THEN all required checks pass.
+    - GIVEN verified delivery WHEN closing the feature THEN TODO pftgocuqob reflects completed acceptance.
+  plan: jmnhtuudhf
+  evaluation:
+    attempt_count: 1
+    failure_count: 0
+    last_verdict: pass
+    last_failure_evidence: null
+    provenance:
+      attempt_id: kde-vrr-audit-1
+      source: "Independent audit ses_f5f8463efffekxdXcB74epGXY0: TUI/GUI/CLI editing and inspection, documentation, mage test/lint/build, compiled 120x40 and 80x24 terminal evidence and built-frontend Chromium screenshots PASS. Real display mutation intentionally excluded; TODO resolved after verification."
+      recorded_at: 2026-09-14 17:18
+      writer_command: agentera state plan record-evaluation

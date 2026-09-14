@@ -37,6 +37,9 @@ func unmarshalProfileYAML(data []byte) (*Profile, error) {
 	if err := yaml.Unmarshal(data, &doc); err != nil {
 		return nil, err
 	}
+	if err := WriteField(&Profile{}, FieldGPUVRR, doc.GPU.VRR); err != nil {
+		return nil, err
+	}
 	p := &Profile{
 		Name:      doc.Name,
 		GPU:       doc.GPU,

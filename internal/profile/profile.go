@@ -72,6 +72,7 @@ type DLSSSettings struct {
 }
 
 type GPUSettings struct {
+	VRR                  string `yaml:"vrr,omitempty"`
 	ShaderCache          bool   `yaml:"shader_cache,omitempty"`
 	ShaderCachePath      string `yaml:"shader_cache_path,omitempty"`
 	ThreadedOptimization bool   `yaml:"threaded_optimization,omitempty"`

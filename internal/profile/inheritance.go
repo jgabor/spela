@@ -27,6 +27,7 @@ const (
 	FieldDLSSFGIndicator = "dlss.fg_indicator"
 
 	FieldGPUShaderCache          = "gpu.shader_cache"
+	FieldGPUVRR                  = "gpu.vrr"
 	FieldGPUShaderCachePath      = "gpu.shader_cache_path"
 	FieldGPUThreadedOptimization = "gpu.threaded_optimization"
 	FieldGPUClockOffset          = "gpu.clock_offset"
@@ -284,6 +285,15 @@ func migrateInheritance(p *Profile, defaults *Profile) {
 	for _, field := range AllFields() {
 		pv, err := fieldAccessor(p, field)
 		if err != nil {
+			continue
+		}
+
+		// VRR is new: omission in legacy files inherits, while any literal
+		// policy (including unset) is explicit, even if equal to defaults.
+		if field == FieldGPUVRR {
+			if !pv.IsZero() {
+				p.Overrides[field] = true
+			}
 			continue
 		}
 

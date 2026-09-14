@@ -216,6 +216,8 @@ func TestLaunchReportsCleanupFailureWithoutHidingLaunchResult(t *testing.T) {
 
 func TestSignalForwarding(t *testing.T) {
 	l := New(nil)
+	checkVRR := prepareVRRFixture(t, l)
+	requirePrepare(t, l)
 
 	var cleanupRan bool
 	l.OnCleanup(func() { cleanupRan = true })
@@ -244,6 +246,7 @@ func TestSignalForwarding(t *testing.T) {
 	if !cleanupRan {
 		t.Error("cleanup did not run after signal-terminated launch")
 	}
+	checkVRR()
 }
 
 func TestPrepareOverlayCreatesIPC(t *testing.T) {

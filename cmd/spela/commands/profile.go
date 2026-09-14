@@ -168,6 +168,7 @@ func runProfileShow(cmd *cobra.Command, args []string) error {
 
 	// GPU
 	fmt.Printf("\n%s\n", tui.CLIPrimary("GPU"))
+	fmt.Printf("  %s  %s\n", tui.CLIDim("KDE VRR:"), profileVal(p.GPU.VRR))
 	fmt.Printf("  %s  %v\n", tui.CLIDim("Shader cache:"), p.GPU.ShaderCache)
 	fmt.Printf("  %s  %s\n", tui.CLIDim("Shader cache path:"), profileVal(p.GPU.ShaderCachePath))
 	fmt.Printf("  %s  %v\n", tui.CLIDim("Threaded opt:"), p.GPU.ThreadedOptimization)

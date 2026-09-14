@@ -1,0 +1,42 @@
+id: jmnhtuudhf
+artifact: plan
+record:
+  header:
+    level: full
+    created: 2026-09-14
+    status: complete
+    reviewed: 2026-09-14
+    critic_issues: 0 found, 0 addressed, 0 dismissed
+    title: "Plan: KDE primary-display VRR policy"
+  what: "Deliver TODO pftgocuqob: configurable KDE VRR policy for the primary display, with unset, automatic, always, and never choices. Apply explicit policies for tracked game launches and restore the previous policy during cleanup."
+  why: Let users choose VRR behavior per game without manually changing desktop settings or unexpectedly replacing their existing KDE preferences.
+  constraints: "Default to unset, a strict no-op. Preserve existing profile inheritance: inherited values follow the defaults profile; an explicit unset override prevents VRR changes even when defaults specify another policy. Unconfigured installations remain unchanged. Use the normal user session without privileged hardware elevation. Never target secondary displays or substitute another display during restoration. Preserve existing launch failure behavior while clearly reporting VRR application and cleanup failures. Do not change real display settings during automated tests or visual review."
+  overall_acceptance: GIVEN an unconfigured or explicitly unset effective policy WHEN Spela prepares a game THEN KDE settings remain unchanged. GIVEN a supported primary display and an explicit policy WHEN a tracked game launches THEN only that display receives the requested policy and cleanup restores its captured policy. GIVEN unsupported or failed operations WHEN preparing or cleaning up THEN Spela reports the problem without changing another display.
+  scope:
+    included:
+      - Profile persistence, validation, inheritance, explicit unset overrides, and compatibility with existing configurations.
+      - Automatic means fullscreen-only VRR; always means desktop and games; never means disabled VRR.
+      - Dynamic KDE primary-display discovery and capture of its current VRR policy before any mutation.
+      - Application through kscreen-doctor in the normal user session and restoration on the original display.
+      - No mutation for unset, dry runs, unavailable tooling, unsupported VRR or sessions, ambiguous discovery, or unreadable prior policy.
+      - Restoration after normal exit, failure after application, and handled termination; clear reporting for disconnected displays and restoration failures.
+      - Existing TUI and GUI profile editors and inspection output, including selection, save, inheritance reset, and explanations.
+      - Documentation of the four choices, KDE requirements, inheritance, and temporary application with restoration.
+      - Automated tests covering all choices, no-op defaults, inheritance, primary selection, command and discovery failures, and cleanup using isolated fixtures.
+      - "Verification: mage test, mage lint, and mage build must pass; investigate failures rather than claiming unverified acceptance."
+      - Compiled TUI visual review follows docs/tui-testing.md with isolated state and Terminal Control at 120x40 and 80x24, including keyboard editing, save, and reset paths; inspect rendered screens and stop sessions. GUI changes receive visual verification.
+      - "Test proportionality: one passing and one failing case per testable unit, with additional cases for the four policy choices, inheritance distinction, and cleanup paths required by this feature."
+      - Confirm the completed feature against current acceptance and resolve TODO pftgocuqob only after verification passes.
+    excluded:
+      - Other desktop environments and secondary-display controls.
+      - Persistent desktop-policy commands and unrelated GPU tuning.
+    deferred:
+      []
+  design: First establish the setting's storage, inheritance, and validation behavior. Next verify display-discovery compatibility and connect explicit policies to tracked launch preparation and cleanup, capturing previous state before mutation. Finally expose the setting through existing configuration surfaces, document its lifecycle, and verify the complete user workflow.
+  unknowns:
+    - question: How do supported KDE versions identify the primary output and expose its current VRR policy?
+      affects_task: 2
+      resolve_by: Verify representative discovery output before implementing selection in task 2; unsupported or ambiguous output must remain a reported no-op. Revisit the plan if evidence changes downstream acceptance.
+  surprises:
+    []
+  previous_plan_archived: ajcnhmbmoh

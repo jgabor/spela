@@ -63,6 +63,7 @@ var fieldDescriptors = []FieldDescriptor{
 	{FieldDLSSFGIndicator, "dlss", PrimitiveBool, "FG indicator", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
 
 	{FieldGPUClockOffset, "gpu", PrimitiveInt, "Clock offset", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "", ""},
+	{FieldGPUVRR, "gpu", PrimitiveString, "KDE VRR", []string{"", "unset", "automatic", "always", "never"}, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "Primary display only: unset leaves KDE unchanged; automatic uses fullscreen VRR; always includes the desktop; never disables VRR. Restored after tracked launch. Reset inherits defaults.", EditorChoice},
 	{FieldGPUMemoryOffset, "gpu", PrimitiveInt, "Memory offset", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "", ""},
 	{FieldGPUPowerLimit, "gpu", PrimitiveInt, "Power limit", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "", ""},
 	{FieldGPUFanSpeed, "gpu", PrimitiveInt, "Fan speed", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "", ""},

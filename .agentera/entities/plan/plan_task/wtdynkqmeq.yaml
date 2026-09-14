@@ -1,0 +1,22 @@
+id: wtdynkqmeq
+artifact: plan
+record:
+  name: Add the profile setting and compatibility rules
+  depends_on:
+    []
+  status: complete
+  acceptance:
+    - GIVEN no VRR configuration WHEN profiles load and apply THEN the current display policy remains unchanged.
+    - GIVEN defaults specify a policy WHEN a game explicitly overrides it with unset THEN VRR remains untouched; inheritance still follows defaults when selected.
+    - GIVEN a supported policy WHEN saved and reloaded THEN its value and inheritance state persist; invalid values are rejected clearly.
+  plan: jmnhtuudhf
+  evaluation:
+    attempt_count: 1
+    failure_count: 0
+    last_verdict: pass
+    last_failure_evidence: null
+    provenance:
+      attempt_id: kde-vrr-audit-1
+      source: "Independent audit ses_f5f8463efffekxdXcB74epGXY0: profile no-op defaults, explicit unset versus inheritance, save/load and invalid-value tests PASS; matching mage test/lint/build evidence reviewed."
+      recorded_at: 2026-09-14 17:18
+      writer_command: agentera state plan record-evaluation

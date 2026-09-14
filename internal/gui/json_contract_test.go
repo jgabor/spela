@@ -59,7 +59,7 @@ func TestProfileViewJSONKeysRemainCompatible(t *testing.T) {
 		got = append(got, key)
 	}
 	sort.Strings(got)
-	want := []string{"clockOffset", "enableHdr", "enableNgxUpdater", "enableWayland", "fgEnabled", "fgIndicator", "fgOverride", "governor", "indicator", "inheritedFromDefault", "memoryOffset", "multiFrame", "overlayEnabled", "overlayPosition", "overlayShowCpu", "overlayShowFps", "overlayShowFrametime", "overlayShowGpu", "overlayShowVram", "overlayToggleKey", "powerMizer", "rrMode", "rrOverride", "rrPreset", "semantics", "shaderCache", "shaderCachePath", "smt", "srMode", "srOverride", "srPreset", "threadedOptimization", "vkd3dHeap"}
+	want := []string{"clockOffset", "enableHdr", "enableNgxUpdater", "enableWayland", "fgEnabled", "fgIndicator", "fgOverride", "governor", "indicator", "inheritedFromDefault", "memoryOffset", "multiFrame", "overlayEnabled", "overlayPosition", "overlayShowCpu", "overlayShowFps", "overlayShowFrametime", "overlayShowGpu", "overlayShowVram", "overlayToggleKey", "powerMizer", "rrMode", "rrOverride", "rrPreset", "semantics", "shaderCache", "shaderCachePath", "smt", "srMode", "srOverride", "srPreset", "threadedOptimization", "vkd3dHeap", "vrr"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("profile view JSON keys = %v, want %v", got, want)
 	}

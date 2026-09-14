@@ -7,8 +7,8 @@ import (
 )
 
 func TestFieldDescriptorsExhaustProfileLeavesExactlyOnce(t *testing.T) {
-	if got := len(Fields()); got != 34 {
-		t.Fatalf("descriptor count = %d, want 34", got)
+	if got := len(Fields()); got != 35 {
+		t.Fatalf("descriptor count = %d, want 35", got)
 	}
 	seen := map[string]bool{}
 	for _, descriptor := range Fields() {

@@ -41,8 +41,9 @@ func TestConfigCLITextAndErrorContract(t *testing.T) {
 func TestProfileCLITextJSONAndErrorContract(t *testing.T) {
 	withTempXDG(t)
 	seedGame(t, "Cyberpunk 2077", 1091500)
-	p := &profile.Profile{Name: "Quality", Proton: profile.ProtonSettings{EnableHDR: true}}
+	p := &profile.Profile{Name: "Quality", Proton: profile.ProtonSettings{EnableHDR: true}, GPU: profile.GPUSettings{VRR: "unset"}}
 	p.MarkOverride(profile.FieldProtonEnableHDR)
+	p.MarkOverride(profile.FieldGPUVRR)
 	if err := profile.Save(1091500, p); err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +54,7 @@ func TestProfileCLITextJSONAndErrorContract(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	for _, fragment := range []string{"Profile for", "Cyberpunk 2077", "DLSS", "HDR:", "true", "Overlay"} {
+	for _, fragment := range []string{"Profile for", "Cyberpunk 2077", "DLSS", "HDR:", "true", "Overlay", "KDE VRR:", "unset"} {
 		if !strings.Contains(text, fragment) {
 			t.Errorf("profile text missing %q:\n%s", fragment, text)
 		}

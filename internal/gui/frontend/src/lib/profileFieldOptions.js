@@ -48,6 +48,13 @@ export const powerMizerOptions = [
   { value: 'max', label: 'Max performance' }
 ]
 
+export const vrrOptions = [
+  { value: 'unset', label: 'Unset — leave KDE unchanged' },
+  { value: 'automatic', label: 'Automatic — fullscreen only' },
+  { value: 'always', label: 'Always — desktop and games' },
+  { value: 'never', label: 'Never — disable VRR' }
+]
+
 export const frameGenerationOptions = [
   { value: 'no_override', label: 'No override value' },
   { value: 'enabled', label: 'Enabled' },
@@ -109,6 +116,7 @@ export const profileFieldDefinitions = [
   ['fgIndicator', 'dlss.fg_indicator', false], ['multiFrame', 'dlss.multi_frame', 0],
   ['indicator', 'dlss.indicator', false], ['shaderCache', 'gpu.shader_cache', false],
   ['shaderCachePath', 'gpu.shader_cache_path', ''],
+  ['vrr', 'gpu.vrr', ''],
   ['threadedOptimization', 'gpu.threaded_optimization', false],
   ['powerMizer', 'gpu.power_mizer', ''], ['clockOffset', 'gpu.clock_offset', 0],
   ['memoryOffset', 'gpu.memory_offset', 0], ['governor', 'cpu.governor', ''],

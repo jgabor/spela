@@ -15,7 +15,7 @@ func TestProfileYAMLContractCoversEveryLeaf(t *testing.T) {
 	p := &Profile{
 		Name:      "Cyberpunk contract",
 		DLSS:      DLSSSettings{SRMode: DLSSModeQuality, SRPreset: DLSSPresetK, SROverride: true, RRMode: DLSSModeDLAA, RRPreset: DLSSPresetL, RROverride: true, FGEnabled: true, FGOverride: true, MultiFrame: 4, Indicator: true, FGIndicator: true},
-		GPU:       GPUSettings{ShaderCache: true, ShaderCachePath: "/shader-cache", ThreadedOptimization: true, ClockOffset: 120, MemoryOffset: 500, PowerLimit: 300, PowerMizer: "prefer_maximum_performance", FanSpeed: 70},
+		GPU:       GPUSettings{VRR: "automatic", ShaderCache: true, ShaderCachePath: "/shader-cache", ThreadedOptimization: true, ClockOffset: 120, MemoryOffset: 500, PowerLimit: 300, PowerMizer: "prefer_maximum_performance", FanSpeed: 70},
 		CPU:       CPUSettings{Governor: "performance", SMT: &smt, Affinity: "0-7"},
 		Proton:    ProtonSettings{EnableWayland: true, EnableHDR: true, EnableNGXUpdater: true, VKD3DHeap: true},
 		Overlay:   OverlaySettings{Enabled: true, Position: "top-right", ShowFPS: true, ShowFrametime: true, ShowCPU: true, ShowGPU: true, ShowVRAM: true, ToggleKey: "F12"},
@@ -42,6 +42,7 @@ dlss:
     indicator: true
     fg_indicator: true
 gpu:
+    vrr: automatic
     shader_cache: true
     shader_cache_path: /shader-cache
     threaded_optimization: true
@@ -91,6 +92,7 @@ overrides:
     gpu.shader_cache: true
     gpu.shader_cache_path: true
     gpu.threaded_optimization: true
+    gpu.vrr: true
     overlay.enabled: true
     overlay.position: true
     overlay.show_cpu: true

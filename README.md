@@ -92,6 +92,50 @@ replace the Steam wrapper launch path.
 
 ## Profiles
 
+### Temporary KDE VRR policy
+
+In the TUI or GUI GPU profile settings, **KDE VRR** controls only the current
+primary display for tracked launches (`spela %command%` in Steam):
+
+| Value | Behavior |
+|-------|----------|
+| `unset` | Leave the current KDE policy unchanged |
+| `automatic` | Use VRR for fullscreen content |
+| `always` | Use VRR on the desktop and in games |
+| `never` | Disable VRR |
+
+Unconfigured installs do not change display policy. Game fields inherit the
+defaults profile unless overridden. Choosing literal `unset` is an explicit
+no-change override, **not** a reset: it prevents changes even if defaults specify
+`always`. Reset returns a game field to inheritance; Reset default clears the
+default setting. TUI Space cycles `(default)`, `unset`, `automatic`, `always`,
+`never`; Ctrl+S saves, and Actions > Reset field restores inheritance.
+`spela gpu show 1091500` displays the effective policy and its inheritance marker;
+`spela profile show 1091500` displays the stored profile.
+
+For example, pin a game's no-change policy in its YAML profile:
+
+```yaml
+gpu:
+  vrr: unset
+overrides:
+  gpu.vrr: true
+```
+
+This requires KDE Plasma Wayland, a VRR-capable primary display, and
+`kscreen-doctor` with UUID/priority/VRR discovery (verified against Plasma 6.5
+source and 6.7.5 output). Spela invokes it as the ordinary session user, without
+elevation. Unsupported sessions, missing tooling, unsupported VRR, ambiguous
+output or unreadable prior state produce warnings and skip the change.
+Dry runs never invoke display control.
+
+Spela captures the original display UUID and policy before applying a change,
+then restores that display on normal exit, launch/preparation failure, or handled
+termination. A disconnected or replaced display is never substituted with the
+new primary; restore failures are reported. As with other temporary settings,
+SIGKILL, a crash, or power loss cannot run cleanup. See
+[KDE discovery compatibility](docs/kde-vrr.md) for the verified discovery contract.
+
 Per-game YAML profiles stored in `~/.config/spela/profiles/`. A profile controls:
 
 ```yaml

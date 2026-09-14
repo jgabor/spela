@@ -65,6 +65,9 @@ export const profiles = {
 }
 
 export const defaultProfile = {
+  clockOffset: 0,
+  memoryOffset: 0,
+  vrr: '',
   preset: 'balanced',
   srMode: 'balanced',
   srOverride: false,

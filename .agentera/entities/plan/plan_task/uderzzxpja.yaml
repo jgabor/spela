@@ -1,0 +1,24 @@
+id: uderzzxpja
+artifact: plan
+record:
+  name: Apply and restore the primary-display policy
+  depends_on:
+    - wtdynkqmeq
+  status: complete
+  acceptance:
+    - GIVEN verified KDE discovery WHEN applying an explicit policy THEN only the supported primary display changes.
+    - GIVEN a successful change WHEN cleanup follows exit, launch failure, or handled termination THEN the original display's captured policy is restored.
+    - GIVEN unavailable tooling, unsupported VRR, ambiguous discovery, or unreadable prior state WHEN preparing THEN warn without mutation.
+    - GIVEN unset or a dry run WHEN preparing THEN no policy-changing command runs.
+    - GIVEN restoration failure or disconnection WHEN cleaning up THEN report it without targeting another display.
+  plan: jmnhtuudhf
+  evaluation:
+    attempt_count: 1
+    failure_count: 0
+    last_verdict: pass
+    last_failure_evidence: null
+    provenance:
+      attempt_id: kde-vrr-audit-1
+      source: "Independent audit ses_f5f8463efffekxdXcB74epGXY0: priority-1 and UUID discovery, primary-only apply, original-display restoration, no-op/unsafe preparation, SIGTERM and failure cleanup PASS; KDE source contract verified."
+      recorded_at: 2026-09-14 17:18
+      writer_command: agentera state plan record-evaluation

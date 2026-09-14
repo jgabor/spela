@@ -21,6 +21,7 @@ func TestProfileSpaceCyclesPreserveInheritanceAndExplicitValues(t *testing.T) {
 			{profile.FieldProtonEnableHDR, true, []any{true, false}},
 			{profile.FieldProtonVKD3DHeap, true, []any{true, false}},
 			{profile.FieldCPUSMT, true, []any{true, false, nil}},
+			{profile.FieldGPUVRR, "always", []any{"unset", "automatic", "always", "never"}},
 			{profile.FieldDLSSMultiFrame, 3, []any{0, 1, 2, 3, 4}},
 			{profile.FieldDLSSRRMode, "quality", []any{"off", "ultra_performance", "performance", "balanced", "quality", "dlaa", ""}},
 		} {

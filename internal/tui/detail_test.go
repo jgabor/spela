@@ -84,6 +84,7 @@ func profileWithAllDisplayValues() *profile.Profile {
 			FGIndicator: true,
 		},
 		GPU: profile.GPUSettings{
+			VRR:                  "automatic",
 			ClockOffset:          150,
 			MemoryOffset:         500,
 			PowerLimit:           350,
@@ -342,7 +343,7 @@ func detailLineContaining(view, label string) string {
 func TestDetail_ViewRendersEveryGroupHeader(t *testing.T) {
 	styles := NewStyles(DefaultTheme, true)
 	d := NewRootDetail(styles, &profile.Profile{})
-	d.SetSize(80, 40)
+	d.SetSize(80, 60)
 	out := d.View()
 
 	wantHeaders := []string{"Proton", "DLSS", "GPU", "CPU", "Overlay"}

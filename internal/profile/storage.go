@@ -83,6 +83,11 @@ func SaveDefault(p *Profile) error {
 }
 
 func save(path string, p *Profile) error {
+	if p != nil {
+		if err := WriteField(&Profile{}, FieldGPUVRR, p.GPU.VRR); err != nil {
+			return err
+		}
+	}
 	if err := EnsureProfilesDir(); err != nil {
 		return err
 	}

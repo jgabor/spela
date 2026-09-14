@@ -158,6 +158,7 @@ func runGPUShow(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("GPU profile for %s:\n\n", g.Name)
+	fmt.Println(renderField("KDE VRR:", profile.FieldGPUVRR, p, displayGPUString(resolved.GPU.VRR)))
 	fmt.Println(renderField("Clock offset:", profile.FieldGPUClockOffset, p, displayGPUInt(resolved.GPU.ClockOffset)))
 	fmt.Println(renderField("Memory offset:", profile.FieldGPUMemoryOffset, p, displayGPUInt(resolved.GPU.MemoryOffset)))
 	fmt.Println(renderField("Power limit:", profile.FieldGPUPowerLimit, p, displayGPUInt(resolved.GPU.PowerLimit)))

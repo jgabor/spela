@@ -765,6 +765,21 @@ func (m DetailModel) editorView() string {
 }
 
 func (m DetailModel) formatFieldSemantics(field string) string {
+	if field == profile.FieldGPUVRR {
+		switch m.resolved.GPU.VRR {
+		case "automatic":
+			return "KDE primary: fullscreen VRR; restored on exit"
+		case "always":
+			return "KDE primary: desktop and game VRR; restored on exit"
+		case "never":
+			return "KDE primary: VRR disabled; restored on exit"
+		default:
+			if m.isRoot {
+				return "KDE unchanged; Reset clears the default policy"
+			}
+			return "KDE unchanged; Reset inherits defaults"
+		}
+	}
 	descriptor, ok := profile.Field(field)
 	if !ok {
 		return ""
@@ -835,7 +850,7 @@ func fieldCycleOptions(field string) []string {
 		}
 	}
 	// An explicit empty value can disable a value inherited from defaults.
-	if hasEmpty {
+	if hasEmpty && field != profile.FieldGPUVRR {
 		options = append(options, "")
 	}
 	return options

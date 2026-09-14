@@ -1,0 +1,33 @@
+id: pftgocuqob
+artifact: todo
+record:
+  kind: feat
+  target_version: null
+  title: Support KDE VRR policy for the primary display
+  severity: normal
+  release_blocker: false
+  requirements:
+    - Add a VRR policy setting with values unset, automatic, always, and never.
+    - Default to unset; unset or an omitted setting must preserve the current user-configured VRR policy without issuing a policy-changing command.
+    - Resolve KDE's current primary display dynamically rather than hardcoding an output such as DP-3; do not change secondary displays.
+    - "Apply explicit policies using kscreen-doctor output.<primary-output>.vrrpolicy.<policy>. Example: kscreen-doctor output.DP-3.vrrpolicy.automatic (or always or never)."
+    - Describe automatic as VRR in fullscreen only, always as VRR on for desktop and games, and never as VRR off for desktop and games.
+    - Handle unavailable kscreen-doctor, unsupported sessions or outputs, and primary-display discovery failures without changing another display or silently reporting success.
+  acceptance:
+    - New and existing configurations with an omitted or unset VRR policy leave the current display policy unchanged.
+    - Each explicit policy targets the detected primary display with the corresponding kscreen-doctor command; secondary displays remain unchanged.
+    - Invalid policy values are rejected with a clear validation error.
+    - Automated tests cover unset and omitted defaults, all three explicit policies, primary-output selection, and command or discovery failures without modifying real display state.
+  status: resolved
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[feat] Support KDE VRR policy for the primary display"
+      status: resolved
+      order: 5
+      severity: normal
+  lifecycle:
+    operation: resolve
+    reason: Implemented gpu.vrr with unset default, inherited versus explicit overrides, primary-only temporary policy and original-display restoration; editors, docs, automated tests and isolated visual review passed independent audit.
+    date: 2026-09-14
