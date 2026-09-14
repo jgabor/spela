@@ -54,8 +54,3 @@ record:
       severity: normal
       status: open
       order: 21
-    create_batch:
-      effect_sha256: 02e54ff4d8ddc0f2cde25753f1e74d7b6f3db2edd48c83edeeb8a1eeb7d60973
-      input_sha256: 3c689de0bb00d800eee9e5f583fbd2d4ee97127c332768a2c766d464d154026f
-      local_refs:
-        spela-nvwk: qgfdabsknk

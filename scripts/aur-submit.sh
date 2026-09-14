@@ -44,15 +44,26 @@ if [[ $auth_output != *"Welcome to AUR, ${expected_account}!"* ]]; then
   exit 1
 fi
 
-work_directory=$(mktemp -d "${TMPDIR:-/tmp}/spela-aur.XXXXXX")
-trap 'rm -rf "$work_directory"' EXIT
+temporary_directory=$(mktemp -d "${TMPDIR:-/tmp}/spela-aur.XXXXXX")
+trap 'rm -rf "$temporary_directory"' EXIT
+work_directory="$temporary_directory/aur"
+preparation_directory="$temporary_directory/prepare"
 
 GIT_SSH_COMMAND="$git_ssh_command" git clone "$remote" "$work_directory"
-install -Dm644 "$pkgbuild" "$work_directory/PKGBUILD"
+install -Dm644 "$pkgbuild" "$preparation_directory/PKGBUILD"
 (
-  cd "$work_directory"
-  makepkg --printsrcinfo >.SRCINFO
+  cd "$preparation_directory"
+  # Command-line assignments override both makepkg.conf and environment settings.
+  # Keep both the source mirror and extracted checkout fresh and disposable.
+  makepkg_directories=(
+    "SRCDEST=$preparation_directory" "BUILDDIR=$preparation_directory"
+    "PKGDEST=$preparation_directory" "SRCPKGDEST=$preparation_directory"
+    "LOGDEST=$preparation_directory"
+  )
+  makepkg --nobuild --nodeps "${makepkg_directories[@]}"
+  makepkg --printsrcinfo "${makepkg_directories[@]}" >.SRCINFO
 )
+install -m644 "$preparation_directory/PKGBUILD" "$preparation_directory/.SRCINFO" "$work_directory/"
 
 git -C "$work_directory" add PKGBUILD .SRCINFO
 git -C "$work_directory" diff --cached --check

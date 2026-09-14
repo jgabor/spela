@@ -85,6 +85,20 @@ run, publish explicitly:
 ./scripts/aur-submit.sh --publish
 ```
 
+Both invocations fetch the PKGBUILD's GitHub source and remote tags into fresh
+temporary storage. `makepkg --nobuild --nodeps` runs the existing `pkgver()` and
+updates the temporary PKGBUILD; `makepkg --printsrcinfo` then generates matching
+metadata. This requires makepkg and network access, but does not compile Spela
+or install dependencies. Local-only commits and tags do not determine the version.
+Publish prepares again, so upstream changes since the preview can change its diff.
+
+Source/build/output directories are pinned inside the temporary workspace even
+when makepkg configuration specifies shared directories. The original checkout's
+PKGBUILD, `.SRCINFO`, and sources are untouched, and temporary files are removed
+on exit. Preparation failures stop before committing or pushing. Only PKGBUILD
+and `.SRCINFO` are staged; an unchanged result does not commit or push.
+`AUR_COMMIT_NAME` and `AUR_COMMIT_EMAIL` override the Git identity for publication.
+
 ## Nonpublishing verification
 
 The release contract tests inspect the workflow and PKGBUILD, extract release

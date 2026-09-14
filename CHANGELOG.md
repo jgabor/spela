@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Configure `gpu.vrr` with explicit unset, inheritance, TUI/GUI editing, and restoration of the KDE primary display after tracked game launches.
 
+### Fixed
+
+- Refresh AUR preview and submission versions from the GitHub source and remote tags in temporary storage, generating matching `.SRCINFO` without modifying local package files.
+
 ## [0.6.2] - 2026-09-13
 
 ### Added

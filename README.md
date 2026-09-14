@@ -1,216 +1,192 @@
 # Spela
 
-Linux gaming optimization tool for NVIDIA GPUs. Manages DLSS DLLs, applies per-game
-GPU/CPU profiles, and launches games with the right environment — one tool replacing
-the MangoHud + LACT + DLSS Updater juggle.
+Spela is a Linux gaming configuration tool for NVIDIA GPUs. Keep per-game
+settings in one place and apply them when you launch from Steam.
+
+- **Per-game profiles** with shared defaults and explicit overrides.
+- **DLSS and Proton configuration** without maintaining long launch options.
+- **Explicit DLL management** with backups for updates and restoration.
+- **Interactive terminal UI** for browsing games, editing profiles, and inspecting settings.
+- **Temporary GPU/CPU settings** applied during tracked Steam launches, with cleanup
+  when the wrapped process exits.
+
+## Requirements
+
+- Linux, an NVIDIA GPU, and the proprietary NVIDIA driver (`nvidia-utils` on Arch).
+- Steam with Proton-enabled games. DLSS features depend on support in the GPU,
+  game, driver, and Proton version; configuration cannot add missing support.
+- polkit for privileged hardware tuning, such as GPU power limits and CPU governor changes.
 
 ## Install
 
 ### AUR (Arch Linux)
 
 ```bash
-paru -S spela-git
+yay -S spela-git
 ```
 
 ### Build from source
 
-Build prerequisites are Git, Go 1.25.5 or newer, Bun 1.3.14, a C toolchain,
-`pkg-config`, and the GTK 3 and WebKit2GTK 4.1 development headers. Running
-Spela requires the proprietary NVIDIA driver; privileged tuning also requires
-polkit. The install command additionally uses `sudo` to install to `/usr/bin`.
+Build prerequisites are Git, Go 1.25.5 or newer, Bun 1.3.14 (the pinned package
+manager version), a C toolchain, `pkg-config`, and the GTK 3 and WebKit2GTK 4.1
+development headers. These dependencies are needed for the integrated binary,
+even when you only use its CLI or TUI. Installation also uses `sudo`.
 
 ```bash
 git clone https://github.com/jgabor/spela.git
 cd spela
-go tool mage build     # builds binary with embedded frontend
-go tool mage install   # installs to GOPATH/bin and /usr/bin
+go tool mage build     # builds ./spela
+go tool mage install   # installs to GOPATH/bin, then copies to /usr/bin with sudo
 ```
 
-## Quick start
+## First use
 
-### As a Steam launch option (wrapper mode)
+Scan your Steam libraries, inspect a game, and create a profile. These examples
+use Cyberpunk 2077 (`1091500`); substitute an AppID from your own library.
 
-Set a game's launch options in Steam:
-
+```bash
+spela scan
+spela list
+spela tui                          # browse and configure in the terminal; exit to continue
+spela show 1091500                  # game details and detected DLLs
+spela profile create 1091500
+spela dlss set 1091500 --sr-mode quality
+spela launch --dry-run 1091500      # inspect preparation without applying changes or launching
 ```
+
+Then set the game's **Steam launch options** to:
+
+```text
 spela %command%
 ```
 
-This is the trustworthy launch path. Spela receives Steam's real command, loads
-the effective profile, shows the planned preparation, applies the changes it can
-track, launches the game process, and runs cleanup when that process exits.
+Launch the game from Steam. Spela receives Steam's real command, loads the
+effective profile, reports preparation, applies supported settings, and tracks
+the wrapped process for cleanup. The TUI is for configuration and inspection;
+it does not replace this launch path.
 
-Direct Steam URI launch cannot track the real game lifetime or cleanup coverage.
-For normal play, keep launching from Steam with `spela %command%` instead of using
-Spela as a separate launcher.
+## Useful CLI examples
 
-### CLI
-
-```bash
-spela scan                          # scan Steam libraries
-spela list                          # list detected games
-spela show 1091500                  # show game details (Cyberpunk 2077)
-spela dll check-updates             # check for newer DLSS DLLs
-spela dll update 1091500            # update DLLs for a game
-spela profile create 1091500        # create a game profile
-spela dlss set 1091500 --sr-mode quality --fg-enabled
-spela launch --dry-run 1091500      # show launch preparation without mutation
-```
-
-`spela launch` is primarily the wrapper entrypoint used by Steam. Dry runs are
-safe for inspection. A normal direct launch by game name or AppID is rejected when
-Spela cannot track cleanup; the command tells you to use `spela %command%`.
-
-### TUI / GUI
+### Inspect effective settings
 
 ```bash
-spela tui    # interactive terminal UI
-spela gui    # graphical interface (Wails + Svelte)
+spela profile show 1091500          # stored profile, not merged defaults
+spela dlss show 1091500             # effective DLSS values and inheritance sources
+spela gpu show 1091500              # effective GPU profile settings
+spela proton show 1091500           # effective Proton settings
+spela dlss show 1091500 --json       # effective DLSS values as JSON
 ```
 
-The TUI and GUI are configuration and inspection surfaces. Use them to edit
-profiles, inspect inherited values, and review DLL or metric state. They do not
-replace the Steam wrapper launch path.
+### Change settings and return to defaults
 
-## CLI commands
+These commands edit the game profile; they do not tune live hardware or launch
+the game. Enable frame generation only for a compatible game and GPU.
 
-| Command | Description |
-|---------|-------------|
-| `scan` | Scan Steam libraries for games |
-| `list` | List detected games |
-| `show` | Show game details |
-| `launch` | Launch a game with its profile |
-| `profile` | Manage game profiles (list, create, show, delete) |
-| `config` | Manage global configuration (show, set) |
-| `dll` | Manage game DLLs (list, check-updates, update, restore) |
-| `dlss` | Configure DLSS settings (show, set) |
-| `gpu` | GPU tuning and information (info, reset) |
-| `cpu` | CPU tuning and information (info, governor, smt) |
-| `tui` | Launch interactive TUI |
-| `gui` | Launch graphical interface |
-| `denylist` | Manage the DLL swap deny list (show, check, allow, deny) |
+```bash
+spela dlss set 1091500 --sr-mode quality --fg true
+spela gpu set 1091500 --shader-cache true
+spela proton set 1091500 --ngx-updater false
+spela launch --dry-run 1091500
 
-## Profiles
-
-### Temporary KDE VRR policy
-
-In the TUI or GUI GPU profile settings, **KDE VRR** controls only the current
-primary display for tracked launches (`spela %command%` in Steam):
-
-| Value | Behavior |
-|-------|----------|
-| `unset` | Leave the current KDE policy unchanged |
-| `automatic` | Use VRR for fullscreen content |
-| `always` | Use VRR on the desktop and in games |
-| `never` | Disable VRR |
-
-Unconfigured installs do not change display policy. Game fields inherit the
-defaults profile unless overridden. Choosing literal `unset` is an explicit
-no-change override, **not** a reset: it prevents changes even if defaults specify
-`always`. Reset returns a game field to inheritance; Reset default clears the
-default setting. TUI Space cycles `(default)`, `unset`, `automatic`, `always`,
-`never`; Ctrl+S saves, and Actions > Reset field restores inheritance.
-`spela gpu show 1091500` displays the effective policy and its inheritance marker;
-`spela profile show 1091500` displays the stored profile.
-
-For example, pin a game's no-change policy in its YAML profile:
-
-```yaml
-gpu:
-  vrr: unset
-overrides:
-  gpu.vrr: true
+# Return the fields changed above to inheritance, including DLSS activation flags.
+spela dlss reset 1091500 sr_mode
+spela dlss reset 1091500 sr_override
+spela dlss reset 1091500 fg_enabled
+spela dlss reset 1091500 fg_override
+spela gpu profile-reset 1091500 shader_cache
+spela proton reset 1091500 ngx_updater
 ```
 
-This requires KDE Plasma Wayland, a VRR-capable primary display, and
-`kscreen-doctor` with UUID/priority/VRR discovery (verified against Plasma 6.5
-source and 6.7.5 output). Spela invokes it as the ordinary session user, without
-elevation. Unsupported sessions, missing tooling, unsupported VRR, ambiguous
-output or unreadable prior state produce warnings and skip the change.
-Dry runs never invoke display control.
+`dlss set --sr-mode` enables the SR override; `--fg true` enables the FG override
+as well as frame generation. Resetting a field means “inherit,” not “turn off.”
+Use profile commands or the TUI for launch-time hardware settings: live controls
+such as `cpu governor`, `cpu smt`, and `gpu reset` are separate operations.
 
-Spela captures the original display UUID and policy before applying a change,
-then restores that display on normal exit, launch/preparation failure, or handled
-termination. A disconnected or replaced display is never substituted with the
-new primary; restore failures are reported. As with other temporary settings,
-SIGKILL, a crash, or power loss cannot run cleanup. See
-[KDE discovery compatibility](docs/kde-vrr.md) for the verified discovery contract.
+### Inspect, update, and restore DLLs
 
-Per-game YAML profiles stored in `~/.config/spela/profiles/`. A profile controls:
+DLL changes are **explicit file operations**, not automatic launch-time swaps.
+Close the game before updating or restoring. Check compatibility first,
+especially for games with anti-cheat: the denylist blocks known unsafe swaps,
+but absence from it is not proof of safety. A backup helps restore files; it
+does not protect against anti-cheat penalties.
+
+```bash
+spela dll list 1091500              # inspect detected DLLs
+spela denylist check 1091500        # check DLL swap policy
+spela dll check-updates             # fetch/check available versions
+
+# Optional file changes, only after reviewing compatibility:
+spela dll update 1091500 dlss        # update DLSS Super Resolution, backing up originals
+spela dll restore 1091500            # restore the game's backed-up DLLs
+```
+
+The update command requires a DLL type (`dlss`, `dlssg`, `dlssd`, `xess`, or
+`fsr`). Restore operates on the game's backups, not just the most recently
+updated type. DLL updates persist until restored; wrapper cleanup does not undo them.
+
+Use `spela --help` or `spela <command> --help` for the full command reference.
+
+## Profiles and inheritance
+
+Game profiles live in `~/.config/spela/profiles/<app-id>.yaml`. Fields inherit
+from `profiles/default.yaml` unless explicitly pinned in the game profile.
+CLI setters pin fields; reset commands return them to the current defaults.
+The subsystem `show` commands mark values as inherited or overridden, so you
+can see which choices are specific to a game.
+
+For example, `~/.config/spela/profiles/1091500.yaml` can request DLSS Quality
+with the default preset and enable shader caching, without choosing hardware
+clocks or enabling frame generation:
 
 ```yaml
-name: "Cyberpunk 2077 — Quality"
-
+name: Cyberpunk 2077 — Quality
 dlss:
   sr_mode: quality
-  sr_preset: E
-  fg_enabled: true
-  indicator: false
-
+  sr_preset: default
+  sr_override: true
 gpu:
   shader_cache: true
-  clock_offset: 150
-  memory_offset: 200
-
-cpu:
-  governor: performance
-  smt: true
-
-proton:
-  enable_wayland: true
-  enable_hdr: true
-
-overlay:
-  enabled: true
-  position: top-left
+overrides:
+  dlss.sr_mode: true
+  dlss.sr_preset: true
+  dlss.sr_override: true
+  gpu.shader_cache: true
 ```
 
-Profiles compose with a default profile (`~/.config/spela/profiles/default.yaml`). The
-effective value shown for a game has one source:
+`dlss.sr_override` activates the DLSS override. The top-level `overrides` map
+has a different purpose: it pins each chosen field against changes to defaults.
+Unlisted fields still inherit, so review the effective settings and dry-run
+output before launching, especially if you have customized defaults. See the
+[profile field reference](docs/profile-fields.md) for settings and their effects.
 
-- `default`: inherited live from the default profile.
-- `override`: pinned in the game profile.
-- `unset`: configured by neither the game profile nor defaults.
+## Launch and cleanup limits
 
-Launch preparation groups effective values by impact: compatibility,
-environment, game file, system state, or overlay. Environment values are
-ephemeral child-process variables, not persistent mutations to restore. Hardware
-changes such as GPU clocks, power limit, fan speed, CPU governor, and SMT are
-restorable mutations when the wrapped game process exits.
+Environment settings apply to the child process. Restorable hardware settings
+are restored after the tracked process exits or on handled termination, where
+the prior state could be captured and the change applied. Unsupported settings
+may be skipped with warnings, and restoration can fail. SIGKILL, a crash, or
+power loss cannot run cleanup.
 
-DLL updates are explicit file operations through `spela dll`, not implicit
-launch-time swaps. Launch preparation reports DLL safety state, including deny
-list status, backup availability, and path write-state, without claiming a file
-mutation is planned.
+A direct Steam URI launch cannot track the real game lifetime or provide the
+same cleanup coverage. A normal direct `spela launch 1091500` is rejected when
+cleanup cannot be tracked; use Steam with `spela %command%` for play and
+`spela launch --dry-run 1091500` for inspection. Launch preparation reports DLL
+denylist, backup, and path write-state information without planning a DLL swap.
 
-## Configuration
+## Configuration locations
 
-Files follow XDG Base Directory specification:
+Spela follows the XDG Base Directory specification. These are the default
+locations; XDG environment variables can move them.
 
-```
-~/.config/spela/
-├── config.yaml           # Global settings
-└── profiles/
-    ├── default.yaml      # Default profile
-    └── <app-id>.yaml     # Per-game profiles
+| Default path | Contents |
+|---|---|
+| `~/.config/spela/config.yaml` | Global configuration |
+| `~/.config/spela/profiles/` | Default and per-game profiles |
+| `~/.local/share/spela/games.yaml` | Scanned game database |
+| `~/.local/share/spela/backups/` | DLL backups per game |
+| `~/.cache/spela/` | Downloaded DLLs and version manifest |
 
-~/.local/share/spela/
-└── backups/              # DLL backups per game
-
-~/.cache/spela/
-├── dlls/                 # Downloaded DLL cache
-└── manifest.json         # DLL version manifest
-```
-
-See [the global configuration contract](docs/configuration.md) for every key,
-default, accepted value, public JSON name, and settings-surface classification.
-
-## System requirements
-
-- **NVIDIA GPU** with proprietary driver (`nvidia-utils`)
-- **polkit** for privileged operations (GPU clocks, CPU governor)
-- **Steam** with Proton-enabled games
-- **Linux** (Wayland recommended, X11 supported)
+See the [global configuration reference](docs/configuration.md) for keys and defaults.
 
 ## License
 

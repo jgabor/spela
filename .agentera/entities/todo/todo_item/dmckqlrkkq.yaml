@@ -1,0 +1,29 @@
+id: dmckqlrkkq
+artifact: todo
+record:
+  kind: task
+  target_version: null
+  title: Make README useful for first-time users
+  requirements:
+    - Present AUR installation using yay as a post-publication instruction, without publishing anything.
+    - Remove GUI mentions and advanced KDE VRR detail; focus on supported high-level benefits, TUI, profiles, DLSS and Steam launch.
+    - Correct command and YAML examples and add practical examples.
+  acceptance:
+    - README contains yay -S spela-git and no GUI mentions or KDE VRR deep dive.
+    - Documented commands match implemented CLI flags and profile YAML activates intended settings.
+    - Examples avoid unnecessary hardware tuning, retain launch and DLL safety caveats, and are verified without real game or privileged mutations.
+  release_blocker: false
+  severity: normal
+  status: resolved
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[task] Make README useful for first-time users"
+      status: resolved
+      order: 7
+      severity: normal
+  lifecycle:
+    operation: resolve
+    reason: Rewrote README for first use with yay installation, no GUI or KDE VRR detail, corrected commands, and practical profile/DLL examples. Local build, isolated CLI and YAML checks, diff check, and audit passed. No game, system, or AUR mutation.
+    date: 2026-09-14

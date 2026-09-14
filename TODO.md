@@ -33,3 +33,5 @@
 - [x] [id:zgltvwomjl] [bug] Show accurate DLL cancellation outcomes
 - [x] [id:ayynzpmziq] [bug] Eliminate live TUI header refresh corruption
 - [x] [id:pftgocuqob] [feat] Support KDE VRR policy for the primary display
+- [x] [id:ftjixtyavq] [task] Refresh AUR submission metadata automatically
+- [x] [id:dmckqlrkkq] [task] Make README useful for first-time users
