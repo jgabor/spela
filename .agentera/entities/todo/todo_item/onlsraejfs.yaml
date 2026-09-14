@@ -1,0 +1,63 @@
+id: onlsraejfs
+artifact: todo
+record:
+  kind: task
+  target_version: null
+  title: FSR release automation
+  requirements:
+    - "Imported source: spela-cife (plan ofxsogtgej)."
+    - |-
+      ---
+      # spela-cife
+      title: FSR release automation
+      status: todo
+      type: epic
+      created_at: 2026-01-16T20:47:34Z
+      updated_at: 2026-01-16T20:47:34Z
+      parent: spela-csr0
+      ---
+
+      Automate detection and publishing of new AMD FSR versions.
+
+      ## Scope
+
+      - Create fsr-updater tool to check GPUOpen-LibrariesAndSDKs/FidelityFX-SDK releases
+      - Create workflow to download, validate, and hash new DLLs
+      - Auto-create GitHub Releases with DLL assets
+      - Update manifest.json and create PR for review
+
+      ## Source
+
+      AMD publishes FSR SDK at: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/releases
+      FSR 4 uses multiple DLLs: amd_fidelityfx_framegeneration_dx12.dll, amd_fidelityfx_loader_dx12.dll, amd_fidelityfx_upscaler_dx12.dll
+
+      ## Deliverables
+
+      - tools/fsr-updater/ - Go tool to check for updates  
+      - .github/workflows/fsr-manifest.yml - Daily check workflow
+    - Historical source only; checklist marks and implementation claims are not fresh verification. Original type/status/priority, grouping, timestamps and full body are retained verbatim. Severity normal is a neutral migration classification, not a conversion of source priority. No release gate or target version is inferred. Revalidate scope and acceptance before execution. See docs/migrations/beans-to-agentera.md and docs/migrations/beans-source/spela-cife--fsr-release-automation.md.
+  acceptance:
+    []
+  release_blocker: false
+  severity: normal
+  readiness:
+    capability: plan
+    reason: Imported backlog requires scope and acceptance triage before execution.
+    dependencies:
+      []
+    blocked: null
+    gate:
+      state: pending
+      reason: Migration does not approve execution; source claims and draft scope require review.
+      recovery: Review the preserved source against current state, establish acceptance and explicitly approve readiness.
+    queue_rank: 3
+    order_reason: Deterministic source-ID order for migration, not impact priority.
+  status: open
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[task] FSR release automation"
+      severity: normal
+      status: open
+      order: 4

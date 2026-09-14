@@ -1,0 +1,23 @@
+id: mbufmxlxou
+artifact: plan
+record:
+  name: Preserve the Beans source and approve the entity mapping
+  depends_on:
+    []
+  status: complete
+  acceptance:
+    - GIVEN the current source inventory WHEN CLI records and filesystem contents are reconciled THEN all 21 baseline open beans, including drafts, have an explicit destination or approved disposition and source changes are explained before import.
+    - GIVEN the external backup WHEN checked against the source THEN all 372 baseline Markdown files and Beans configuration are recoverable, including both files sharing the completed ID spela-ieis, and the backup location and verification evidence are recorded.
+    - GIVEN source relationships WHEN the mapping is reviewed THEN parent context and all nine prerequisite edges are accounted for without reopening completed or scrapped work or losing satisfied prerequisites.
+    - GIVEN ambiguous and historical content WHEN dispositions are approved THEN stable and development AUR work remain distinct absent evidence for a merge, the embedded GUI design remains historical documentation, and no historical checklist silently becomes a new commitment.
+  plan: ofxsogtgej
+  evaluation:
+    attempt_count: 1
+    failure_count: 0
+    last_verdict: pass
+    last_failure_evidence: null
+    provenance:
+      attempt_id: beans-migration-audit-1
+      source: "Independent audit ses_f5f51b2b6ffewloXSlfZoan3Ea: all four preservation/mapping criteria and evidence audit PASS; verified 373-member backup, 21 mappings, nine dependency edges and historical dispositions. Evidence: docs/migrations/beans-to-agentera.md."
+      recorded_at: 2026-09-14 18:14
+      writer_command: agentera state plan record-evaluation

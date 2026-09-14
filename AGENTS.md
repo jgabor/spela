@@ -121,6 +121,12 @@ checklist, evidence requirements, and cleanup procedure.
 
 ## Workflow
 
-- Use beans for task tracking (not TodoWrite)
+- Use Agentera for task tracking (not TodoWrite). Start with
+  `npx -y agentera@next prime --context build`; read work through
+  `npx -y agentera@next state plan` and `state todo` readers.
+- Before a state mutation, load the artifact's `state <artifact> explain`
+  contract and use its supported writer. Never edit entity files directly.
+- Imported backlog provenance and recovery instructions are in
+  [`docs/migrations/beans-to-agentera.md`](docs/migrations/beans-to-agentera.md).
 - Commit after completing each epic
 - Use conventional commit format (feat:, fix:, refactor:, etc.)

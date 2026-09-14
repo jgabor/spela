@@ -1,6 +1,9 @@
 # Basic-key TUI acceptance
 
-Implementation date: 2026-09-13. Epic: `spela-fi78`.
+Implementation date: 2026-09-13. Historical Beans epic: `spela-fi78`.
+This closed ID is retained as acceptance provenance, not a live tracker link.
+Current work uses Agentera; the [migration record](../migrations/beans-to-agentera.md)
+documents recovery of the historical source. The evidence below is unchanged.
 
 The implementation follows the [approved plan](tui-basic-key-navigation-plan.md)
 and [navigation contract](tui-navigation.md). Commands use arrows, Tab, Enter,

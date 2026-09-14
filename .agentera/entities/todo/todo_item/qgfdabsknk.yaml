@@ -1,0 +1,61 @@
+id: qgfdabsknk
+artifact: todo
+record:
+  kind: task
+  target_version: null
+  title: "Phase 5: Polish and compatibility"
+  requirements:
+    - "Imported source: spela-nvwk (plan ofxsogtgej)."
+    - |
+      ---
+      # spela-nvwk
+      title: 'Phase 5: Polish and compatibility'
+      status: todo
+      type: task
+      priority: normal
+      created_at: 2026-03-02T11:46:30Z
+      updated_at: 2026-03-02T12:00:33Z
+      parent: spela-s84z
+      blocked_by:
+          - spela-ixak
+          - spela-hyis
+          - spela-gal2
+      ---
+
+      Test across Cyberpunk + 5 diverse games. Watchdog timer. MangoHud detection and user prompt. Profile badge for staged changes. Performance profiling.
+    - Historical source only; checklist marks and implementation claims are not fresh verification. Original type/status/priority, grouping, timestamps and full body are retained verbatim. Severity normal is a neutral migration classification, not a conversion of source priority. No release gate or target version is inferred. Revalidate scope and acceptance before execution. See docs/migrations/beans-to-agentera.md and docs/migrations/beans-source/spela-nvwk--phase-5-polish-and-compatibility.md.
+  acceptance:
+    []
+  release_blocker: false
+  severity: normal
+  readiness:
+    capability: plan
+    reason: Imported backlog requires scope and acceptance triage before execution.
+    dependencies:
+      - artifact: todo
+        id: gpezszcmet
+      - artifact: todo
+        id: gnnhpofyvs
+      - artifact: todo
+        id: bnsyxerwuq
+    blocked: null
+    gate:
+      state: pending
+      reason: Migration does not approve execution; source claims and draft scope require review.
+      recovery: Review the preserved source against current state, establish acceptance and explicitly approve readiness.
+    queue_rank: 19
+    order_reason: Deterministic source-ID order for migration, not impact priority.
+  status: open
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[task] Phase 5: Polish and compatibility"
+      severity: normal
+      status: open
+      order: 21
+    create_batch:
+      effect_sha256: 02e54ff4d8ddc0f2cde25753f1e74d7b6f3db2edd48c83edeeb8a1eeb7d60973
+      input_sha256: 3c689de0bb00d800eee9e5f583fbd2d4ee97127c332768a2c766d464d154026f
+      local_refs:
+        spela-nvwk: qgfdabsknk

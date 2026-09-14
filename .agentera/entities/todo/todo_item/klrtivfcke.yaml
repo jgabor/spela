@@ -1,0 +1,47 @@
+id: klrtivfcke
+artifact: todo
+record:
+  kind: task
+  target_version: null
+  title: Support both game names and Steam IDs in CLI commands
+  requirements:
+    - "Imported source: spela-rcsg (plan ofxsogtgej)."
+    - |-
+      ---
+      # spela-rcsg
+      title: Support both game names and Steam IDs in CLI commands
+      status: todo
+      type: task
+      priority: normal
+      created_at: 2026-01-18T10:58:40Z
+      updated_at: 2026-01-18T11:05:06Z
+      parent: spela-icu7
+      ---
+
+      CLI commands like `spela dll update` should accept both game names and Steam App IDs as identifiers, making it easier for users to target specific games.
+    - Historical source only; checklist marks and implementation claims are not fresh verification. Original type/status/priority, grouping, timestamps and full body are retained verbatim. Severity normal is a neutral migration classification, not a conversion of source priority. No release gate or target version is inferred. Revalidate scope and acceptance before execution. See docs/migrations/beans-to-agentera.md and docs/migrations/beans-source/spela-rcsg--support-both-game-names-and-steam-ids-in-cli-comma.md.
+  acceptance:
+    []
+  release_blocker: false
+  severity: normal
+  readiness:
+    capability: plan
+    reason: Imported backlog requires scope and acceptance triage before execution.
+    dependencies:
+      []
+    blocked: null
+    gate:
+      state: pending
+      reason: Migration does not approve execution; source claims and draft scope require review.
+      recovery: Review the preserved source against current state, establish acceptance and explicitly approve readiness.
+    queue_rank: 20
+    order_reason: Deterministic source-ID order for migration, not impact priority.
+  status: open
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[task] Support both game names and Steam IDs in CLI commands"
+      severity: normal
+      status: open
+      order: 14

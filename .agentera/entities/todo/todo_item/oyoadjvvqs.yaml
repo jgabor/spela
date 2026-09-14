@@ -1,0 +1,47 @@
+id: oyoadjvvqs
+artifact: todo
+record:
+  kind: task
+  target_version: null
+  title: Improve CLI command output formatting
+  requirements:
+    - "Imported source: spela-117e (plan ofxsogtgej)."
+    - |-
+      ---
+      # spela-117e
+      title: Improve CLI command output formatting
+      status: todo
+      type: task
+      priority: normal
+      created_at: 2026-01-18T11:00:02Z
+      updated_at: 2026-01-18T11:05:06Z
+      parent: spela-icu7
+      ---
+
+      Review and improve the output of all CLI commands (e.g., `spela dll list`). Current output is difficult to parse/read and lacks the visual consistency of the TUI. Consider tables, colors, and better structure.
+    - Historical source only; checklist marks and implementation claims are not fresh verification. Original type/status/priority, grouping, timestamps and full body are retained verbatim. Severity normal is a neutral migration classification, not a conversion of source priority. No release gate or target version is inferred. Revalidate scope and acceptance before execution. See docs/migrations/beans-to-agentera.md and docs/migrations/beans-source/spela-117e--improve-cli-command-output-formatting.md.
+  acceptance:
+    []
+  release_blocker: false
+  severity: normal
+  readiness:
+    capability: plan
+    reason: Imported backlog requires scope and acceptance triage before execution.
+    dependencies:
+      []
+    blocked: null
+    gate:
+      state: pending
+      reason: Migration does not approve execution; source claims and draft scope require review.
+      recovery: Review the preserved source against current state, establish acceptance and explicitly approve readiness.
+    queue_rank: 1
+    order_reason: Deterministic source-ID order for migration, not impact priority.
+  status: open
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[task] Improve CLI command output formatting"
+      severity: normal
+      status: open
+      order: 5

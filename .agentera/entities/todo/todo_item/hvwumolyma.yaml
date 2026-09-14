@@ -1,0 +1,47 @@
+id: hvwumolyma
+artifact: todo
+record:
+  kind: task
+  target_version: null
+  title: Improve README.md to better highlight USPs
+  requirements:
+    - "Imported source: spela-kmez (plan ofxsogtgej)."
+    - |
+      ---
+      # spela-kmez
+      title: Improve README.md to better highlight USPs
+      status: todo
+      type: task
+      priority: normal
+      created_at: 2026-01-18T03:54:56Z
+      updated_at: 2026-03-02T12:00:43Z
+      parent: spela-icu7
+      ---
+
+      Improve README.md to better highlight Spela's unique selling points. Now includes overlay features: runtime GPU tuning from in-game overlay, smart actionable alerts, visually beautiful SDF-rendered HUD, emulated in-game interactivity via XDG GlobalShortcuts. Also highlight per-game profiles, DLSS/DLL management, and Wayland-native design.
+    - Historical source only; checklist marks and implementation claims are not fresh verification. Original type/status/priority, grouping, timestamps and full body are retained verbatim. Severity normal is a neutral migration classification, not a conversion of source priority. No release gate or target version is inferred. Revalidate scope and acceptance before execution. See docs/migrations/beans-to-agentera.md and docs/migrations/beans-source/spela-kmez--improve-readmemd-to-better-highlight-usps.md.
+  acceptance:
+    []
+  release_blocker: false
+  severity: normal
+  readiness:
+    capability: plan
+    reason: Imported backlog requires scope and acceptance triage before execution.
+    dependencies:
+      []
+    blocked: null
+    gate:
+      state: pending
+      reason: Migration does not approve execution; source claims and draft scope require review.
+      recovery: Review the preserved source against current state, establish acceptance and explicitly approve readiness.
+    queue_rank: 15
+    order_reason: Deterministic source-ID order for migration, not impact priority.
+  status: open
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[task] Improve README.md to better highlight USPs"
+      severity: normal
+      status: open
+      order: 13

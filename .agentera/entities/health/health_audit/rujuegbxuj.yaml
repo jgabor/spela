@@ -1,0 +1,26 @@
+id: rujuegbxuj
+artifact: health
+record:
+  date: 2026-09-14
+  dimensions:
+    - artifact_freshness
+  findings_summary:
+    critical: 0
+    warning: 0
+    info: 0
+    filtered_by_confidence: 0
+  trajectory: Grade A for the limited Beans migration closure scope. The prior limited audit covered KDE VRR; this result does not establish a codebase-wide trend.
+  grades:
+    artifact_freshness: A
+  dimension_details:
+    - name: artifact_freshness
+      grade: A
+      summary: Independent audit ses_f5f51b2b6ffewloXSlfZoan3Ea passed all twelve criteria for plan ofxsogtgej. Current migration documentation, retained source snapshots, 21 gated imported TODOs, workflow guidance, and historical TUI references agree with delivered requirements. All 25 exact TODO readbacks match verified evidence, including four unchanged resolved records. The 373-member external backup and 26 retained-document hashes match. Seven canonical dependencies and two satisfied historical edges are preserved. State validation passed with 72 entities and zero issues; diff checks passed. No stale expected artifact or blocking finding remains within this scope. All three task evaluations are persisted PASS and tasks complete.
+      findings:
+        []
+  trends:
+    comparison_target: Prior limited audit zdrbticlqb covered a different delivery scope.
+    stable: Migration evidence matches the current worktree, including uncommitted changes. Historical snapshots intentionally preserve old statuses rather than representing live executable work.
+    new_findings: None within this limited migration closure scope.
+    carried_forward: Not a codebase-wide health audit. Doctor reports manual_review_needed for the unrelated global OpenCode audit-agent file; it was left untouched. Recovery uses exact-read reconciliation, not assumed blind replay idempotency. The backup is private local storage outside the checkout, not off-host disaster recovery. Source mappings, hashes, recovery instructions, and checkout-local cleanup boundaries are documented in docs/migrations/beans-to-agentera.md.
+  appended_at: 2026-09-14T16:15:28.389Z

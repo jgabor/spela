@@ -2,7 +2,10 @@
 
 Status: completed and verified on 2026-09-13. Acceptance is recorded below.
 Prepared on 2026-09-13 against
-`95cf340` (v0.6.1). Planning task: `spela-uzqw`. Implementation epic: `spela-fi78`.
+`95cf340` (v0.6.1). Historical Beans planning task: `spela-uzqw`;
+implementation epic: `spela-fi78`. These closed IDs are provenance, not live
+tracking links. Current work uses Agentera; see the
+[migration record](../migrations/beans-to-agentera.md) for archive recovery.
 
 ## Objective and scope
 
@@ -232,9 +235,11 @@ that could discard a draft while the guard cannot fit.
 
 ## Implementation work and dependencies
 
-All implementation beans start as `todo` under epic `spela-fi78`.
+The implementation records originally started as `todo` under `spela-fi78`.
+The table retains the completed implementation's historical IDs and evidence;
+it does not create a new backlog or require the retired tracker.
 
-| Work | Bean | Implementation and ownership | Depends on | Exit evidence |
+| Work | Historical source ID | Implementation and ownership | Depends on | Exit evidence |
 | --- | --- | --- | --- | --- |
 | A: action and focus foundation | `spela-kbvq` | Extend `keymap.go` and action context with draft/busy state, selected target/count, editor kind, and read-only/scroll capabilities. Dispatch semantic actions through `layout_handlers.go`, `list_pane.go`, `resource_view.go`, and affected widgets; only text editors receive raw text input. Add the Actions overlay and its local focus controls. Update `docs/design/tui-navigation.md` for the new contract. | None | Table-driven mode/focus/availability tests; menu and keyboard dispatch the same action; termctrl can reach a menu, Help, Close, and pane/destination navigation using displayed basic keys. |
 | B: draft and save correctness | `spela-l7ij` | Fix root availability, draft replacement in `resource_view.go`/`content.go`, scope-change handling, field lifecycle in `detail.go`/`editor_host.go`/`options_modal.go`, and Ctrl+S. Preserve queue and failure semantics. | A | Root/game reset, field cancel, whole-draft discard, same-item reopen, guarded transitions, save failure, delayed saves, and restart persistence pass. Reproduce F2–F4 with termctrl. |

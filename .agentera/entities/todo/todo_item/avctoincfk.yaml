@@ -1,0 +1,54 @@
+id: avctoincfk
+artifact: todo
+record:
+  kind: task
+  target_version: null
+  title: Add footer with version info to GUI
+  requirements:
+    - "Imported source: spela-i7jg (plan ofxsogtgej)."
+    - |-
+      ---
+      # spela-i7jg
+      title: Add footer with version info to GUI
+      status: todo
+      type: task
+      priority: low
+      created_at: 2026-01-18T19:40:55Z
+      updated_at: 2026-01-18T19:40:55Z
+      parent: spela-achk
+      ---
+
+      Add fixed footer showing application version and optional status. Use dimmed text style (--text-dim). GUI doesn't need keyboard shortcuts like TUI.
+
+      ## Files
+      - New Footer.svelte
+      - App.svelte
+
+      ## Reference
+      `internal/tui/statusbar.go`
+    - Historical source only; checklist marks and implementation claims are not fresh verification. Original type/status/priority, grouping, timestamps and full body are retained verbatim. Severity normal is a neutral migration classification, not a conversion of source priority. No release gate or target version is inferred. Revalidate scope and acceptance before execution. See docs/migrations/beans-to-agentera.md and docs/migrations/beans-source/spela-i7jg--add-footer-with-version-info-to-gui.md.
+  acceptance:
+    []
+  release_blocker: false
+  severity: normal
+  readiness:
+    capability: plan
+    reason: Imported backlog requires scope and acceptance triage before execution.
+    dependencies:
+      []
+    blocked: null
+    gate:
+      state: pending
+      reason: Migration does not approve execution; source claims and draft scope require review.
+      recovery: Review the preserved source against current state, establish acceptance and explicitly approve readiness.
+    queue_rank: 12
+    order_reason: Deterministic source-ID order for migration, not impact priority.
+  status: open
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[task] Add footer with version info to GUI"
+      severity: normal
+      status: open
+      order: 9

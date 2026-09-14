@@ -1,0 +1,45 @@
+id: ofxsogtgej
+artifact: plan
+record:
+  header:
+    level: full
+    created: 2026-09-14
+    status: complete
+    reviewed: 2026-09-14
+    critic_issues: 4 found, 4 addressed, 0 dismissed
+    title: "Plan: Migrate Beans backlog to Agentera and retire Beans"
+  what: Preserve the 21 currently open Beans records as Agentera backlog TODO entities, including drafts and recorded in-progress context. Verify their content and relationships before removing Beans data and operational integrations from this checkout. Execute the migration through this single plan rather than creating competing active plans for imported epics.
+  why: Consolidate project work tracking in Agentera without losing outstanding work, source history, requirements, or dependency semantics, and remove the need for Beans in the repository workflow.
+  constraints: Use Agentera's supported state writers and CLI readers; never directly edit entity files. Preserve unrelated project state and local settings. Verify a recoverable backup outside the repository before deleting ignored source data. Default to one destination per open bean; require evidence and explicit approval for merges, resolutions, or supersessions. Migration is not authorization to implement the imported work, publish packages, push remotes, or reopen closed work. Do not change vision or objective state.
+  overall_acceptance: GIVEN the approved source inventory WHEN migration and cleanup finish THEN all 21 open beans have verified Agentera destinations or explicitly approved dispositions, requirements and relationship semantics remain available, source history is recoverable outside the repository, and no live workflow in this checkout requires Beans. GIVEN an interruption WHEN execution resumes THEN reconciliation prevents duplicate imports and deletion remains blocked until preservation and destination verification pass.
+  scope:
+    included:
+      - "Baseline inventory: 17 todo, two in-progress, and two draft Beans records. Reconcile the current CLI and filesystem inventory at execution time; unexplained changes require review before import, not silent omission."
+      - "Overlay group: spela-s84z, spela-ifu0, spela-fw5t, spela-ixak, spela-hyis, spela-gal2, and spela-nvwk become seven TODOs retaining grouping and phase prerequisites."
+      - "FSR and XeSS group: spela-csr0, spela-cife, spela-2v82, and spela-emt9 become four TODOs retaining milestone and epic context. Draft source status does not authorize execution."
+      - "Release, documentation, and CLI group: spela-dop3, spela-m8qo, spela-117e, spela-kmez, spela-ftlu, spela-rcsg, and spela-mljk become seven TODOs."
+      - "GUI group: spela-lr3c and spela-i7jg become two TODOs. AUR publishing record spela-dcgs becomes one TODO retaining its completed and outstanding checklist items as recorded claims rather than fresh verification."
+      - Preserve original IDs, titles, full bodies, checklist state, source type, status, priority, grouping, and relationships. Retain unsupported metadata as clearly identified source context using supported content fields and the reconciliation record; do not invent entity schema fields.
+      - Agentera TODO creation starts open. Preserve Beans in-progress status as source context without claiming a running Agentera execution cycle. Keep draft and uncertain work gated or needing triage. Do not mechanically map Beans priority to impact severity or infer release gating from old parents.
+      - "Preserve these prerequisite-to-dependent edges: spela-ifu0 to spela-fw5t; spela-fw5t to spela-ixak, spela-hyis, and spela-gal2; each of spela-ixak, spela-hyis, and spela-gal2 to spela-nvwk. Represent actionable dependencies with canonical destination TODO IDs."
+      - Account for completed spela-x1hf prerequisites of spela-csr0 and spela-2v82 as satisfied historical context, not unresolved dependencies. Preserve completed parent context from spela-icu7 and spela-achk, and completed overlay design work spela-bsbq. Do not revive scrapped overlay designs.
+      - Reconcile possible overlap between stable-package work spela-mljk and spela-git publishing spela-dcgs without automatically merging them. Check existing Agentera records for semantic duplicates; preserve resolved TODOs and completed or archived plans.
+      - Back up all 372 source Markdown files and Beans configuration outside the repository, verifying completeness and recoverability before deletion. Include completed and scrapped history and both completed source files sharing ID spela-ieis; the CLI alone exposes only one of those files.
+      - Preserve .beans/docs/gui-integration-design.md as historical documentation, not an inferred open task. Retain required historical context and a durable source-to-destination reconciliation record in normal documentation after removal, without creating another live tracker.
+      - Import through the supported TODO writer with batch preview and effect confirmation. Keep the reviewed input bound to publication, record assigned destination IDs, and reconcile partial attempts before retrying. Verify destination content and readiness through Agentera readers before cleanup.
+      - Remove .beans/ and .beans.yml only after verification. Replace the Beans workflow instruction in AGENTS.md with Agentera guidance. Remove Beans-only hooks from .claude/settings.json, permissions from .claude/settings.local.json, and obsolete exclusions from .git/info/exclude. Preserve unrelated settings, skills, hooks, exclusions, and directories.
+      - Update live Beans references in docs/design/tui-basic-key-navigation-plan.md and docs/design/tui-basic-key-acceptance.md without losing technical content or acceptance evidence. Clearly labelled historical references and existing CHANGELOG.md history may remain.
+      - Final verification uses Agentera readers and doctor, source-to-destination reconciliation, backup integrity checks, tracked and hidden/ignored operational-reference searches, and Git diff/status inspection. Distinguish tracked repository changes from local ignored data and Git metadata; repository changes cannot clean other checkouts automatically.
+      - Verification is migration-focused. For any migration helper with testable behavior, cover one success and one meaningful failure per unit, including interruption or duplicate protection where relevant. No application build or TUI visual review is required unless approved scope reaches runtime behavior; then apply the repository's relevant mandatory checks.
+    excluded:
+      - Implementing or publishing any feature, bug fix, package, or release described by imported beans.
+      - Bulk recreation of completed or scrapped history as active Agentera work.
+      - Creating competing active plans from imported epics or milestones.
+      - Installing or uninstalling global Beans tooling or modifying other checkouts.
+      - Remote pushes, application behavior changes, and unrelated repository cleanup.
+    deferred:
+      []
+  design: Establish a recoverable source snapshot and reviewed mapping first. Import the backlog through the destination's governed writer, retaining provenance and converting operational relationships only where their meaning is supported. Verify the resulting records before retiring the old tracker. Preserve historical context separately from executable work and make interrupted execution resume through reconciliation rather than blind repetition.
+  surprises:
+    []
+  previous_plan_archived: jmnhtuudhf

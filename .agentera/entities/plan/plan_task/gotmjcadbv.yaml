@@ -1,0 +1,23 @@
+id: gotmjcadbv
+artifact: plan
+record:
+  name: Import and verify the Agentera backlog entities
+  depends_on:
+    - mbufmxlxou
+  status: complete
+  acceptance:
+    - GIVEN the approved mapping WHEN imported THEN every source item has a retrievable destination or approved disposition, and source identity, requirements, full body content, checklist state, metadata context, and provenance remain available through the destinations and reconciliation record without disturbing existing resolved work.
+    - GIVEN phase dependencies WHEN readiness is evaluated THEN unresolved prerequisites constrain execution using canonical destination identities, grouping remains distinguishable from blocking, and completed prerequisites remain satisfied historical context.
+    - GIVEN draft, uncertain, or previously in-progress work WHEN imported THEN drafts and uncertainty remain gated or needing triage, original status is retained as context, and no Agentera execution cycle or impact severity is fabricated from the source status or priority.
+    - GIVEN an interrupted import WHEN resumed THEN existing destinations are reconciled before further publication, duplicate work is not created, and cleanup remains blocked until all mapped content and relationships pass verification.
+  plan: ofxsogtgej
+  evaluation:
+    attempt_count: 1
+    failure_count: 0
+    last_verdict: pass
+    last_failure_evidence: null
+    provenance:
+      attempt_id: beans-migration-audit-1
+      source: "Independent audit ses_f5f51b2b6ffewloXSlfZoan3Ea: all four import criteria and evidence audit PASS; 25 exact reads match, 21 gated imports and four resolved records preserved, seven canonical dependencies and interruption reconciliation verified. Evidence: docs/migrations/beans-to-agentera.md."
+      recorded_at: 2026-09-14 18:14
+      writer_command: agentera state plan record-evaluation

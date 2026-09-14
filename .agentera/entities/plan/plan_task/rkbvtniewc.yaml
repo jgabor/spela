@@ -1,0 +1,23 @@
+id: rkbvtniewc
+artifact: plan
+record:
+  name: Retire Beans and verify the final tracking state
+  depends_on:
+    - gotmjcadbv
+  status: complete
+  acceptance:
+    - GIVEN verified destinations and a recoverable external backup WHEN cleanup completes THEN Beans data and configuration are absent from this checkout, required historical documentation remains available, and no live repository workflow requires Beans.
+    - GIVEN local configuration and workflow changes WHEN inspected THEN only Beans-specific instructions, hooks, permissions, and exclusions are removed or replaced, while unrelated settings and historical acceptance evidence remain intact.
+    - GIVEN the final state WHEN Agentera readers, health diagnostics, and tracked and hidden operational-reference checks run THEN imported work remains accessible with verified relationships, no broken operational Beans references remain, and failures affecting acceptance are resolved before completion is claimed.
+    - GIVEN the completed migration WHEN its reconciliation record and final changes are inspected THEN every source disposition, destination ID, backup location, and verification result is accounted for, and tracked changes are distinguished from checkout-local cleanup without claiming that other checkouts were cleaned.
+  plan: ofxsogtgej
+  evaluation:
+    attempt_count: 1
+    failure_count: 0
+    last_verdict: pass
+    last_failure_evidence: null
+    provenance:
+      attempt_id: beans-migration-audit-1
+      source: "Independent audit ses_f5f51b2b6ffewloXSlfZoan3Ea: all four retirement criteria and evidence audit PASS; no live Beans integrations, unrelated local settings preserved, state validation 72 entities zero issues and diff check pass. Doctor global audit-agent ownership caveat is outside scope. Evidence: docs/migrations/beans-to-agentera.md."
+      recorded_at: 2026-09-14 18:14
+      writer_command: agentera state plan record-evaluation
