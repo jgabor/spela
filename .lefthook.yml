@@ -35,6 +35,11 @@ pre-commit:
       run: bunx markdownlint --dot --fix --disable MD013 MD024 MD029 MD033 MD036 MD040 MD060 -- {staged_files}
       stage_fixed: true
       glob: "*.md"
+      # Byte-preserved historical sources: formatting invalidates the archive
+      # contract in docs/migrations/beans-to-agentera.md (which stays linted).
+      exclude:
+        - "docs/migrations/beans-source/**"
+        - "docs/design/gui-integration-design-historical.md"
     configs:
       run: bunx prettier --write {staged_files}
       stage_fixed: true

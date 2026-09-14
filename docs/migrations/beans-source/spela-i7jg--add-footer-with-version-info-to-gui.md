@@ -12,10 +12,8 @@ parent: spela-achk
 Add fixed footer showing application version and optional status. Use dimmed text style (--text-dim). GUI doesn't need keyboard shortcuts like TUI.
 
 ## Files
-
 - New Footer.svelte
 - App.svelte
 
 ## Reference
-
 `internal/tui/statusbar.go`

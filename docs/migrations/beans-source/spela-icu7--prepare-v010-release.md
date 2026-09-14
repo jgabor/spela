@@ -36,4 +36,4 @@ Automated release pipeline designed in brainstorming session:
 4. README.md documents installation and usage
 5. CHANGELOG.md tracks version history in keepachangelog format
 
-## Summary of Changes\n\nv0.1.0 shipped (commit 58365e2). Remaining open children re-parented to future milestones
+## Summary of Changes\n\nv0.1.0 shipped (commit 58365e2). Remaining open children re-parented to future milestones.

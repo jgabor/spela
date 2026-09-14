@@ -5,7 +5,6 @@ This document describes the architecture for embedding the Wails GUI into the ma
 ## Overview
 
 The goal is to create a single binary that supports three interfaces:
-
 - **CLI**: Direct commands like `spela list`, `spela show`
 - **TUI**: Terminal UI via `spela tui`
 - **GUI**: Desktop GUI via `spela gui`
@@ -65,7 +64,6 @@ func runGUI(cmd *cobra.Command, args []string) error {
 ### 2. GUI package (`internal/gui/`)
 
 **run.go** - Main entry point:
-
 ```go
 package gui
 
@@ -88,7 +86,6 @@ func Run() error {
 ```
 
 **assets_prod.go** - Production embedded assets:
-
 ```go
 //go:build !dev
 
@@ -101,7 +98,6 @@ var assets embed.FS
 ```
 
 **assets_dev.go** - Development proxy mode:
-
 ```go
 //go:build dev
 
@@ -162,27 +158,27 @@ BUN := $(shell command -v bun 2>/dev/null)
 
 check-bun:
 ifndef BUN
- $(error bun is required but not installed. Install from https://bun.sh)
+	$(error bun is required but not installed. Install from https://bun.sh)
 endif
 
 frontend-deps: check-bun
- cd internal/gui/frontend && bun install
+	cd internal/gui/frontend && bun install
 
 frontend-build: frontend-deps
- cd internal/gui/frontend && bun run build
+	cd internal/gui/frontend && bun run build
 
 build: frontend-build
- go build -ldflags "-s -w -X main.version=$(VERSION)" -o spela ./cmd/spela
+	go build -ldflags "-s -w -X main.version=$(VERSION)" -o spela ./cmd/spela
 
 dev: frontend-deps
- cd internal/gui/frontend && bun run dev &
- go build -tags dev -o spela ./cmd/spela
- ./spela gui
+	cd internal/gui/frontend && bun run dev &
+	go build -tags dev -o spela ./cmd/spela
+	./spela gui
 
 clean:
- rm -f spela
- rm -rf internal/gui/frontend/dist
- rm -rf internal/gui/frontend/node_modules
+	rm -f spela
+	rm -rf internal/gui/frontend/dist
+	rm -rf internal/gui/frontend/node_modules
 ```
 
 ### CI workflow updates
@@ -227,12 +223,10 @@ make build
 ## Testing strategy
 
 ### Unit tests
-
 - Go: `go test ./...` (includes internal/gui/ App methods)
 - Svelte: `bun run test` (Vitest + Testing Library)
 
 ### E2E tests
-
 - Playwright tests launch full binary
 - Verify critical flows: app launch, game list, profile editing
 - Run in CI with xvfb for headless display

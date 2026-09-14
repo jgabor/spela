@@ -16,14 +16,12 @@ Build the DLL management foundation while implementing DLSS as the first support
 ## Goals
 
 ### Foundation (generic infrastructure)
-
 - Design manifest schema supporting multiple DLL types (DLSS, XeSS, FSR)
 - Implement generic DLL download and version comparison logic
 - Set up GitHub Releases infrastructure for DLL hosting
 - Create reusable error handling and progress indication
 
 ### DLSS (first implementation)
-
 - Host NVIDIA DLSS DLLs as GitHub Release assets
 - Automate detection of new NVIDIA DLSS releases
 - Enable end-to-end DLSS update flow in spela
@@ -31,7 +29,6 @@ Build the DLL management foundation while implementing DLSS as the first support
 ## Approach
 
 Use GitHub Releases on main repo:
-
 - Single repo to manage
 - No git history bloat (release assets aren't committed)
 - GitHub Releases handles large binaries (2GB per asset limit)

@@ -19,7 +19,7 @@ Automate detection and publishing of new AMD FSR versions.
 
 ## Source
 
-AMD publishes FSR SDK at: <https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/releases>
+AMD publishes FSR SDK at: https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/releases
 FSR 4 uses multiple DLLs: amd_fidelityfx_framegeneration_dx12.dll, amd_fidelityfx_loader_dx12.dll, amd_fidelityfx_upscaler_dx12.dll
 
 ## Deliverables

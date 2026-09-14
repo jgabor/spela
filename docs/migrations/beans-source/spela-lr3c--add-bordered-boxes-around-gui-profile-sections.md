@@ -11,9 +11,7 @@ parent: spela-achk
 Wrap each profile settings group (DLSS, GPU, Proton) in bordered box with rounded corners. Use --border-default (velvet orchid) for unfocused, --border-focus (amethyst) for focused.
 
 ## Files
-
 - GameDetail.svelte
 
 ## Reference
-
 `internal/tui/profile_widget.go` lines 500-529

@@ -19,7 +19,7 @@ Automate detection and publishing of new Intel XeSS versions.
 
 ## Source
 
-Intel publishes XeSS SDK at: <https://github.com/intel/xess/releases>
+Intel publishes XeSS SDK at: https://github.com/intel/xess/releases
 The libxess.dll is included in the SDK zip.
 
 ## Deliverables
