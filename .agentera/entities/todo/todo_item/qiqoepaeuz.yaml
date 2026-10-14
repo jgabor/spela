@@ -1,0 +1,22 @@
+id: qiqoepaeuz
+artifact: todo
+record:
+  kind: task
+  target_version: null
+  severity: normal
+  title: Choose and build the profile and settings interaction redesign
+  requirements:
+    - "The review proposes three alternatives (A clarify, B profile-first with autosave, C one form) in docs/design/tui-profile-settings-ux-review.md, sections 9 to 14. The user chooses at the decision gate; then a separate implementation plan covers the structural findings: the view and cursor reset on every game change, the Search route nobody sees, the flat 35-field list, the value and source column, and the shared vocabulary for the TUI and GUI. The F1 TODO ships first."
+    - "Found by the 2026-10-14 TUI profile and settings UX review. Report: docs/design/tui-profile-settings-ux-review.md. Evidence is outside the repository, in ~/.local/state/spela-ux-review/2026-10-14/."
+  acceptance:
+    - GIVEN the chosen alternative WHEN its implementation plan is written THEN its acceptance targets come from the measured baseline, for example fewer keys for T1 and T7 and no modal for plain browsing.
+  release_blocker: false
+  status: open
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[task] Choose and build the profile and settings interaction redesign"
+      severity: normal
+      status: open
+      order: 29

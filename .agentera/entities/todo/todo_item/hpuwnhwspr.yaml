@@ -1,0 +1,38 @@
+id: hpuwnhwspr
+artifact: todo
+record:
+  kind: bug
+  target_version: null
+  title: Remove empty Settings groups from the terminal interface
+  requirements:
+    - Terminal Settings shows five groups (Display, Startup, Paths, DLL policy, Logging) for three options, split 1/1/1/0/0. DLL policy and Logging are empty. At 120x40 an empty group shows the group title and a Detail pane reading No setting selected. At 80x24 an empty group is a blank List box, and the No setting selected text is never shown because Tab does not reach Detail.
+    - Sections(VisibilityTUI) builds all five groups from nav.SettingsSectionLabels and keeps the empty ones (internal/config/options.go:111-128, internal/nav/nav.go:127-133). The empty text comes from internal/tui/options_modal.go:366-369.
+    - The option catalog has 17 options. The terminal exposes 3 of them (Show hints, Re-scan on startup, Steam path) and the GUI exposes 14. With parity a priority, decide per option whether the terminal exposes it or why it does not.
+    - Show hints has no visible effect in the terminal (see the show-hints TODO), so one of the three terminal options does nothing a user can see.
+    - Found by the 2026-10-14 recon (defect D3) and confirmed by the settings stream of the UX review. The review report is docs/design/tui-profile-settings-ux-review.md. Fold this item into the implementation plan for the alternative the user chooses.
+  acceptance:
+    - GIVEN terminal Settings WHEN every group is visited THEN no group is empty, at 120x40 and at 80x24.
+    - GIVEN each Settings option exposed by only one interface WHEN reviewed THEN the difference has a stated reason.
+  release_blocker: false
+  severity: normal
+  readiness:
+    capability: plan
+    reason: The fix shape depends on the Settings layout the user chooses from the UX review.
+    dependencies:
+      []
+    blocked: null
+    gate:
+      state: pending
+      reason: Waits for the user's choice among the UX review's alternatives.
+      recovery: Fold into the implementation plan for the chosen alternative.
+    queue_rank: 3
+    order_reason: Visible product defect, but its fix depends on the chosen Settings model.
+  status: open
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[bug] Remove empty Settings groups from the terminal interface"
+      severity: normal
+      status: open
+      order: 24

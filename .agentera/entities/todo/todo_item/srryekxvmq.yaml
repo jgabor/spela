@@ -1,0 +1,44 @@
+id: srryekxvmq
+artifact: todo
+record:
+  kind: bug
+  target_version: null
+  title: Align documented profile field labels with the interfaces
+  requirements:
+    - "The Shared label column in docs/profile-fields.md contradicts the TUI labels for nine fields: dlss.sr_mode (SR mode vs Super resolution), dlss.sr_preset (SR preset vs Resolution preset), dlss.sr_override (SR override vs Resolution override), dlss.rr_mode (RR mode vs Ray reconstruction), dlss.rr_preset (RR preset vs Ray preset), dlss.rr_override (RR override vs Ray override), dlss.fg_enabled (FG enabled vs Frame generation), dlss.fg_override (FG override vs Generation override), gpu.threaded_optimization (Threaded opt vs Threaded optimization)."
+    - "Those nine are exactly the labels commit 72f5b0d (2026-09-03, simplify profile and monitor language) changed in fields.go. The commit left docs/profile-fields.md, the CLI, and the GUI unchanged. The doc column still equals the CLI profile show labels (SR mode, SR preset, SR override, RR mode, RR preset, RR override, FG override, Threaded opt, PowerMizer), so there are four label sets today: TUI, doc and CLI profile show, CLI subsystem show (Mode, Preset, Override, Enabled, Indicator under headings), and GUI."
+    - "TUI and GUI parity is a priority, so one label per field applies to the terminal and graphical interfaces, the CLI output, and the document. Proposed canonical set: the descriptor labels in fields.go (the TUI labels), unless the vocabulary decision in the UX review changes one."
+    - "GUI: rename Quality mode, DLSS preset, Override (force DLSS even if unsupported), Ray reconstruction mode, Ray reconstruction preset, RR override, Multi-frame generation, Show DLSS indicator, Show frame generation indicator, and Enable overlay to the canonical labels, and match the capitals of NGX updater and VKD3D heap. State the deliberate GUI difference for frame generation (one tri-state control for dlss.fg_enabled and dlss.fg_override) in the doc."
+    - "GUI hint text must not use another field's name: the hint under Quality mode reads Resolution preset for DLSS super resolution, which is the TUI name of dlss.sr_preset (GameProfilePane.svelte:121). The hint for the override reads Use DLSS even if the game does not expose it, which apply.go:169-177 does not do; confirm the intent with the author."
+    - "CLI: profile show and the subsystem show commands print the canonical labels, or the doc states the difference and the reason. Include the three fields profile show leaves out (dlss.indicator, dlss.fg_indicator, proton.vkd3d_heap) and gpu.shader_cache_path in gpu show."
+    - Add a test that compares the labels of the doc, the GUI source, and the CLI output with profile.Fields(), so a relabel cannot land in one place only.
+    - Found by the 2026-10-14 recon (defect D2) and confirmed by the audit vocabulary matrix.
+    - "Reviewed in the 2026-10-14 TUI profile and settings UX review (audit stream: field audit, vocabulary matrix); the review report is docs/design/tui-profile-settings-ux-review.md. Fold this item into the implementation plan for the alternative the user chooses."
+  acceptance:
+    - GIVEN every profile field WHEN its label is compared across the document, the terminal interface, the graphical interface, CLI profile show, and the CLI subsystem show commands THEN the labels match, or each deliberate difference is listed in the document with its reason.
+    - GIVEN the nine fields relabelled by 72f5b0d WHEN spela profile show runs THEN it prints the descriptor label for each of them.
+    - GIVEN the graphical profile pane WHEN a hint is read THEN it uses the canonical name of the field it describes.
+    - GIVEN a descriptor label changes WHEN the test suite runs THEN a test fails unless the document, the GUI, and the CLI use the new label.
+  release_blocker: false
+  severity: normal
+  readiness:
+    capability: plan
+    reason: The final label set depends on the UX review's vocabulary matrix.
+    dependencies:
+      []
+    blocked: null
+    gate:
+      state: pending
+      reason: Waits for the vocabulary matrix from the TUI profile and settings UX review.
+      recovery: Apply the matrix's agreed labels once the review reports, then build the fix.
+    queue_rank: 2
+    order_reason: Label decisions feed the field descriptions and any redesign.
+  status: open
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[bug] Align documented profile field labels with the interfaces"
+      severity: normal
+      status: open
+      order: 27

@@ -1,0 +1,25 @@
+id: xuyalcslma
+artifact: todo
+record:
+  kind: bug
+  target_version: null
+  severity: degraded
+  title: Say which profile fields do nothing, or make them do something
+  requirements:
+    - Super resolution, Ray reconstruction, and Frame generation mode, preset, and count apply at launch only when their override field is on (internal/profile/apply.go:169-194). The TUI and GUI never say so, the CLI couples them silently, and `dlss set` has no --sr-override flag.
+    - "Review audit, by code inspection: 8 of 35 fields have no launch consumer (Power mode, CPU affinity, and six overlay fields), 6 more do nothing without their override field, and the overlay reader is not in the repository. The Effect line still claims a system change for these. Counts are stream-reported (audit/field-audit.md)."
+    - "Decide per field: couple it in the UI (setting a mode sets its override), mark it as having no effect yet, or hide it."
+    - "Found by the 2026-10-14 TUI profile and settings UX review. Report: docs/design/tui-profile-settings-ux-review.md. Evidence is outside the repository, in ~/.local/state/spela-ux-review/2026-10-14/."
+  acceptance:
+    - GIVEN a field with no launch consumer WHEN it is shown THEN the screen says it has no effect yet, or the field is not offered.
+    - GIVEN a DLSS mode or preset set without its override WHEN the profile is viewed THEN the screen says it has no effect until the override is on, or the override is set together.
+  release_blocker: false
+  status: open
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[bug] Say which profile fields do nothing, or make them do something"
+      severity: degraded
+      status: open
+      order: 8

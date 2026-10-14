@@ -1,0 +1,22 @@
+id: hwddfdauhf
+artifact: todo
+record:
+  kind: bug
+  target_version: null
+  severity: degraded
+  title: Stop the GUI losing drafts silently
+  requirements:
+    - "Stream-reported (gui/notes.md; the log and bridge calls were verified, the individual routes were not all replayed): the GUI has no dirty marker and Save is always enabled. Of 10 ways of leaving a screen with an HDR draft, 7 drop it silently, 2 keep it hidden, and q quits at once. Pin after an edit discards the edit, and a draft in a section not on screen is saved. Profile saved! appears outside the visible pane."
+    - "Found by the 2026-10-14 TUI profile and settings UX review. Report: docs/design/tui-profile-settings-ux-review.md. Evidence is outside the repository, in ~/.local/state/spela-ux-review/2026-10-14/."
+  acceptance:
+    - GIVEN a draft in the GUI WHEN the user leaves the screen THEN the draft is kept or the user is asked, and the pane shows that a draft exists.
+  release_blocker: false
+  status: open
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[bug] Stop the GUI losing drafts silently"
+      severity: degraded
+      status: open
+      order: 5

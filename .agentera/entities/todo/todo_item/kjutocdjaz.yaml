@@ -1,0 +1,40 @@
+id: kjutocdjaz
+artifact: todo
+record:
+  kind: bug
+  target_version: null
+  title: Document the KDE VRR profile field
+  requirements:
+    - The profile field contract in docs/profile-fields.md omits gpu.vrr (KDE VRR), although the field descriptor exists (internal/profile/fields.go:66) and the TUI, GUI, and CLI show it.
+    - "Add the row between gpu.clock_offset and gpu.memory_offset, which is the descriptor order inside the gpu subsystem: type string, label as decided by the label TODO, allowed values unset, automatic, always, never, impact system state, restore restorable mutation. Surfaces: CLI for show and profile-reset only (gpu set has no --vrr flag), TUI, GUI."
+    - "Correct the surfaces column where the audit found it wrong: dlss.sr_override has no CLI setter (it becomes true only as a side effect of dlss set --sr-mode and --sr-preset), and cpu.affinity has no CLI setter (cpu set has only --governor and --smt)."
+    - Add unset to the allowed values of cpu.governor and overlay.position. The descriptors allow the empty value and the doc already writes unset for the other string fields.
+    - Add a test that parses the table in docs/profile-fields.md and compares it with profile.Fields() for key, order, type, allowed values, impact, and restore, so the document cannot drift again (documentation is declared intent, tests are executable expectations).
+    - Decide whether gpu.vrr gets a CLI setter and a mention in the gpu profile-reset help (gpu_set.go:60-62 omits vrr, although gpu profile-reset <game> vrr works). Document the decision either way.
+    - Found by the 2026-10-14 TUI profile and settings UX recon (defect D1 in docs/design/tui-profile-settings-ux-review-plan.md) and confirmed by the audit stream.
+    - "Reviewed in the 2026-10-14 TUI profile and settings UX review (audit stream: field audit, vocabulary matrix); the review report is docs/design/tui-profile-settings-ux-review.md. Fold this item into the implementation plan for the alternative the user chooses."
+  acceptance:
+    - GIVEN the profile field descriptors WHEN compared with the documented field table THEN every descriptor has exactly one row, in descriptor order inside each subsystem, and its type, allowed values (the empty value written as unset), impact, and restore match.
+    - GIVEN the gpu.vrr row WHEN compared with fields.go:66 THEN the allowed values are unset, automatic, always, never and the surfaces column says the CLI cannot set it.
+    - GIVEN the surfaces column WHEN compared with the CLI set commands THEN no field claims a CLI setter that does not exist.
+    - GIVEN a descriptor added or removed without a matching document change WHEN the test suite runs THEN a test fails and names the field.
+  release_blocker: false
+  severity: normal
+  readiness:
+    capability: build
+    reason: Documentation-only correction with no dependency on the UX review outcome.
+    dependencies:
+      []
+    blocked: null
+    gate: null
+    queue_rank: 1
+    order_reason: Smallest independent fix; restores the field contract before other defects build on it.
+  status: open
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[bug] Document the KDE VRR profile field"
+      severity: normal
+      status: open
+      order: 26

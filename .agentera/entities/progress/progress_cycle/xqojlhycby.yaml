@@ -1,0 +1,16 @@
+id: xqojlhycby
+artifact: progress
+record:
+  timestamp: 2026-10-15 00:03
+  type: docs
+  phase: audit
+  what: "Completed the TUI profile and settings UX review (plan mnfroqoiwu): measured T1 to T10 in the terminal at 120x40 and 80x24 and in the GUI, audited fields and vocabulary, wrote the findings report with three alternatives, and filed 19 TODOs. Nothing was implemented."
+  context:
+    intent: Find why profile and settings management feels clunky, measure it, and offer simpler interaction models for the user to choose from.
+    constraints: No product code, tests, or fixtures changed; isolated state in a read-only jail; no privileged action, launch, or push; the uncommitted dependency work was left alone.
+    unknowns: The user's choice among alternatives A, B, and C, and how to treat real profile files already saved with phantom pins.
+    scope: Library profile editing, All games defaults, TUI Settings, Actions, the save and reset model, and the GUI on the same tasks.
+  discovered: "A profile returned to all-inherited is saved without an overrides map and re-pins non-zero defaults on the next load (profile.go:40-46, storage.go:50-60, inheritance.go:264-325), while the screen says saved and inherited. Four of five streams reproduced it; real files 1091500.yaml and 1601580.yaml are {}. Other structural costs: the view and field cursor reset on every game change, Reset only in Actions, an unsaved cue that scrolls away, and a Search route nothing signposts (9 keys against 40)."
+  verified: count-log.py exits 0 on all four logs; report tables regenerate from them (build-report.py --check); real Spela state, tracked files, dependency hashes, the dependency TODO rows and the CHANGELOG block are unchanged; no session, browser, bridge, or fixture root remains. Hardware and launch behavior were read from code, not run; estimates for the alternatives come from key sequences whose baseline decompositions match the measured totals.
+  next: User picks an alternative at the decision gate; then write a separate implementation plan with F1 (TODO nsbxkoodkq) first.
+  publication_order: 23

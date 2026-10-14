@@ -1,0 +1,24 @@
+id: kjxiwkpgvj
+artifact: todo
+record:
+  kind: bug
+  target_version: null
+  severity: annoying
+  title: Make Show hints do something visible, or remove the option
+  requirements:
+    - "Show hints changes nothing visible in Library, Profile, DLLs, DLL Catalog, Monitor, or Settings: 20 pairs of frames with hints on and off were identical except for the setting's own value lines. `Styles.RenderHint` has no callers (internal/tui/styles.go:225) and `ShowHints` is read only inside a function the TUI does not call (internal/tui/dlls_resource.go:757)."
+    - The option text says Takes effect immediately after saving (internal/config/options.go:71) and docs/configuration.md:16 claims an effect. Either wire the option to the key bar (hide the bar or its long hints), or remove it from the TUI, the GUI, and the docs.
+    - "Found by the 2026-10-14 TUI profile and settings UX review. Report: docs/design/tui-profile-settings-ux-review.md. Evidence is outside the repository, in ~/.local/state/spela-ux-review/2026-10-14/."
+  acceptance:
+    - GIVEN Show hints is off WHEN any screen renders THEN the key bar differs from the hints-on screen as documented, or the option does not exist.
+    - GIVEN the option text WHEN it is read THEN it describes what the option does.
+  release_blocker: false
+  status: open
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[bug] Make Show hints do something visible, or remove the option"
+      severity: annoying
+      status: open
+      order: 3

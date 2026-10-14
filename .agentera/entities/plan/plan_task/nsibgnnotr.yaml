@@ -1,0 +1,18 @@
+id: nsibgnnotr
+artifact: plan
+record:
+  name: Measure Settings tasks in the terminal
+  depends_on:
+    - vmrfoxsmeh
+  status: complete
+  acceptance:
+    - GIVEN task T9 WHEN done with displayed basic keys at both sizes, with hints on and off THEN its cost, dialogs, and slips are recorded with frames and walkthrough answers.
+    - GIVEN the Settings destination WHEN every group is visited THEN empty groups and the options shown per group are recorded.
+    - GIVEN saved Settings changes WHEN Spela restarts on the same isolated state THEN the persisted result matches what the screens claimed.
+    - GIVEN observation O9 and defect D3 WHEN the walkthroughs finish THEN each is confirmed, revised, or rejected with evidence.
+  plan: mnfroqoiwu
+  evidence:
+    - "Log: settings/commands.jsonl, 181 rows, count-log.py exit 0, 0 unjudged rows, 0 missing frames; T9 baseline runs cost 13 keys with hints on (9 transitions, 0 modals) and 10 keys with hints off, at both sizes."
+    - "Groups: frames T9-120x40-on-r11-001..007 and T9-80x24-on-r11-001..009 show five groups with 1/1/1/0/0 options; DLL policy shows 'No setting selected' (r11-004)."
+    - "Persistence: settings/state/r2-config-*.yaml and r2-games-*.yaml show config after restart equals config after save, and games.yaml differs only in scanned_at."
+    - "Hints: 20 frame pairs with hints on and off are identical except Settings Display (T9-120x40-*-r13-013). Verification notes: synthesis/stream-verification.md."

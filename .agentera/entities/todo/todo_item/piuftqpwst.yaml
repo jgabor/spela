@@ -1,0 +1,23 @@
+id: piuftqpwst
+artifact: todo
+record:
+  kind: task
+  target_version: null
+  severity: normal
+  title: Give the GUI fan speed, power limit, and a whole-game reset
+  requirements:
+    - "The GUI has no Fan speed or Power limit control (profileViewKey, internal/gui/application.go:129-134), so a stored fan speed of 0 cannot be seen or reset. There is no whole-game reset action; the review needed nine Resets and the result did not persist (see the reset TODO). Stream-reported: the GUI Rescan reloads games.yaml and does not scan Steam (internal/gui/app.go:394-402)."
+    - "Found by the 2026-10-14 TUI profile and settings UX review. Report: docs/design/tui-profile-settings-ux-review.md. Evidence is outside the repository, in ~/.local/state/spela-ux-review/2026-10-14/."
+  acceptance:
+    - GIVEN a game profile in the GUI WHEN it is shown THEN fan speed and power limit are visible and resettable.
+    - GIVEN a game with several own values WHEN Follow All games for all settings is chosen THEN every own value is cleared in one confirmed action.
+  release_blocker: false
+  status: open
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[task] Give the GUI fan speed, power limit, and a whole-game reset"
+      severity: normal
+      status: open
+      order: 28

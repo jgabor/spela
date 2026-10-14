@@ -1,0 +1,30 @@
+id: nsbxkoodkq
+artifact: todo
+record:
+  kind: bug
+  target_version: null
+  severity: critical
+  title: Keep a game profile inheriting after its last override is reset
+  requirements:
+    - A game profile with no overrides left is saved without an `overrides` map (internal/profile/profile.go:40-46, `omitempty`). The next load treats it as a legacy file and migrates it against the current defaults (storage.go:50-60, inheritance.go:264-325), which pins every field that differs from a non-zero default as false, 0, or empty. The screen has already said Profile saved! and shown the fields as inherited, and launch then follows the pins, not the defaults.
+    - Reproduced through the TUI (Reset field on the last override then Ctrl+S, and Reset all to inherit), the GUI (a Reset on every override then Save), the CLI (`proton reset` on the last override), and `profile create` followed by a first edit. A GUI Save with no edit also turns a legacy `{}` profile into nine pins. Four of the five review streams reproduced it.
+    - "Fix the detection: always write the `overrides` key, even when it is empty, and migrate only files that lack it (or add a format marker). Keep migration for genuine legacy files."
+    - "Files already saved with phantom pins cannot be told from deliberate pins (DrainSim has four non-zero values beside five zero pins). Decide how to treat them: leave them, or offer a one-time repair that lists the suspected pins and asks. By a read-only simulation the real files 1091500.yaml and 1601580.yaml (both `{}`) and 1631270.yaml (name only) load with eight phantom pins each. `spela profile delete <appid>` returned a `{}` fixture profile to inheriting; it is safe only for a file that holds no deliberate overrides."
+    - "Add tests under a non-empty default.yaml: reset the last override then reload; `profile create` then a first edit then reload; Reset all then reload; GUI save with no edit on a `{}` profile. No current test covers these."
+    - "Optional: show how many pins came from migration, because Overview counts them as choices (internal/tui/overview.go:91)."
+    - "Found by the 2026-10-14 TUI profile and settings UX review. Report: docs/design/tui-profile-settings-ux-review.md. Evidence is outside the repository, in ~/.local/state/spela-ux-review/2026-10-14/."
+  acceptance:
+    - GIVEN a game profile whose only override is reset through the TUI, GUI, or CLI and saved WHEN the profile is loaded again THEN every field inherits from the defaults and `gpu show` reports [inherited] for each field the game never set.
+    - GIVEN `spela profile create <game>` WHEN the first field is set THEN only that field is stored as an override.
+    - GIVEN Reset all to inherit and Save WHEN the game is launched with --dry-run THEN the environment and hardware plan match the defaults profile.
+    - GIVEN a legacy profile file with no overrides key saved before inheritance existed WHEN it loads THEN migration still preserves its old behavior.
+  release_blocker: false
+  status: open
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[bug] Keep a game profile inheriting after its last override is reset"
+      severity: critical
+      status: open
+      order: 1

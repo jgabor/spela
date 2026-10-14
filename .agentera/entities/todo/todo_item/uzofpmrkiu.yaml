@@ -1,0 +1,24 @@
+id: uzofpmrkiu
+artifact: todo
+record:
+  kind: bug
+  target_version: null
+  severity: degraded
+  title: "Fix the field editor: show how to delete, replace the prefilled value, keep Cancel honest"
+  requirements:
+    - Numeric editors open with the current value in the input and typing appends to it (150 plus 200 becomes 150200). Backspace is shown nowhere (3 undisplayed Backspaces per number edit; internal/tui/editor_host.go:115), so a path in Settings can only be appended to. Cancel is two Tabs away and Save three. Cancel drops only the editor value and leaves the surrounding draft alive with no cue. Enter on Save writes a GPU field with no confirmation. The instructions appear twice (box and key bar), and Value before edit shows 0 where the row shows (default).
+    - Range checks are covered by the description TODO.
+    - "Found by the 2026-10-14 TUI profile and settings UX review. Report: docs/design/tui-profile-settings-ux-review.md. Evidence is outside the repository, in ~/.local/state/spela-ux-review/2026-10-14/."
+  acceptance:
+    - GIVEN a numeric editor WHEN the first character is typed THEN it replaces the prefilled value, or the key that clears it is displayed.
+    - GIVEN an editor Cancel while an earlier draft exists WHEN the editor closes THEN the screen still shows that the draft exists.
+  release_blocker: false
+  status: open
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[bug] Fix the field editor: show how to delete, replace the prefilled value, keep Cancel honest"
+      severity: degraded
+      status: open
+      order: 3
