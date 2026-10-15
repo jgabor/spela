@@ -622,8 +622,7 @@
     color: var(--accent-secondary);
   }
 
-  .badge.profile,
-  .badge.default {
+  .badge.profile {
     border-color: var(--accent-secondary);
     color: var(--accent-secondary);
   }
