@@ -44,6 +44,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - DLL types in the graphical DLL catalog and the game DLL lists read the right field, so they are no longer blank.
 - Refresh AUR preview and submission versions from the GitHub source and remote tags in temporary storage, generating matching `.SRCINFO` without modifying local package files.
 
+### Security
+
+- Update Echo to 4.15.3 and Vitest with its coverage provider to 4.1.11 to fix static-file access-control and development-server file-read vulnerabilities.
+
 ## [0.6.2] - 2026-09-13
 
 ### Added

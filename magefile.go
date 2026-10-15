@@ -59,7 +59,7 @@ func GenNavJS() error {
 
 // FrontendBindings regenerates Wails frontend bindings
 func FrontendBindings() error {
-	return runInDir(filepath.Join("cmd", "spela"), "go", "tool", "wails", "build", "-s", "-nopackage", "-m", "-tags", "wails,webkit2_41")
+	return runInDir(filepath.Join("cmd", "spela"), "go", "tool", "wails", "build", "-s", "-nopackage", "-m", "-compiler", "go", "-platform", "linux", "-tags", "wails,webkit2_41")
 }
 
 // FrontendBuild builds the Svelte frontend
@@ -185,7 +185,7 @@ func Coverage() error {
 	if err := runWithEnv(environment, "go", "run", "./tools/gen-nav-js", filepath.Join(frontendDir, "src", "lib", "navContract.generated.js")); err != nil {
 		return err
 	}
-	if err := runInDirWithEnv(filepath.Join("cmd", "spela"), environment, "go", "tool", "wails", "build", "-s", "-nopackage", "-m", "-tags", "wails,webkit2_41"); err != nil {
+	if err := runInDirWithEnv(filepath.Join("cmd", "spela"), environment, "go", "tool", "wails", "build", "-s", "-nopackage", "-m", "-compiler", "go", "-platform", "linux", "-tags", "wails,webkit2_41"); err != nil {
 		return err
 	}
 	if err := runInDirWithEnv(frontendDir, environment, "bun", "install", "--frozen-lockfile"); err != nil {

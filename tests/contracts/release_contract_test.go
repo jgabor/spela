@@ -264,8 +264,8 @@ func TestReleaseBuildInputsContract(t *testing.T) {
 
 	goModule := read("go.mod")
 	for _, pin := range []string{
-		"github.com/magefile/mage v1.15.0",
-		"github.com/wailsapp/wails/v2 v2.15.0",
+		"github.com/magefile/mage v1.17.2",
+		"github.com/wailsapp/wails/v2 v2.16.0",
 		"tool (",
 		"github.com/wailsapp/wails/v2/cmd/wails",
 	} {
