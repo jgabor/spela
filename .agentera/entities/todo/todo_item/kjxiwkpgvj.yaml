@@ -13,12 +13,16 @@ record:
     - GIVEN Show hints is off WHEN any screen renders THEN the key bar differs from the hints-on screen as documented, or the option does not exist.
     - GIVEN the option text WHEN it is read THEN it describes what the option does.
   release_blocker: false
-  status: open
+  status: resolved
   reconciliation:
     schema_version: agentera.todoReconciliation.v1
     public:
       present: true
       description: "[bug] Make Show hints do something visible, or remove the option"
+      status: resolved
+      order: 13
       severity: annoying
-      status: open
-      order: 3
+  lifecycle:
+    operation: resolve
+    reason: Done in redesign step 1 on branch feat/shared-profile-vocabulary (worktree ~/.cache/spela-step1, patch ~/.cache/spela-step1.patch); uncommitted and not merged into main.
+    date: 2026-10-15

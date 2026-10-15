@@ -43,7 +43,7 @@ const fixtures = vi.hoisted(() => ({
   },
   settingsCatalog: [
     { id: 0, title: 'Display', options: [
-      { key: 'showHints', label: 'Show hints', description: '', type: 'toggle' },
+      { key: 'compactMode', label: 'Compact mode', description: '', type: 'toggle' },
       { key: 'theme', label: 'Theme', description: '', type: 'select', choices: ['dark', 'light'] }
     ] },
     { id: 1, title: 'Startup', options: [{ key: 'manifestRefreshHours', label: 'Refresh hours', description: '', type: 'select', choices: ['12', '24'] }] },
@@ -64,7 +64,6 @@ const fixtures = vi.hoisted(() => ({
   },
   config: {
     theme: 'dark',
-    showHints: true,
     compactMode: false,
     logLevel: 'info',
     steamPath: '',
@@ -93,7 +92,7 @@ vi.mock('../wailsjs/go/gui/App', () => ({
     ...state,
     scopeGlobal,
     gameName,
-    aspect: scopeGlobal ? 1 : state.aspect
+    aspect: scopeGlobal || state.aspect !== 2 ? 1 : state.aspect
   })),
   NavSelectSettingsSection: vi.fn().mockImplementation(async (state, section) => ({ ...state, settingsSection: section })),
   NavSelectSubsystem: vi.fn().mockImplementation(async (state, subsystem) => ({ ...state, subsystem })),
@@ -115,8 +114,10 @@ vi.mock('../wailsjs/go/gui/App', () => ({
   RestoreDLLs: vi.fn().mockResolvedValue(undefined),
   SaveConfig: vi.fn().mockResolvedValue(undefined),
   SaveConfigOption: vi.fn().mockResolvedValue(undefined),
+  ApplyToGamesWithOwnValue: vi.fn().mockResolvedValue(undefined),
   PatchDefaultProfile: vi.fn().mockResolvedValue(undefined),
   PatchProfile: vi.fn().mockResolvedValue(undefined),
+  PreviewApplyToGamesWithOwnValue: vi.fn().mockResolvedValue(undefined),
   ScanGames: vi.fn().mockResolvedValue(undefined),
   UpdateDLLs: vi.fn().mockResolvedValue(undefined),
   VKD3DHeapCompatibilityNotice: vi.fn().mockResolvedValue('')
@@ -144,7 +145,7 @@ function makeDesktop(overrides = {}) {
     ...state,
     scopeGlobal,
     gameName,
-    aspect: scopeGlobal ? 1 : state.aspect
+    aspect: scopeGlobal || state.aspect !== 2 ? 1 : state.aspect
   })),
   NavSelectSettingsSection: vi.fn().mockImplementation(async (state, section) => ({ ...state, settingsSection: section })),
   NavSelectSubsystem: vi.fn().mockImplementation(async (state, subsystem) => ({ ...state, subsystem })),
@@ -166,8 +167,10 @@ function makeDesktop(overrides = {}) {
     RestoreDLLs: vi.fn().mockResolvedValue(undefined),
     SaveConfig: vi.fn().mockResolvedValue(undefined),
     SaveConfigOption: vi.fn().mockResolvedValue(undefined),
+    ApplyToGamesWithOwnValue: vi.fn().mockResolvedValue(undefined),
     PatchDefaultProfile: vi.fn().mockResolvedValue(undefined),
     PatchProfile: vi.fn().mockResolvedValue(undefined),
+    PreviewApplyToGamesWithOwnValue: vi.fn().mockResolvedValue(undefined),
     ScanGames: vi.fn().mockResolvedValue(undefined),
     SubscribeDLLProgress: vi.fn().mockReturnValue(() => {}),
     UpdateDLLs: vi.fn().mockResolvedValue(undefined),
@@ -199,15 +202,16 @@ describe('App keyboard behavior', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Hades' })).toBeTruthy())
     expect(desktop.GetProfile).toHaveBeenCalledWith(1145360)
 
-    await fireEvent.click(screen.getByRole('button', { name: /All games \(default\)/ }))
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'All games (default)' })).toBeTruthy())
-    expect(screen.getByRole('button', { name: 'Save default profile' })).toBeTruthy()
+    await fireEvent.click(screen.getByRole('button', { name: /All games/ }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'All games' })).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Saved at once')).toBeTruthy())
+    expect(screen.queryByRole('button', { name: 'Save All games' })).toBeNull()
 
     await fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Display' })).toBeTruthy())
-    const showHintsRow = screen.getByText('Show hints').closest('.option-row')
-    await fireEvent.click(within(showHintsRow).getByRole('button'))
-    await waitFor(() => expect(desktop.SaveConfigOption).toHaveBeenCalledWith('showHints', 'false'))
+    const compactModeRow = screen.getByText('Compact mode').closest('.option-row')
+    await fireEvent.click(within(compactModeRow).getByRole('button'))
+    await waitFor(() => expect(desktop.SaveConfigOption).toHaveBeenCalledWith('compactMode', 'true'))
     expect(screen.getByText('Options saved')).toBeTruthy()
 
     await fireEvent.keyDown(window, { key: '?' })
@@ -215,6 +219,24 @@ describe('App keyboard behavior', () => {
     expect(help).toBeTruthy()
     await fireEvent.click(within(help).getByRole('button', { name: 'Close' }))
     expect(screen.queryByRole('dialog', { name: 'Help' })).toBeNull()
+  })
+
+  it('opens a game on Profile and keeps the DLLs tab when the game changes', async () => {
+    const desktop = makeDesktop()
+    render(App, { props: { desktop } })
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Cyberpunk 2077/ })).toBeTruthy())
+    await fireEvent.click(screen.getByRole('button', { name: /Cyberpunk 2077/ }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Cyberpunk 2077' })).toBeTruthy())
+    expect(screen.queryByRole('tab', { name: /Overview/ })).toBeNull()
+    await waitFor(() => expect(desktop.GetProfile).toHaveBeenCalledWith(1091500))
+    expect(screen.queryByText('Install dir')).toBeNull()
+
+    await fireEvent.click(screen.getByRole('tab', { name: '2 DLLs' }))
+    await waitFor(() => expect(screen.getByText('Install dir')).toBeTruthy())
+    await fireEvent.click(screen.getByRole('button', { name: /Hades/ }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Hades' })).toBeTruthy())
+    expect(screen.getByText('Install dir')).toBeTruthy()
   })
 
   it('does not run global shortcuts while typing in editable settings controls', async () => {

@@ -69,7 +69,7 @@ func TestRenderContextBar_PreservesCurrentActionBeforeOverflow(t *testing.T) {
 }
 
 func TestHelpGroupsReferenceKeysWithReadableSpacing(t *testing.T) {
-	out := stripANSI(NewHelp(NewStyles(DefaultTheme, true)).content())
+	out := stripANSI(NewHelp(NewStyles(DefaultTheme)).content())
 	for _, want := range []string{"Reference only", "After closing Help", "0: Actions", "Actions: Quit", "Reference: browse controls"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("Help missing %q: %s", want, out)
@@ -110,7 +110,7 @@ func TestRenderContextBar_GlobalKeysOnly(t *testing.T) {
 }
 
 func TestHelp_UsesCanonicalShellWithoutLegacyNavigation(t *testing.T) {
-	help := NewHelp(NewStyles(DefaultTheme, true))
+	help := NewHelp(NewStyles(DefaultTheme))
 	help.SetSize(100, 30)
 	out := strings.ToLower(stripANSI(help.View()))
 	for _, want := range []string{"close", "keyboard shortcuts", "tab: next control"} {
@@ -126,7 +126,7 @@ func TestHelp_UsesCanonicalShellWithoutLegacyNavigation(t *testing.T) {
 }
 
 func TestHelp_NoLaunchBinding(t *testing.T) {
-	for _, line := range strings.Split(NewHelp(NewStyles(DefaultTheme, true)).View(), "\n") {
+	for _, line := range strings.Split(NewHelp(NewStyles(DefaultTheme)).View(), "\n") {
 		if strings.Contains(strings.ToLower(line), "launch game") {
 			t.Errorf("help line mentions launch game — must be removed:\n%s", line)
 		}

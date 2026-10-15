@@ -40,10 +40,12 @@ type Profile struct {
 	// Overrides tracks which leaf fields are explicitly pinned on this
 	// profile (true) as opposed to inheriting from the defaults profile.
 	// Keys are dot-path field keys defined in inheritance.go (e.g.
-	// "proton.vkd3d_heap"). A profile whose Overrides is nil on load is
-	// treated as legacy and run through migrateInheritance to reconstruct
-	// the map from the stored values.
-	Overrides map[string]bool `yaml:"overrides,omitempty"`
+	// "proton.vkd3d_heap"). Every saved profile carries the key, written as
+	// "overrides: {}" when nothing is pinned, so the tag has no omitempty.
+	// A profile whose Overrides is nil on load had no key in its file, is
+	// treated as legacy, and is run through migrateInheritance to
+	// reconstruct the map from the stored values.
+	Overrides map[string]bool `yaml:"overrides"`
 }
 
 type OverlaySettings struct {

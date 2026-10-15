@@ -85,7 +85,9 @@ func (m *ListPaneModel) applySectionCursor() {
 	case nav.DestinationMonitor:
 		m.navState.MonitorSection = nav.MonitorSection(m.cursor)
 	case nav.DestinationSettings:
-		m.navState.SettingsSection = nav.SettingsSection(m.cursor)
+		if sections := tuiSettingsSections(); m.cursor >= 0 && m.cursor < len(sections) {
+			m.navState.SettingsSection = sections[m.cursor].ID
+		}
 	}
 }
 
@@ -100,7 +102,7 @@ func (m *ListPaneModel) syncCursorFromState() {
 	case nav.DestinationMonitor:
 		m.cursor = int(m.navState.MonitorSection)
 	case nav.DestinationSettings:
-		m.cursor = int(m.navState.SettingsSection)
+		m.cursor = settingsSectionIndex(tuiSettingsSections(), m.navState.SettingsSection)
 	default:
 		m.cursor = 0
 	}
@@ -139,7 +141,11 @@ func sectionLabels(destination nav.Destination) []string {
 	case nav.DestinationMonitor:
 		return nav.MonitorSectionLabels
 	case nav.DestinationSettings:
-		return nav.SettingsSectionLabels
+		var labels []string
+		for _, section := range tuiSettingsSections() {
+			labels = append(labels, section.Title)
+		}
+		return labels
 	default:
 		return nil
 	}

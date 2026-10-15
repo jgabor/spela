@@ -19,7 +19,6 @@ func TestBatchFailureResultKeepsDetailsAndCloseReachable(t *testing.T) {
 				layout := testLayout(testGame("Fixture game"))
 				updated, _ := layout.Update(tea.WindowSizeMsg{Width: size.width, Height: size.height})
 				layout = updated.(LayoutModel)
-				layout.styles.SetShowHints(false)
 				layout.showBatchMenu = true
 				layout.batchMessage = strings.Repeat("/temporary/game/path/nvngx_dlss.dll: permission denied"+separator, 45) + "\nFINAL BATCH FAILURE"
 				view := stripANSI(layout.View().Content)

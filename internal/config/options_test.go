@@ -19,7 +19,6 @@ func TestOptionsClassifyEveryConfigField(t *testing.T) {
 		{"log_level", "logLevel", nav.SettingsLogging, KindEnum, VisibilityCLI | VisibilityGUI | VisibilityWails},
 		{"shader_cache", "shaderCache", nav.SettingsPaths, KindPath, VisibilityCLI | VisibilityWails},
 		{"check_updates", "checkUpdates", nav.SettingsStartup, KindBool, VisibilityCLI | VisibilityGUI | VisibilityWails},
-		{"show_hints", "showHints", nav.SettingsDisplay, KindBool, VisibilityTUI | VisibilityGUI | VisibilityWails},
 		{"rescan_on_startup", "rescanOnStartup", nav.SettingsStartup, KindBool, VisibilityTUI | VisibilityGUI | VisibilityWails},
 		{"auto_update_dlls", "autoUpdateDLLs", nav.SettingsStartup, KindBool, VisibilityGUI | VisibilityWails},
 		{"steam_path", "steamPath", nav.SettingsPaths, KindPath, VisibilityTUI | VisibilityGUI | VisibilityWails},
@@ -53,7 +52,7 @@ func TestOptionsClassifyEveryConfigField(t *testing.T) {
 
 func TestOptionGetSetRoundTripAndExplicitZero(t *testing.T) {
 	original := &Config{
-		LogLevel: LogLevelError, ShaderCache: "", CheckUpdates: false, ShowHints: false,
+		LogLevel: LogLevelError, ShaderCache: "", CheckUpdates: false,
 		RescanOnStartup: false, AutoUpdateDLLs: true, SteamPath: "", AdditionalLibraryPaths: []string{},
 		DLLCachePath: "", BackupPath: "", DLLManifestURL: "", AutoRefreshManifest: false,
 		ManifestRefreshHours: 0, PreferredDLLSource: "github", Theme: "light", CompactMode: true, ConfirmDestructive: false,
@@ -78,7 +77,7 @@ func TestOptionValidationAndCatalogParity(t *testing.T) {
 		{"log_level", "verbose", "unsupported log level: verbose"},
 		{"preferred_dll_source", "mirror", "unsupported DLL source: mirror"},
 		{"theme", "neon", "unsupported theme: neon"},
-		{"show_hints", "maybe", "invalid boolean for show_hints: maybe"},
+		{"rescan_on_startup", "maybe", "invalid boolean for rescan_on_startup: maybe"},
 		{"manifest_refresh_hours", "daily", "invalid integer for manifest_refresh_hours: daily"},
 		{"additional_library_paths", "games", "invalid string list for additional_library_paths"},
 	} {
@@ -129,7 +128,7 @@ func TestWailsCatalogOnlyExposesGUIOptions(t *testing.T) {
 			t.Errorf("hidden option %q exposed in GUI catalog", hidden)
 		}
 	}
-	for _, visible := range []string{"theme", "showHints", "manifestRefreshHours", "logLevel"} {
+	for _, visible := range []string{"theme", "manifestRefreshHours", "logLevel"} {
 		if !seen[visible] {
 			t.Errorf("GUI option %q missing", visible)
 		}

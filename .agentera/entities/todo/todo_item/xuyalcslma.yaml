@@ -22,4 +22,4 @@ record:
       description: "[bug] Say which profile fields do nothing, or make them do something"
       severity: degraded
       status: open
-      order: 8
+      order: 3

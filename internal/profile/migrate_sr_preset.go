@@ -14,7 +14,7 @@ type profileYAML struct {
 	CPU       CPUSettings     `yaml:"cpu,omitempty"`
 	Proton    ProtonSettings  `yaml:"proton,omitempty"`
 	Overlay   OverlaySettings `yaml:"overlay,omitempty"`
-	Overrides map[string]bool `yaml:"overrides,omitempty"`
+	Overrides map[string]bool `yaml:"overrides"`
 }
 
 type dlssYAML struct {

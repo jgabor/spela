@@ -1,0 +1,12 @@
+id: mpunkyuupr
+artifact: plan
+record:
+  name: Vocabulary, descriptor units, and source states in Go
+  status: complete
+  depends_on:
+    []
+  acceptance:
+    - GIVEN every (scope, source) pair in review section 9.2 WHEN vocabulary.go renders it THEN a table-driven test shows the exact words, and no retired word appears anywhere in the table.
+    - GIVEN a defaults profile that sets a field, one that leaves it zero, and no defaults file WHEN ExplainField runs THEN the source distinguishes All games value, system default, and this game, and the existing JSON source strings still pass json_contract_test.go or are changed with it and a stated reason.
+    - GIVEN every numeric descriptor WHEN read THEN it has a unit and a range, every descriptor has a real description, and ranges are display-only so an out-of-range stored value still loads.
+  plan: pmdtzsxing

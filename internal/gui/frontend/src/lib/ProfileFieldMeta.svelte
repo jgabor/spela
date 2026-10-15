@@ -5,24 +5,32 @@
   export let fields = []
   export let semantic
   export let profileMode = 'game'
-  export let pendingOperation = ''
 
   const dispatch = createEventDispatcher()
   $: actionFields = fields.length ? fields : [field]
-  $: operation = profileMode === 'default' || semantic?.source === 'override' ? 'reset' : 'pin'
-  $: label = profileMode === 'default' ? (field === 'gpu.vrr' ? 'Reset default' : 'Unset') : operation === 'reset' ? 'Reset' : 'Pin'
-  $: text = semantic
-    ? profileMode === 'default'
-      ? `impact ${semantic.impact} · restore ${semantic.restore}`
-      : `source ${semantic.source} · impact ${semantic.impact} · restore ${semantic.restore}`
-    : ''
+  // What the button does is decided by the field's source; the words for it,
+  // and for the source, come from the Go vocabulary.
+  $: own = profileMode === 'default' ? semantic?.origin === 'set_here' : semantic?.source === 'override'
+  $: operation = own ? 'reset' : 'pin'
+  $: label = semantic?.action ?? ''
+  $: text = semantic ? [semantic.sourceText, semantic.ownValueSuffix].filter(Boolean).join(' · ') : ''
+  // On All games, a field some games set themselves offers one action that
+  // makes those games follow All games.
+  $: applyOwnValues = profileMode === 'default' && semantic?.ownValueCount > 0 ? semantic.ownValueAction : ''
 </script>
 
-<span class="profile-meta">
-  <span>{text}</span>
-  <button type="button" on:click={() => dispatch('action', { fields: actionFields, operation })}>
-    {pendingOperation ? `Cancel ${label}` : label}
-  </button>
+<span class="meta-block">
+  <span class="profile-meta">
+    <span>{text}</span>
+    <button type="button" on:click={() => dispatch('action', { fields: actionFields, operation })}>
+      {label}
+    </button>
+  </span>
+  {#if applyOwnValues}
+    <button type="button" class="apply-own-values" on:click={() => dispatch('applyOwnValue', { fields: actionFields })}>
+      {applyOwnValues}
+    </button>
+  {/if}
 </span>
 
 <style>
@@ -36,6 +44,17 @@
     font-size: 0.68rem;
     line-height: 1.3;
     text-transform: none;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  }
+
+  .meta-block {
+    display: block;
+  }
+
+  .apply-own-values {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.68rem;
     font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
   }
 

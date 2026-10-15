@@ -16,7 +16,7 @@ func TestDLLMutationConfirmationSummaryAndCancel(t *testing.T) {
 	entry.DLLs[0].Path = "/tmp/spela-fixture/nvngx_dlss.dll"
 	confirmation := newDLLMutationConfirmation("Confirm DLL update", []dllMutationTarget{newDLLMutationTarget(entry, entry.DLLs[0], "3.8.0")}, "current DLL is backed up")
 
-	view := stripANSI(confirmation.view(NewStyles(DefaultTheme, false)))
+	view := stripANSI(confirmation.view(NewStyles(DefaultTheme)))
 	for _, want := range []string{"Fixture Game", "DLSS", entry.DLLs[0].Path, "3.7.0 → 3.8.0", "Backup: current DLL is backed up"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("confirmation missing %q:\n%s", want, view)
@@ -64,7 +64,7 @@ func TestContentDLLCancellationRetainsAccurateOutcomeWithoutMutation(t *testing.
 		for _, key := range []string{"enter"} {
 			t.Run(action+"/"+key, func(t *testing.T) {
 				entry, services, fixturePath, original, calls := newDLLCancellationFixture(t)
-				content := NewContent(NewStyles(DefaultTheme, true), true, services)
+				content := NewContent(NewStyles(DefaultTheme), true, services)
 				content.SetSize(100, 30)
 				content.database = testDatabase(entry)
 				content = content.SetGame(entry)

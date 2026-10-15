@@ -1,0 +1,13 @@
+id: trqdghffol
+artifact: plan
+record:
+  name: TUI value and source column, Find row, and Settings
+  status: complete
+  depends_on:
+    - mpunkyuupr
+  acceptance:
+    - GIVEN the review fixture at 120x40 and 80x24 WHEN the Profile view is read with termctrl show THEN every row shows value and source with the shared words and units, the Effect line wraps without losing the restore sentence, and the 80x24 view names the game.
+    - GIVEN the All games page WHEN a field is set by games THEN the page names the games that keep their own value; and the List has a Find row that opens Search.
+    - GIVEN Settings WHEN opened THEN only groups with options are listed, and booleans read On and Off; GIVEN the number editor WHEN text is typed THEN it replaces the prefilled value and Backspace appears in the key bar.
+    - GIVEN Terminal Control journeys on isolated state WHEN T3, T1 far, and T5 are replayed THEN they take 7, 8, and 40 keys or fewer, no key binding is added or removed, Backspace is displayed in the number editor key bar, a parity assertion covers the TUI labels, and the frames are read at both sizes.
+  plan: pmdtzsxing

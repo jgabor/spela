@@ -4,8 +4,7 @@ test.describe('shell', () => {
   test('shows the current resource shell', async ({ page }) => {
     await page.goto('/')
     await expect(page.getByPlaceholder('Search games...')).toBeVisible()
-    await expect(page.getByText('All games (default)')).toBeVisible()
-    await expect(page.getByText('NVIDIA DLSS super resolution and frame generation settings')).toBeVisible()
+    await expect(page.locator('.game-item.default-profile .name')).toHaveText('All games')
   })
 
   test('opens settings destination and help overlay', async ({ page }) => {
@@ -19,11 +18,11 @@ test.describe('shell', () => {
   test('saves a settings field through SaveConfigOption', async ({ page }) => {
     await page.goto('/')
     await page.getByRole('button', { name: 'Settings', exact: true }).click()
-    const showHints = page.getByRole('button', { name: 'Show hints' })
-    await expect(showHints).toHaveAttribute('aria-pressed', 'true')
-    await showHints.click()
-    await expect(showHints).toHaveAttribute('aria-pressed', 'false')
-    await expect.poll(() => page.evaluate(() => window.go.gui.App.GetConfig().then((current) => current.showHints))).toBe(false)
+    const compactMode = page.getByRole('button', { name: 'Compact mode' })
+    await expect(compactMode).toHaveAttribute('aria-pressed', 'false')
+    await compactMode.click()
+    await expect(compactMode).toHaveAttribute('aria-pressed', 'true')
+    await expect.poll(() => page.evaluate(() => window.go.gui.App.GetConfig().then((current) => current.compactMode))).toBe(true)
   })
 })
 
@@ -61,20 +60,21 @@ test.describe('game list', () => {
     await expect(page.getByText(/No games matching/)).toBeVisible()
   })
 
-  test('clicking a game shows library overview', async ({ page }) => {
+  test('clicking a game opens its profile', async ({ page }) => {
     await page.goto('/')
     await page.getByText('Cyberpunk 2077').click()
     await expect(page.locator('h1', { hasText: 'Cyberpunk 2077' })).toBeVisible()
-    await expect(page.locator('dt', { hasText: 'App ID' }).locator('..').locator('dd')).toHaveText('1091500')
+    await expect(page.getByText('App ID')).toBeVisible()
+    await expect(page.getByText('1091500', { exact: true })).toBeVisible()
   })
 })
 
 test.describe('navigation flow', () => {
   test('default scope entry shows default profile detail', async ({ page }) => {
     await page.goto('/')
-    await page.getByText('All games (default)').click()
-    await expect(page.locator('h1', { hasText: 'All games (default)' })).toBeVisible()
-    await expect(page.getByText('Applies to games without their own profile.')).toBeVisible()
+    await page.locator('.game-item.default-profile').click()
+    await expect(page.locator('h1', { hasText: 'All games' })).toBeVisible()
+    await expect(page.getByText('Games follow these values unless they set their own.')).toBeVisible()
   })
 
   test('opens DLL catalog destination', async ({ page }) => {

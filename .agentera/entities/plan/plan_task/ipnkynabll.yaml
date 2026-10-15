@@ -1,0 +1,23 @@
+id: ipnkynabll
+artifact: plan
+record:
+  name: Profile-first navigation, header, sections, and DLLs section
+  status: complete
+  depends_on:
+    []
+  acceptance:
+    - GIVEN a game opened from the List WHEN it loads THEN the view is Profile, a game left on DLLs reopens on DLLs, and the field cursor stays on the same field key when the game changes, on rescan, and on same-game reopen.
+    - GIVEN the Profile page WHEN Right or Left is pressed THEN the cursor jumps to the first field of the next or previous section on a game and on All games, Right from the last section opens DLLs on a game only, Left from DLLs returns to the first Overlay field, and nothing wraps.
+    - GIVEN a game WHEN the pane renders at 120x40 and 80x24 THEN a three-line header shows game, App ID, save status, the own settings by name and value, and the section strip, the Overview view and its code are gone, nav.AspectOverview stays, and the DLLs section starts with a Game block (install directory, prefix, launch option).
+    - GIVEN draftLayout, draftKey, and draftSelect WHEN task 1 starts THEN they live in testhelpers_test.go, and the tests named in the plan for this task (shell_contract, keymap, active_state_contract, detail Overview cases, content_direct_actions, profile_vocabulary) are updated with stated reasons and mage test passes.
+  plan: mdwrquqtci
+  evaluation:
+    attempt_count: 1
+    failure_count: 0
+    last_verdict: pass
+    last_failure_evidence: null
+    provenance:
+      attempt_id: t1-build
+      source: go test ./internal/tui passes with the new flow tests (sticky field, section jumps, DLLs boundary, header). Terminal frames at 80x24 and 120x40 are read in task 7; the header uses 3 lines and the pane height arithmetic was corrected (detail and DLL content now use pane height minus 3).
+      recorded_at: 2026-10-15 08:17
+      writer_command: agentera state plan record-evaluation

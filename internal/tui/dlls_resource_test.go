@@ -18,7 +18,7 @@ import (
 // fake cached-version index. The manifest is also injected so the library
 // section exercises latest-version resolution without touching disk.
 func makeDLLsResource(games []*game.Game, cached map[string][]string, manifest *dll.Manifest) DLLsResourceModel {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	m := NewDLLsResource(styles, testServices())
 	m = m.SetGames(games)
 	m = m.SetManifest(manifest)
@@ -28,7 +28,7 @@ func makeDLLsResource(games []*game.Game, cached map[string][]string, manifest *
 }
 
 func makeDLLsResourceWithServices(games []*game.Game, cached map[string][]string, services *Services) DLLsResourceModel {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	m := NewDLLsResource(styles, services)
 	m = m.SetGames(games)
 	m.cached = cached

@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import DLLCatalogPane from './DLLCatalogPane.svelte'
 import GameDLLPane from './GameDLLPane.svelte'
-import GameOverview from './GameOverview.svelte'
 import Monitor from './Monitor.svelte'
 import SettingsPane from './SettingsPane.svelte'
 
@@ -47,7 +46,7 @@ describe('settings supported controls', () => {
     const section = {
       title: 'All controls',
       options: [
-        { key: 'hints', label: 'Show hints', description: 'Hints', type: 'toggle' },
+        { key: 'hints', label: 'Compact mode', description: 'Spacing', type: 'toggle' },
         { key: 'level', label: 'Log level', description: 'Logging', type: 'select', choices: ['info', 'debug'] },
         { key: 'path', label: 'Steam path', description: 'Steam', type: 'text' }
       ]
@@ -62,7 +61,7 @@ describe('settings supported controls', () => {
       }
     })
     expect(screen.getByText('Saved').dataset.type).toBe('success')
-    await fireEvent.click(screen.getByRole('button', { name: 'Show hints' }))
+    await fireEvent.click(screen.getByRole('button', { name: 'Compact mode' }))
     await fireEvent.change(screen.getByRole('combobox'), { target: { value: 'debug' } })
     await fireEvent.change(screen.getByLabelText('Steam path'), { target: { value: '/steam' } })
     expect(onOptionChange.mock.calls).toEqual([
@@ -78,7 +77,7 @@ describe('DLL catalog and overview supported projections', () => {
   it('renders inventory, deployment rows, game details, and empty details', async () => {
     const desktop = {
       GetGames: vi.fn().mockResolvedValue([
-        { name: 'Cyberpunk 2077', dlls: [{ type: 'dlss' }, { type: 'dlssg' }] },
+        { name: 'Cyberpunk 2077', dlls: [{ dllType: 'dlss' }, { dllType: 'dlssg' }] },
         { name: 'Hades', dlls: [] }
       ])
     }
@@ -89,19 +88,6 @@ describe('DLL catalog and overview supported projections', () => {
     expect(screen.getByText('dlss, dlssg')).toBeTruthy()
     expect(screen.getByText('—')).toBeTruthy()
     catalog.unmount()
-
-    const overview = render(GameOverview, { props: { game: null } })
-    expect(screen.getByText(/Select a game/)).toBeTruthy()
-    await overview.rerender({
-      game: {
-        appId: 1091500, name: 'Cyberpunk 2077', installDir: '/games/cp',
-        prefixPath: '/prefix', dlls: [{ type: 'dlss', version: '3.8.10' }, { type: 'xess', version: '' }]
-      }
-    })
-    expect(screen.getByText('/prefix')).toBeTruthy()
-    expect(screen.getByText('3.8.10')).toBeTruthy()
-    expect(screen.getByText('?')).toBeTruthy()
-    expect(screen.getByText(/spela %command%/)).toBeTruthy()
   })
 
   it('keeps DLL catalog load failures visible', async () => {

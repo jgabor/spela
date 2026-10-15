@@ -7,7 +7,6 @@
   import SettingsPane from './lib/SettingsPane.svelte'
   import MonitorPane from './lib/Monitor.svelte'
   import DLLCatalogPane from './lib/DLLCatalogPane.svelte'
-  import GameOverview from './lib/GameOverview.svelte'
   import { desktopCommands } from './lib/desktop'
   import {
     defaultNavState,
@@ -93,9 +92,6 @@
   async function selectGame(game) {
     selectedGame = game
     nav = await selectScope(nav, false, game?.name ?? '')
-    if (nav.aspect !== Aspect.Profile && nav.aspect !== Aspect.DLLs) {
-      nav = await selectAspect(nav, Aspect.Overview)
-    }
   }
 
   async function selectDefaultProfile() {
@@ -139,7 +135,7 @@
     if (nav.scopeGlobal && nav.aspect === Aspect.Profile) {
       return { profileMode: 'default', profileSubsystem: nav.subsystem, game: null, aspect: 'profile' }
     }
-    if (!selectedGame || nav.aspect === Aspect.Overview) {
+    if (!selectedGame) {
       return null
     }
     if (nav.aspect === Aspect.DLLs) {
@@ -356,8 +352,6 @@
           {...gameDetailProps}
           on:gameUpdate={handleGameUpdate}
         />
-      {:else if selectedGame && nav.aspect === Aspect.Overview}
-        <GameOverview game={selectedGame} />
       {:else}
         <div class="empty-state">Select a scope from the list</div>
       {/if}

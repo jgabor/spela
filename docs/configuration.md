@@ -13,7 +13,6 @@ and **GUI** columns describe visible settings controls.
 | `LogLevel` | `log_level` | `logLevel` | `info` | `debug`, `info`, `warn`, `error` | Logging | yes | no | yes | Used when logging is initialized. |
 | `ShaderCache` | `shader_cache` | `shaderCache` | `$XDG_CACHE_HOME/spela/nvidia` | path/string, including empty | Paths | yes | no | no | Classified legacy global cache path; no settings control or live effect. |
 | `CheckUpdates` | `check_updates` | `checkUpdates` | `true` | boolean (`1`/`0` also accepted by CLI) | Startup | yes | no | yes | Used by startup update checks. |
-| `ShowHints` | `show_hints` | `showHints` | `true` | boolean | Display | no | yes | yes | TUI hint rendering changes immediately after saving. |
 | `RescanOnStartup` | `rescan_on_startup` | `rescanOnStartup` | `true` | boolean | Startup | no | yes | yes | Used on the next startup. |
 | `AutoUpdateDLLs` | `auto_update_dlls` | `autoUpdateDLLs` | `false` | boolean | Startup | no | no | yes | Startup policy; no live settings effect. |
 | `SteamPath` | `steam_path` | `steamPath` | empty (auto-detect) | path/string | Paths | no | yes | yes | Used by subsequent Steam lookups and launches. |

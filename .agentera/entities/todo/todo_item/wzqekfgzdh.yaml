@@ -12,12 +12,16 @@ record:
     - GIVEN a game that inherits some fields WHEN `profile show` runs THEN each field prints its effective value and whether it follows All games or is this game's own.
     - GIVEN a game with no profile file WHEN `profile show` runs THEN it prints the All games values instead of an error.
   release_blocker: false
-  status: open
+  status: resolved
   reconciliation:
     schema_version: agentera.todoReconciliation.v1
     public:
       present: true
       description: "[bug] Make spela profile show print effective values and their sources"
+      status: resolved
+      order: 14
       severity: degraded
-      status: open
-      order: 6
+  lifecycle:
+    operation: resolve
+    reason: Done in redesign step 1 on branch feat/shared-profile-vocabulary (worktree ~/.cache/spela-step1, patch ~/.cache/spela-step1.patch); uncommitted and not merged into main.
+    date: 2026-10-15

@@ -1,0 +1,12 @@
+id: ydrbhnjniu
+artifact: plan
+record:
+  name: Replay the review journeys on the fixed build
+  depends_on:
+    - mvclcodazr
+  acceptance:
+    - "GIVEN a fixed build in a clean worktree and the review fixture with Dome Keeper seeded (clock_offset 1500, fan_speed 0) WHEN the T10 undo is replayed (reset both fields, save, restart) THEN the stored file contains overrides: {} and gpu show reports every field [inherited]."
+    - "GIVEN the fixture WHEN the T5 Reset all on DrainSim is replayed THEN the stored file contains overrides: {} and a restart shows Profile overrides: 0, and the legacy Frostpunk 2 {} game still loads with its migrated pins, as the plan states."
+    - GIVEN the run WHEN it ends THEN the real Spela directories hash the same as before, no session, root, or bridge remains, and the evidence is written under ~/.local/state/spela-ux-review/2026-10-14/f1-verification/.
+  status: complete
+  plan: nfyilvdwgr

@@ -63,10 +63,10 @@ var protonShowCmd = &cobra.Command{
 
 var protonResetCmd = &cobra.Command{
 	Use:   "reset <game> <field>",
-	Short: "Reset a Proton field to inherit from defaults",
-	Long: `Reset a Proton profile field back to inherited. Valid fields:
+	Short: "Make a Proton field follow All games",
+	Long: `Make a Proton profile field follow All games again. Valid fields:
   hdr, wayland, ngx_updater, vkd3d_heap.
-Subsequent 'proton show' will mark the field as (inherited).`,
+Subsequent 'proton show' will show the field as coming from All games.`,
 	Args: cobra.ExactArgs(2),
 	RunE: runProtonReset,
 }
@@ -151,13 +151,13 @@ func runProtonShow(cmd *cobra.Command, args []string) error {
 }
 
 func runProtonShowWithNotice(args []string, compatibilityNotice func(uint64) string) error {
-	g, p, resolved, err := resolvedProfileForShow(args[0])
+	snapshot, err := loadProfileSnapshot(args[0])
 	if err != nil {
 		return err
 	}
 
 	if protonShowJSON {
-		data, err := json.MarshalIndent(resolved.Proton, "", "  ")
+		data, err := json.MarshalIndent(snapshot.resolved.Proton, "", "  ")
 		if err != nil {
 			return err
 		}
@@ -165,13 +165,13 @@ func runProtonShowWithNotice(args []string, compatibilityNotice func(uint64) str
 		return nil
 	}
 
-	fmt.Printf("Proton profile for %s:\n\n", g.Name)
-	fmt.Println(renderField("HDR:", profile.FieldProtonEnableHDR, p, resolved.Proton.EnableHDR))
-	fmt.Println(renderField("Wayland:", profile.FieldProtonEnableWayland, p, resolved.Proton.EnableWayland))
-	fmt.Println(renderField("NGX updater:", profile.FieldProtonEnableNGXUpdater, p, resolved.Proton.EnableNGXUpdater))
-	fmt.Println(renderField("VKD3D heap:", profile.FieldProtonVKD3DHeap, p, resolved.Proton.VKD3DHeap))
-	if resolved.Proton.VKD3DHeap {
-		if notice := compatibilityNotice(g.AppID); notice != "" {
+	fmt.Printf("Proton profile for %s:\n\n", snapshot.game.Name)
+	snapshot.printNoProfileNote()
+	if err := printSubsystemFields("proton", snapshot, ""); err != nil {
+		return err
+	}
+	if snapshot.resolved.Proton.VKD3DHeap {
+		if notice := compatibilityNotice(snapshot.game.AppID); notice != "" {
 			fmt.Printf("    %s\n", tui.CLIDim(notice))
 		}
 	}

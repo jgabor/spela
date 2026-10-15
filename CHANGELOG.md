@@ -10,9 +10,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Configure `gpu.vrr` with explicit unset, inheritance, TUI/GUI editing, and restoration of the KDE primary display after tracked game launches.
+- `spela profile reset <game>` makes a game follow All games for every setting, and the TUI List has a Find row (Up from the first item, then type or press Enter) that opens Search.
+- On the All games page, **Apply to games with their own value** (the TUI Actions menu and a button in the graphical interface) makes the games that set their own value for the focused setting follow All games. It names the games and the value first, and a failed game is named while the rest still change.
+- Left and Right jump between the sections of a TUI profile page (Proton, DLSS, GPU, CPU, Overlay) and reach the game's DLLs section, which starts with the install directory, Proton prefix, and Steam launch option.
+- The TUI profile page has a three-line header with the game, its save state, the settings the game sets itself, and the section strip.
+- The graphical interface has fan speed, power limit, and affinity controls, and clock offset and memory offset are number inputs with their unit. A stored value that a list does not offer is shown as it is stored.
+- The graphical interface has a Follow All games for all settings button (Use system default for all settings on All games). It confirms first and says how many settings it clears.
+- A game page in the graphical interface says what the game sets itself (`Own settings (3): HDR On · ...`), lists its DLLs, and shows whether it is saved. The All games page counts the games that have their own value for each setting.
+- Enter on a boolean or a setting with fixed values opens a picker in the TUI. Typing a letter or digit jumps to a choice, the first choice follows All games, and Esc cancels.
+
+### Changed
+
+- The terminal, graphical, and command-line interfaces share one vocabulary. Every value shows where it comes from (`from All games`, `this game · All games: 150 MHz`, `this game · same as All games`, `set here`, `system default`), booleans read On and Off, numbers carry units, and the actions are Follow All games, Set for this game, and Use system default. `spela profile show` and the `show` commands print every setting with its value and source, also for a game without a profile.
+- Typing in a numeric field editor replaces the prefilled value, the editor shows Backspace, and the focused setting's description wraps instead of being cut. The Effect line is gone: it said the same words on almost every setting, and the descriptions already say what happens at exit.
+- On the All games page, the graphical interface says `4 games have their own value` on the setting, and the TUI points to the action under the focused row (`Actions (0): Apply to games with their own value (4 games)`). The long note that listed the games and said the change did not reach them is gone; the action's question names them.
+- Settings lists only groups that have options, and the Actions menu starts with the reset rows.
+- The TUI saves every change as it is made, for profiles and Settings. The message line says what was saved, a failed write returns the row to the stored value, and Quit waits for a write in flight. Moving between games, filtering, searching, and rescanning never ask a question.
+- A game opens on its Profile in the TUI. The page and the field under the cursor stay when the game changes.
+- Space in the TUI switches a profile row between following All games and its own value, and the same key undoes it. A boolean takes the opposite of the value it follows; other settings put back their earlier value or open their editor.
+- The TUI number and text editors have Input, Apply, and Cancel controls, and Enter or Apply saves. Esc cancels an editor or picker.
+- The graphical interface saves every control as it changes, with `Saving…`, `Saved at once`, and `Saved: HDR On` in the game header. A failed save returns the control to the stored value and says `Not saved`. Follow All games and Set for this game undo each other, and on All games Use system default and Set here do.
+- A game opens on its Profile tab in the graphical interface and keeps its tab when the game changes. The install directory, Proton prefix, and Steam launch option moved to the DLLs tab.
+
+### Removed
+
+- The Show hints option, which changed nothing visible. A `show_hints` key in an existing `config.yaml` is ignored.
+- The TUI Overview view, Ctrl+S, the Save and Discard rows, and the unsaved-changes dialog. The install directory, Proton prefix, and launch option moved to the DLLs section.
+- The graphical interface Overview tab and the Save button on game and All games pages.
 
 ### Fixed
 
+- Keep game profiles inheriting after the last override is reset. Saved profiles now always carry an `overrides` key, so a profile reset to all-inherited no longer reloads as a legacy file that pins every field differing from the defaults. Profiles already saved without the key stay as they are, and a mutation that changes nothing no longer rewrites a profile.
+- DLL types in the graphical DLL catalog and the game DLL lists read the right field, so they are no longer blank.
 - Refresh AUR preview and submission versions from the GitHub source and remote tags in temporary storage, generating matching `.SRCINFO` without modifying local package files.
 
 ## [0.6.2] - 2026-09-13

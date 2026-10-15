@@ -47,8 +47,14 @@
     loading = false
   }
 
+  // refreshGames reloads the list without its Loading state, so a saved change
+  // does not make the list flash.
   export async function refreshGames() {
-    await loadGames()
+    try {
+      games = await desktop.GetGames() || []
+    } catch (e) {
+      console.error('Failed to load games:', e)
+    }
   }
 
   export function focusSearch() {
@@ -223,10 +229,7 @@
         class:active={defaultProfileSelected}
         on:click={() => dispatch('selectDefaultProfile')}
       >
-        <span class="name">All games (default)</span>
-        <div class="badges">
-          <span class="badge default">Default</span>
-        </div>
+        <span class="name">All games</span>
       </button>
     {/if}
 

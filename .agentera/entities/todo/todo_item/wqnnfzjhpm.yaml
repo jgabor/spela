@@ -9,6 +9,7 @@ record:
     - Leaving Settings with an unsaved draft gives no warning and the draft returns silently. Ctrl+S with no draft does nothing and says nothing. Discarding a Settings draft takes 5 keys and 2 modals, and the confirm text does not say discard. The Steam path description is cut at 80x24 and an empty group at 80x24 is a blank box (see the empty-group TODO). Show hints is covered by its own TODO.
     - "Stream-reported: 11 of the 14 GUI settings have no reader outside the GUI (a code search; only Show hints was confirmed on screen). Wire or remove them."
     - "Found by the 2026-10-14 TUI profile and settings UX review. Report: docs/design/tui-profile-settings-ux-review.md. Evidence is outside the repository, in ~/.local/state/spela-ux-review/2026-10-14/."
+    - "Step 1 (branch feat/shared-profile-vocabulary, unmerged): Show hints, the only setting with no visible effect, is removed. Still open: the Settings draft guard, which step 2 replaces with autosave, and the GUI settings that nothing reads."
   acceptance:
     - GIVEN a Settings draft WHEN the user leaves Settings THEN a warning or an automatic save follows the same rule as profiles.
     - GIVEN a setting that nothing reads WHEN it is listed THEN it works, or it is not offered.

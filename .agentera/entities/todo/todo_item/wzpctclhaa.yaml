@@ -20,4 +20,4 @@ record:
       description: "[bug] Confirm what GPU clock and memory offsets do, and describe them correctly"
       severity: degraded
       status: open
-      order: 9
+      order: 4

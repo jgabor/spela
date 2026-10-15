@@ -18,7 +18,7 @@ import (
 )
 
 func TestOptionsModalPathEditingAndBoundaryContracts(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	modal := NewOptionsModal(styles)
 	if got := modal.getConfigValue("theme"); got != "" {
 		t.Fatalf("nil config value = %q", got)
@@ -48,7 +48,7 @@ func TestOptionsModalPathEditingAndBoundaryContracts(t *testing.T) {
 			modal.pathInput.SetValue("")
 			next, _ = modal.updatePathEditing(keyMsg("enter"))
 			modal = next
-			if got := modal.getConfigValue(option.Key); got != "(default)" {
+			if got := modal.getConfigValue(option.Key); got != "" {
 				t.Errorf("reset %s = %q", option.Key, got)
 			}
 		}
@@ -71,7 +71,7 @@ func TestOptionsModalPathEditingAndBoundaryContracts(t *testing.T) {
 }
 
 func TestOptionsModalSupportedKeyAlternatesAndValueProjection(t *testing.T) {
-	modal := NewOptionsModal(NewStyles(DefaultTheme, true))
+	modal := NewOptionsModal(NewStyles(DefaultTheme))
 	configuration := config.Default()
 	configuration.PreferredDLLSource = ""
 	configuration.Theme = ""
@@ -99,7 +99,7 @@ func TestResourcePaneSupportedDestinationsScopesAndDefaultMutations(t *testing.T
 	t.Setenv("XDG_CONFIG_HOME", stateRoot+"/config")
 	t.Setenv("XDG_CACHE_HOME", stateRoot+"/cache")
 	t.Setenv("XDG_DATA_HOME", stateRoot+"/data")
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	entry := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	content := testContent(entry)
 	pane := newResourcePane(styles, content)
@@ -168,28 +168,32 @@ func TestResourcePaneSupportedDestinationsScopesAndDefaultMutations(t *testing.T
 	unbound := newResourcePane(styles, content)
 	unbound.loadGlobalScope()
 	unbound.loadGameScope(entry)
-	if unbound.saveDefaultProfile() != nil || unbound.View(false) == "" {
+	if unbound.saveDefaultProfile("") != nil || unbound.View(false) == "" {
 		t.Fatal("unbound resource pane fallback changed")
 	}
 }
 
 func TestProfileDisplaySupportedDefaultsAndOverrides(t *testing.T) {
 	valueTrue, valueFalse := true, false
+	rootText := func(p *profile.Profile, field string) string {
+		value, _, _ := NewRootDetail(NewStyles(DefaultTheme), p).fieldText(field)
+		return value
+	}
 	checks := []struct{ got, want string }{
-		{formatFieldValue(&profile.Profile{}, profile.FieldDLSSSRPreset), "(default)"},
-		{formatFieldValue(&profile.Profile{DLSS: profile.DLSSSettings{SRPreset: profile.DLSSPresetAuto}}, profile.FieldDLSSSRPreset), "(default)"},
-		{formatFieldValue(&profile.Profile{DLSS: profile.DLSSSettings{SRPreset: profile.DLSSPresetK}}, profile.FieldDLSSSRPreset), "K"},
-		{formatFieldValue(&profile.Profile{}, profile.FieldGPUPowerMizer), "(default)"},
-		{formatFieldValue(&profile.Profile{GPU: profile.GPUSettings{PowerMizer: "max"}}, profile.FieldGPUPowerMizer), "max"},
-		{formatFieldValue(&profile.Profile{DLSS: profile.DLSSSettings{SRMode: "quality"}}, profile.FieldDLSSSRMode), "quality"},
-		{formatFieldValue(&profile.Profile{}, profile.FieldProtonEnableHDR), "(default)"},
-		{formatFieldValue(&profile.Profile{Proton: profile.ProtonSettings{EnableHDR: true}}, profile.FieldProtonEnableHDR), "true"},
-		{formatFieldValue(&profile.Profile{}, profile.FieldCPUSMT), "(default)"},
-		{formatFieldValue(&profile.Profile{CPU: profile.CPUSettings{SMT: &valueTrue}}, profile.FieldCPUSMT), "true"},
-		{formatFieldValue(&profile.Profile{CPU: profile.CPUSettings{SMT: &valueFalse}}, profile.FieldCPUSMT), "false"},
-		{formatFieldValue(&profile.Profile{}, profile.FieldDLSSFGEnabled), "(default)"},
-		{formatFieldValue(&profile.Profile{}, profile.FieldGPUClockOffset), "(default)"},
-		{formatFieldValue(&profile.Profile{GPU: profile.GPUSettings{ClockOffset: 42}}, profile.FieldGPUClockOffset), "42"},
+		{rootText(&profile.Profile{}, profile.FieldDLSSSRPreset), "none"},
+		{rootText(&profile.Profile{DLSS: profile.DLSSSettings{SRPreset: profile.DLSSPresetAuto}}, profile.FieldDLSSSRPreset), "auto"},
+		{rootText(&profile.Profile{DLSS: profile.DLSSSettings{SRPreset: profile.DLSSPresetK}}, profile.FieldDLSSSRPreset), "K"},
+		{rootText(&profile.Profile{}, profile.FieldGPUPowerMizer), "none"},
+		{rootText(&profile.Profile{GPU: profile.GPUSettings{PowerMizer: "max"}}, profile.FieldGPUPowerMizer), "max"},
+		{rootText(&profile.Profile{DLSS: profile.DLSSSettings{SRMode: "quality"}}, profile.FieldDLSSSRMode), "quality"},
+		{rootText(&profile.Profile{}, profile.FieldProtonEnableHDR), "Off"},
+		{rootText(&profile.Profile{Proton: profile.ProtonSettings{EnableHDR: true}}, profile.FieldProtonEnableHDR), "On"},
+		{rootText(&profile.Profile{}, profile.FieldCPUSMT), "none"},
+		{rootText(&profile.Profile{CPU: profile.CPUSettings{SMT: &valueTrue}}, profile.FieldCPUSMT), "On"},
+		{rootText(&profile.Profile{CPU: profile.CPUSettings{SMT: &valueFalse}}, profile.FieldCPUSMT), "Off"},
+		{rootText(&profile.Profile{}, profile.FieldDLSSFGEnabled), "Off"},
+		{rootText(&profile.Profile{}, profile.FieldGPUClockOffset), "none"},
+		{rootText(&profile.Profile{GPU: profile.GPUSettings{ClockOffset: 42}}, profile.FieldGPUClockOffset), "42 MHz"},
 	}
 	for _, check := range checks {
 		if check.got != check.want {

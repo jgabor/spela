@@ -30,15 +30,15 @@ func TestSelectDestinationGUI_ResetsDLLCatalogSection(t *testing.T) {
 	}
 }
 
-func TestSelectDestinationGUI_GameScopeResetsOverview(t *testing.T) {
+func TestSelectDestinationGUI_GameScopeKeepsDLLs(t *testing.T) {
 	state := DefaultGUIState()
 	state.ScopeGlobal = false
 	state.GameName = "Cyberpunk 2077"
 	state.Aspect = int(AspectDLLs)
 	state = SelectDestinationGUI(state, int(DestinationMonitor))
 	state = SelectDestinationGUI(state, int(DestinationLibrary))
-	if state.Aspect != int(AspectOverview) {
-		t.Fatalf("aspect = %d, want %d", state.Aspect, AspectOverview)
+	if state.Aspect != int(AspectDLLs) {
+		t.Fatalf("aspect = %d, want %d (DLLs kept)", state.Aspect, AspectDLLs)
 	}
 }
 
@@ -70,5 +70,18 @@ func TestDestinationFromHotkeyGUI(t *testing.T) {
 	}
 	if _, ok := DestinationFromHotkeyGUI("9"); ok {
 		t.Fatal("expected false for unknown hotkey")
+	}
+}
+
+func TestSelectScopeGUI_GameOpensProfileAndKeepsDLLs(t *testing.T) {
+	state := DefaultGUIState()
+	state = SelectScopeGUI(state, false, "Cyberpunk 2077")
+	if state.Aspect != int(AspectProfile) {
+		t.Fatalf("a game opened on aspect %d, want %d", state.Aspect, AspectProfile)
+	}
+	state = SelectAspectGUI(state, int(AspectDLLs))
+	state = SelectScopeGUI(state, false, "Elden Ring")
+	if state.Aspect != int(AspectDLLs) || state.GameName != "Elden Ring" {
+		t.Fatalf("next game = %+v, want DLLs kept", state)
 	}
 }

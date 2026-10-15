@@ -1,0 +1,12 @@
+id: sruiilmnhs
+artifact: plan
+record:
+  name: Do not rewrite a profile when nothing changed
+  depends_on:
+    - bgaekwrerk
+  acceptance:
+    - GIVEN a legacy {} profile file WHEN a mutation that changes nothing runs (a GUI patch list with no operations, a CLI reset of an inherited field) THEN the file bytes are unchanged and no migrated pin is written.
+    - "GIVEN a game with no profile file WHEN a mutation that creates it runs THEN the file is still created, with overrides: {}."
+    - GIVEN a mutation that changes a field WHEN it runs THEN the file is written once under the mutation lock as before.
+  status: complete
+  plan: nfyilvdwgr

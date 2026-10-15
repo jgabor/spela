@@ -50,11 +50,11 @@ func TestProfileSubsystemCommandsRejectUnsupportedGamesAndFields(t *testing.T) {
 		args    []string
 		want    string
 	}{
-		{DLSSCmd, []string{"reset", "Cyberpunk 2077", "sr_mode"}, "already inherited"},
-		{GPUCmd, []string{"profile-reset", "Cyberpunk 2077", "clock_offset"}, "already inherited"},
-		{CPUCmd, []string{"profile-reset", "Cyberpunk 2077", "governor"}, "already inherited"},
-		{OverlayCmd, []string{"reset", "Cyberpunk 2077", "enabled"}, "already inherited"},
-		{ProtonCmd, []string{"reset", "Cyberpunk 2077", "hdr"}, "already inherited"},
+		{DLSSCmd, []string{"reset", "Cyberpunk 2077", "sr_mode"}, "already follows All games"},
+		{GPUCmd, []string{"profile-reset", "Cyberpunk 2077", "clock_offset"}, "already follows All games"},
+		{CPUCmd, []string{"profile-reset", "Cyberpunk 2077", "governor"}, "already follows All games"},
+		{OverlayCmd, []string{"reset", "Cyberpunk 2077", "enabled"}, "already follows All games"},
+		{ProtonCmd, []string{"reset", "Cyberpunk 2077", "hdr"}, "already follows All games"},
 	} {
 		if output := executeSupportedCommand(t, test.command, test.args...); !strings.Contains(output, test.want) {
 			t.Errorf("%s %v output missing %q:\n%s", test.command.Name(), test.args, test.want, output)
@@ -169,13 +169,5 @@ func TestProfileSetValidationAndNoChangeContracts(t *testing.T) {
 	dlssSetSRModelPreset = "k"
 	if err := runDLSSSet(command, []string{"Cyberpunk 2077"}); err != nil {
 		t.Fatal(err)
-	}
-
-	if displayGPUInt(0) != "(default)" || displayGPUInt(5) != "5" || displayGPUPercent(0) != "(auto)" || displayGPUPercent(70) != "70%" || displayGPUString("") != "(default)" || displayGPUString("max") != "max" || displayOrDefault("") != "(default)" || displayOrDefault("value") != "value" {
-		t.Fatal("profile display fallbacks changed")
-	}
-	on, off := true, false
-	if displaySMT(nil) != "(default)" || displaySMT(&on) != "on" || displaySMT(&off) != "off" {
-		t.Fatal("SMT display contract changed")
 	}
 }

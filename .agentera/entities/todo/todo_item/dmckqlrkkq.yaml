@@ -21,7 +21,7 @@ record:
       present: true
       description: "[task] Make README useful for first-time users"
       status: resolved
-      order: 7
+      order: 8
       severity: normal
   lifecycle:
     operation: resolve

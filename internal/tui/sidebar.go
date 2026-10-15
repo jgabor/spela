@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jgabor/spela/internal/game"
+	"github.com/jgabor/spela/internal/profile"
 )
 
 type SortMode int
@@ -59,6 +60,9 @@ type SidebarModel struct {
 	height     int
 	selected   map[uint64]bool
 	selectMode bool
+	// findFocused puts the cursor on the Find row above the first item. The
+	// selected item, and so the Detail pane, does not change while it is there.
+	findFocused bool
 }
 
 func NewSidebar(games []*game.Game, styles *Styles, svc *Services) (SidebarModel, tea.Cmd) {
@@ -112,8 +116,19 @@ func (m SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
 func (m SidebarModel) UpdateAction(action KeyAction) (SidebarModel, tea.Cmd) {
 	switch action {
 	case ActionListPrevious:
+		if m.findFocused {
+			return m, nil
+		}
+		if m.cursor == 0 && m.findRowVisible() {
+			m.findFocused = true
+			return m, nil
+		}
 		m.cursor = max(m.cursor-1, 0)
 	case ActionListNext:
+		if m.findFocused {
+			m.findFocused = false
+			return m, nil
+		}
 		m.cursor = min(m.cursor+1, max(len(m.filtered)-1, 0))
 	case ActionListToggleDLLFilter:
 		m.filters.hasDLLs = !m.filters.hasDLLs
@@ -172,6 +187,12 @@ func (m SidebarModel) UpdateAction(action KeyAction) (SidebarModel, tea.Cmd) {
 		return m, m.selectCurrentItem()
 	}
 	return m, nil
+}
+
+// findRowVisible reports whether the Find row is offered: it is the way into
+// Search, so it shows whenever there are games and no query is already open.
+func (m SidebarModel) findRowVisible() bool {
+	return len(m.games) > 0 && !m.selectMode && !m.searching && !m.search.Focused() && m.search.Value() == ""
 }
 
 func (m SidebarModel) cloneSelection() SidebarModel {
@@ -339,6 +360,10 @@ func (m SidebarModel) View() string {
 	}
 
 	headerLines := 2
+	showFind := m.findRowVisible()
+	if showFind {
+		headerLines++
+	}
 	if m.filters.IsActive() {
 		headerLines++
 	}
@@ -358,6 +383,20 @@ func (m SidebarModel) View() string {
 
 	maxNameWidth := max(m.width-10, 10)
 
+	if showFind {
+		label := "  Find games"
+		style := s.Dim
+		if m.findFocused {
+			label = "> Find games"
+			style = s.Selected
+		}
+		b.WriteString(style.Render(label))
+		if m.findFocused {
+			b.WriteString(s.Dim.Render("  type a name"))
+		}
+		b.WriteString("\n")
+	}
+
 	for i := start; i < end; i++ {
 		item := m.filtered[i]
 		prefix := "  "
@@ -376,8 +415,8 @@ func (m SidebarModel) View() string {
 				style = s.Selected
 			}
 		} else {
-			// Normal mode: cursor for current item
-			if i == m.cursor {
+			// Normal mode: cursor for current item, unless the Find row has it
+			if i == m.cursor && !m.findFocused {
 				prefix = "> "
 				style = s.Selected
 			}
@@ -473,7 +512,7 @@ func (m SidebarModel) SelectedGames() []*game.Game {
 
 func (m SidebarModel) itemName(item sidebarItem) string {
 	if item.kind == sidebarItemDefaultProfile {
-		return "All games (default)"
+		return profile.AllGamesName
 	}
 	if item.game == nil {
 		return ""
@@ -482,10 +521,7 @@ func (m SidebarModel) itemName(item sidebarItem) string {
 }
 
 func (m SidebarModel) itemIndicator(item sidebarItem) string {
-	if item.kind == sidebarItemDefaultProfile {
-		return m.styles.Dim.Render(" Default")
-	}
-	if item.game == nil {
+	if item.kind == sidebarItemDefaultProfile || item.game == nil {
 		return ""
 	}
 

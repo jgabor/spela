@@ -56,8 +56,8 @@ func init() {
 
 var gpuProfileResetCmd = &cobra.Command{
 	Use:   "profile-reset <game> <field>",
-	Short: "Reset a GPU profile field to inherit from defaults",
-	Long: `Reset a GPU profile field back to inherited. Valid fields:
+	Short: "Make a GPU profile field follow All games",
+	Long: `Make a GPU profile field follow All games again. Valid fields:
   clock_offset, memory_offset, power_limit, fan_speed,
   power_mizer, shader_cache, shader_cache_path, threaded_optimization.`,
 	Args: cobra.ExactArgs(2),
@@ -143,13 +143,13 @@ func runGPUSet(cmd *cobra.Command, args []string) error {
 }
 
 func runGPUShow(cmd *cobra.Command, args []string) error {
-	g, p, resolved, err := resolvedProfileForShow(args[0])
+	snapshot, err := loadProfileSnapshot(args[0])
 	if err != nil {
 		return err
 	}
 
 	if gpuShowJSON {
-		data, err := json.MarshalIndent(resolved.GPU, "", "  ")
+		data, err := json.MarshalIndent(snapshot.resolved.GPU, "", "  ")
 		if err != nil {
 			return err
 		}
@@ -157,36 +157,10 @@ func runGPUShow(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Printf("GPU profile for %s:\n\n", g.Name)
-	fmt.Println(renderField("KDE VRR:", profile.FieldGPUVRR, p, displayGPUString(resolved.GPU.VRR)))
-	fmt.Println(renderField("Clock offset:", profile.FieldGPUClockOffset, p, displayGPUInt(resolved.GPU.ClockOffset)))
-	fmt.Println(renderField("Memory offset:", profile.FieldGPUMemoryOffset, p, displayGPUInt(resolved.GPU.MemoryOffset)))
-	fmt.Println(renderField("Power limit:", profile.FieldGPUPowerLimit, p, displayGPUInt(resolved.GPU.PowerLimit)))
-	fmt.Println(renderField("Fan speed:", profile.FieldGPUFanSpeed, p, displayGPUPercent(resolved.GPU.FanSpeed)))
-	fmt.Println(renderField("Power mode:", profile.FieldGPUPowerMizer, p, displayGPUString(resolved.GPU.PowerMizer)))
-	fmt.Println(renderField("Shader cache:", profile.FieldGPUShaderCache, p, resolved.GPU.ShaderCache))
-	fmt.Println(renderField("Threaded opt:", profile.FieldGPUThreadedOptimization, p, resolved.GPU.ThreadedOptimization))
-
+	fmt.Printf("GPU profile for %s:\n\n", snapshot.game.Name)
+	snapshot.printNoProfileNote()
+	if err := printSubsystemFields("gpu", snapshot, ""); err != nil {
+		return err
+	}
 	return nil
-}
-
-func displayGPUInt(v int) string {
-	if v == 0 {
-		return "(default)"
-	}
-	return fmt.Sprintf("%d", v)
-}
-
-func displayGPUPercent(v int) string {
-	if v == 0 {
-		return "(auto)"
-	}
-	return fmt.Sprintf("%d%%", v)
-}
-
-func displayGPUString(v string) string {
-	if v == "" {
-		return "(default)"
-	}
-	return v
 }

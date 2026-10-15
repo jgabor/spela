@@ -39,7 +39,12 @@ func (m ContentModel) updateContentMessage(msg tea.Msg) (ContentModel, tea.Cmd, 
 			m.persistedProfile = msg.request.desired.Clone()
 			m.usingDefaultProfile = false
 		}
-		return m, m.profileSaves.complete(msg), true
+		command := m.profileSaves.complete(msg)
+		if msg.err != nil && m.game != nil && msg.request.appID == m.game.AppID && !m.profileSaves.pending(msg.request.appID) {
+			// Nothing newer is on its way, so the rows return to what is stored.
+			m.detail.RevertToPersisted()
+		}
+		return m, command, true
 	case dllUpdateMsg:
 		return m.updateDLLUpdateMsg(msg)
 	case dllRestoreMsg:

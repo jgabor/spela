@@ -1,4 +1,5 @@
 import {
+  ApplyToGamesWithOwnValue,
   CheckDLLUpdates,
   DefaultNavState,
   GetCPUInfo,
@@ -30,6 +31,7 @@ import {
   SaveConfigOption,
   PatchDefaultProfile,
   PatchProfile,
+  PreviewApplyToGamesWithOwnValue,
   ScanGames,
   UpdateDLLs,
   VKD3DHeapCompatibilityNotice
@@ -37,6 +39,7 @@ import {
 import { EventsOn, Quit } from '../../wailsjs/runtime/runtime'
 
 export const desktopCommands = {
+  ApplyToGamesWithOwnValue,
   CheckDLLUpdates,
   DefaultNavState,
   GetCPUInfo,
@@ -68,6 +71,7 @@ export const desktopCommands = {
   SaveConfigOption,
   PatchDefaultProfile,
   PatchProfile,
+  PreviewApplyToGamesWithOwnValue,
   ScanGames,
   UpdateDLLs,
   VKD3DHeapCompatibilityNotice,

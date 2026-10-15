@@ -109,7 +109,7 @@ func TestSidebar_ProfileFilter(t *testing.T) {
 	svc.ProfileExists = func(appID uint64) bool {
 		return appID == 100
 	}
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	m, _ := NewSidebar([]*game.Game{g1, g2}, styles, svc)
 
 	initialCount := len(m.filtered)

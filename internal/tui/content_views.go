@@ -131,6 +131,11 @@ func (m ContentModel) renderDLLsFocused(focused bool) string {
 	for _, version := range versions {
 		lines = append(lines, strings.Split(lipgloss.NewStyle().Width(width).Render(version), "\n")...)
 	}
+	// The game facts lead the section when there is room for all of them next
+	// to the versions. On a short terminal the versions win.
+	if facts := m.gameFacts(width); len(facts)+len(lines) <= capacity {
+		lines = append(facts, lines...)
+	}
 	if len(lines) > capacity {
 		lines = lines[:capacity]
 		if capacity > 0 {
@@ -145,6 +150,21 @@ func (m ContentModel) renderDLLsFocused(focused bool) string {
 		lines = append(lines, "")
 	}
 	return strings.Join(append(lines, controls...), "\n")
+}
+
+// gameFacts lists where the game lives and how Steam starts it. They sit at the
+// top of the DLLs section, each cut to one line.
+func (m ContentModel) gameFacts(width int) []string {
+	facts := []string{"Install directory: " + m.game.InstallDir}
+	if m.game.PrefixPath != "" {
+		facts = append(facts, "Proton prefix: "+m.game.PrefixPath)
+	}
+	facts = append(facts, "Steam launch option: spela %command%")
+	lines := make([]string, 0, len(facts))
+	for _, fact := range facts {
+		lines = append(lines, m.styles.Dim.Render(truncate(fact, width)))
+	}
+	return lines
 }
 
 func (m ContentModel) renderDLLActions(focused bool, width int) []string {

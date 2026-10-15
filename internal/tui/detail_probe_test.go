@@ -56,7 +56,7 @@ func TestRenderProbe_Task4(t *testing.T) {
 		},
 	}
 
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	svc := testServices()
 	svc.LoadDefaultProfile = func() (*profile.Profile, error) { return defaults, nil }
 	svc.LoadProfile = func(appID uint64) (*profile.Profile, error) { return gameProfile, nil }

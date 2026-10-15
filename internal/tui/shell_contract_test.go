@@ -42,7 +42,7 @@ func TestEmptyLibraryOffersScanAndPathRecovery(t *testing.T) {
 	if !strings.Contains(view, "No games found") || !strings.Contains(view, "Actions") || !strings.Contains(view, "Settings") {
 		t.Fatalf("empty Library recovery missing:\n%s", view)
 	}
-	if strings.Contains(view, "All games (default profile)") {
+	if strings.Contains(view, "Games follow these values") {
 		t.Fatalf("empty Library opened advanced profile detail:\n%s", view)
 	}
 }
@@ -129,17 +129,33 @@ func TestShellDestinationChangesFromEitherPaneAndReturnsToList(t *testing.T) {
 	}
 }
 
-func TestShellOpeningGameUsesOverviewAndDetailFocus(t *testing.T) {
+func TestShellOpeningGameUsesProfileAndDetailFocus(t *testing.T) {
 	game := testGame("Cyberpunk 2077")
-	layout := testLayout(game)
-	layout.navState.Aspect = nav.AspectProfile
+	for _, previous := range []nav.Aspect{nav.AspectOverview, nav.AspectProfile} {
+		layout := testLayout(game)
+		layout.navState.Aspect = previous
 
-	updated, _ := layout.Update(gameConfirmedMsg{game: game})
-	result := updated.(LayoutModel)
-	if result.navState.Aspect != nav.AspectOverview {
-		t.Fatalf("opened game aspect = %v, want Overview", result.navState.Aspect)
+		updated, _ := layout.Update(gameConfirmedMsg{game: game})
+		result := updated.(LayoutModel)
+		if result.navState.Aspect != nav.AspectProfile {
+			t.Fatalf("game opened from %v on %v, want Profile", previous, result.navState.Aspect)
+		}
+		if result.focus != FocusDetail {
+			t.Fatalf("opened game focus = %v, want Detail", result.focus)
+		}
 	}
-	if result.focus != FocusDetail {
-		t.Fatalf("opened game focus = %v, want Detail", result.focus)
+}
+
+func TestShellGameChangeKeepsTheDLLsSection(t *testing.T) {
+	first, second := testGame("Cyberpunk 2077"), testGame("Elden Ring")
+	second.AppID = 1245620
+	layout := testLayout(first, second)
+	updated, _ := layout.Update(gameConfirmedMsg{game: first})
+	layout = updated.(LayoutModel)
+	layout.navState.Aspect = nav.AspectDLLs
+	updated, _ = layout.Update(gameSelectedMsg{game: second})
+	result := updated.(LayoutModel)
+	if result.navState.Aspect != nav.AspectDLLs || result.navState.Scope.AppID != second.AppID {
+		t.Fatalf("after a game change aspect = %v scope = %d, want DLLs on the second game", result.navState.Aspect, result.navState.Scope.AppID)
 	}
 }

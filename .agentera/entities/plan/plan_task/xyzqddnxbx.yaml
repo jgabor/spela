@@ -1,0 +1,21 @@
+id: xyzqddnxbx
+artifact: plan
+record:
+  name: Documentation and changelog
+  status: complete
+  depends_on:
+    - abtxezcccm
+  acceptance:
+    - GIVEN docs/design/tui-navigation.md, docs/tui-testing.md, docs/profile-fields.md, docs/coverage.md, AGENTS.md, and README.md WHEN read THEN they describe the autosave flow, the sections, Space and Enter, and no Ctrl+S save key, and dated historical docs are unchanged.
+    - GIVEN CHANGELOG.md WHEN read THEN the Unreleased section lists the changes under Changed and Removed.
+  plan: mdwrquqtci
+  evaluation:
+    attempt_count: 1
+    failure_count: 0
+    last_verdict: pass
+    last_failure_evidence: null
+    provenance:
+      attempt_id: t6-build
+      source: Updated docs/design/tui-navigation.md (controls, Library and profiles, field editing and persistence, DLLs section, Settings, scans), docs/tui-testing.md, docs/profile-fields.md (terminal editing contract), AGENTS.md (command keys) and CHANGELOG.md (Added, Changed, Removed). Dated historical docs and the review are unchanged; docs/coverage.md names tests that still exist and was left alone. README names no TUI keys.
+      recorded_at: 2026-10-15 08:40
+      writer_command: agentera state plan record-evaluation

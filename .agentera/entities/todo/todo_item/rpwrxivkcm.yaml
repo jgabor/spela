@@ -11,12 +11,16 @@ record:
   acceptance:
     - GIVEN a stored value outside a dropdown's list WHEN the profile is shown in the GUI THEN the value is shown and can be kept or changed.
   release_blocker: false
-  status: open
+  status: resolved
   reconciliation:
     schema_version: agentera.todoReconciliation.v1
     public:
       present: true
       description: "[bug] Show stored values that are not in a GUI dropdown's list"
+      status: resolved
+      order: 19
       severity: annoying
-      status: open
-      order: 4
+  lifecycle:
+    operation: resolve
+    reason: Dropdowns show a stored value they do not list; offsets and limits are number inputs. Built in Agentera plan pmybbznzim (redesign step 3) on branch feat/gui-profile-flow; evidence in ~/.local/state/spela-ux-review/2026-10-14/step3-verification/.
+    date: 2026-10-15

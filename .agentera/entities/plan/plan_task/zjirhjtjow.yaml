@@ -1,0 +1,23 @@
+id: zjirhjtjow
+artifact: plan
+record:
+  name: Space toggle, picker, editor controls, key bar, and whole-game confirm
+  status: complete
+  depends_on:
+    - zicdszivym
+  acceptance:
+    - GIVEN a following boolean WHEN Space is pressed THEN the field takes the opposite of the effective value and saves, and Space again follows All games (the system default on the All games page); other fields reuse the last own value this session or open the editor or picker when there is none.
+    - GIVEN a boolean, optional boolean, or enum field WHEN Enter is pressed THEN a picker lists Follow All games with its value first, type-ahead jumps to the first prefix match, Up and Down move, Enter applies and saves, and Esc cancels; numbers and text open the editor with controls Input, Apply, Cancel.
+    - GIVEN any field row WHEN the key bar renders THEN Space names Follow All games or Set for this game (Use system default or Set here on All games), Enter reads Edit value, Left and Right read Section, and every key shown works.
+    - GIVEN the Actions menu WHEN opened on a game THEN the whole-game row confirms with a count of the settings it clears, then clears and saves them at once.
+  plan: mdwrquqtci
+  evaluation:
+    attempt_count: 1
+    failure_count: 0
+    last_verdict: pass
+    last_failure_evidence: null
+    provenance:
+      attempt_id: t3-build
+      source: "go test ./internal/tui passes. Space toggles between following and an own value (booleans take the opposite of the followed value; other fields put back the last own value or open the editor or picker), Enter opens a picker with type-ahead for booleans and enums, numbers and text keep the editor; editor controls are Input, Apply, Cancel; Esc cancels. The key bar names Space dynamically (Follow All games, Set for this game, Use system default, Set here). The whole-game confirm with a count was built in task 2. Unit tests: space_controls, picker, editor_actions, routing_contract, detail."
+      recorded_at: 2026-10-15 08:29
+      writer_command: agentera state plan record-evaluation

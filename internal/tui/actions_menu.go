@@ -26,13 +26,13 @@ func actionRelevant(action KeyAction, context BindingContext) bool {
 		return context.Destination == nav.DestinationLibrary
 	case ActionDetailReset, ActionDetailResetAll:
 		return context.Destination == nav.DestinationLibrary && context.ProfileScope && context.Aspect == nav.AspectProfile && context.Focus == FocusDetail
+	case ActionApplyOwnValues:
+		return context.Destination == nav.DestinationLibrary && context.ProfileScope && !context.GameScope && context.Aspect == nav.AspectProfile && context.Focus == FocusDetail
 	case ActionDetailInstall, ActionDetailRestore:
 		return context.Destination == nav.DestinationLibrary && context.GameScope && context.Aspect == nav.AspectDLLs && context.Focus == FocusDetail
 	case ActionDetailUpdate:
 		return context.Destination == nav.DestinationDLLCatalog && context.DLLSection == nav.SectionDLLDeployment ||
 			context.Destination == nav.DestinationLibrary && context.GameScope && context.Aspect == nav.AspectDLLs && context.Focus == FocusDetail
-	case ActionDetailSave, ActionCancelDraft:
-		return context.SaveAvailable
 	case ActionDetailConfirm:
 		return context.Editable || context.DLLActionCount > 0
 	default:

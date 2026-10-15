@@ -12,12 +12,16 @@ record:
     - GIVEN a game profile in the GUI WHEN it is shown THEN fan speed and power limit are visible and resettable.
     - GIVEN a game with several own values WHEN Follow All games for all settings is chosen THEN every own value is cleared in one confirmed action.
   release_blocker: false
-  status: open
+  status: resolved
   reconciliation:
     schema_version: agentera.todoReconciliation.v1
     public:
       present: true
       description: "[task] Give the GUI fan speed, power limit, and a whole-game reset"
+      status: resolved
+      order: 18
       severity: normal
-      status: open
-      order: 28
+  lifecycle:
+    operation: resolve
+    reason: Fan speed, power limit, affinity controls and a confirmed whole-game Follow All games for all settings exist in the GUI. Built in Agentera plan pmybbznzim (redesign step 3) on branch feat/gui-profile-flow; evidence in ~/.local/state/spela-ux-review/2026-10-14/step3-verification/.
+    date: 2026-10-15

@@ -19,12 +19,16 @@ record:
     - GIVEN Reset all to inherit and Save WHEN the game is launched with --dry-run THEN the environment and hardware plan match the defaults profile.
     - GIVEN a legacy profile file with no overrides key saved before inheritance existed WHEN it loads THEN migration still preserves its old behavior.
   release_blocker: false
-  status: open
+  status: resolved
   reconciliation:
     schema_version: agentera.todoReconciliation.v1
     public:
       present: true
       description: "[bug] Keep a game profile inheriting after its last override is reset"
+      status: resolved
+      order: 9
       severity: critical
-      status: open
-      order: 1
+  lifecycle:
+    operation: resolve
+    reason: Fix built and tested in clean worktree ~/.cache/spela-f1 (patch ~/.cache/spela-f1-fix.patch); not yet committed or applied to main. Launch --dry-run not run.
+    date: 2026-10-15

@@ -33,12 +33,16 @@ record:
       recovery: Apply the matrix's agreed labels once the review reports, then build the fix.
     queue_rank: 2
     order_reason: Label decisions feed the field descriptions and any redesign.
-  status: open
+  status: resolved
   reconciliation:
     schema_version: agentera.todoReconciliation.v1
     public:
       present: true
       description: "[bug] Align documented profile field labels with the interfaces"
+      status: resolved
+      order: 11
       severity: normal
-      status: open
-      order: 27
+  lifecycle:
+    operation: resolve
+    reason: Done in redesign step 1 on branch feat/shared-profile-vocabulary (worktree ~/.cache/spela-step1, patch ~/.cache/spela-step1.patch); uncommitted and not merged into main.
+    date: 2026-10-15

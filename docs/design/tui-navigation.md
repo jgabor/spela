@@ -10,7 +10,7 @@ GPU/CPU tuning remain outside its interactive workflows.
 
 The shell owns a destination, its selection, visible List or Detail focus, and
 one active input layer. The destination bar is not focusable. Each destination
-retains its own cursor, group, filters, and applicable draft when revisited.
+retains its own cursor, group, and filters when revisited.
 
 | Control | Browse behavior |
 | --- | --- |
@@ -18,15 +18,15 @@ retains its own cursor, group, filters, and applicable draft when revisited.
 | 1, 2, 3, 4 | Library, DLL Catalog, Monitor, Settings; return focus to List |
 | Tab | Move between eligible List and Detail panes |
 | Up, Down | Move the focused list or profile field; scroll read-only detail when needed |
-| Left, Right | Change groups in Catalog/Settings List; change a selected game's Detail view |
-| Enter | Open List selection in Detail; edit text or a free number; run a selected DLL action |
-| Space | Toggle a Library game's selection; cycle a focused Detail choice |
-| Ctrl+S | Save the owning profile or Settings draft when that save context is available |
+| Left, Right | Change groups in Catalog/Settings List; jump between the sections of a profile page and its game's DLLs section |
+| Enter | Open List selection in Detail; edit a profile value (a picker for choices, an editor for numbers and text); run a selected DLL action |
+| Space | Toggle a Library game's selection; in Detail, switch a profile row between following and its own value |
 
-Every workflow is reachable with arrows, Tab, Enter, Space, and numbers. Ctrl+S
-is an optional alternative to selectable Save controls. Commands do not require
-Escape, Shift+Tab, letters, punctuation, or function keys. Ctrl+C remains an
-emergency terminal interruption, outside the normal guarded Quit workflow.
+Every workflow is reachable with arrows, Tab, Enter, Space, and numbers. Escape
+closes an open editor or picker, as the Cancel control does. Commands do not
+require Shift+Tab, letters, punctuation, or function keys. There is no Save key:
+every change is written as it is made. Ctrl+C remains an emergency terminal
+interruption, outside the normal Quit workflow.
 
 Text inputs accept ordinary content, including digits, punctuation, spaces,
 non-English text, and negative numbers. Cursor and deletion keys remain local
@@ -47,19 +47,21 @@ shortcuts and expose their own focus, scroll, confirm, and dismissal controls.
 `CanonicalKeymap` resolves semantic actions and their availability. Actions,
 Help, and status labels use the same context, including destination, pane,
 selection, editor kind, target count, and pending work. The footer shows only
-executable keys. Actions may show a relevant unavailable operation with its
-reason; Enter is advertised only when the selected row can run.
+executable keys, and names Space for the row under the cursor (Set for this game,
+Follow All games, Set here, or Use system default). Actions may show a relevant
+unavailable operation with its reason; Enter is advertised only when the
+selected row can run.
 
 The active pane has a focus label and border. Editors and dialogs use a visible
 selection marker or focused control styling. Essential navigation and dismissal
-controls remain visible when verbose hints are disabled.
+controls are always visible.
 
 ## Actions and Help
 
 Actions uses Up/Down to choose a row, Enter to run an available action, and Tab
 to reach Close. Contextual rows expose search, filters, explicit sort choices,
-visible selection operations, profile reset/discard/save, and applicable DLL
-operations. Every Browse context also exposes the three layout choices, Help,
+visible selection operations, the Follow and Use system default rows for a field
+or the whole page, and applicable DLL operations. Every Browse context also exposes the three layout choices, Help,
 and guarded Quit.
 
 Help distinguishes reference information from active controls. It lists the
@@ -67,12 +69,22 @@ captured Browse context and describes other scoped controls as reference only.
 Up/Down scroll its body when it overflows. Tab reaches Close; Enter closes Help
 only while Close has focus. Dismissing either overlay retains the invoking pane.
 
-## Library and drafts
+## Library and profiles
 
 Library starts on the first game, or an empty state with Actions rescan and
 Settings path recovery. The pinned All games item edits the default profile.
-Enter opens a game in Overview with Detail focus. Left/Right change between
-Overview, Profile, and DLLs only while game Detail has focus.
+Enter opens a game on its Profile with Detail focus. The page you were on and the
+field under the cursor stay when the game changes, so the same setting can be
+changed on the next game without finding it again. A game left on its DLLs
+section reopens on DLLs. All games keeps its own cursor.
+
+A profile page has three header lines: the game, its App ID, its DLLs, and the
+save state (`Saved at once`, `Saving…`, or `Not saved: <reason>`); the settings
+the game sets itself, by name and value; and the section strip (Proton, DLSS,
+GPU, CPU, Overlay, and for a game DLLs) with the current section marked. Left
+and Right jump to the first field of the previous or next section on a game page
+and on All games. Right from the last section opens the game's DLLs section;
+Left returns to the first Overlay field. Nothing wraps.
 
 The List owns search, DLL/profile filters, four explicit sort choices, and game
 selection. Search has Input, Apply, Clear, and Cancel controls. Results and Detail
@@ -86,49 +98,58 @@ Select all and Clear selected affect filtered games. Enter with visible selected
 games opens their batch actions. Hidden selections never silently join that
 batch. Rescanning removes selections for games that no longer exist.
 
-Root and per-game profile drafts are separate. Reopening the same item or making
-a destination detour preserves its draft. A transition that would replace a
-dirty owner, including cursor movement, filtering, search, or rescan results,
-requires Save and continue, Discard and continue, or Cancel. Cancel is selected
-first. List selection and Detail scope change only after the decision succeeds.
+Moving between games, filtering, searching, and rescanning never ask a question:
+every change has already been written. A write still running when the game
+changes finishes in the background, and its message names the game when it is no
+longer on screen.
 
-Reset field on All games means the system default. Reset field on a game means
-inheritance. Reset all and Discard draft require explicit confirmation. Discard
-restores the saved baseline. Semantically empty override maps are not dirty, but
-an explicit override pin remains meaningful even when its value is false.
+Use system default (a field on All games) clears the value. Follow All games (a
+field on a game) clears the game's own value. Their "for all settings" forms need
+one confirmation that says how many settings they clear. Semantically empty
+override maps are not different from the saved file, but an explicit override pin
+remains meaningful even when its value is false.
 
 ## Field editing and persistence
 
-In Profile Detail, Space cycles a focused boolean or finite choice directly in
-the draft. Ordinary booleans use `(default)`, `true`, `false`, then `(default)`.
-For a game, `(default)` means inheritance, with the effective value shown beside
-it. For All games it means the system default. Explicit false, zero, empty text,
-and optional no-value choices remain distinct from inheritance. Finite numeric
-choices, such as Multi-frame, also cycle with Space. Returning to the original
-value and override state clears the draft's unsaved status.
+Every change is saved when it is made. The message line says what was saved
+(`Saved: HDR On`, `Saved: Clock offset follows All games`), the header shows
+`Saving…` while a write runs, and a failed write returns the row to the stored
+value and shows `Not saved: <reason>` in the header and on the message line.
+There is no draft, no Save command, and no Discard command.
 
-Settings boolean and finite choices cycle between their configured values with
-Space. They have no inheritance state. Space never saves. Save in Actions or
-Ctrl+S persists the draft. Choice fields do not advertise or open an Enter editor.
+Space in Profile Detail switches the focused row between following and its own
+value. Following to own, a boolean takes the opposite of the value it follows;
+any other field puts back the value it had before, or opens its editor or picker
+when it has none. Own to following remembers the value, so the same key undoes
+either move. On All games the same key switches between the system default and a
+value set there. The row always shows the effective value and its source
+(`from All games`, `this game · All games: Off`, `set here`, or `system
+default`). Explicit Off, zero, empty text, and optional no-value choices remain
+distinct from inheritance.
 
-Free text and numeric fields use Enter to open an editor with Input, Apply,
-Cancel, and Save controls. Tab cycles through them; Left/Right choose buttons
-while a button owns focus. Text and number inputs accept their normal content
-and cursor controls. Space is literal text only while an input owns focus.
+Enter edits the focused row. Booleans, optional booleans, and fields with a fixed
+set of values open a picker: the choices as a list, the first being Follow All
+games (or Use system default) with the value it would give. Typing letters or
+digits jumps to the first choice that starts with them; Up and Down move; Enter
+applies and saves; Esc cancels. The picker is also how a game pins the value it
+already follows. Numbers and text open an editor with Input, Apply, and Cancel
+controls; Tab cycles through them and Left/Right choose buttons while a button
+owns focus. Typing replaces a prefilled number. Text and number inputs accept
+their normal content and cursor controls, and Space is literal text only while an
+input owns focus.
 
-Enter on Input or Apply validates the field and applies it to the draft. Cancel
-drops only the current raw edit and retains earlier draft changes. Save and
-Ctrl+S validate the field, apply it, and persist the owning document. Validation
-and save failures remain visible and preserve input for correction or retry.
+Enter on Input or Apply validates the field, applies it, and saves it. Cancel and
+Esc drop only the current edit. A rejected value stays in the editor with its
+error, for correction.
 
-Browse Save on Library belongs to the focused Profile Detail, including All
-games. Settings Save belongs to its configuration draft from either pane. A
-successful save updates only the captured snapshot's baseline; edits made after
-that snapshot remain dirty. Existing save serialization is preserved.
+Writes for one profile are queued and merged in order, so an earlier result never
+marks a later change saved. Moving on while a write runs is safe. Settings
+follow the same rules: Space and the path editor save at once, a change made
+during a write is written by the next one, and a failed write returns the option
+to its stored value.
 
-Normal Quit waits for pending writes/scans. It resolves both profile and Settings
-drafts before exiting. Cancel returns to the invoking state. Failure to save
-keeps the dialog and drafts available for retry.
+Normal Quit waits for writes in flight and then quits (`Saving, then quitting`);
+it is refused while a scan or DLL operation runs. Ctrl+C quits at once.
 
 ## DLL Catalog and mutations
 
@@ -138,11 +159,13 @@ do not advertise field editing or profile saving. Update all stale deployments
 is an explicit Catalog operation, available from either pane when targets exist.
 If invoked from List, its dialog reveals Detail and returns to List on dismissal.
 
-The Library game's DLLs view shows a direct action list below its versions:
+The Library game's DLLs section starts with where the game lives (install
+directory, Proton prefix, and the `spela %command%` Steam launch option, each on
+one line, shown when they fit) and shows a direct action list below its versions:
 Install DLL, Update DLLs, and Restore originals. With Detail focused, Up/Down
 selects an action and Enter starts it. All three rows remain visible, including
-target counts and reasons for unavailable actions, at the minimum terminal size
-and with verbose hints disabled. Unavailable selections have no Enter hint.
+target counts and reasons for unavailable actions, at the minimum terminal size.
+Unavailable selections have no Enter hint.
 With List focused, the DLL view shows Tab to focus its controls. The same
 workflows remain available in Actions.
 
@@ -167,13 +190,12 @@ It exposes no edit/save action.
 
 Settings List owns the configured option groups and fields. Left/Right changes
 group, Up/Down selects a setting, and Enter opens Detail. Space cycles a choice
-there; Enter opens a text or free-number editor. Destination changes preserve
-its existing configuration draft.
+and saves it; Enter opens a text or free-number editor whose Apply saves.
 
 A scan captures its configuration snapshot and has one request identity. A
 pending scan disables another scan and normal Quit. Obsolete completions cannot
 replace newer state. Results that arrive during an editor or overlay wait until
-Browse can apply them, including any required dirty-profile decision.
+Browse can apply them.
 
 ## Layout and terminal verification
 

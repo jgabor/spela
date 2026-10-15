@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
@@ -20,13 +19,14 @@ type resourcePaneModel struct {
 	content           ContentModel
 	defaultsDetail    DetailModel
 	persistedDefaults *profile.Profile
-	overview          OverviewModel
-	dllsResource      DLLsResourceModel
-	metricsView       MetricsResourceModel
-	settings          OptionsModalModel
-	width             int
-	height            int
-	scrollOffset      int
+	// ownValueGames maps a field to the games that set their own value for it.
+	ownValueGames map[string][]string
+	dllsResource  DLLsResourceModel
+	metricsView   MetricsResourceModel
+	settings      OptionsModalModel
+	width         int
+	height        int
+	scrollOffset  int
 }
 
 func newResourcePane(styles *Styles, content ContentModel) resourcePaneModel {
@@ -36,7 +36,6 @@ func newResourcePane(styles *Styles, content ContentModel) resourcePaneModel {
 	return resourcePaneModel{
 		styles:       styles,
 		content:      content,
-		overview:     NewOverview(styles),
 		dllsResource: NewDLLsResource(styles, nil),
 		metricsView:  NewMetricsResource(styles),
 		settings:     NewOptionsModal(styles),
@@ -63,7 +62,8 @@ func (p *resourcePaneModel) refreshDefaultsDetail() {
 		defaults = desired.Clone()
 	}
 	p.defaultsDetail = NewRootDetail(p.styles, defaults)
-	p.defaultsDetail.SetSize(max(p.width-4, 1), max(p.height-5, 1))
+	p.defaultsDetail.SetOwnValueGames(p.ownValueGames)
+	p.defaultsDetail.SetSize(max(p.width-4, 1), max(p.height-3, 1))
 	p.defaultsDetail.RestoreFocus(preserveField, preserveCursor)
 }
 
@@ -89,9 +89,8 @@ func (p resourcePaneModel) State() nav.State {
 
 func (p *resourcePaneModel) SetSize(width, height int) {
 	p.width, p.height = width, height
-	p.overview.SetSize(width-4, max(height-3, 1))
 	p.content.SetSize(width-4, height)
-	p.defaultsDetail.SetSize(width-4, max(height-5, 1))
+	p.defaultsDetail.SetSize(width-4, max(height-3, 1))
 	p.dllsResource.SetSize(width-4, height)
 	p.metricsView.SetSize(width-4, height)
 	p.settings.SetSize(width, height)
@@ -133,53 +132,26 @@ func (p resourcePaneModel) renderLibrary(contentFocused bool) string {
 		return p.content.ViewDLLAspectFocused(contentFocused)
 	}
 	s := p.styles
+	global := p.State().Scope.Kind == nav.ScopeGlobal
+	if !global && p.content.game == nil {
+		return s.Dim.Render("Select a game from the scope list")
+	}
 
 	var body strings.Builder
-	if p.State().Scope.Kind == nav.ScopeGame && p.content.game != nil {
-		for index, label := range nav.AspectLabels {
-			if index > 0 {
-				body.WriteString("  ")
-			}
-			if nav.Aspect(index) == p.State().Aspect {
-				body.WriteString(s.Selected.Render("[" + label + "]"))
-			} else {
-				body.WriteString(s.Dim.Render(label))
-			}
-		}
-		body.WriteString("\n")
-		body.WriteString("\n")
-	}
-	switch p.State().Aspect {
-	case nav.AspectOverview:
-		if p.State().Scope.Kind != nav.ScopeGame {
-			body.WriteString(s.Dim.Render("Overview is available for a selected game."))
-		} else {
-			body.WriteString(p.readOnlyView())
-		}
-	case nav.AspectDLLs:
-		if p.State().Scope.Kind != nav.ScopeGame {
-			body.WriteString(s.Dim.Render("DLL management requires a selected game."))
-		} else {
-			body.WriteString(p.content.ViewDLLAspectFocused(contentFocused))
-		}
-	case nav.AspectProfile:
-		if p.State().Scope.Kind == nav.ScopeGlobal {
-			body.WriteString(s.Title.Render("All games (default profile)"))
-			body.WriteString("\n")
-			body.WriteString(ansi.Truncate(s.Dim.Render("Root profile: inherited by games."), max(p.width-2, 1), "…"))
-			body.WriteString("\n\n")
-			body.WriteString(p.defaultsDetail.ViewFocused(contentFocused))
-		} else if p.content.game == nil {
-			body.WriteString(s.Dim.Render("Select a game from the scope list"))
-		} else {
-			detail := p.content.detail
-			detail.SetSize(max(p.width-4, 1), max(p.height-3, 1))
-			body.WriteString(detail.ViewFocused(contentFocused))
-		}
+	body.WriteString(p.profileHeader())
+	body.WriteString("\n")
+	switch {
+	case global:
+		body.WriteString(p.defaultsDetail.ViewFocused(contentFocused))
+	case p.State().Aspect == nav.AspectDLLs:
+		content := p.content
+		content.SetSize(max(p.width-4, 1), max(p.height, 1))
+		body.WriteString(content.ViewDLLAspectFocused(contentFocused))
 	default:
-		body.WriteString(s.Dim.Render("Select an aspect"))
+		detail := p.content.detail
+		detail.SetSize(max(p.width-4, 1), max(p.height-3, 1))
+		body.WriteString(detail.ViewFocused(contentFocused))
 	}
-
 	return body.String()
 }
 
@@ -226,11 +198,6 @@ func (p resourcePaneModel) updateLibrary(msg tea.Msg) (resourcePaneModel, tea.Cm
 	switch p.State().Aspect {
 	case nav.AspectProfile:
 		return p.updateProfileDetail(msg)
-	case nav.AspectOverview:
-		if p.State().Scope.Kind == nav.ScopeGame {
-			p.overview = p.overview.Update(msg)
-		}
-		return p, nil
 	case nav.AspectDLLs:
 		if p.State().Scope.Kind == nav.ScopeGame {
 			content, cmd := p.content.Update(msg)
@@ -247,7 +214,7 @@ func (p resourcePaneModel) updateProfileDetail(msg tea.Msg) (resourcePaneModel, 
 		return p, nil
 	}
 	detail := p.profileDetail()
-	context := BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, ProfileScope: true, GameScope: p.State().Scope.Kind == nav.ScopeGame, Aspect: nav.AspectProfile, HasFields: true, Editable: !detail.CanCycleFocusedField(), CanCycle: detail.CanCycleFocusedField(), Dirty: detail.Dirty(), SaveAvailable: true}
+	context := BindingContext{Mode: ModeBrowse, Focus: FocusDetail, Destination: nav.DestinationLibrary, ProfileScope: true, GameScope: p.State().Scope.Kind == nav.ScopeGame, Aspect: nav.AspectProfile, HasFields: true, Editable: detail.CanToggleFocusedField(), CanCycle: detail.CanToggleFocusedField(), FieldOwn: detail.FocusedIsOwn()}
 	if p.Editing() {
 		context.Mode = ModeEdit
 		context.EditorInput, context.EditorKind, context.EditorEnterLabel = detail.EditorInputFocused(), detail.EditorInputKind(), detail.EditorEnterLabel()
@@ -303,7 +270,7 @@ func (p resourcePaneModel) contentModel() *ContentModel {
 
 // saveDefaultProfile persists the root defaults profile asynchronously,
 // emitting profileSaveMsg on completion (handled by the layout).
-func (p *resourcePaneModel) saveDefaultProfile() tea.Cmd {
+func (p *resourcePaneModel) saveDefaultProfile(summary string) tea.Cmd {
 	raw := p.defaultsDetail.RawProfile()
 	if raw == nil {
 		return nil
@@ -312,7 +279,7 @@ func (p *resourcePaneModel) saveDefaultProfile() tea.Cmd {
 	if desired := p.content.profileSaves.latest(0); desired != nil {
 		before = desired
 	}
-	return p.content.profileSaves.start(profileSaveRequest{before: before.Clone(), desired: raw.Clone()})
+	return p.content.profileSaves.start(profileSaveRequest{before: before.Clone(), desired: raw.Clone(), summary: summary})
 }
 
 func (p *resourcePaneModel) completeDefaultSave(message profileSaveMsg) tea.Cmd {
@@ -320,7 +287,11 @@ func (p *resourcePaneModel) completeDefaultSave(message profileSaveMsg) tea.Cmd 
 	if message.err == nil && message.request.desired != nil {
 		p.persistedDefaults = message.request.desired.Clone()
 	}
-	return p.content.profileSaves.complete(message)
+	command := p.content.profileSaves.complete(message)
+	if message.err != nil && !p.content.profileSaves.pending(0) {
+		p.defaultsDetail.RevertToPersisted()
+	}
+	return command
 }
 
 // loadGlobalScope prepares default profile content.
@@ -331,9 +302,36 @@ func (p *resourcePaneModel) loadGlobalScope() {
 	*p.navState = p.State().SelectScope(nav.Scope{Kind: nav.ScopeGlobal})
 	*p.navState = p.State().SelectAspect(nav.AspectProfile)
 	p.scrollOffset = 0
+	p.refreshOwnValueGames()
 	if p.defaultsDetail.raw == nil {
 		p.refreshDefaultsDetail()
 	}
+	p.defaultsDetail.SetOwnValueGames(p.ownValueGames)
+}
+
+// refreshOwnValueGames counts, per field, the games that set their own value, so
+// the All games page can say how many there are.
+func (p *resourcePaneModel) refreshOwnValueGames() {
+	p.ownValueGames = profile.CollectOwnValueGames(p.ownValueEntries())
+}
+
+// ownValueEntries reads every game profile once. The note on All games and the
+// action that applies All games to those games both start from this list, so
+// the count on screen and the games that change are the same.
+func (p *resourcePaneModel) ownValueEntries() []profile.OwnValueEntry {
+	if p.services == nil || p.services.LoadProfile == nil {
+		return nil
+	}
+	var entries []profile.OwnValueEntry
+	for _, entry := range p.dllsResource.games {
+		if entry == nil {
+			continue
+		}
+		if stored, err := p.services.LoadProfile(entry.AppID); err == nil {
+			entries = append(entries, profile.OwnValueEntry{AppID: entry.AppID, Name: entry.Name, Profile: stored})
+		}
+	}
+	return entries
 }
 
 // loadGameScope prepares per-game content.
@@ -345,14 +343,21 @@ func (p *resourcePaneModel) loadGameScope(g *game.Game) {
 		Kind:     nav.ScopeGame,
 		GameName: g.Name,
 		AppID:    g.AppID,
-	}).SelectAspect(nav.AspectOverview)
+	}).SelectAspect(p.gameAspect())
 	p.content = p.content.SetGame(g)
 	p.scrollOffset = 0
-	p.overview = p.overview.SetGame(g, p.services)
+}
+
+// gameAspect is the view a newly shown game opens on. The page the user was on
+// stays when the game changes; the TUI has no Overview, so that maps to Profile.
+func (p resourcePaneModel) gameAspect() nav.Aspect {
+	if p.State().Aspect == nav.AspectDLLs {
+		return nav.AspectDLLs
+	}
+	return nav.AspectProfile
 }
 
 func (p *resourcePaneModel) loadNoScope() {
-	*p.navState = p.State().SelectScope(nav.Scope{Kind: nav.ScopeGame})
+	*p.navState = p.State().SelectScope(nav.Scope{Kind: nav.ScopeGame}).SelectAspect(p.gameAspect())
 	p.content = p.content.SetGame(nil)
-	p.overview = p.overview.SetGame(nil, p.services)
 }

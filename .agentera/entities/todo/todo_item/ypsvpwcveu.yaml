@@ -8,6 +8,7 @@ record:
   requirements:
     - "The first Actions row is Edit field for numbers and a disabled Save for other fields, so the Reset rows move 3 to 5 Down presses (a Down overshoot ran Layout: Standard in the review). Disabled rows take the cursor and Enter on one does nothing and says nothing. Reset field is offered on an inherited field. Actions on a game's Overview has no reset rows. Reset wording differs by scope (system default in All games, inherit in a game; internal/tui/keymap.go:507-515). The confirm sentence This changes the draft. Save persists it. is reused for Discard draft and Reset all (internal/tui/draft_navigation.go:123)."
     - "Found by the 2026-10-14 TUI profile and settings UX review. Report: docs/design/tui-profile-settings-ux-review.md. Evidence is outside the repository, in ~/.local/state/spela-ux-review/2026-10-14/."
+    - "Step 1 (branch feat/shared-profile-vocabulary, unmerged): the reset rows are now first in Actions and use the shared action words. Still open: a disabled row that explains itself when Enter is pressed."
   acceptance:
     - GIVEN the Actions menu on any Profile field WHEN it opens THEN the reset and discard rows are in the same positions.
     - GIVEN a disabled row WHEN Enter is pressed THEN the screen says why nothing happened, or the row is not selectable.

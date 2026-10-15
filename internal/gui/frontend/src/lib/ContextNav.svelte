@@ -42,14 +42,14 @@
     />
     <div class="aspect-tabs" role="tablist">
       {#each AspectLabels as label, index}
-        {#if !scopeGlobal || index === Aspect.Profile}
+        {#if index !== Aspect.Overview && (!scopeGlobal || index === Aspect.Profile)}
           <button
             type="button"
             role="tab"
             class:active={aspect === index}
             disabled={scopeGlobal && index !== Aspect.Profile}
             on:click={() => dispatch('selectAspect', { aspect: index })}
-          >{index + 1} {label}</button>
+          >{index} {label}</button>
         {/if}
       {/each}
     </div>

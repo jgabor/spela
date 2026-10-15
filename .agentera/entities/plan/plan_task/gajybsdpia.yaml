@@ -1,0 +1,22 @@
+id: gajybsdpia
+artifact: plan
+record:
+  name: Header, whole-game Follow, and the All games note
+  status: complete
+  depends_on:
+    - bxjkpkdmtx
+  acceptance:
+    - GIVEN a game profile WHEN it renders THEN the header shows name, App ID, DLL facts, save state, and Own settings (N) with name and value, or the none sentence.
+    - GIVEN a page with own settings WHEN Follow All games for all settings is pressed THEN a confirm with Cancel first shows the Go body and count, and confirm sends one batch of reset patches for every own field; at count 0 the button is disabled; All games uses the system default wording.
+    - GIVEN All games WHEN a field is kept by some games THEN its row shows the suffix and the note naming them.
+  plan: pmybbznzim
+  evaluation:
+    attempt_count: 1
+    failure_count: 0
+    last_verdict: pass
+    last_failure_evidence: null
+    provenance:
+      attempt_id: t5-build
+      source: "GameDetail header lists the DLLs and the save state, shows Own settings (N) with name and value or the none sentence, and a Follow All games for all settings button (Use system default for all settings on All games) disabled at count 0. The confirm dialog has Cancel focused first, the Go body, Escape closes it, and confirming sends one batch of reset patches for every own field with Saved: All settings follow All games. All games rows show the suffix and the note naming the games that keep their own value. bun run test passes (65)."
+      recorded_at: 2026-10-15 10:21
+      writer_command: agentera state plan record-evaluation

@@ -5,13 +5,16 @@ import GameDetail from './GameDetail.svelte'
 import GameList from './GameList.svelte'
 import GameProfilePane from './GameProfilePane.svelte'
 import { emptyProfile } from './profileFieldOptions.js'
+import { allOverride, fieldSemantics, semantic } from './testSemantics.js'
+
+const withWords = (profile, sources, options) => ({ ...profile, semantics: fieldSemantics(sources, options) })
 
 afterEach(() => cleanup())
 
 const games = [
-  { appId: 1, name: 'Alpha', installDir: '/alpha', dlls: [{ type: 'dlss' }], hasProfile: true },
+  { appId: 1, name: 'Alpha', installDir: '/alpha', dlls: [{ dllType: 'dlss' }], hasProfile: true },
   { appId: 2, name: 'Beta', installDir: '/beta', dlls: [], hasProfile: false },
-  { appId: 3, name: 'Gamma', installDir: '/gamma', dlls: [{ type: 'xess' }], hasProfile: false }
+  { appId: 3, name: 'Gamma', installDir: '/gamma', dlls: [{ dllType: 'xess' }], hasProfile: false }
 ]
 
 describe('game list supported interaction flows', () => {
@@ -78,16 +81,16 @@ describe('game list supported interaction flows', () => {
 describe('profile editor supported projections', () => {
   it('uses distinct descriptor-parity options for SR and RR presets', async () => {
     render(GameProfilePane, {
-      props: { profile: emptyProfile(), desktop: {}, profileMode: 'default', profileSubsystem: 1 }
+      props: { profile: withWords(emptyProfile(), allOverride(), { allGames: true }), desktop: {}, profileMode: 'default', profileSubsystem: 1 }
     })
 
-    const srField = screen.getByText('DLSS preset').closest('.field')
+    const srField = screen.getByText('Resolution preset').closest('.field')
     await fireEvent.click(srField.querySelector('.trigger'))
     expect([...srField.querySelectorAll('.option')].map(option => option.textContent.trim())).toEqual([
       'No preset', 'Driver default', 'Auto (mode-linked)', 'A', 'B', 'C', 'D', 'E', 'F', 'J', 'K', 'L', 'M'
     ])
 
-    const rrField = screen.getByText('Ray reconstruction preset').closest('.field')
+    const rrField = screen.getByText('Ray preset').closest('.field')
     await fireEvent.click(rrField.querySelector('.trigger'))
     expect([...rrField.querySelectorAll('.option')].map(option => option.textContent.trim())).toEqual([
       'No preset', 'Driver default', 'A', 'B', 'C', 'D', 'E', 'F', 'J', 'K', 'L', 'M'
@@ -96,18 +99,17 @@ describe('profile editor supported projections', () => {
 
   it('projects semantics, frame generation, and compatibility notices', async () => {
     const profile = {
-      ...emptyProfile(),
+      ...withWords(emptyProfile(), { 'proton.vkd3d_heap': 'override' }),
       inheritedFromDefault: true,
-      vkd3dHeap: true,
-      semantics: [{ field: 'proton.vkd3d_heap', source: 'game', impact: 'launch', restore: 'inherit' }]
+      vkd3dHeap: true
     }
     const desktop = { VKD3DHeapCompatibilityNotice: vi.fn().mockResolvedValue('⚠ Upgrade driver') }
     const view = render(GameProfilePane, {
       props: { profile, game: games[0], desktop, profileMode: 'game', profileSubsystem: null }
     })
     await waitFor(() => expect(screen.getByText('⚠ Upgrade driver')).toBeTruthy())
-    expect(screen.getByText(/source game · impact launch/)).toBeTruthy()
-    expect(screen.getByText('Using default profile values.')).toBeTruthy()
+    expect(screen.getAllByText(/this game · All games: Off/).length).toBeGreaterThan(0)
+    expect(screen.getByText('This game has no profile of its own; every value follows All games.')).toBeTruthy()
 
     const frameField = screen.getByText('Frame generation').closest('.field')
     await fireEvent.click(frameField.querySelector('button'))
@@ -124,43 +126,63 @@ describe('profile editor supported projections', () => {
     await view.rerender({ profile: { ...profile, vkd3dHeap: false }, game: games[0], desktop, profileMode: 'game', profileSubsystem: 0 })
     expect(screen.getByRole('heading', { name: 'Proton settings' })).toBeTruthy()
     expect(screen.queryByText('⚠ Upgrade driver')).toBeNull()
-    await view.rerender({ profile, game: null, desktop, profileMode: 'default', profileSubsystem: 0 })
-    expect(screen.getByText(/impact launch · restore inherit/)).toBeTruthy()
+    await view.rerender({ profile: withWords(profile, allOverride(), { allGames: true }), game: null, desktop, profileMode: 'default', profileSubsystem: 0 })
+    expect(screen.getAllByText(/^set here$/).length).toBeGreaterThan(0)
+  })
+})
+
+describe('profile pane words', () => {
+  it('prints labels, descriptions, sources, and actions from the projection, not from its own text', () => {
+    const profile = emptyProfile()
+    profile.semantics = [
+      { ...semantic('dlss.sr_mode', 'override'), label: 'Zeta label', description: 'Zeta description.', sourceText: 'zeta source', action: 'Zeta action' }
+    ]
+    render(GameProfilePane, { props: { profile, desktop: {}, profileMode: 'game', profileSubsystem: 1 } })
+    expect(screen.getByText('Zeta label')).toBeTruthy()
+    expect(screen.getByText('Zeta description.')).toBeTruthy()
+    expect(screen.getByText(/zeta source/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Zeta action' })).toBeTruthy()
+    for (const retired of ['Quality mode', 'Pin', 'Unset', '(default)', 'Override for this game']) {
+      expect(screen.queryByText(retired)).toBeNull()
+    }
   })
 })
 
 describe('game detail supported persistence flows', () => {
-  it('saves default and game profiles and reports adapter failures', async () => {
-    const profile = emptyProfile()
+  it('saves default and game profiles as they change and reports adapter failures', async () => {
+    const profile = withWords(emptyProfile())
     const desktop = {
-      GetDefaultProfile: vi.fn().mockResolvedValue(null),
-      GetProfile: vi.fn().mockResolvedValue(profile),
+      GetDefaultProfile: vi.fn().mockImplementation(async () => structuredClone(profile)),
+      GetProfile: vi.fn().mockImplementation(async () => structuredClone(profile)),
       PatchDefaultProfile: vi.fn().mockResolvedValue(undefined),
       PatchProfile: vi.fn().mockResolvedValue(undefined),
       GetGame: vi.fn().mockResolvedValue({ ...games[0], prefixPath: '/prefix' }),
       VKD3DHeapCompatibilityNotice: vi.fn().mockResolvedValue('')
     }
     const defaults = render(GameDetail, { props: { game: null, profileMode: 'default', desktop } })
-    await waitFor(() => expect(screen.getByText('Save default profile')).toBeTruthy())
-    await fireEvent.click(screen.getByText('Save default profile'))
-    await waitFor(() => expect(screen.getByText('Default profile saved!')).toBeTruthy())
+    await waitFor(() => expect(screen.getByLabelText('HDR')).toBeTruthy())
+    expect(screen.queryByText('Save All games')).toBeNull()
+    await fireEvent.click(screen.getByLabelText('HDR'))
+    await waitFor(() => expect(desktop.PatchDefaultProfile).toHaveBeenCalledWith([{
+      field: 'proton.enable_hdr', operation: 'set', value: true
+    }]))
+    await waitFor(() => expect(screen.getByText(/^Saved: /)).toBeTruthy())
     defaults.unmount()
 
     const detail = render(GameDetail, { props: { game: games[0], profileMode: 'game', desktop } })
-    await waitFor(() => expect(screen.getByText('Save profile')).toBeTruthy())
+    await waitFor(() => expect(screen.getByLabelText('HDR')).toBeTruthy())
+    expect(screen.queryByText('Save profile')).toBeNull()
     await detail.component.focusPrimary()
     await fireEvent.click(screen.getByLabelText('HDR'))
-    await fireEvent.click(screen.getByText('Save profile'))
     await waitFor(() => expect(desktop.PatchProfile).toHaveBeenCalledWith(1, [{
       field: 'proton.enable_hdr', operation: 'set', value: true
     }]))
-    await waitFor(() => expect(screen.getByText('Profile saved!')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText(/^Saved: /)).toBeTruthy())
 
     desktop.PatchProfile.mockRejectedValue('read-only')
     await fireEvent.click(screen.getByLabelText('HDR'))
-    await fireEvent.click(screen.getByText('Save profile'))
-    await waitFor(() => expect(screen.getByText('Failed to save: read-only')).toBeTruthy())
+    await waitFor(() => expect(screen.getAllByText('Not saved: read-only').length).toBeGreaterThan(0))
     await fireEvent.click(screen.getByText('Dismiss'))
-    expect(screen.queryByText('Failed to save: read-only')).toBeNull()
+    expect(screen.queryByText('Dismiss')).toBeNull()
   })
 })

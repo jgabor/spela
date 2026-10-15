@@ -68,7 +68,6 @@ var options = []Option{
 	enumOption("log_level", "logLevel", nav.SettingsLogging, "Log level", "Control logging verbosity for troubleshooting.", []string{"debug", "info", "warn", "error"}, VisibilityCLI|VisibilityGUI|VisibilityWails, func(c *Config) string { return string(c.LogLevel) }, func(c *Config, value string) { c.LogLevel = LogLevel(value) }, "log level"),
 	stringOption("shader_cache", "shaderCache", nav.SettingsPaths, "Shader cache", "Global NVIDIA shader cache path.", KindPath, VisibilityCLI|VisibilityWails, func(c *Config) string { return c.ShaderCache }, func(c *Config, value string) { c.ShaderCache = value }),
 	boolOption("check_updates", "checkUpdates", nav.SettingsStartup, "Check for updates", "Look for new Spela releases at startup.", VisibilityCLI|VisibilityGUI|VisibilityWails, func(c *Config) bool { return c.CheckUpdates }, func(c *Config, value bool) { c.CheckUpdates = value }),
-	boolOption("show_hints", "showHints", nav.SettingsDisplay, "Show hints", "Show keyboard hints. Takes effect immediately after saving.", VisibilityTUI|VisibilityGUI|VisibilityWails, func(c *Config) bool { return c.ShowHints }, func(c *Config, value bool) { c.ShowHints = value }),
 	boolOption("rescan_on_startup", "rescanOnStartup", nav.SettingsStartup, "Re-scan on startup", "Scan for games when Spela next starts. Requires restart.", VisibilityTUI|VisibilityGUI|VisibilityWails, func(c *Config) bool { return c.RescanOnStartup }, func(c *Config, value bool) { c.RescanOnStartup = value }),
 	boolOption("auto_update_dlls", "autoUpdateDLLs", nav.SettingsStartup, "Auto-update DLLs", "Update DLLs automatically when the app starts.", VisibilityGUI|VisibilityWails, func(c *Config) bool { return c.AutoUpdateDLLs }, func(c *Config, value bool) { c.AutoUpdateDLLs = value }),
 	stringOption("steam_path", "steamPath", nav.SettingsPaths, "Steam path", "Use this Steam installation for future manual scans and when Spela next starts.", KindPath, VisibilityTUI|VisibilityGUI|VisibilityWails, func(c *Config) string { return c.SteamPath }, func(c *Config, value string) { c.SteamPath = value }),
@@ -128,7 +127,7 @@ func Sections(visibility Visibility) []Section {
 }
 
 var settingsOrder = map[string]int{
-	"theme": 0, "show_hints": 1, "compact_mode": 2, "confirm_destructive": 3,
+	"theme": 0, "compact_mode": 2, "confirm_destructive": 3,
 	"rescan_on_startup": 0, "auto_update_dlls": 1, "check_updates": 2,
 	"steam_path": 0, "dll_cache_path": 1, "backup_path": 2,
 	"auto_refresh_manifest": 0, "manifest_refresh_hours": 1, "preferred_dll_source": 2,

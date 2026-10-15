@@ -1,0 +1,12 @@
+id: qvmysxdhht
+artifact: plan
+record:
+  name: GUI words and source column
+  status: complete
+  depends_on:
+    - mpunkyuupr
+  acceptance:
+    - GIVEN the GUI profile pane WHEN a game is shown THEN each field shows this game with the All games value, or from All games, with On and Off, Follow All games, and Set for this game, and the backend sends the default value and the shared words.
+    - GIVEN the frontend WHEN profileFieldOptions.js and the pane labels are read THEN no label that the shared table covers is hand-kept, the choice of binding or generated JS is recorded, and a parity assertion covers the GUI labels (a Go test if the words are generated JS, a vitest check if they come from the binding).
+    - GIVEN mage test, bun run test, and the Playwright specs WHEN run THEN they pass, and game-detail.spec.js and smoke.spec.js are fixed or deleted with a stated reason.
+  plan: pmdtzsxing

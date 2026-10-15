@@ -109,7 +109,7 @@ func TestGUIBoundaryDefaultProfileSemanticsPass(t *testing.T) {
 	assertProfileSemantic(t, semantics[profile.FieldGPUClockOffset], "default", "system_state", "restorable_mutation")
 }
 
-func TestGUIBoundaryOneFieldPatchPreservesHiddenOverrides(t *testing.T) {
+func TestGUIBoundaryOneFieldPatchPreservesOtherOverrides(t *testing.T) {
 	boundary := defaultGUIApplicationBoundary(nil)
 	defaults := &profile.Profile{Proton: profile.ProtonSettings{EnableHDR: true, VKD3DHeap: true}}
 	current := &profile.Profile{
@@ -147,7 +147,7 @@ func TestGUIBoundaryOneFieldPatchPreservesHiddenOverrides(t *testing.T) {
 		t.Fatalf("unchanged inherited clock offset should not become an override: %+v", saved.Overrides)
 	}
 	if !saved.IsOverridden(profile.FieldGPUPowerLimit) || saved.GPU.PowerLimit != 275 {
-		t.Fatalf("hidden power limit changed: value=%d overrides=%+v", saved.GPU.PowerLimit, saved.Overrides)
+		t.Fatalf("existing power limit changed: value=%d overrides=%+v", saved.GPU.PowerLimit, saved.Overrides)
 	}
 	if !saved.IsOverridden(profile.FieldOverlayEnabled) {
 		t.Fatalf("unrendered existing overlay override should be preserved: %+v", saved.Overrides)

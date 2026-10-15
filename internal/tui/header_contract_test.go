@@ -14,7 +14,7 @@ import (
 )
 
 func TestHeaderAndMonitorRenderLiveUnavailableAndAlertStates(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	header := NewHeader(styles)
 	header.SetWidth(120)
 	if unavailable := stripANSI(header.View()); !strings.Contains(unavailable, "GPU: N/A") || !strings.Contains(unavailable, "CPU: N/A") {
@@ -94,7 +94,7 @@ func TestHeaderAndMonitorRenderLiveUnavailableAndAlertStates(t *testing.T) {
 }
 
 func TestHeaderSuccessiveSamplesKeepMetricColumnAndReplaceValues(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	for _, width := range []int{80, 120} {
 		t.Run(fmt.Sprintf("width_%d", width), func(t *testing.T) {
 			header := NewHeader(styles)
@@ -153,7 +153,7 @@ func lineContaining(view, fragment string) string {
 }
 
 func TestMonitorUsesTextMarkersAndDistinctMetricStates(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	for _, state := range []metricState{metricLoading, metricUnsupported, metricFailed, metricStale} {
 		monitor := NewMetricsResource(styles).SetStates(state, state)
 		view := stripANSI(monitor.View(true, nav.MonitorGPU))
@@ -167,7 +167,7 @@ func TestMonitorUsesTextMarkersAndDistinctMetricStates(t *testing.T) {
 }
 
 func TestMonitorAlertNamesCauseAndRecovery(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	alert := overlay.Alert{Type: overlay.AlertThermalThrottle, Severity: overlay.AlertCritical, Message: "GPU thermal throttling at 92°C", Suggestion: "Reduce the GPU power limit"}
 	view := stripANSI(NewMetricsResource(styles).SetData(nil, nil, []overlay.Alert{alert}, nil, nil, nil, nil).View(true, nav.MonitorAlerts))
 	for _, text := range []string{"› Alerts", "GPU thermal throttling at 92°C", "Recovery: Reduce the GPU power limit"} {

@@ -62,8 +62,8 @@ func init() {
 
 var overlayResetCmd = &cobra.Command{
 	Use:   "reset <game> <field>",
-	Short: "Reset an overlay field to inherit from defaults",
-	Long: `Reset an overlay profile field back to inherited. Valid fields:
+	Short: "Make an overlay field follow All games",
+	Long: `Make an overlay profile field follow All games again. Valid fields:
   enabled, position, show_fps, show_frametime, show_cpu, show_gpu, show_vram, toggle_key.`,
 	Args: cobra.ExactArgs(2),
 	RunE: runOverlayReset,
@@ -156,13 +156,13 @@ func runOverlaySet(cmd *cobra.Command, args []string) error {
 }
 
 func runOverlayShow(cmd *cobra.Command, args []string) error {
-	g, p, resolved, err := resolvedProfileForShow(args[0])
+	snapshot, err := loadProfileSnapshot(args[0])
 	if err != nil {
 		return err
 	}
 
 	if overlayShowJSON {
-		data, err := json.MarshalIndent(resolved.Overlay, "", "  ")
+		data, err := json.MarshalIndent(snapshot.resolved.Overlay, "", "  ")
 		if err != nil {
 			return err
 		}
@@ -170,22 +170,10 @@ func runOverlayShow(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Printf("Overlay profile for %s:\n\n", g.Name)
-	fmt.Println(renderField("Enabled:", profile.FieldOverlayEnabled, p, resolved.Overlay.Enabled))
-	fmt.Println(renderField("Position:", profile.FieldOverlayPosition, p, displayOrDefault(resolved.Overlay.Position)))
-	fmt.Println(renderField("Show FPS:", profile.FieldOverlayShowFPS, p, resolved.Overlay.ShowFPS))
-	fmt.Println(renderField("Show frametime:", profile.FieldOverlayShowFrametime, p, resolved.Overlay.ShowFrametime))
-	fmt.Println(renderField("Show CPU:", profile.FieldOverlayShowCPU, p, resolved.Overlay.ShowCPU))
-	fmt.Println(renderField("Show GPU:", profile.FieldOverlayShowGPU, p, resolved.Overlay.ShowGPU))
-	fmt.Println(renderField("Show VRAM:", profile.FieldOverlayShowVRAM, p, resolved.Overlay.ShowVRAM))
-	fmt.Println(renderField("Toggle key:", profile.FieldOverlayToggleKey, p, displayOrDefault(resolved.Overlay.ToggleKey)))
-
-	return nil
-}
-
-func displayOrDefault(s string) string {
-	if s == "" {
-		return "(default)"
+	fmt.Printf("Overlay profile for %s:\n\n", snapshot.game.Name)
+	snapshot.printNoProfileNote()
+	if err := printSubsystemFields("overlay", snapshot, ""); err != nil {
+		return err
 	}
-	return s
+	return nil
 }

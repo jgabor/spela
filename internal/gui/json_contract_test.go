@@ -22,12 +22,12 @@ func TestWailsJSONKeyContracts(t *testing.T) {
 		value any
 		keys  []string
 	}{
-		{"config", ConfigInfo{}, []string{"additionalLibraryPaths", "autoRefreshManifest", "autoUpdateDLLs", "backupPath", "checkUpdates", "compactMode", "confirmDestructive", "dllCachePath", "dllManifestURL", "logLevel", "manifestRefreshHours", "preferredDLLSource", "rescanOnStartup", "shaderCache", "showHints", "steamPath", "theme"}},
+		{"config", ConfigInfo{}, []string{"additionalLibraryPaths", "autoRefreshManifest", "autoUpdateDLLs", "backupPath", "checkUpdates", "compactMode", "confirmDestructive", "dllCachePath", "dllManifestURL", "logLevel", "manifestRefreshHours", "preferredDLLSource", "rescanOnStartup", "shaderCache", "steamPath", "theme"}},
 		{"game", GameInfo{}, []string{"appId", "dlls", "hasProfile", "installDir", "name", "prefixPath"}},
 		{"dll", DLLInfo{}, []string{"dllType", "name", "path", "version"}},
 		{"dll update", DLLUpdateInfo{}, []string{"currentVersion", "hasUpdate", "latestVersion", "name"}},
 		{"profile patch", ProfilePatch{}, []string{"field", "operation", "value"}},
-		{"profile field semantics", ProfileFieldSemantics{}, []string{"field", "impact", "restore", "source"}},
+		{"profile field semantics", ProfileFieldSemantics{}, []string{"action", "description", "field", "hint", "impact", "label", "origin", "ownValueAction", "ownValueCount", "ownValueSuffix", "restore", "source", "sourceText", "unit", "valueText"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -53,13 +53,13 @@ func TestWailsJSONKeyContracts(t *testing.T) {
 }
 
 func TestProfileViewJSONKeysRemainCompatible(t *testing.T) {
-	view := profileView(&profile.Profile{}, nil, false)
+	view := profileView(&profile.Profile{}, nil, false, false)
 	got := make([]string, 0, len(view))
 	for key := range view {
 		got = append(got, key)
 	}
 	sort.Strings(got)
-	want := []string{"clockOffset", "enableHdr", "enableNgxUpdater", "enableWayland", "fgEnabled", "fgIndicator", "fgOverride", "governor", "indicator", "inheritedFromDefault", "memoryOffset", "multiFrame", "overlayEnabled", "overlayPosition", "overlayShowCpu", "overlayShowFps", "overlayShowFrametime", "overlayShowGpu", "overlayShowVram", "overlayToggleKey", "powerMizer", "rrMode", "rrOverride", "rrPreset", "semantics", "shaderCache", "shaderCachePath", "smt", "srMode", "srOverride", "srPreset", "threadedOptimization", "vkd3dHeap", "vrr"}
+	want := []string{"affinity", "clearAll", "clockOffset", "enableHdr", "enableNgxUpdater", "enableWayland", "fanSpeed", "fgEnabled", "fgIndicator", "fgOverride", "governor", "indicator", "inheritedFromDefault", "memoryOffset", "multiFrame", "overlayEnabled", "overlayPosition", "overlayShowCpu", "overlayShowFps", "overlayShowFrametime", "overlayShowGpu", "overlayShowVram", "overlayToggleKey", "powerLimit", "powerMizer", "rrMode", "rrOverride", "rrPreset", "semantics", "shaderCache", "shaderCachePath", "smt", "srMode", "srOverride", "srPreset", "threadedOptimization", "vkd3dHeap", "vrr"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("profile view JSON keys = %v, want %v", got, want)
 	}

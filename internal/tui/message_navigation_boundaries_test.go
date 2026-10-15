@@ -9,7 +9,7 @@ import (
 )
 
 func TestMessageBarSupportedTypesFlashAndStaleTimerContracts(t *testing.T) {
-	bar := NewMessageBar(NewStyles(DefaultTheme, true))
+	bar := NewMessageBar(NewStyles(DefaultTheme))
 	bar.SetWidth(50)
 	for _, messageType := range []MessageType{MessageInfo, MessageSuccess, MessageError} {
 		command := bar.SetMessage("Saved", messageType)
@@ -42,7 +42,7 @@ func TestMessageBarSupportedTypesFlashAndStaleTimerContracts(t *testing.T) {
 }
 
 func TestListPaneUnsupportedAndGlobalBoundaryContracts(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	list := NewListPane(styles, testSidebar(), nil)
 	list.SetSize(30, 10)
 	if _, _, handled := list.Update(keyMsg("1")); handled {

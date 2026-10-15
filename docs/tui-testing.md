@@ -5,17 +5,22 @@ change that can affect Spela's interactive terminal. Build a compiled executable
 run it in a named session, wait for visible content, and read `termctrl show`.
 Unit tests and raw terminal logs do not establish visual correctness.
 
-For profile choices, focus Detail and use its displayed Space control. Verify
-HDR and VKD3D heap through `(default)` to `true` to `false` to `(default)`, then
-save an explicit value with Ctrl+S or Actions > Save and inspect the isolated
-profile. Check both All games and a game with a nonempty inherited default.
-Space must stay with Library selection while List has focus. Text and free-number
-fields must show Enter in Detail and accept Space as text only inside the editor.
+Profile changes are saved as they are made, so there is no Save step to test.
+Focus Detail and use its displayed Space control: on a boolean it switches
+between following and the opposite value, and the same key undoes it. After each
+press, wait for `Saved:` on the message line and inspect the isolated profile
+file. Check both All games and a game with a nonempty inherited default. Space
+must stay with Library selection while List has focus. Enter opens a picker for
+booleans and choices (type a letter to jump, Enter applies, Esc cancels) and an
+editor for numbers and text, where Space is text only inside the editor. Left and
+Right jump between the sections of the page and reach the DLLs section; a game
+opens on its Profile, and the section and the field under the cursor stay when
+the game changes.
 
 For game DLLs, use the visible Install DLL, Update DLLs, and Restore originals
 rows directly with Up/Down and Enter. Verify disabled reasons and that Enter is
 absent for an unavailable selection. Review both pane focus states, both terminal
-sizes, and `show_hints: false`. Confirm fixture file contents after Update and
+sizes. Confirm fixture file contents after Update and
 Restore originals; merely opening a dialog does not verify the mutation.
 
 ## Terminal Control version
@@ -113,13 +118,15 @@ Actions and Settings recovery guidance. For manual review, use an isolated empty
 Steam library. Use the displayed Actions menu to choose `Rescan games`; inspect
 the outcome and recovery controls. Wait for the visible scan completion before
 starting another scan. While a scan, save, or DLL mutation is pending, normal
-Quit must remain unavailable with a reason. Do not infer success from the process
+Quit must wait for a save and stay unavailable with a reason during a scan or DLL
+mutation. Do not infer success from the process
 running.
 
 ## Use displayed controls
 
-Navigation and commands need only numbers, arrows, Tab, Enter, Space, and Ctrl+S
-for saving. Send a command only when its key is visible in the current frame.
+Navigation and commands need only numbers, arrows, Tab, Enter, and Space; Esc
+cancels an editor or picker. Send a command only when its key is visible in the
+current frame.
 Text entry is distinct: a focused input accepts ordinary text, including digits,
 spaces, non-ASCII characters, and punctuation.
 
@@ -154,17 +161,17 @@ termctrl show spela-tui-isolated
 ```
 
 Search also has selectable Apply, Clear search, and Cancel controls. Field
-editors have Input, Apply, Cancel, and Save controls. Tab moves between local
-controls; Enter activates the focused one. Apply changes the draft, while Ctrl+S
-validates the current input and saves. Check the persisted YAML and restart
-through the displayed Quit action before opening another process on that state.
+editors have Input, Apply, and Cancel controls. Tab moves between local controls;
+Enter activates the focused one. Enter on Input or Apply validates the input and
+saves it at once. Check the persisted YAML and restart through the displayed
+Quit action before opening another process on that state.
 
 While an editor, search input, Help, Actions, chooser, or confirmation owns
 input, destination numbers must not be shown as active commands. Typing `01234`
 in a text field must leave the destination unchanged. In Browse, check the
 active pane marker before using arrows or Enter. Read-only Detail views must not
-advertise editing or saving. Hide optional hints in Settings and verify that the
-essential controls and Help remain reachable.
+advertise editing. Verify that the essential controls and Help stay
+reachable at both sizes.
 
 Confirmations start on Cancel. Inspect target paths and backup policy, use Tab
 to reach scrollable details when needed, then return to the buttons. Confirm
@@ -212,7 +219,8 @@ Read the rendered `last-screen.txt` and the visible phase captures in test outpu
 Record fixture identity, viewport sizes, displayed key journeys, active frames,
 persisted changes, and the important `termctrl show` results. Cover startup,
 loading, empty, error, cancellation, and exit states as relevant. Check search,
-filters, sort, selection, profile drafts, Settings, read-only destinations, and
+filters, sort, selection, autosaved profile changes and their undo, Settings,
+read-only destinations, and
 DLL operations against the changed scope. State anything not verified.
 
 Inspect the final screen before stopping a failed or exited session. Stop each

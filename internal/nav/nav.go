@@ -205,7 +205,7 @@ func (s State) SelectDestination(d Destination) State {
 		if s.Scope.Kind == ScopeGlobal {
 			s.Aspect = AspectProfile
 		} else {
-			s.Aspect = AspectOverview
+			s.Aspect = gameAspect(s.Aspect)
 		}
 	case DestinationDLLCatalog:
 		s.DLLCatalogSection = SectionDLLLibrary
@@ -224,10 +224,19 @@ func (s State) SelectScope(scope Scope) State {
 		s.Aspect = AspectProfile
 		return s
 	}
-	// A newly selected game always opens on Overview. Detail-local navigation
-	// may change the aspect after selection.
-	s.Aspect = AspectOverview
+	// A game opens on the page the previous game was left on. Profile is the
+	// default; Overview no longer opens by itself.
+	s.Aspect = gameAspect(s.Aspect)
 	return s
+}
+
+// gameAspect is the view a game opens on: DLLs when that was the current view,
+// otherwise Profile. An Overview carried over from older state becomes Profile.
+func gameAspect(current Aspect) Aspect {
+	if current == AspectDLLs {
+		return AspectDLLs
+	}
+	return AspectProfile
 }
 
 // SelectAspect sets the Library aspect (game scope only for Overview/DLLs).

@@ -152,8 +152,7 @@ var DefaultTheme = Theme{
 // Styles holds the active theme and all derived lipgloss styles.
 // Shared by pointer across all TUI models for consistent rendering.
 type Styles struct {
-	Theme     Theme
-	ShowHints bool
+	Theme Theme
 
 	Title    lipgloss.Style
 	Selected lipgloss.Style
@@ -166,9 +165,9 @@ type Styles struct {
 	Warning  lipgloss.Style
 }
 
-// NewStyles creates a Styles instance from the given theme and hint preference.
-func NewStyles(theme Theme, showHints bool) *Styles {
-	s := &Styles{Theme: theme, ShowHints: showHints}
+// NewStyles creates a Styles instance from the given theme.
+func NewStyles(theme Theme) *Styles {
+	s := &Styles{Theme: theme}
 	s.rebuild()
 	return s
 }
@@ -179,11 +178,6 @@ func NewStyles(theme Theme, showHints bool) *Styles {
 func (s *Styles) SetTheme(t Theme) {
 	s.Theme = t
 	s.rebuild()
-}
-
-// SetShowHints updates the hint visibility preference.
-func (s *Styles) SetShowHints(show bool) {
-	s.ShowHints = show
 }
 
 func (s *Styles) rebuild() {
@@ -219,14 +213,6 @@ func (s *Styles) rebuild() {
 
 	s.Warning = lipgloss.NewStyle().
 		Foreground(t.Warning)
-}
-
-// RenderHint renders hint text in dim style, or returns empty if hints are disabled.
-func (s *Styles) RenderHint(text string) string {
-	if !s.ShowHints {
-		return ""
-	}
-	return s.Dim.Render(text)
 }
 
 // BorderColor returns the appropriate border color for the given focus state.

@@ -5,6 +5,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/jgabor/spela/internal/nav"
+	"github.com/jgabor/spela/internal/profile"
 )
 
 // InputMode identifies the input consumer that gets the first opportunity to
@@ -93,13 +94,12 @@ const (
 	ActionDetailIncrease      KeyAction = "detail-increase"
 	ActionDetailConfirm       KeyAction = "detail-confirm"
 	ActionDetailCycle         KeyAction = "detail-cycle"
-	ActionDetailSave          KeyAction = "detail-save"
 	ActionDetailReset         KeyAction = "detail-reset"
 	ActionDetailResetAll      KeyAction = "detail-reset-all"
+	ActionApplyOwnValues      KeyAction = "detail-apply-own-values"
 	ActionDetailInstall       KeyAction = "detail-install"
 	ActionDetailUpdate        KeyAction = "detail-update"
 	ActionDetailRestore       KeyAction = "detail-restore"
-	ActionCancelDraft         KeyAction = "cancel-draft"
 	ActionStartSearch         KeyAction = "start-search"
 	ActionSearchInput         KeyAction = "search-input"
 	ActionSearchDelete        KeyAction = "search-delete"
@@ -108,7 +108,6 @@ const (
 	ActionEditInput           KeyAction = "edit-input"
 	ActionEditDelete          KeyAction = "edit-delete"
 	ActionEditCommit          KeyAction = "edit-commit"
-	ActionEditSave            KeyAction = "edit-save"
 	ActionEditCancel          KeyAction = "edit-cancel"
 	ActionOverlayPrevious     KeyAction = "overlay-previous"
 	ActionOverlayNext         KeyAction = "overlay-next"
@@ -127,39 +126,48 @@ type KeyLabel struct {
 
 // BindingContext is the complete state needed to select a binding.
 type BindingContext struct {
-	Mode                 InputMode
-	Focus                KeyFocus
-	Destination          nav.Destination
-	GameScope            bool
-	Aspect               nav.Aspect
-	HasBackup            bool
-	DLLSection           nav.DLLCatalogSection
-	ListGroups           bool
-	DetailAdjustable     bool
-	ProfileScope         bool
-	CanMoveList          bool
-	CanOpen              bool
-	CanSelect            bool
-	CanSwitchPane        bool
-	Editable             bool
-	CanCycle             bool
-	DLLActionCount       int
-	DLLSelectedAction    KeyAction
-	DLLSelectedName      string
-	HasFields            bool
-	Scrollable           bool
-	Dirty                bool
-	SaveAvailable        bool
-	Busy                 bool
-	HasUpdates           bool
-	SelectedCount        int
-	VisibleSelectedCount int
-	SelectedUpdateCount  int
-	EditorKind           EditorValueKind
-	DLLActions           map[KeyAction]actionAvailability
-	DLLLabels            map[KeyAction]string
-	EditorInput          bool
-	EditorEnterLabel     string
+	Mode             InputMode
+	Focus            KeyFocus
+	Destination      nav.Destination
+	GameScope        bool
+	Aspect           nav.Aspect
+	HasBackup        bool
+	DLLSection       nav.DLLCatalogSection
+	ListGroups       bool
+	DetailAdjustable bool
+	ProfileScope     bool
+	CanMoveList      bool
+	CanOpen          bool
+	// FindRow is true while the List cursor is on the Find row.
+	FindRow       bool
+	CanSelect     bool
+	CanSwitchPane bool
+	Editable      bool
+	CanCycle      bool
+	// FieldOwn is true when the focused profile field holds a value of its own.
+	FieldOwn bool
+	// OwnValueGames is the number of games that set their own value for the
+	// focused All games field. SavesPending is true while a write is unfinished.
+	OwnValueGames int
+	SavesPending  bool
+	// CanJumpPrevious and CanJumpNext say whether a section lies in that
+	// direction, so Left and Right are advertised only when they move.
+	CanJumpPrevious, CanJumpNext bool
+	DLLActionCount               int
+	DLLSelectedAction            KeyAction
+	DLLSelectedName              string
+	HasFields                    bool
+	Scrollable                   bool
+	Busy                         bool
+	HasUpdates                   bool
+	SelectedCount                int
+	VisibleSelectedCount         int
+	SelectedUpdateCount          int
+	EditorKind                   EditorValueKind
+	DLLActions                   map[KeyAction]actionAvailability
+	DLLLabels                    map[KeyAction]string
+	EditorInput                  bool
+	EditorEnterLabel             string
 }
 
 // Availability lets behavior and help make the same enabled/disabled
@@ -298,6 +306,30 @@ func libraryGameAvailable(context BindingContext) (bool, string) {
 	return true, ""
 }
 
+// sectionJumpPreviousAvailable allows Left on a profile page that has an earlier
+// section, and on the DLLs section of a game, where Left returns to the profile.
+func sectionJumpPreviousAvailable(context BindingContext) (bool, string) {
+	if context.Destination != nav.DestinationLibrary || !context.ProfileScope {
+		return false, "select a profile"
+	}
+	if !context.CanJumpPrevious {
+		return false, "first section"
+	}
+	return true, ""
+}
+
+// sectionJumpNextAvailable allows Right on a profile page that has a later
+// section; on a game the last one is DLLs.
+func sectionJumpNextAvailable(context BindingContext) (bool, string) {
+	if context.Destination != nav.DestinationLibrary || !context.ProfileScope {
+		return false, "select a profile"
+	}
+	if !context.CanJumpNext {
+		return false, "last section"
+	}
+	return true, ""
+}
+
 func libraryAvailable(context BindingContext) (bool, string) {
 	if context.Destination != nav.DestinationLibrary {
 		return false, "Library only"
@@ -318,6 +350,36 @@ func libraryProfileAvailable(context BindingContext) (bool, string) {
 	}
 	if context.Aspect != nav.AspectProfile {
 		return false, "open Profile"
+	}
+	return true, ""
+}
+
+// fieldResetAvailable offers Follow on a profile row only when the row holds a
+// value of its own; otherwise there is nothing to clear.
+func fieldResetAvailable(context BindingContext) (bool, string) {
+	if available, reason := libraryProfileAvailable(context); !available {
+		return false, reason
+	}
+	if !context.FieldOwn {
+		return false, "nothing to clear"
+	}
+	return true, ""
+}
+
+// applyOwnValuesAvailable offers the All games action only on a field some game
+// sets itself, and not while a write is unfinished, so the games it lists are
+// the games on disk.
+func applyOwnValuesAvailable(context BindingContext) (bool, string) {
+	if available, reason := libraryProfileAvailable(context); !available {
+		return false, reason
+	}
+	switch {
+	case context.GameScope:
+		return false, "open " + profile.AllGamesName
+	case context.SavesPending:
+		return false, "saving"
+	case context.OwnValueGames == 0:
+		return false, "no game has its own value"
 	}
 	return true, ""
 }
@@ -370,8 +432,8 @@ var CanonicalKeymap = NewKeymap(
 	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionDestinationMonitor, Description: "Monitor", Keys: []KeyLabel{key("3", "3")}},
 	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionDestinationSettings, Description: "Settings", Keys: []KeyLabel{key("4", "4")}},
 	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionFocusNext, Description: "Switch pane", Keys: []KeyLabel{key("tab", "Tab")}, Availability: func(c BindingContext) (bool, string) { return c.CanSwitchPane, "no other eligible pane" }},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailPrevious, Description: "Previous view", Keys: []KeyLabel{key("left", "←")}, Availability: libraryGameAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailNext, Description: "Next view", Keys: []KeyLabel{key("right", "→")}, Availability: libraryGameAvailable},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailPrevious, Description: "Previous section", Keys: []KeyLabel{key("left", "←")}, Availability: sectionJumpPreviousAvailable},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailNext, Description: "Next section", Keys: []KeyLabel{key("right", "→")}, Availability: sectionJumpNextAvailable},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListPrevious, Description: "Previous item", Keys: []KeyLabel{key("up", "↑")}, Availability: func(c BindingContext) (bool, string) { return c.CanMoveList, "no items" }},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListNext, Description: "Next item", Keys: []KeyLabel{key("down", "↓")}, Availability: func(c BindingContext) (bool, string) { return c.CanMoveList, "no items" }},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListSelect, Description: "Open selection", Keys: []KeyLabel{key("enter", "Enter")}, Availability: func(c BindingContext) (bool, string) { return c.CanOpen, "no selection" }},
@@ -382,15 +444,17 @@ var CanonicalKeymap = NewKeymap(
 	}},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailPreviousItem, Description: "Previous field", Keys: []KeyLabel{key("up", "↑")}, Availability: detailMovementAvailable},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailNextItem, Description: "Next field", Keys: []KeyLabel{key("down", "↓")}, Availability: detailMovementAvailable},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailConfirm, Description: "Edit field", Keys: []KeyLabel{key("enter", "Enter")}, Availability: func(c BindingContext) (bool, string) {
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailReset, Description: "Reset field", Availability: fieldResetAvailable, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailResetAll, Description: "Reset all fields", Availability: libraryProfileAvailable, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionApplyOwnValues, Description: profile.ActionApplyToGamesWithOwnValue, Availability: applyOwnValuesAvailable, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailConfirm, Description: "Edit value", Keys: []KeyLabel{key("enter", "Enter")}, Availability: func(c BindingContext) (bool, string) {
 		if c.DLLActionCount > 0 {
 			availability := c.DLLActions[c.DLLSelectedAction]
 			return availability.available, availability.reason
 		}
 		return c.Editable, "no editable field"
 	}, Menu: true},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailCycle, Description: "Next value", Keys: []KeyLabel{key("space", "Space")}, Availability: func(c BindingContext) (bool, string) { return c.CanCycle, "no choice field" }},
-	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionDetailSave, Description: "Save", Keys: []KeyLabel{key("ctrl+s", "Ctrl+S")}, Availability: saveAvailable, Menu: true},
+	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailCycle, Description: "Next value", Keys: []KeyLabel{key("space", "Space")}, Availability: func(c BindingContext) (bool, string) { return c.CanCycle, "no field" }},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionStartSearch, Description: "Search games", Availability: libraryAvailable, Menu: true},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListToggleDLLFilter, Description: "Toggle DLL filter", Availability: libraryAvailable, Menu: true},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusList, Scope: ScopeList, Action: ActionListToggleProfile, Description: "Toggle profile filter", Availability: libraryAvailable, Menu: true},
@@ -415,9 +479,6 @@ var CanonicalKeymap = NewKeymap(
 		}
 		return libraryAvailable(c)
 	}, Menu: true},
-	KeyBinding{Mode: ModeBrowse, Scope: ScopeGlobal, Action: ActionCancelDraft, Description: "Discard draft", Availability: discardAvailable, Menu: true},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailReset, Description: "Reset field", Availability: libraryProfileAvailable, Menu: true},
-	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailResetAll, Description: "Reset all fields", Availability: libraryProfileAvailable, Menu: true},
 	KeyBinding{Mode: ModeBrowse, Focus: FocusDetail, Scope: ScopeDetail, Action: ActionDetailInstall, Description: "Install DLL", Availability: func(c BindingContext) (bool, string) {
 		if state, ok := c.DLLActions[ActionDetailInstall]; ok {
 			return state.available, state.reason
@@ -435,8 +496,8 @@ var CanonicalKeymap = NewKeymap(
 	KeyBinding{Mode: ModeSearch, Scope: ScopeSearch, Action: ActionSearchAccept, Description: "Apply search", Keys: []KeyLabel{key("enter", "Enter")}},
 	KeyBinding{Mode: ModeSearch, Scope: ScopeSearch, Action: ActionSearchInput, Description: "Search text", Keys: []KeyLabel{printable("Text")}},
 	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionFocusNext, Description: "Next control", Keys: []KeyLabel{key("tab", "Tab")}},
-	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionEditCommit, Description: "Apply to draft", Keys: []KeyLabel{key("enter", "Enter")}},
-	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionEditSave, Description: "Save", Keys: []KeyLabel{key("ctrl+s", "Ctrl+S")}},
+	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionEditCancel, Description: "Cancel edit", Keys: []KeyLabel{key("esc", "Esc")}},
+	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionEditCommit, Description: "Apply", Keys: []KeyLabel{key("enter", "Enter")}},
 	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionDetailDecrease, Description: "Previous choice", Keys: []KeyLabel{key("left", "←")}},
 	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionDetailIncrease, Description: "Next choice", Keys: []KeyLabel{key("right", "→")}},
 	KeyBinding{Mode: ModeEdit, Scope: ScopeEdit, Action: ActionDetailPreviousItem, Description: "Previous choice", Keys: []KeyLabel{key("up", "↑")}, Availability: editorChoiceAvailable},
@@ -455,20 +516,6 @@ func detailMovementAvailable(c BindingContext) (bool, string) {
 	return c.HasFields || c.Scrollable || c.DLLActionCount > 0, "no fields, actions or overflowing content"
 }
 
-func saveAvailable(c BindingContext) (bool, string) {
-	if !c.SaveAvailable {
-		return false, "open a Profile or Settings document"
-	}
-	if !c.Dirty {
-		return false, "no unsaved changes"
-	}
-	return true, ""
-}
-
-func discardAvailable(c BindingContext) (bool, string) {
-	return saveAvailable(c)
-}
-
 func describeBinding(binding KeyBinding, c BindingContext) KeyBinding {
 	switch binding.Action {
 	case ActionDetailDecrease, ActionDetailIncrease:
@@ -483,7 +530,9 @@ func describeBinding(binding KeyBinding, c BindingContext) KeyBinding {
 		}
 
 	case ActionListSelect:
-		if c.Destination == nav.DestinationLibrary && c.VisibleSelectedCount > 0 {
+		if c.Destination == nav.DestinationLibrary && c.FindRow {
+			binding.Description = "Find games"
+		} else if c.Destination == nav.DestinationLibrary && c.VisibleSelectedCount > 0 {
 			binding.Description = "Batch actions"
 		}
 	case ActionDetailPreviousItem:
@@ -502,17 +551,30 @@ func describeBinding(binding KeyBinding, c BindingContext) KeyBinding {
 		if c.DLLActionCount > 0 {
 			binding.Description = c.DLLSelectedName
 		}
+	case ActionDetailCycle:
+		if c.Destination == nav.DestinationLibrary && c.HasFields {
+			switch {
+			case c.FieldOwn && c.GameScope:
+				binding.Description = profile.ActionFollowAllGames
+			case c.FieldOwn:
+				binding.Description = profile.ActionUseSystemDefault
+			case c.GameScope:
+				binding.Description = profile.ActionSetForThisGame
+			default:
+				binding.Description = profile.ActionSetHere
+			}
+		}
 	case ActionDetailReset:
 		if !c.GameScope {
-			binding.Description = "Reset field to system default"
+			binding.Description = profile.ActionUseSystemDefault
 		} else {
-			binding.Description = "Reset field to inherit"
+			binding.Description = profile.ActionFollowAllGames
 		}
 	case ActionDetailResetAll:
 		if !c.GameScope {
-			binding.Description = "Reset all to system defaults"
+			binding.Description = profile.ActionUseSystemDefaultForAllSettings
 		} else {
-			binding.Description = "Reset all to inherit"
+			binding.Description = profile.ActionFollowAllGamesForAllSettings
 		}
 	case ActionDetailUpdate, ActionDetailInstall, ActionDetailRestore:
 		if label := c.DLLLabels[binding.Action]; label != "" {

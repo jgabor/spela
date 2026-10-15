@@ -1,0 +1,22 @@
+id: eeqdpzrxol
+artifact: plan
+record:
+  name: Autosave
+  status: complete
+  depends_on:
+    - xjqpjzjtsh
+  acceptance:
+    - GIVEN GameDetail WHEN a control changes or Follow or Set for this game is pressed THEN its patches are sent at once in one batch (both backing fields for frame generation), there is no Save button, pendingOperations, or profilePatches, and Set for this game restores the remembered own value or pins when none is remembered.
+    - GIVEN two saves in flight WHEN the responses arrive out of order or the game changes THEN only the newest response for the current target applies, and a failure returns the controls to the last saved copy with Not saved and the reason.
+    - "GIVEN a save WHEN it succeeds THEN the header shows Saved at once and a Saved: message, the game list refreshes HasProfile without its Loading state, and the Save-based tests in GameDetail.test.js, profileAndListFlows.test.js, and App.test.js are rewritten as per-control tests that keep the race and paired-field cases."
+  plan: pmybbznzim
+  evaluation:
+    attempt_count: 1
+    failure_count: 0
+    last_verdict: pass
+    last_failure_evidence: null
+    provenance:
+      attempt_id: t3-build
+      source: "GameDetail has no draft or Save button. Each control change and each Follow or Set for this game sends its patches at once (frame generation as one batch). Saves run one after the other, only the newest response replaces the controls, a failure returns the controls to the last saved copy and shows Not saved (header and banner), Follow remembers the value and Set for this game puts it back (else pin). Header shows Saved at once, Saving, or Not saved plus a Saved: message; GameList refreshes without the Loading state; the game refreshes only when a save creates its profile. bun run test passes (57) with the Save-based tests rewritten as per-control tests (race, stale target, paired fields, SMT, defaults kept)."
+      recorded_at: 2026-10-15 10:18
+      writer_command: agentera state plan record-evaluation

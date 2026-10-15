@@ -13,6 +13,7 @@ record:
     - Add a test that fails when a descriptor has the generated description, or when a numeric descriptor has no unit and range.
     - Found by the 2026-10-14 recon (defect D4) and widened by the audit field audit.
     - "Reviewed in the 2026-10-14 TUI profile and settings UX review (audit stream: field audit, vocabulary matrix); the review report is docs/design/tui-profile-settings-ux-review.md. Fold this item into the implementation plan for the alternative the user chooses."
+    - "Step 1 (branch feat/shared-profile-vocabulary, unmerged): descriptors now carry real descriptions, units, and a display range for fan speed (0 to 100); the TUI and GUI show the description and the editor shows unit and range. Ranges are display-only: no save is refused. Still open: refusing out-of-range input, ranges for clock, memory, and power limit (no range holds on every GPU)."
   acceptance:
     - GIVEN any profile field WHEN it is selected in either interface THEN its description is visible, and numeric fields show unit and range.
     - GIVEN the same field WHEN viewed in the terminal and graphical interfaces THEN the description text is the same, and it comes from the descriptor.

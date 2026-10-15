@@ -8,7 +8,7 @@ import (
 )
 
 func TestDLLResourceSizingAndTruncationBoundaryContracts(t *testing.T) {
-	resource := NewDLLsResource(NewStyles(DefaultTheme, true), nil)
+	resource := NewDLLsResource(NewStyles(DefaultTheme), nil)
 	resource.width = 20
 	resource.typesInUse = nil
 	if resource.typeColumnWidth() != 8 {
@@ -41,7 +41,7 @@ func TestSidebarSupportedSortSearchAndSelectionBoundaryContracts(t *testing.T) {
 	third := &game.Game{AppID: 3, Name: "Gamma"}
 	services := testServices()
 	services.ProfileExists = func(appID uint64) bool { return appID == 1 }
-	sidebar, _ := NewSidebar([]*game.Game{third, second, first}, NewStyles(DefaultTheme, true), services)
+	sidebar, _ := NewSidebar([]*game.Game{third, second, first}, NewStyles(DefaultTheme), services)
 	for _, mode := range []SortMode{SortNameDesc, SortDLLsFirst, SortProfileFirst} {
 		sidebar.sortMode = mode
 		sidebar.applyFiltersAndSort()

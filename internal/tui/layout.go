@@ -54,6 +54,8 @@ type LayoutModel struct {
 	rescanBusy            bool
 	rescanRequestID       uint64
 	decision              *decisionDialog
+	quitWhenIdle          bool
+	applyingOwnValues     bool
 	searchSession         *searchSession
 	batchCloseFocused     bool
 	batchScrollOffset     int
@@ -77,7 +79,7 @@ func NewLayout(db *game.Database, svc *Services) LayoutModel {
 		cfg = config.Default()
 	}
 
-	styles := NewStyles(DefaultTheme, cfg.ShowHints)
+	styles := NewStyles(DefaultTheme)
 
 	games := db.List()
 	sidebar, _ := NewSidebar(games, styles, svc)
@@ -175,7 +177,7 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Route application messages that affect multiple components.
 	m, cmds = m.handleAppMessages(msg, cmds)
 	switch msg.(type) {
-	case profileSaveMsg, optionsSavedMsg, optionsSaveErrorMsg, dllTypesLoadedMsg, dllVersionsLoadedMsg, dllUpdateMsg, dllRestoreMsg, dllInstallMsg, dllUpdatesCheckedMsg, gameSelectedMsg, gameConfirmedMsg, defaultProfileSelectedMsg, defaultProfileConfirmedMsg, noLibrarySelectionMsg, rescanGamesMsg, batchCompleteMsg, batchActionRequestMsg:
+	case profileSaveMsg, ownValuesAppliedMsg, optionsSavedMsg, optionsSaveErrorMsg, dllTypesLoadedMsg, dllVersionsLoadedMsg, dllUpdateMsg, dllRestoreMsg, dllInstallMsg, dllUpdatesCheckedMsg, gameSelectedMsg, gameConfirmedMsg, defaultProfileSelectedMsg, defaultProfileConfirmedMsg, noLibrarySelectionMsg, rescanGamesMsg, batchCompleteMsg, batchActionRequestMsg:
 	default:
 		var command tea.Cmd
 		m.pane, command = m.pane.Update(msg)
@@ -185,8 +187,10 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, m.pane.content.LoadDLLUpdates())
 		}
 	}
-	next, command := m.advanceDecision(msg)
-	cmds = append(cmds, command)
+	next := m
+	if next.quitWhenIdle && !next.savesPending() {
+		cmds = append(cmds, tea.Quit)
+	}
 	if next.pendingRescan != nil && next.bindingContext().Mode == ModeBrowse {
 		pending := *next.pendingRescan
 		next.pendingRescan = nil

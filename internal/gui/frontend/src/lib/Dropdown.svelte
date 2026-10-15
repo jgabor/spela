@@ -4,14 +4,20 @@
   export let value = ''
   export let options = []
   export let placeholder = 'Select...'
+  // storedLabel words a stored value that the list does not offer, so the
+  // control shows what is stored instead of the placeholder.
+  export let storedLabel = ''
 
   const dispatch = createEventDispatcher()
 
   let open = false
   let buttonElement
 
+  $: hasValue = value !== '' && value !== null && value !== undefined
   $: selectedOption = options.find(o => o.value === value)
-  $: displayText = selectedOption ? selectedOption.label : placeholder
+  $: storedOption = !selectedOption && hasValue ? { value, label: storedLabel || String(value) } : null
+  $: menuOptions = storedOption ? [...options, storedOption] : options
+  $: displayText = selectedOption ? selectedOption.label : storedOption ? storedOption.label : placeholder
 
   function toggle() {
     open = !open
@@ -45,7 +51,7 @@
   </button>
   {#if open}
     <div class="menu">
-      {#each options as option}
+      {#each menuOptions as option}
         <button
           type="button"
           class="option"

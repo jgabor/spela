@@ -92,7 +92,7 @@ func TestProfileEditConsumesPrintableDestinationShortcut(t *testing.T) {
 }
 
 func TestTextEditorKeepsPrintableNavigationKeys(t *testing.T) {
-	detail := NewDetail(NewStyles(DefaultTheme, true), nil, nil)
+	detail := NewDetail(NewStyles(DefaultTheme), nil, nil)
 	focusField(t, &detail, profile.FieldGPUShaderCachePath)
 	if !detail.BeginEdit() {
 		t.Fatal("could not start text editor")
@@ -137,7 +137,7 @@ func TestHorizontalListKeysRunOnlyForGroupedLists(t *testing.T) {
 	}
 }
 
-func TestFiniteChoicesCycleInBrowseAndTextStillUsesAnEditor(t *testing.T) {
+func TestProfileSpaceSetsAndEnterPicksWhileSettingsKeepsCycling(t *testing.T) {
 	layout := testLayout()
 	layout.pane.loadGlobalScope()
 	layout.focus = FocusDetail
@@ -147,15 +147,18 @@ func TestFiniteChoicesCycleInBrowseAndTextStillUsesAnEditor(t *testing.T) {
 	if layout.pane.defaultsDetail.Dirty() {
 		t.Fatal("Browse arrow changed a value")
 	}
+	focusField(t, &layout.pane.defaultsDetail, profile.FieldProtonVKD3DHeap)
 	model, _ = sendKey(&layout, "enter")
 	layout = model.(LayoutModel)
-	if layout.pane.defaultsDetail.Editing() || layout.pane.defaultsDetail.Dirty() {
-		t.Fatal("Enter opened an editor or changed a cyclic profile field")
+	if !layout.pane.defaultsDetail.Editing() || layout.pane.defaultsDetail.Dirty() {
+		t.Fatal("Enter did not open the picker, or changed the field by opening it")
 	}
+	model, _ = sendKey(&layout, "esc")
+	layout = model.(LayoutModel)
 	model, _ = sendKey(&layout, "space")
 	layout = model.(LayoutModel)
 	if layout.pane.defaultsDetail.Editing() || !layout.pane.defaultsDetail.Dirty() || !layout.pane.defaultsDetail.RawProfile().Proton.VKD3DHeap {
-		t.Fatal("Space did not cycle the profile draft directly")
+		t.Fatal("Space did not set the value directly")
 	}
 	layout.selectDestination(nav.DestinationSettings)
 	layout.focus = FocusDetail
@@ -180,30 +183,6 @@ func TestFiniteChoicesCycleInBrowseAndTextStillUsesAnEditor(t *testing.T) {
 	layout = model.(LayoutModel)
 	if !strings.HasSuffix(layout.pane.settings.pathInput.Value(), "hl") {
 		t.Fatal("path input consumed printable commands")
-	}
-}
-
-func TestProfileDraftDiscardRequiresItsVisibleConfirmation(t *testing.T) {
-	layout := testLayoutWithGame(testGame("Cyberpunk 2077"))
-	layout.focus = FocusDetail
-	*layout.navState = layout.navState.SelectAspect(nav.AspectProfile)
-	layout.syncNavToComponents()
-	detail := &layout.pane.content.detail
-	focusField(t, detail, profile.FieldGPUShaderCachePath)
-	detail.BeginEdit()
-	detail.editor.Set("draft")
-	detail.UpdateEditor(keyMsg("enter"))
-
-	model, _ := sendKey(&layout, "esc")
-	updated := model.(LayoutModel)
-	if !updated.pane.content.detail.Dirty() {
-		t.Fatal("obsolete Escape discarded draft")
-	}
-	updated, _ = updated.dispatchAction(ActionCancelDraft)
-	model, _ = sendKeys(&updated, "right", "enter")
-	updated = model.(LayoutModel)
-	if updated.pane.content.detail.Dirty() {
-		t.Fatal("confirmed discard retained draft")
 	}
 }
 

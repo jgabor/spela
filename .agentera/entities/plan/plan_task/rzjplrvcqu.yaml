@@ -1,0 +1,22 @@
+id: rzjplrvcqu
+artifact: plan
+record:
+  name: Navigation and the Overview tab
+  status: complete
+  depends_on:
+    []
+  acceptance:
+    - GIVEN a game WHEN it is selected from the list, from All games, or after a visit to another destination THEN Go gives AspectProfile, or AspectDLLs when the tab was DLLs, and an Overview aspect from older state maps to Profile; nav_test.go and gui_test.go are updated with stated reasons and the TUI tests still pass.
+    - GIVEN the GUI WHEN a game is open THEN the tabs are 1 Profile and 2 DLLs, GameOverview and its routing are gone, selectGame forces no aspect, the DLLs tab starts with a Game block (install directory, prefix, spela %command%), and DLL types read dllType.
+    - GIVEN App.test.js and e2e/fixtures.js WHEN NavSelectScope is mocked THEN the mocks follow the Go rule, and the navigation golden file is unchanged.
+  plan: pmybbznzim
+  evaluation:
+    attempt_count: 1
+    failure_count: 0
+    last_verdict: pass
+    last_failure_evidence: null
+    provenance:
+      attempt_id: t1-build
+      source: "Go: SelectScope and SelectDestination keep DLLs for a game, otherwise Profile (Overview from older state maps to Profile); nav, gui, and TUI tests pass; the navigation golden file is unchanged. GUI: Overview tab, GameOverview, and the forced aspect removed; tabs read 1 Profile and 2 DLLs (ContextNav test); the Game block (install dir, prefix, launch hint) shows on the DLLs tab only; DLL types read dllType; the JS mocks follow the Go rule. bun run test passes (50)."
+      recorded_at: 2026-10-15 10:12
+      writer_command: agentera state plan record-evaluation

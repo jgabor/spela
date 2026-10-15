@@ -10,6 +10,7 @@ import (
 
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/nav"
+	"github.com/jgabor/spela/internal/profile"
 )
 
 type OptionsModalModel struct {
@@ -22,12 +23,17 @@ type OptionsModalModel struct {
 	optionCursor  int
 	modified      bool
 	saving        bool
-	editingPath   bool
-	pathInput     textinput.Model
-	editor        EditorHost
-	width         int
-	height        int
-	saveError     error
+	// inflight is the configuration being written. resave is set when a change
+	// made during that write leaves the draft different from it; the next write
+	// then follows the one in flight.
+	inflight    *config.Config
+	resave      bool
+	editingPath bool
+	pathInput   textinput.Model
+	editor      EditorHost
+	width       int
+	height      int
+	saveError   error
 }
 
 func (m *OptionsModalModel) SetSize(width, height int) {
@@ -35,7 +41,11 @@ func (m *OptionsModalModel) SetSize(width, height int) {
 	m.pathInput.SetWidth(max(width-6, 1))
 }
 
-type optionsSavedMsg struct{ config *config.Config }
+type optionsSavedMsg struct {
+	config *config.Config
+	// summary names the change for the message bar, such as "Re-scan on startup On".
+	summary string
+}
 
 type optionsSaveErrorMsg struct {
 	err error
@@ -49,10 +59,32 @@ func NewOptionsModal(styles *Styles) OptionsModalModel {
 
 	return OptionsModalModel{
 		styles:     styles,
-		sections:   config.Sections(config.VisibilityTUI),
+		sections:   tuiSettingsSections(),
 		pathInput:  ti,
 		saveConfig: func(configuration *config.Config) error { return configuration.Save() },
 	}
+}
+
+// tuiSettingsSections lists the Settings groups that hold at least one option
+// editable in the terminal. Empty groups are not shown: they only cost keys.
+func tuiSettingsSections() []config.Section {
+	var sections []config.Section
+	for _, section := range config.Sections(config.VisibilityTUI) {
+		if len(section.Options) > 0 {
+			sections = append(sections, section)
+		}
+	}
+	return sections
+}
+
+// settingsSectionIndex finds a group by its stable navigation identity.
+func settingsSectionIndex(sections []config.Section, id nav.SettingsSection) int {
+	for index, section := range sections {
+		if section.ID == id {
+			return index
+		}
+	}
+	return 0
 }
 
 func (m *OptionsModalModel) SetSaveConfig(save func(*config.Config) error) {
@@ -63,10 +95,10 @@ func (m *OptionsModalModel) SetSaveConfig(save func(*config.Config) error) {
 
 // SyncNavSection aligns the embedded settings view with navigation state.
 func (m *OptionsModalModel) SyncNavSection(section nav.SettingsSection) {
-	if int(section) < 0 || int(section) >= len(m.sections) {
+	if len(m.sections) == 0 {
 		return
 	}
-	m.sectionCursor = int(section)
+	m.sectionCursor = settingsSectionIndex(m.sections, section)
 	if m.optionCursor >= len(m.sections[m.sectionCursor].Options) {
 		m.optionCursor = 0
 	}
@@ -87,7 +119,7 @@ func (m *OptionsModalModel) OpenEmbedded(cfg *config.Config) {
 
 func (m OptionsModalModel) Editing() bool                    { return m.editor.Active() }
 func (m OptionsModalModel) Dirty() bool                      { return m.modified }
-func (m OptionsModalModel) Busy() bool                       { return m.saving }
+func (m OptionsModalModel) Saving() bool                     { return m.saving }
 func (m OptionsModalModel) SaveError() error                 { return m.saveError }
 func (m OptionsModalModel) EditorInputFocused() bool         { return m.editor.InputFocused() }
 func (m OptionsModalModel) EditorInputKind() EditorValueKind { return m.editor.Kind() }
@@ -96,9 +128,6 @@ func (m OptionsModalModel) EditorEnterLabel() string         { return m.editor.E
 // Update keeps standalone basic-key input working. Shell command routing uses
 // UpdateAction after resolving the active pane and input mode.
 func (m OptionsModalModel) Update(msg tea.Msg) (OptionsModalModel, tea.Cmd) {
-	if m.saving {
-		return m, nil
-	}
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return m.UpdateEditorInput(msg)
@@ -110,8 +139,6 @@ func (m OptionsModalModel) Update(msg tea.Msg) (OptionsModalModel, tea.Cmd) {
 			action = ActionFocusNext
 		case "enter":
 			action = ActionEditCommit
-		case "ctrl+s":
-			action = ActionEditSave
 		case "left":
 			action = ActionDetailDecrease
 		case "right":
@@ -135,8 +162,6 @@ func (m OptionsModalModel) Update(msg tea.Msg) (OptionsModalModel, tea.Cmd) {
 			action = ActionDetailConfirm
 		case "space":
 			action = ActionDetailCycle
-		case "ctrl+s":
-			action = ActionDetailSave
 		default:
 			return m, nil
 		}
@@ -146,9 +171,6 @@ func (m OptionsModalModel) Update(msg tea.Msg) (OptionsModalModel, tea.Cmd) {
 
 // UpdateAction applies semantic commands; Browse arrows never mutate a value.
 func (m OptionsModalModel) UpdateAction(action KeyAction) (OptionsModalModel, tea.Cmd) {
-	if m.saving {
-		return m, nil
-	}
 	if m.Editing() {
 		switch action {
 		case ActionFocusNext:
@@ -161,11 +183,6 @@ func (m OptionsModalModel) UpdateAction(action KeyAction) (OptionsModalModel, te
 				m.cancelEditor()
 				return m, nil
 			}
-			save := m.editor.focus == EditorFocusSave
-			if m.applyEditor() && save {
-				return m.save()
-			}
-		case ActionEditSave:
 			if m.applyEditor() {
 				return m.save()
 			}
@@ -206,18 +223,16 @@ func (m OptionsModalModel) UpdateAction(action KeyAction) (OptionsModalModel, te
 			m.beginEditor()
 		}
 	case ActionDetailCycle:
-		m.cycleValue(1)
-	case ActionDetailSave:
-		return m.save()
-	case ActionCancelDraft:
-		m.CancelDraft()
+		if m.cycleValue(1) {
+			return m.save()
+		}
 	}
 	return m, nil
 }
 
 func (m *OptionsModalModel) beginEditor() {
 	option := m.getCurrentOption()
-	if option == nil || m.draft == nil || m.saving {
+	if option == nil || m.draft == nil {
 		return
 	}
 	value := option.Get(m.draft)
@@ -288,7 +303,7 @@ func (m *OptionsModalModel) applyEditor() bool {
 
 // UpdateEditorInput accepts text and cursor operations only in the active input.
 func (m OptionsModalModel) UpdateEditorInput(msg tea.Msg) (OptionsModalModel, tea.Cmd) {
-	if m.saving || !m.EditorInputFocused() {
+	if !m.EditorInputFocused() {
 		return m, nil
 	}
 	if m.editingPath {
@@ -338,7 +353,7 @@ func (m OptionsModalModel) ListView(focused bool) string {
 	var builder strings.Builder
 	builder.WriteString(m.styles.Title.Render(section.Title))
 	builder.WriteString("\n")
-	if focused && !m.Editing() && !m.saving {
+	if focused && !m.Editing() {
 		builder.WriteString(m.styles.Dim.Render("←/→ group"))
 		builder.WriteString("\n")
 	}
@@ -373,18 +388,15 @@ func (m OptionsModalModel) DetailViewFocused(focused bool) string {
 	styles := m.styles
 	lines := []string{
 		styles.Title.Render(option.Label),
-		styles.Dim.Render("Saved value"),
-		styles.DLSS.Render(option.Get(m.config)),
-		styles.Dim.Render("Draft value"),
-		styles.DLSS.Render(m.getConfigValue(option.Key)),
+		styles.DLSS.Render(displaySettingValue(option, m.getConfigValue(option.Key))),
 	}
 	switch {
-	case m.saving:
-		lines = append(lines, styles.Dim.Render("Saving…"))
 	case m.saveError != nil:
-		lines = append(lines, styles.Error.Render("Save failed: "+m.saveError.Error()), styles.Selected.Render("Draft retained"))
-	case m.modified:
-		lines = append(lines, styles.Warning.Render("Unsaved changes"))
+		lines = append(lines, styles.Error.Render("Not saved: "+m.saveError.Error()))
+	case m.saving || m.modified:
+		lines = append(lines, styles.Warning.Render("Saving…"))
+	default:
+		lines = append(lines, styles.Dim.Render("Saved at once"))
 	}
 	// Descriptions are supplementary. Values and operation results come first.
 	if m.height <= 0 || len(lines)+2 <= m.height {
@@ -421,7 +433,7 @@ func (m OptionsModalModel) editorView() string {
 	}
 	controls := []string{
 		m.editor.Controls(styles),
-		styles.Dim.Render("Tab control  Enter " + m.EditorEnterLabel() + "  Ctrl+S save"),
+		styles.Dim.Render("Tab control  Enter " + m.EditorEnterLabel() + "  Esc cancel"),
 	}
 	if m.height > 0 && len(lines)+len(controls) > m.height {
 		// Keep input and validation errors ahead of the original-value summary.
@@ -439,13 +451,14 @@ func (m OptionsModalModel) editorView() string {
 // CanCycleFocusedField reports whether Space can change the selected setting.
 func (m OptionsModalModel) CanCycleFocusedField() bool {
 	option := m.getCurrentOption()
-	return option != nil && m.draft != nil && option.Kind != config.KindPath && len(option.Choices) > 0 && !m.saving
+	return option != nil && m.draft != nil && option.Kind != config.KindPath && len(option.Choices) > 0
 }
 
-// cycleValue changes only the draft and leaves focus on the setting.
-func (m *OptionsModalModel) cycleValue(direction int) {
+// cycleValue moves the setting to its next value and reports whether it changed.
+// Focus stays on the setting.
+func (m *OptionsModalModel) cycleValue(direction int) bool {
 	if m.Editing() || !m.CanCycleFocusedField() {
-		return
+		return false
 	}
 	option := m.getCurrentOption()
 	current := option.Get(m.draft)
@@ -463,6 +476,22 @@ func (m *OptionsModalModel) cycleValue(direction int) {
 	value := option.Choices[(index+step+len(option.Choices))%len(option.Choices)]
 	m.saveError = option.Set(m.draft, value)
 	m.modified = m.config == nil || !configsEqual(m.config, m.draft)
+	return m.saveError == nil
+}
+
+// displaySettingValue renders a stored option value with the shared words:
+// booleans read On and Off, and an empty value reads none.
+func displaySettingValue(option *config.Option, value string) string {
+	if option != nil && option.Kind == config.KindBool {
+		if value == "true" {
+			return profile.WordOn
+		}
+		return profile.WordOff
+	}
+	if value == "" {
+		return profile.WordNone
+	}
+	return value
 }
 
 func (m OptionsModalModel) getConfigValue(key string) string {
@@ -474,9 +503,6 @@ func (m OptionsModalModel) getConfigValue(key string) string {
 		return ""
 	}
 	value := option.Get(m.draft)
-	if value == "" && option.Kind == config.KindPath {
-		return "(default)"
-	}
 	if value == "" && option.Kind == config.KindEnum {
 		return option.Get(config.Default())
 	}
@@ -491,9 +517,6 @@ func (m *OptionsModalModel) setConfigValue(key, value string) {
 	if option == nil || !option.Visibility.Includes(config.VisibilityTUI) {
 		return
 	}
-	if value == "(default)" && option.Kind == config.KindPath {
-		value = ""
-	}
 	if option.Set(m.draft, value) != nil {
 		return
 	}
@@ -501,43 +524,78 @@ func (m *OptionsModalModel) setConfigValue(key, value string) {
 	m.saveError = nil
 }
 
+// save writes the settings at once. A change made while a write runs is written
+// by the next one, so a fast second key is never dropped.
 func (m OptionsModalModel) save() (OptionsModalModel, tea.Cmd) {
-	if m.saving || m.draft == nil || !m.modified {
+	if m.draft == nil {
+		return m, nil
+	}
+	if m.saving {
+		m.resave = m.inflight == nil || !configsEqual(m.inflight, m.draft)
+		return m, nil
+	}
+	if !m.modified {
 		return m, nil
 	}
 	cfg := m.draft.Clone()
+	summary := m.changeSummary(cfg)
 	saveConfig := m.saveConfig
 	m.saving = true
+	m.inflight = cfg
 	m.saveError = nil
 	return m, func() tea.Msg {
 		if err := saveConfig(cfg); err != nil {
 			return optionsSaveErrorMsg{err: err}
 		}
-		return optionsSavedMsg{config: cfg}
+		return optionsSavedMsg{config: cfg, summary: summary}
 	}
 }
 
-func (m *OptionsModalModel) CancelDraft() {
-	if m.saving {
-		return
+// changeSummary names the first option that differs from the saved value.
+func (m OptionsModalModel) changeSummary(desired *config.Config) string {
+	for _, option := range config.Options() {
+		if !option.Visibility.Includes(config.VisibilityTUI) || m.config == nil {
+			continue
+		}
+		if option.Get(m.config) != option.Get(desired) {
+			return option.Label + " " + displaySettingValue(&option, option.Get(desired))
+		}
 	}
+	return "Settings"
+}
+
+// CompleteSave records a finished write. Only the saved value moves; a change
+// made during the write stays and is written next.
+func (m *OptionsModalModel) CompleteSave(configuration *config.Config) tea.Cmd {
+	if configuration == nil {
+		return nil
+	}
+	m.config = configuration.Clone()
+	m.saving = false
+	m.inflight = nil
+	m.saveError = nil
+	m.modified = m.draft != nil && !configsEqual(m.config, m.draft)
+	if m.modified && m.resave {
+		m.resave = false
+		next, command := m.save()
+		*m = next
+		return command
+	}
+	m.resave = false
+	return nil
+}
+
+// FailSave records a failed write. The options return to the saved values, so
+// the screen shows what is stored.
+func (m *OptionsModalModel) FailSave(err error) {
+	m.saving = false
+	m.inflight = nil
+	m.resave = false
+	m.saveError = err
 	if m.config != nil {
 		m.draft = m.config.Clone()
 	}
 	m.modified = false
-	m.cancelEditor()
-	m.saveError = nil
-}
-
-func (m *OptionsModalModel) CompleteSave(configuration *config.Config) {
-	if configuration == nil {
-		return
-	}
-	m.config = configuration.Clone()
-	m.draft = configuration.Clone()
-	m.modified = false
-	m.saving = false
-	m.saveError = nil
 }
 
 func configsEqual(left, right *config.Config) bool {
@@ -592,7 +650,7 @@ func (m *OptionsModalModel) renderOptionsBody() string {
 		if isCurrentOption && m.editingPath && opt.Kind == config.KindPath {
 			b.WriteString(m.pathInput.View())
 		} else {
-			value := m.getConfigValue(opt.Key)
+			value := displaySettingValue(&opt, m.getConfigValue(opt.Key))
 			b.WriteString(valueStyle.Render(value))
 		}
 		b.WriteString("\n")
@@ -605,15 +663,10 @@ func (m *OptionsModalModel) renderOptionsBody() string {
 		b.WriteString("\n")
 	}
 
-	if m.modified {
-		b.WriteString(s.Warning.Render("(modified)"))
-		b.WriteString("\n")
-	}
-
 	if m.Editing() {
 		b.WriteString(m.editor.Controls(s))
 		b.WriteString("\n")
-		b.WriteString(s.Dim.Render("Tab control  Enter " + m.EditorEnterLabel() + "  Ctrl+S save"))
+		b.WriteString(s.Dim.Render("Tab control  Enter " + m.EditorEnterLabel() + "  Esc cancel"))
 	}
 
 	return b.String()

@@ -17,7 +17,7 @@ import (
 )
 
 func TestProfileFocusStaysVisibleWhileEditingAndResizing(t *testing.T) {
-	detail := NewDetail(NewStyles(DefaultTheme, true), &profile.Profile{}, &profile.Profile{})
+	detail := NewDetail(NewStyles(DefaultTheme), &profile.Profile{}, &profile.Profile{})
 	for _, height := range []int{40, 12} {
 		detail.SetSize(70, height)
 		detail.RestoreFocus("", 0)
@@ -65,7 +65,7 @@ func TestConstrainedProfileAndMonitorViewsStayComplete(t *testing.T) {
 		focusField(t, &layout.pane.content.detail, profile.FieldOverlayToggleKey)
 
 		view := stripANSI(layout.View().Content)
-		for _, want := range []string{"Toggle key", "Effect:"} {
+		for _, want := range []string{"Toggle key", "Not used yet"} {
 			if !strings.Contains(view, want) {
 				t.Fatalf("80x24 profile omitted %q:\n%s", want, view)
 			}
@@ -79,7 +79,7 @@ func TestConstrainedProfileAndMonitorViewsStayComplete(t *testing.T) {
 			Message:    "GPU thermal throttling at 92°C",
 			Suggestion: "Approaching thermal limit — consider reducing power limit by 25W",
 		}
-		monitor := NewMetricsResource(NewStyles(DefaultTheme, true)).SetData(
+		monitor := NewMetricsResource(NewStyles(DefaultTheme)).SetData(
 			&gpu.GPUMetrics{Temperature: 92, PowerDraw: 275, PowerLimit: 300, Utilization: 98, MemoryUsed: 8192, MemoryTotal: 12288},
 			&cpu.CPUMetrics{AverageFrequency: 4250, Utilization: 64.5, RAMUsedMB: 16384, RAMTotalMB: 32768},
 			[]overlay.Alert{alert}, nil, nil, nil, nil,
@@ -116,7 +116,7 @@ func TestConstrainedProfileAndMonitorViewsStayComplete(t *testing.T) {
 }
 
 func TestHelpFitsAndScrollsToEveryLineWithCloseGuidance(t *testing.T) {
-	help := NewHelp(NewStyles(DefaultTheme, true))
+	help := NewHelp(NewStyles(DefaultTheme))
 	help.SetHeight(100)
 	if !strings.Contains(strings.ToLower(stripANSI(help.View())), "close help") {
 		t.Fatal("fitting help omitted a shortcut")
@@ -139,7 +139,7 @@ func TestHelpFitsAndScrollsToEveryLineWithCloseGuidance(t *testing.T) {
 }
 
 func TestOverflowingCollectionsKeepCursorOnOneVisibleRow(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	games := make([]*game.Game, 20)
 	for index := range games {
 		games[index] = &game.Game{AppID: uint64(index + 1), Name: fmt.Sprintf("Game %02d", index), DLLs: []game.DetectedDLL{{Type: game.DLLTypeDLSS}}}

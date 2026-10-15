@@ -14,7 +14,7 @@ func TestContentSupportedIdentityDefaultsAndNoSelectionOperations(t *testing.T) 
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(root, "cache"))
 	t.Setenv("XDG_DATA_HOME", filepath.Join(root, "data"))
 	services := testServices()
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	content := NewContent(styles, true, services)
 	if content.game != nil {
 		t.Fatal("empty content unexpectedly selected a game")
@@ -29,7 +29,7 @@ func TestContentSupportedIdentityDefaultsAndNoSelectionOperations(t *testing.T) 
 	if message := content.restoreDLLs()().(dllRestoreMsg); message.err == nil {
 		t.Fatal("empty DLL restore unexpectedly succeeded")
 	}
-	if content.saveResolvedProfile() != nil {
+	if content.saveResolvedProfile("") != nil {
 		t.Fatal("empty content returned a save command")
 	}
 	if message := content.LoadDLLUpdates()().(dllUpdatesCheckedMsg); message.hasUpdates || message.err != nil {
@@ -80,10 +80,10 @@ func TestSidebarSupportedConfirmationAndNilItemContracts(t *testing.T) {
 }
 
 func TestDetailSupportedNilAndFocusBoundaryContracts(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	detail := NewDetail(styles, nil, nil)
 	detail.rows, detail.focusableRows = nil, nil
-	if detail.FocusedField() != "" || detail.CycleFocusedField(1) {
+	if detail.FocusedField() != "" || detail.ToggleFocusedField() {
 		t.Fatal("empty subsystem exposed a focusable field")
 	}
 	if changed, err := detail.ResetFocused(); err != nil || changed {
@@ -91,7 +91,7 @@ func TestDetailSupportedNilAndFocusBoundaryContracts(t *testing.T) {
 	}
 	detail.raw = nil
 	detail.rebuildResolved()
-	if detail.resolved == nil || detail.IsOverridden(profile.FieldDLSSSRMode) || formatFieldValue(nil, "missing") != "(default)" || formatRootFieldValue(nil, "missing") != "(default)" {
+	if detail.resolved == nil || detail.IsOverridden(profile.FieldDLSSSRMode) || !emptyFieldText(detail, "missing") {
 		t.Fatal("nil detail fallback changed")
 	}
 	detail.styles = nil
@@ -106,4 +106,9 @@ func TestSidebarNilServiceIndicatorsRemainSafe(t *testing.T) {
 	if got := sidebar.itemIndicator(sidebarItem{kind: sidebarItemGame, game: sidebar.games[0]}); got != "" {
 		t.Fatalf("empty indicator = %q", got)
 	}
+}
+
+func emptyFieldText(detail DetailModel, field string) bool {
+	value, source, own := detail.fieldText(field)
+	return value == "" && source == "" && !own
 }

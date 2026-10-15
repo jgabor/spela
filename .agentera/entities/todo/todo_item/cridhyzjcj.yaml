@@ -19,4 +19,4 @@ record:
       description: "[bug] Run spela's own overlay command even when a program named overlay is on PATH"
       severity: degraded
       status: open
-      order: 11
+      order: 6

@@ -33,7 +33,7 @@ func TestGPUShowVRRInheritanceAndUnset(t *testing.T) {
 		if policy != "" {
 			want = policy
 		}
-		if !strings.Contains(text, "KDE VRR:") || !strings.Contains(text, want) {
+		if !strings.Contains(text, "KDE VRR") || !strings.Contains(text, want) {
 			t.Fatalf("missing VRR: %s", text)
 		}
 	}

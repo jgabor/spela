@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/jgabor/spela/internal/nav"
 	"github.com/jgabor/spela/internal/profile"
@@ -17,7 +18,7 @@ import (
 // canonical subsystem order (proton → dlss → gpu → cpu → overlay) and that
 // every inheritance-tracked field on the profile is represented exactly once.
 func TestDetail_FieldEnumeration_GroupOrder(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	d := NewRootDetail(styles, &profile.Profile{})
 
 	// Every focusable row should map to a profile field in the canonical
@@ -55,8 +56,9 @@ func TestDetail_FieldEnumeration_AllFieldsHaveLabels(t *testing.T) {
 		if descriptor, ok := profile.Field(field); !ok || descriptor.Label == "" {
 			t.Errorf("field %q is missing a display label", field)
 		}
-		if value := formatFieldValue(displayProfile, field); value == "(default)" || value == "" {
-			t.Errorf("field %q is missing a value display", field)
+		root := NewRootDetail(NewStyles(DefaultTheme), displayProfile)
+		if value, source, _ := root.fieldText(field); value == "none" || value == "" || source != "set here" {
+			t.Errorf("field %q is missing a value display: %q from %q", field, value, source)
 		}
 	}
 }
@@ -128,7 +130,7 @@ func TestDetail_FieldEnumeration_ZeroValueFails(t *testing.T) {
 // has 12; starting at the first field, 4 j presses must land inside DLSS
 // (not on a header).
 func TestDetail_JKCrossesGroupHeaders(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	d := NewRootDetail(styles, &profile.Profile{})
 
 	// Proton has 4 fields — 4 j presses land on the 5th focusable row,
@@ -155,7 +157,7 @@ func TestDetail_JKCrossesGroupHeaders(t *testing.T) {
 // TestDetail_JKClampsAtEnds verifies up/down clamp at the first and last
 // focusable field.
 func TestDetail_JKClampsAtEnds(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	d := NewRootDetail(styles, &profile.Profile{})
 
 	// Up from the first field is a no-op.
@@ -179,7 +181,7 @@ func TestDetail_JKClampsAtEnds(t *testing.T) {
 // marker glyph) must NOT appear in the rendered output when isRoot=true.
 // Task 5 will add these markers for game profiles only.
 func TestDetail_RootSuppressesMarkers(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	p := &profile.Profile{
 		Proton: profile.ProtonSettings{EnableHDR: true},
 	}
@@ -204,7 +206,7 @@ func TestDetail_RootSuppressesMarkers(t *testing.T) {
 // defaults via ResolveForApply. Specifically: HDR true on defaults, unset
 // on the game → rendered value for the game is "true".
 func TestDetail_GameDetailResolvesInheritance(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 
 	defaults := &profile.Profile{
 		Proton: profile.ProtonSettings{EnableHDR: true},
@@ -240,15 +242,15 @@ func TestDetail_GameDetailResolvesInheritance(t *testing.T) {
 			break
 		}
 	}
-	if !strings.Contains(hdrLine, "true") {
-		t.Errorf("HDR line should render 'true' (resolved from defaults), got: %q", hdrLine)
+	if !strings.Contains(hdrLine, "On") || !strings.Contains(hdrLine, "from All games") {
+		t.Errorf("HDR line should render 'On' from All games (resolved from defaults), got: %q", hdrLine)
 	}
 }
 
 // TestDetail_GameDetailOverriddenValue verifies that a pinned override on
 // the game profile is what gets rendered — not the defaults.
 func TestDetail_GameDetailOverriddenValue(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 
 	defaults := &profile.Profile{
 		Proton: profile.ProtonSettings{EnableHDR: true},
@@ -264,7 +266,7 @@ func TestDetail_GameDetailOverriddenValue(t *testing.T) {
 	d.SetSize(80, 30)
 	out := d.View()
 
-	// The HDR field should render as "(default)" because the game pins
+	// The HDR field should render as inherited because the game pins
 	// false, and displayBool treats false as the default sentinel.
 	var hdrLine string
 	for _, line := range strings.Split(out, "\n") {
@@ -284,22 +286,25 @@ func TestDetail_GameDetailOverriddenValue(t *testing.T) {
 // render the shared source, impact, and restore terms while live defaults and
 // explicit overrides keep their meanings across a rebuilt detail model.
 func TestDetail_ProfileSemanticsPreserveReloadMeaning_Pass(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	raw := &profile.Profile{Name: "Cyberpunk 2077"}
 
 	d := NewDetail(styles, raw, &profile.Profile{GPU: profile.GPUSettings{PowerLimit: 350}})
 	focusField(t, &d, profile.FieldGPUPowerLimit)
 	view := d.View()
-	for _, want := range []string{"350", "↳ Inherited from defaults", "Changes system settings while the game runs", "restored when the game exits"} {
+	for _, want := range []string{"350 W", "from All games", "The previous limit returns at exit when it could be read"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("inherited selection missing %q: %q", want, view)
 		}
+	}
+	if strings.Contains(view, "Effect:") {
+		t.Fatalf("the Effect line is retired: %q", view)
 	}
 
 	d = NewDetail(styles, raw, &profile.Profile{GPU: profile.GPUSettings{PowerLimit: 420}})
 	focusField(t, &d, profile.FieldGPUPowerLimit)
 	line := detailLineContaining(d.View(), "Power limit")
-	if !strings.Contains(line, "420") || !strings.Contains(line, "Inherited from defaults") || strings.Contains(line, "◆") {
+	if !strings.Contains(line, "420") || !strings.Contains(line, "from All games") || strings.Contains(line, "◆") {
 		t.Fatalf("default reload should stay inherited without override marker: %q", line)
 	}
 
@@ -308,7 +313,7 @@ func TestDetail_ProfileSemanticsPreserveReloadMeaning_Pass(t *testing.T) {
 	d = NewDetail(styles, raw, &profile.Profile{GPU: profile.GPUSettings{PowerLimit: 420}})
 	focusField(t, &d, profile.FieldGPUPowerLimit)
 	line = detailLineContaining(d.View(), "Power limit")
-	if !strings.Contains(line, "400") || !strings.Contains(line, "Override for this game") || !strings.Contains(line, "◆") {
+	if !strings.Contains(line, "400 W") || !strings.Contains(line, "this game · All games: 420 W") || !strings.Contains(line, "◆") {
 		t.Fatalf("override reload should preserve explicit intent: %q", line)
 	}
 }
@@ -316,14 +321,14 @@ func TestDetail_ProfileSemanticsPreserveReloadMeaning_Pass(t *testing.T) {
 // TestDetail_ProfileSemanticsInheritedNeverImpliesOverride_Fail is the fail
 // pair: a fully inherited game profile must not render override source text.
 func TestDetail_ProfileSemanticsInheritedNeverImpliesOverride_Fail(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	d := NewDetail(styles, &profile.Profile{}, &profile.Profile{Proton: profile.ProtonSettings{EnableHDR: true}})
 	view := d.View()
 	line := detailLineContaining(view, "HDR")
-	if strings.Contains(line, "Override for this game") || strings.Contains(line, "◆") {
+	if strings.Contains(line, "this game") || strings.Contains(line, "◆") {
 		t.Fatalf("inherited HDR must not imply override: %q", line)
 	}
-	if !strings.Contains(view, "Inherited from defaults") || !strings.Contains(view, "Applied when the game starts") || !strings.Contains(view, "ends with the game") {
+	if !strings.Contains(view, "from All games") || !strings.Contains(view, "Enables HDR output in Proton") || strings.Contains(view, "Effect:") {
 		t.Fatalf("inherited HDR selection missing shared semantics: %q", view)
 	}
 }
@@ -341,7 +346,7 @@ func detailLineContaining(view, label string) string {
 // group header is present in the rendered output (acceptance: no collapse/
 // expand toggle — every group always visible).
 func TestDetail_ViewRendersEveryGroupHeader(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	d := NewRootDetail(styles, &profile.Profile{})
 	d.SetSize(80, 60)
 	out := d.View()
@@ -357,7 +362,7 @@ func TestDetail_ViewRendersEveryGroupHeader(t *testing.T) {
 // TestDetail_ViewRendersEveryGroupHeader_FailNegative is the companion
 // negative case: asserting a header that should NOT exist does not appear.
 func TestDetail_ViewRendersEveryGroupHeader_FailNegative(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	d := NewRootDetail(styles, &profile.Profile{})
 	d.SetSize(80, 40)
 	out := d.View()
@@ -374,7 +379,7 @@ func TestDetail_ViewRendersEveryGroupHeader_FailNegative(t *testing.T) {
 // handled=false for non-KeyPressMsg messages so the parent can route them
 // elsewhere (tea.WindowSizeMsg, custom messages, etc.).
 func TestDetail_NonKeyMessageUnhandled(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	d := NewRootDetail(styles, &profile.Profile{})
 	_, _, handled := d.Update("not-a-key")
 	if handled {
@@ -383,9 +388,9 @@ func TestDetail_NonKeyMessageUnhandled(t *testing.T) {
 }
 
 // TestDetail_NilProfileSafeRender verifies the renderer does not panic on
-// a nil root profile and renders "(default)" for every value.
+// a nil root profile and renders every value as the system default.
 func TestDetail_NilProfileSafeRender(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	d := NewRootDetail(styles, nil)
 	d.SetSize(80, 40)
 	_ = d.View() // must not panic
@@ -394,7 +399,7 @@ func TestDetail_NilProfileSafeRender(t *testing.T) {
 // TestResourcePane_DefaultsUsesRootDetail verifies the pane wires the
 // defaults resource to the DetailModel (isRoot=true) — no stub body.
 func TestResourcePane_DefaultsUsesRootDetail(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	svc := testServices()
 	svc.LoadDefaultProfile = func() (*profile.Profile, error) {
 		return &profile.Profile{
@@ -428,7 +433,7 @@ func TestResourcePane_DefaultsUsesRootDetail(t *testing.T) {
 // TestResourcePane_DefaultsArrowsMoveFieldFocus verifies that pressing arrows
 // while the defaults pane is active moves field focus inside it.
 func TestResourcePane_DefaultsArrowsMoveFieldFocus(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	svc := testServices()
 	content := NewContent(styles, true, svc)
 	pane := newResourcePane(styles, content)
@@ -463,7 +468,7 @@ func TestResourcePane_RootMutationPersistsAndRetainsSelection(t *testing.T) {
 	}
 	services := testServices()
 	services.LoadDefaultProfile = profile.LoadDefault
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	state := nav.DefaultState().SelectAspect(nav.AspectProfile)
 	pane := newResourcePane(styles, NewContent(styles, true, services))
 	pane.BindNavState(&state)
@@ -473,17 +478,13 @@ func TestResourcePane_RootMutationPersistsAndRetainsSelection(t *testing.T) {
 	wantField := pane.defaultsDetail.FocusedField()
 	wantCursor := pane.defaultsDetail.Cursor()
 
-	mutated, command := pane.Update(keyMsg("space"))
-	if command != nil || mutated.defaultsDetail.Editing() || !mutated.defaultsDetail.Dirty() {
-		t.Fatal("Space must change only the draft without opening an editor or saving")
+	mutated, saveCommand := pane.Update(keyMsg("space"))
+	if saveCommand == nil || mutated.defaultsDetail.Editing() || !mutated.defaultsDetail.Dirty() {
+		t.Fatal("Space must change the value and request a save without opening an editor")
 	}
 	beforeSave, err := profile.LoadDefault()
 	if err != nil || beforeSave.DLSS.SROverride || beforeSave.IsOverridden(profile.FieldDLSSSROverride) {
-		t.Fatalf("Space changed persisted defaults before Save: profile=%#v, error=%v", beforeSave, err)
-	}
-	mutated, saveCommand := mutated.Update(keyMsg("ctrl+s"))
-	if saveCommand == nil {
-		t.Fatal("root mutation returned no save command")
+		t.Fatalf("persisted defaults changed before the write ran: profile=%#v, error=%v", beforeSave, err)
 	}
 	message, ok := saveCommand().(profileSaveMsg)
 	if !ok || message.err != nil {
@@ -512,40 +513,44 @@ func TestResourcePane_RootMutationPersistsAndRetainsSelection(t *testing.T) {
 	}
 }
 
-// TestResourcePane_GamesSidebarPlusDetail verifies the Games resource
-// layout: sidebar on the left, detail on the right, both present.
+// TestResourcePane_GamesSidebarPlusDetail verifies the game page header: the
+// game, its save state, its own settings, and the section strip. There is no
+// Overview view in the terminal interface.
 func TestResourcePane_GamesSidebarPlusDetail(t *testing.T) {
 	g := testGame("Cyberpunk 2077")
 	layout := testLayoutWithGame(g)
-	layout.navState.Aspect = nav.AspectOverview
-	layout.pane.SetState(*layout.navState)
-	out := layout.pane.View(true)
+	out := stripANSI(layout.pane.View(true))
 
 	if !strings.Contains(out, "Cyberpunk 2077") {
 		t.Errorf("games view missing game name 'Cyberpunk 2077':\n%s", out)
 	}
-	for _, header := range []string{"[Overview]", "App ID", "Profile overrides", "Steam launch options"} {
+	for _, header := range []string{"App ID", "Saved at once", "Own settings", "[Proton]", "DLSS", "DLLs"} {
 		if !strings.Contains(out, header) {
-			t.Errorf("games view missing detail header %q in:\n%s", header, out)
+			t.Errorf("games view missing header text %q in:\n%s", header, out)
 		}
+	}
+	if strings.Contains(out, "Overview") {
+		t.Errorf("games view still names Overview:\n%s", out)
 	}
 }
 
-func TestOverviewWrapsLongPathsAndLabelsLaunchOptions(t *testing.T) {
+func TestDLLSectionListsGameFactsOnOneLineEach(t *testing.T) {
 	g := testGame("Long Path Game")
 	g.InstallDir = "/tmp/" + strings.Repeat("very-long-directory/", 8)
 	g.PrefixPath = "/tmp/" + strings.Repeat("compatdata/", 8)
-	overview := NewOverview(NewStyles(DefaultTheme, true)).SetGame(g, testServices())
-	overview.SetSize(42, 40)
-	view := stripANSI(overview.View())
-	for _, line := range strings.Split(view, "\n") {
-		if len(line) > 42 {
-			t.Fatalf("long Overview line (%d): %q", len(line), line)
+	content := testContent(g)
+	content.SetSize(42, 40)
+	view := stripANSI(content.ViewDLLAspectFocused(true))
+	for _, text := range []string{"Install directory", "Proton prefix", "Steam launch option", "spela %command%"} {
+		if !strings.Contains(view, text) {
+			t.Fatalf("DLL section missing %q:\n%s", text, view)
 		}
 	}
-	for _, text := range []string{"Install directory", "Proton prefix", "Steam launch options", "spela %command%"} {
-		if !strings.Contains(view, text) {
-			t.Fatalf("Overview missing %q:\n%s", text, view)
+	for _, line := range strings.Split(view, "\n") {
+		if strings.HasPrefix(line, "Install directory") || strings.HasPrefix(line, "Proton prefix") {
+			if width := utf8.RuneCountInString(line); width > 42 {
+				t.Fatalf("game fact wider than the pane (%d): %q", width, line)
+			}
 		}
 	}
 }
@@ -573,7 +578,7 @@ func TestLayoutHandlers_TabIntoLibraryProfile(t *testing.T) {
 // overrides PowerLimit=400 on top of defaults PowerLimit=350.
 func newGameDetailForTask5(t *testing.T) (DetailModel, *profile.Profile, *profile.Profile) {
 	t.Helper()
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	defaults := &profile.Profile{
 		GPU:    profile.GPUSettings{PowerLimit: 350},
 		Proton: profile.ProtonSettings{EnableWayland: true},
@@ -589,16 +594,7 @@ func newGameDetailForTask5(t *testing.T) (DetailModel, *profile.Profile, *profil
 // Advance the cursor until FocusedField matches `field` (or fail).
 func focusField(t *testing.T, d *DetailModel, field string) {
 	t.Helper()
-	for i := 0; i < d.FieldCount(); i++ {
-		if d.FocusedField() == field {
-			return
-		}
-		updated, _, handled := d.Update(keyMsg("down"))
-		if !handled {
-			break
-		}
-		*d = updated
-	}
+	d.RestoreFocus(field, 0)
 	if d.FocusedField() != field {
 		t.Fatalf("focusField: could not focus %q, stopped at %q", field, d.FocusedField())
 	}
@@ -660,7 +656,7 @@ func TestDetailView_OverriddenRowUsesMarker(t *testing.T) {
 // Negative pair for the override marker: a game profile with zero overrides
 // renders with NO markers, even though every field is inherited.
 func TestDetailView_NoOverridesNoMarkers(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	defaults := &profile.Profile{GPU: profile.GPUSettings{PowerLimit: 350}}
 	raw := &profile.Profile{} // no overrides at all
 	d := NewDetail(styles, raw, defaults)
@@ -674,7 +670,7 @@ func TestDetailView_NoOverridesNoMarkers(t *testing.T) {
 // Root defaults view suppresses BOTH muted styling and markers (re-asserts
 // Task 4 acceptance after Task 5's per-row styling is added).
 func TestDetailView_RootSuppressesMarkersAndMuting(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	root := &profile.Profile{GPU: profile.GPUSettings{PowerLimit: 350}}
 	d := NewRootDetail(styles, root)
 	view := d.View()
@@ -727,7 +723,7 @@ func TestDetail_ResetFocused_Inherited_Fail(t *testing.T) {
 
 // TestDetail_ResetAll_ClearsEveryOverride_Pass.
 func TestDetail_ResetAll_ClearsEveryOverride_Pass(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	defaults := &profile.Profile{GPU: profile.GPUSettings{PowerLimit: 350}}
 	raw := &profile.Profile{
 		Name:   "Cyberpunk 2077",
@@ -754,7 +750,7 @@ func TestDetail_ResetAll_ClearsEveryOverride_Pass(t *testing.T) {
 
 // TestDetail_ResetAll_NoOverrides_Fail (fail pair).
 func TestDetail_ResetAll_NoOverrides_Fail(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	raw := &profile.Profile{Name: "Clean"}
 	d := NewDetail(styles, raw, &profile.Profile{})
 
@@ -764,9 +760,9 @@ func TestDetail_ResetAll_NoOverrides_Fail(t *testing.T) {
 }
 
 // TestDetail_RootResetFocused_ClearsValue — reset on the root defaults view
-// clears a non-default field back to "(default)".
+// clears a non-default field back to the system default.
 func TestDetail_RootResetFocused_ClearsValue(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	root := &profile.Profile{Proton: profile.ProtonSettings{VKD3DHeap: true}}
 	root.MarkOverride(profile.FieldProtonVKD3DHeap)
 	d := NewRootDetail(styles, root)
@@ -786,52 +782,57 @@ func TestDetail_RootResetFocused_ClearsValue(t *testing.T) {
 		t.Error("ResetFocused on root: expected override cleared")
 	}
 	view := d.View()
-	if !strings.Contains(view, "(default)") {
-		t.Errorf("ResetFocused on root: expected (default) in view, got:\n%s", view)
+	if !strings.Contains(view, "system default") {
+		t.Errorf("ResetFocused on root: expected system default in view, got:\n%s", view)
 	}
 }
 
-// TestDetail_RootCycleBoolField_ThreeStates — root bool fields cycle through
-// (default), true, and false.
-func TestDetail_RootCycleBoolField_ThreeStates(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+// TestDetail_RootToggleBoolField_SystemDefaultAndOwnValue — Space on a root
+// boolean switches between the system default and the opposite value. Pinning
+// the same value as the default is done through the picker.
+func TestDetail_RootToggleBoolField_SystemDefaultAndOwnValue(t *testing.T) {
+	styles := NewStyles(DefaultTheme)
 	root := &profile.Profile{}
 	d := NewRootDetail(styles, root)
 	focusField(t, &d, profile.FieldProtonVKD3DHeap)
 
-	if !d.CycleFocusedField(1) {
-		t.Fatal("expected first cycle to change value")
+	if !d.ToggleFocusedField() {
+		t.Fatal("expected the first toggle to change the value")
 	}
-	if !root.Proton.VKD3DHeap {
-		t.Error("expected true after cycle from (default)")
+	if !root.Proton.VKD3DHeap || !root.IsOverridden(profile.FieldProtonVKD3DHeap) {
+		t.Error("expected the opposite of the system default, set here")
 	}
-	if !d.CycleFocusedField(1) {
-		t.Fatal("expected second cycle to change value")
+	if value, source, _ := d.fieldText(profile.FieldProtonVKD3DHeap); value != "On" || source != "set here" {
+		t.Errorf("expected On set here, got %q from %q", value, source)
 	}
-	if root.Proton.VKD3DHeap {
-		t.Error("expected false after second cycle")
+	if !d.ToggleFocusedField() {
+		t.Fatal("expected the second toggle to change the value")
 	}
-	if !root.IsOverridden(profile.FieldProtonVKD3DHeap) {
-		t.Error("expected explicit false to mark override")
+	if root.IsOverridden(profile.FieldProtonVKD3DHeap) || root.Proton.VKD3DHeap {
+		t.Error("expected the system default to clear the value")
 	}
-	if got := formatRootBoolField(root, profile.FieldProtonVKD3DHeap); got != "false" {
-		t.Errorf("expected display false, got %q", got)
+	if value, source, _ := d.fieldText(profile.FieldProtonVKD3DHeap); value != "Off" || source != "system default" {
+		t.Errorf("expected Off from the system default, got %q from %q", value, source)
 	}
-	if !d.CycleFocusedField(1) {
-		t.Fatal("expected third cycle to change value")
+
+	// The picker pins the value the default already has.
+	if !d.BeginEdit() || !d.Editing() {
+		t.Fatal("Enter did not open the picker")
 	}
-	if root.IsOverridden(profile.FieldProtonVKD3DHeap) {
-		t.Error("expected (default) to clear override")
+	d.editor.TypeAhead("o")
+	d.editor.TypeAhead("f")
+	if changed, _ := d.UpdateAction(ActionEditCommit); !changed {
+		t.Fatal("pinning Off did not change the profile")
 	}
-	if got := formatRootBoolField(root, profile.FieldProtonVKD3DHeap); got != "(default)" {
-		t.Errorf("expected display (default), got %q", got)
+	if value, source, _ := d.fieldText(profile.FieldProtonVKD3DHeap); value != "Off" || source != "set here" {
+		t.Errorf("expected Off set here, got %q from %q", value, source)
 	}
 }
 
 // TestDetail_RootResetFocused_ClearsIntField — reset on the root defaults
-// view clears non-default numeric fields back to "(default)".
+// view clears non-default numeric fields back to the system default.
 func TestDetail_RootResetFocused_ClearsIntField(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	root := &profile.Profile{GPU: profile.GPUSettings{PowerLimit: 350}}
 	d := NewRootDetail(styles, root)
 	focusField(t, &d, profile.FieldGPUPowerLimit)
@@ -849,9 +850,9 @@ func TestDetail_RootResetFocused_ClearsIntField(t *testing.T) {
 }
 
 // TestDetail_RootResetAll_ClearsAllFields — reset-all on the root defaults
-// view clears every non-default field (bool and non-bool) back to "(default)".
+// view clears every non-default field (bool and non-bool) back to the system default.
 func TestDetail_RootResetAll_ClearsAllFields(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	root := &profile.Profile{
 		Proton: profile.ProtonSettings{VKD3DHeap: true, EnableHDR: true},
 		GPU:    profile.GPUSettings{PowerLimit: 350},
@@ -878,7 +879,7 @@ func TestDetail_RootResetAll_ClearsAllFields(t *testing.T) {
 // TestDetail_RootResetAll_NoOp_AtDefault — ResetAll reports no change when
 // the root profile is already at default.
 func TestDetail_RootResetAll_NoOp_AtDefault(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	root := &profile.Profile{}
 	d := NewRootDetail(styles, root)
 	if d.ResetAll() {

@@ -42,6 +42,16 @@ var profileShowCmd = &cobra.Command{
 	RunE:  runProfileShow,
 }
 
+var profileResetCmd = &cobra.Command{
+	Use:   "reset <game>",
+	Short: "Make a game follow All games for every setting",
+	Long: `Clear every setting the game has of its own, so it follows All games for
+all settings. The profile file stays and keeps its name. A game without a
+profile already does.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runProfileReset,
+}
+
 var profileDeleteCmd = &cobra.Command{
 	Use:   "delete <game>",
 	Short: "Delete a game's profile",
@@ -55,6 +65,7 @@ func init() {
 	ProfileCmd.AddCommand(profileListCmd)
 	ProfileCmd.AddCommand(profileCreateCmd)
 	ProfileCmd.AddCommand(profileShowCmd)
+	ProfileCmd.AddCommand(profileResetCmd)
 	ProfileCmd.AddCommand(profileDeleteCmd)
 }
 
@@ -125,6 +136,37 @@ func runProfileCreate(cmd *cobra.Command, args []string) error {
 }
 
 func runProfileShow(cmd *cobra.Command, args []string) error {
+	snapshot, err := loadProfileSnapshot(args[0])
+	if err != nil {
+		return err
+	}
+
+	if profileShowJSON {
+		if !snapshot.exists {
+			return fmt.Errorf("no profile for %s", snapshot.game.Name)
+		}
+		data, err := json.MarshalIndent(snapshot.raw, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(data))
+		return nil
+	}
+
+	fmt.Printf("Profile for %s:\n\n", tui.CLIPrimary(snapshot.game.Name))
+	snapshot.printNoProfileNote()
+	for _, subsystem := range subsystemOrder {
+		fmt.Printf("%s\n", tui.CLIPrimary(subsystemTitles[subsystem]))
+		if err := printSubsystemFields(subsystem, snapshot, "  "); err != nil {
+			return err
+		}
+		fmt.Println()
+	}
+
+	return nil
+}
+
+func runProfileReset(cmd *cobra.Command, args []string) error {
 	db, err := game.LoadDatabase()
 	if err != nil {
 		return fmt.Errorf("failed to load game database: %w", err)
@@ -135,98 +177,31 @@ func runProfileShow(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("game not found: %s", args[0])
 	}
 
-	p, err := profile.Load(g.AppID)
+	cleared := 0
+	exists, err := profile.MutateExisting(g.AppID, func(current, _ *profile.Profile) error {
+		for _, overridden := range current.Overrides {
+			if overridden {
+				cleared++
+			}
+		}
+		if cleared == 0 {
+			return nil
+		}
+		current.ResetAll()
+		return nil
+	})
 	if err != nil {
 		return err
 	}
-	if p == nil {
-		return fmt.Errorf("no profile for %s", g.Name)
+	switch {
+	case !exists:
+		fmt.Printf("No profile for %s; it already follows %s for all settings.\n", g.Name, profile.AllGamesName)
+	case cleared == 0:
+		fmt.Printf("%s already follows %s for all settings.\n", g.Name, profile.AllGamesName)
+	default:
+		fmt.Printf("%s now follows %s for all settings (%d cleared).\n", g.Name, profile.AllGamesName, cleared)
 	}
-
-	if profileShowJSON {
-		data, err := json.MarshalIndent(p, "", "  ")
-		if err != nil {
-			return err
-		}
-		fmt.Println(string(data))
-		return nil
-	}
-
-	fmt.Printf("Profile for %s:\n", tui.CLIPrimary(g.Name))
-
-	// DLSS
-	fmt.Printf("\n%s\n", tui.CLIPrimary("DLSS"))
-	fmt.Printf("  %s  %s\n", tui.CLIDim("SR mode:"), profileVal(string(p.DLSS.SRMode)))
-	fmt.Printf("  %s  %s\n", tui.CLIDim("SR preset:"), profileVal(string(p.DLSS.SRPreset)))
-	fmt.Printf("  %s  %v\n", tui.CLIDim("SR override:"), p.DLSS.SROverride)
-	fmt.Printf("  %s  %s\n", tui.CLIDim("RR mode:"), profileVal(string(p.DLSS.RRMode)))
-	fmt.Printf("  %s  %s\n", tui.CLIDim("RR preset:"), profileVal(string(p.DLSS.RRPreset)))
-	fmt.Printf("  %s  %v\n", tui.CLIDim("RR override:"), p.DLSS.RROverride)
-	fmt.Printf("  %s  %v\n", tui.CLIDim("Frame generation:"), p.DLSS.FGEnabled)
-	fmt.Printf("  %s  %v\n", tui.CLIDim("FG override:"), p.DLSS.FGOverride)
-	fmt.Printf("  %s  %d\n", tui.CLIDim("Multi-frame:"), p.DLSS.MultiFrame)
-
-	// GPU
-	fmt.Printf("\n%s\n", tui.CLIPrimary("GPU"))
-	fmt.Printf("  %s  %s\n", tui.CLIDim("KDE VRR:"), profileVal(p.GPU.VRR))
-	fmt.Printf("  %s  %v\n", tui.CLIDim("Shader cache:"), p.GPU.ShaderCache)
-	fmt.Printf("  %s  %s\n", tui.CLIDim("Shader cache path:"), profileVal(p.GPU.ShaderCachePath))
-	fmt.Printf("  %s  %v\n", tui.CLIDim("Threaded opt:"), p.GPU.ThreadedOptimization)
-	fmt.Printf("  %s  %d\n", tui.CLIDim("Clock offset:"), p.GPU.ClockOffset)
-	fmt.Printf("  %s  %d\n", tui.CLIDim("Memory offset:"), p.GPU.MemoryOffset)
-	fmt.Printf("  %s  %s\n", tui.CLIDim("Power limit:"), profileInt(p.GPU.PowerLimit, "W"))
-	fmt.Printf("  %s  %s\n", tui.CLIDim("Fan speed:"), profilePercent(p.GPU.FanSpeed))
-	fmt.Printf("  %s  %s\n", tui.CLIDim("PowerMizer:"), profileVal(p.GPU.PowerMizer))
-
-	// CPU
-	fmt.Printf("\n%s\n", tui.CLIPrimary("CPU"))
-	fmt.Printf("  %s  %s\n", tui.CLIDim("Governor:"), profileVal(p.CPU.Governor))
-	smt := "(default)"
-	if p.CPU.SMT != nil {
-		smt = strconv.FormatBool(*p.CPU.SMT)
-	}
-	fmt.Printf("  %s  %s\n", tui.CLIDim("SMT:"), smt)
-	fmt.Printf("  %s  %s\n", tui.CLIDim("Affinity:"), profileVal(p.CPU.Affinity))
-
-	// Proton
-	fmt.Printf("\n%s\n", tui.CLIPrimary("Proton"))
-	fmt.Printf("  %s  %v\n", tui.CLIDim("HDR:"), p.Proton.EnableHDR)
-	fmt.Printf("  %s  %v\n", tui.CLIDim("Wayland:"), p.Proton.EnableWayland)
-	fmt.Printf("  %s  %v\n", tui.CLIDim("NGX updater:"), p.Proton.EnableNGXUpdater)
-
-	// Overlay
-	fmt.Printf("\n%s\n", tui.CLIPrimary("Overlay"))
-	fmt.Printf("  %s  %v\n", tui.CLIDim("Enabled:"), p.Overlay.Enabled)
-	fmt.Printf("  %s  %s\n", tui.CLIDim("Position:"), profileVal(p.Overlay.Position))
-	fmt.Printf("  %s  %v\n", tui.CLIDim("Show FPS:"), p.Overlay.ShowFPS)
-	fmt.Printf("  %s  %v\n", tui.CLIDim("Show frametime:"), p.Overlay.ShowFrametime)
-	fmt.Printf("  %s  %v\n", tui.CLIDim("Show CPU:"), p.Overlay.ShowCPU)
-	fmt.Printf("  %s  %v\n", tui.CLIDim("Show GPU:"), p.Overlay.ShowGPU)
-	fmt.Printf("  %s  %v\n", tui.CLIDim("Show VRAM:"), p.Overlay.ShowVRAM)
-	fmt.Printf("  %s  %s\n", tui.CLIDim("Toggle key:"), profileVal(p.Overlay.ToggleKey))
-
 	return nil
-}
-
-func profileVal(s string) string {
-	if s == "" {
-		return "(default)"
-	}
-	return s
-}
-
-func profilePercent(v int) string {
-	if v == 0 {
-		return "(auto)"
-	}
-	return strconv.Itoa(v) + "%"
-}
-
-func profileInt(v int, unit string) string {
-	if v == 0 {
-		return "(default)"
-	}
-	return strconv.Itoa(v) + unit
 }
 
 func runProfileDelete(cmd *cobra.Command, args []string) error {

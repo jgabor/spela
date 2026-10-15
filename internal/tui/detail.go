@@ -4,6 +4,7 @@ package tui
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -50,7 +51,7 @@ type DetailModel struct {
 	// raw is the profile as stored on disk (game or defaults).
 	raw *profile.Profile
 	// persisted is the last successfully saved baseline. raw is an independent
-	// draft and may diverge until Save or Cancel.
+	// working copy; it runs ahead of persisted while a write is in flight.
 	persisted *profile.Profile
 
 	// resolved is the effective profile for display — the output of
@@ -61,9 +62,18 @@ type DetailModel struct {
 	// defaults is the defaults profile used to resolve raw. nil when isRoot.
 	defaults *profile.Profile
 
-	isRoot    bool
-	editor    EditorHost
-	saveError error
+	isRoot bool
+	// ownValueGames lists, per field, the games that set their own value. It is
+	// only used on the All games page, where it gives the count and the action
+	// that applies All games to those games.
+	ownValueGames map[string][]string
+	editor        EditorHost
+	saveError     error
+	// lastChange names the most recent change for the message bar.
+	lastChange string
+	// lastOwn remembers, per field, the value a game had before Space made it
+	// follow All games, so the next Space puts it back.
+	lastOwn map[string]string
 
 	rows          []detailRow
 	focusableRows []int // indices into rows
@@ -120,46 +130,67 @@ func buildDetail(styles *Styles, raw, defaults *profile.Profile, isRoot bool) De
 // Editing reports whether the focused profile value currently owns input.
 func (m DetailModel) Editing() bool { return m.editor.Active() }
 
-// Dirty reports whether the draft differs from the last saved profile.
-func (m DetailModel) Dirty() bool {
-	var draft, saved profile.Profile
-	if m.raw != nil {
-		draft = *m.raw
+// Dirty reports whether a change has not reached the file yet: a write is in
+// flight or the last write failed. Changes are saved as they are made.
+func (m DetailModel) Dirty() bool { return profilesDiffer(m.raw, m.persisted) }
+
+// profilesDiffer compares two profiles the way a save would: an absent override
+// and a false map entry both mean inheritance, while a true pin is kept even
+// when its value is false or zero.
+func profilesDiffer(left, right *profile.Profile) bool {
+	var first, second profile.Profile
+	if left != nil {
+		first = *left
 	}
-	if m.persisted != nil {
-		saved = *m.persisted
+	if right != nil {
+		second = *right
 	}
-	draftOverrides, savedOverrides := draft.Overrides, saved.Overrides
-	draft.Overrides, saved.Overrides = nil, nil
-	if !reflect.DeepEqual(draft, saved) {
+	firstOverrides, secondOverrides := first.Overrides, second.Overrides
+	first.Overrides, second.Overrides = nil, nil
+	if !reflect.DeepEqual(first, second) {
 		return true
 	}
-	// An absent override and a false map entry both mean inheritance. Preserve
-	// true pins, including explicit false/zero values, when comparing drafts.
-	for field, overridden := range draftOverrides {
-		if overridden && !savedOverrides[field] {
+	for field, overridden := range firstOverrides {
+		if overridden && !secondOverrides[field] {
 			return true
 		}
 	}
-	for field, overridden := range savedOverrides {
-		if overridden && !draftOverrides[field] {
+	for field, overridden := range secondOverrides {
+		if overridden && !firstOverrides[field] {
 			return true
 		}
 	}
 	return false
 }
 
-// SaveError is retained until the draft is changed, cancelled, or saved.
+// SaveError is retained until the next change.
 func (m DetailModel) SaveError() error { return m.saveError }
 
-// BeginEdit opens the shared editor host for the focused field. Inherited game
-// fields start from their effective value; committing therefore creates a
-// concrete override.
+// BeginEdit opens the editor for the focused field: a picker for booleans and
+// fields with a fixed set of values, a text editor for numbers and text.
+// Inherited fields start from their effective value; applying one creates a
+// concrete value for this page.
 func (m *DetailModel) BeginEdit() bool {
 	field := m.FocusedField()
 	descriptor, ok := profile.Field(field)
 	if !ok {
 		return false
+	}
+	if options := fieldCycleOptions(field); len(options) > 0 {
+		current := cycleFollow
+		if m.isOwn(field) {
+			value, err := profile.ReadField(m.raw, field)
+			if err != nil {
+				return false
+			}
+			current = profileEditorValue(value)
+		}
+		if !slices.Contains(options, current) {
+			current = options[0]
+		}
+		m.editor.Begin(EditorSpec{Key: field, Kind: EditorChoice, Choices: options, Labels: m.choiceLabels(descriptor, options)}, current)
+		m.saveError = nil
+		return true
 	}
 	value, err := profile.ReadField(m.resolved, field)
 	if err != nil {
@@ -181,9 +212,10 @@ func (m *DetailModel) UpdateEditorInput(key tea.KeyPressMsg) bool {
 	return m.editor.UpdateInput(key)
 }
 
-// UpdateAction returns a save request only after valid input has been applied.
-// The owning profile pipeline remains responsible for persistence and results.
-func (m *DetailModel) UpdateAction(action KeyAction) (saveRequested bool, handled bool) {
+// UpdateAction applies one action. changed is true when the action altered the
+// profile; the owning pipeline then saves it at once and reads LastChange for
+// the message. handled is true when the action belonged to this page.
+func (m *DetailModel) UpdateAction(action KeyAction) (changed bool, handled bool) {
 	if m.Editing() {
 		switch action {
 		case ActionFocusNext:
@@ -195,9 +227,6 @@ func (m *DetailModel) UpdateAction(action KeyAction) (saveRequested bool, handle
 				m.editor.Cancel()
 				return false, true
 			}
-			save := m.editor.focus == EditorFocusSave
-			return m.applyEditor() && save, true
-		case ActionEditSave:
 			return m.applyEditor(), true
 		case ActionEditDelete:
 			if m.EditorInputFocused() {
@@ -228,25 +257,47 @@ func (m *DetailModel) UpdateAction(action KeyAction) (saveRequested bool, handle
 	case ActionDetailNextItem, ActionListNext:
 		m.cursor = max(min(m.cursor+1, len(m.focusableRows)-1), 0)
 	case ActionDetailConfirm:
-		if !m.CanCycleFocusedField() {
-			m.BeginEdit()
-		}
+		m.BeginEdit()
 	case ActionDetailCycle:
-		m.CycleFocusedField(1)
-	case ActionDetailSave:
-		return m.Dirty(), true
+		return m.ToggleFocusedField(), true
 	case ActionDetailReset:
-		_, err := m.ResetFocused()
+		reset, err := m.ResetFocused()
 		m.saveError = err
+		return reset, true
 	case ActionDetailResetAll:
-		m.ResetAll()
+		cleared := m.ResetAll()
 		m.saveError = nil
-	case ActionCancelDraft:
-		m.CancelDraft()
+		return cleared, true
 	default:
 		return false, false
 	}
 	return false, true
+}
+
+// LastChange describes the most recent change, such as "HDR On".
+func (m DetailModel) LastChange() string { return m.lastChange }
+
+// noteChange records what a change did, in the words of the page.
+func (m *DetailModel) noteChange(field string) {
+	descriptor, ok := profile.Field(field)
+	if !ok {
+		return
+	}
+	value, _, own := m.fieldText(field)
+	if m.isRoot {
+		own = !m.rootFieldAtDefault(field)
+	}
+	switch {
+	case own:
+		m.lastChange = descriptor.Label + " " + value
+	case m.isRoot:
+		m.lastChange = descriptor.Label + " uses the system default"
+	default:
+		m.lastChange = descriptor.Label + " follows All games"
+	}
+	if m.isRoot {
+		m.lastChange += " (" + profile.AllGamesName + ")"
+	}
 }
 
 func (m *DetailModel) applyEditor() bool {
@@ -254,6 +305,7 @@ func (m *DetailModel) applyEditor() bool {
 	if err != nil {
 		return false
 	}
+	before := m.raw.Clone()
 	if err := m.setFocusedEditorValue(value); err != nil {
 		m.editor.active = true
 		m.editor.focus = EditorFocusInput
@@ -262,6 +314,10 @@ func (m *DetailModel) applyEditor() bool {
 	}
 	m.saveError = nil
 	m.rebuildResolved()
+	if !profilesDiffer(before, m.raw) {
+		return false
+	}
+	m.noteChange(m.FocusedField())
 	return true
 }
 
@@ -330,6 +386,9 @@ func profileEditorValue(value any) string {
 
 func (m *DetailModel) setFocusedEditorValue(value string) error {
 	descriptor := m.focusedDescriptor()
+	if value == cycleFollow {
+		return m.raw.Reset(descriptor.Key)
+	}
 	var typed any = value
 	switch descriptor.Kind {
 	case profile.PrimitiveBool:
@@ -358,17 +417,16 @@ func (m *DetailModel) setFocusedEditorValue(value string) error {
 	return m.raw.Set(descriptor.Key, typed)
 }
 
-// CancelDraft discards all unsaved profile changes.
-func (m *DetailModel) CancelDraft() {
+// RevertToPersisted returns the working copy to the last saved profile after a
+// write failed, so the rows show what is stored.
+func (m *DetailModel) RevertToPersisted() {
 	if m.persisted != nil {
 		m.raw = m.persisted.Clone()
 	}
-	m.editor.Cancel()
-	m.saveError = nil
 	m.rebuildResolved()
 }
 
-// CompleteSave advances the baseline on success or retains the draft and error
+// CompleteSave advances the baseline on success or retains the change and error
 // for an in-place retry on failure.
 func (m *DetailModel) CompleteSave(err error) {
 	m.CompleteSaveSnapshot(m.raw, err)
@@ -461,55 +519,142 @@ func (m DetailModel) Update(msg tea.Msg) (DetailModel, tea.Cmd, bool) {
 	return m, nil, handled
 }
 
-// CanCycleFocusedField identifies fields with a finite set of draft values.
-func (m DetailModel) CanCycleFocusedField() bool {
-	return m.raw != nil && len(fieldCycleOptions(m.FocusedField())) > 0
+// CanToggleFocusedField reports whether Space can act on the focused row.
+func (m DetailModel) CanToggleFocusedField() bool {
+	return m.raw != nil && m.FocusedField() != ""
 }
 
-// CycleFocusedField advances a draft choice without opening an editor or saving.
-// The first choice resets the field to its inherited or system default.
-func (m *DetailModel) CycleFocusedField(direction int) bool {
-	if m.Editing() || !m.CanCycleFocusedField() {
+// isOwn reports whether a field holds a value set on this page itself, as
+// against following All games (the system default on the All games page).
+func (m DetailModel) isOwn(field string) bool {
+	if m.raw == nil || field == "" {
+		return false
+	}
+	if m.isRoot {
+		return !m.rootFieldAtDefault(field)
+	}
+	return m.raw.IsOverridden(field)
+}
+
+// FocusedIsOwn reports whether the focused field holds a value of its own.
+func (m DetailModel) FocusedIsOwn() bool { return m.isOwn(m.FocusedField()) }
+
+// ToggleFocusedField switches the focused field between following and its own
+// value, and reports whether it changed the profile. Following to own, a
+// boolean takes the opposite of the value it follows; any other field puts back
+// the value it had before, or opens its editor when it has none. Own to
+// following remembers the value, so the same key undoes either move.
+func (m *DetailModel) ToggleFocusedField() bool {
+	if m.Editing() || !m.CanToggleFocusedField() {
 		return false
 	}
 	field := m.FocusedField()
-	options := fieldCycleOptions(field)
-	current := "(default)"
-	if m.isRoot && !m.rootFieldAtDefault(field) || !m.isRoot && m.raw.IsOverridden(field) {
-		value, err := profile.ReadField(m.raw, field)
-		if err != nil {
+	m.saveError = nil
+	if m.isOwn(field) {
+		if value, err := profile.ReadField(m.raw, field); err == nil {
+			if m.lastOwn == nil {
+				m.lastOwn = map[string]string{}
+			}
+			m.lastOwn[field] = profileEditorValue(value)
+		}
+		if err := m.raw.Reset(field); err != nil {
 			m.saveError = err
 			return false
 		}
-		current = profileEditorValue(value)
+		m.rebuildResolved()
+		m.noteChange(field)
+		return true
 	}
-	idx := 0
-	for i, opt := range options {
-		if opt == current {
-			idx = i
-			break
-		}
-	}
-	step := 1
-	if direction < 0 {
-		step = -1
-	}
-	next := options[(idx+step+len(options))%len(options)]
-	if next == current {
+	value, ok := m.ownValueToSet(field)
+	if !ok {
+		m.BeginEdit()
 		return false
 	}
-	var err error
-	if next == "(default)" {
-		err = m.raw.Reset(field)
-	} else {
-		err = m.setFocusedEditorValue(next)
-	}
-	m.saveError = err
-	if err != nil {
+	if err := m.setFocusedEditorValue(value); err != nil {
+		m.saveError = err
 		return false
 	}
 	m.rebuildResolved()
+	m.noteChange(field)
 	return true
+}
+
+// ownValueToSet picks the value Space gives a field that follows.
+func (m DetailModel) ownValueToSet(field string) (string, bool) {
+	descriptor, _ := profile.Field(field)
+	if descriptor.Kind == profile.PrimitiveBool {
+		if current, err := profile.ReadField(m.resolved, field); err == nil {
+			if flag, isBool := current.(bool); isBool {
+				return strconv.FormatBool(!flag), true
+			}
+		}
+	}
+	value, ok := m.lastOwn[field]
+	return value, ok
+}
+
+// choiceLabels words each choice of a picker. The first choice is the one that
+// follows All games, with the value it would give.
+func (m DetailModel) choiceLabels(descriptor profile.FieldDescriptor, options []string) []string {
+	labels := make([]string, len(options))
+	for index, option := range options {
+		if option == cycleFollow {
+			action := profile.ActionFollowAllGames
+			if m.isRoot {
+				action = profile.ActionUseSystemDefault
+			}
+			labels[index] = action + " (" + m.followValueText(descriptor.Key) + ")"
+			continue
+		}
+		labels[index] = choiceWord(descriptor, option)
+	}
+	return labels
+}
+
+// followValueText is the value a field would have if it followed.
+func (m DetailModel) followValueText(field string) string {
+	descriptor, ok := profile.Field(field)
+	if !ok || m.raw == nil {
+		return ""
+	}
+	following := m.raw.Clone()
+	if following.Reset(field) != nil {
+		return ""
+	}
+	var explanation profile.FieldExplanation
+	var err error
+	if m.isRoot {
+		explanation, err = following.ExplainAllGamesField(field)
+	} else {
+		explanation, err = following.ExplainField(field, m.defaults)
+	}
+	if err != nil {
+		return ""
+	}
+	return profile.ValueText(descriptor, explanation)
+}
+
+// choiceWord words one stored value of a field.
+func choiceWord(descriptor profile.FieldDescriptor, value string) string {
+	switch descriptor.Kind {
+	case profile.PrimitiveBool:
+		if value == "true" {
+			return profile.WordOn
+		}
+		return profile.WordOff
+	case profile.PrimitiveOptionalBool:
+		switch value {
+		case "true":
+			return profile.WordOn
+		case "false":
+			return profile.WordOff
+		}
+		return profile.WordNone
+	}
+	if value == "" {
+		return profile.WordNone
+	}
+	return value
 }
 
 // RestoreFocus moves the cursor back to a field (by key) or index after the
@@ -540,7 +685,7 @@ func (m DetailModel) IsOverridden(field string) bool {
 
 // ResetFocused resets the currently focused field. On a game profile it clears
 // an override back to inherited; on the root defaults profile it clears the
-// field back to "(default)".
+// field back to the system default.
 func (m *DetailModel) ResetFocused() (bool, error) {
 	if m.raw == nil {
 		return false, nil
@@ -560,11 +705,12 @@ func (m *DetailModel) ResetFocused() (bool, error) {
 		return false, err
 	}
 	m.rebuildResolved()
+	m.noteChange(field)
 	return true, nil
 }
 
 // ResetAll resets every field on the profile. On a game profile only overrides
-// are cleared; on the root defaults profile every field returns to "(default)".
+// are cleared; on the root defaults profile every field returns to the system default.
 func (m *DetailModel) ResetAll() bool {
 	if m.raw == nil {
 		return false
@@ -575,6 +721,7 @@ func (m *DetailModel) ResetAll() bool {
 		}
 		m.raw.ResetAll()
 		m.rebuildResolved()
+		m.lastChange = "All settings use the system default (" + profile.AllGamesName + ")"
 		return true
 	}
 	if len(m.raw.Overrides) == 0 {
@@ -582,10 +729,11 @@ func (m *DetailModel) ResetAll() bool {
 	}
 	m.raw.ResetAll()
 	m.rebuildResolved()
+	m.lastChange = "All settings follow " + profile.AllGamesName
 	return true
 }
 
-// RawProfile returns the current in-memory draft. Callers clone it before
+// RawProfile returns the current working copy. Callers clone it before
 // passing it to the save pipeline.
 func (m DetailModel) RawProfile() *profile.Profile {
 	return m.raw
@@ -638,43 +786,37 @@ func (m DetailModel) ViewFocused(focused bool) string {
 		return m.editorView()
 	}
 	var lines []string
+	// add splits multi-line renders so line indices stay exact for scrolling.
+	add := func(text string) { lines = append(lines, strings.Split(text, "\n")...) }
 	focusedRow := -1
 	if len(m.focusableRows) > 0 {
 		focusedRow = m.focusableRows[m.cursor]
 	}
 	if m.editor.Error() != nil {
-		lines = append(lines, s.Error.Render("Invalid value: "+m.editor.Error().Error()))
-	}
-	if m.saveError != nil {
-		lines = append(lines, s.Error.Render("Save failed: "+m.saveError.Error()))
-	}
-	if m.Dirty() {
-		lines = append(lines, s.Warning.Render("Unsaved changes"))
+		add(s.Error.Render("Invalid value: " + m.editor.Error().Error()))
 	}
 
-	focusedLabel := ""
+	labelWidth := 0
+	for _, row := range m.rows {
+		if !row.isHeader() {
+			labelWidth = max(labelWidth, ansi.StringWidth(row.label))
+		}
+	}
+
+	focusedStart, focusedEnd := -1, -1
 	for i, row := range m.rows {
 		if row.isHeader() {
 			if i > 0 {
-				lines = append(lines, "")
+				add("")
 			}
-			lines = append(lines, s.Title.Render(row.headerLabel))
+			add(s.Title.MarginBottom(0).Render(row.headerLabel))
 			continue
 		}
 
-		overridden := !m.isRoot && m.raw != nil && m.raw.IsOverridden(row.field)
-		value := formatFieldValue(m.resolved, row.field)
-		if m.isRoot {
-			value = formatRootFieldValue(m.resolved, row.field)
-		} else if overridden {
-			value = formatExplicitFieldValue(m.raw, row.field)
-		} else if len(fieldCycleOptions(row.field)) > 0 {
-			value = "(default)"
-		}
+		value, source, overridden := m.fieldText(row.field)
 		if i == focusedRow && m.editor.Active() {
 			value = m.editor.Value()
 		}
-		semantics := m.formatFieldState(row.field, overridden)
 
 		marker := "  "
 		if i == focusedRow {
@@ -686,7 +828,7 @@ func (m DetailModel) ViewFocused(focused bool) string {
 		} else if overridden {
 			marker = s.OverrideMarkerStyle().Render(overrideMarkerGlyph) + " "
 		}
-		body := fmt.Sprintf("%-20s  %-12s  %s", row.label, value, semantics)
+		body := fmt.Sprintf("%-*s  %-12s  %s", labelWidth, row.label, value, source)
 		if m.width > 0 {
 			body = ansi.Truncate(body, max(m.width-7, 1), "…")
 		}
@@ -704,43 +846,129 @@ func (m DetailModel) ViewFocused(focused bool) string {
 			body = s.Normal.Render(body)
 		}
 		if i == focusedRow {
-			focusedLabel = row.label
+			focusedStart = len(lines)
 		}
-		lines = append(lines, "  "+marker+body)
+		add("  " + marker + body)
 		if i == focusedRow {
-			explanation := "    Effect: " + m.formatFieldSemantics(row.field)
-			if m.width > 0 {
-				explanation = ansi.Truncate(explanation, max(m.width-4, 1), "…")
+			// The effect and description wrap instead of being cut, so the
+			// restore sentence is never lost at 80 columns.
+			for _, text := range m.focusedNotes(row.field) {
+				for _, wrapped := range wrapIndented(text, m.width, "    ") {
+					add(s.Dim.Render(wrapped))
+				}
 			}
-			lines = append(lines, s.Dim.Render(explanation))
+			focusedEnd = len(lines) - 1
 		}
 	}
-	lines = strings.Split(strings.Join(lines, "\n"), "\n")
-	focusedLine := 0
-	for index, line := range lines {
-		if focusedLabel != "" && strings.Contains(ansi.Strip(line), focusedLabel) {
-			focusedLine = index
-			break
-		}
-	}
-	if m.height > 0 && len(lines) > m.height {
-		// Keep the focused row and its following Effect line visible.
-		start := max(focusedLine-m.height+2, 0)
+	if m.height > 0 && len(lines) > m.height && focusedStart >= 0 {
+		// Keep the focused row and everything that explains it visible.
+		start := max(focusedEnd-m.height+1, 0)
+		start = min(start, focusedStart)
 		start = min(start, len(lines)-m.height)
 		lines = lines[start : start+m.height]
+	} else if m.height > 0 && len(lines) > m.height {
+		lines = lines[:m.height]
 	}
 	return strings.Join(lines, "\n")
 }
 
+// fieldText returns the value and source words for one field row, from the
+// shared vocabulary, and whether the game sets the value itself.
+func (m DetailModel) fieldText(field string) (value, source string, own bool) {
+	descriptor, ok := profile.Field(field)
+	if !ok {
+		return "", "", false
+	}
+	raw := m.raw
+	if raw == nil {
+		raw = &profile.Profile{}
+	}
+	var explanation profile.FieldExplanation
+	var err error
+	if m.isRoot {
+		explanation, err = raw.ExplainAllGamesField(field)
+	} else {
+		explanation, err = raw.ExplainField(field, m.defaults)
+	}
+	if err != nil {
+		return "", "", false
+	}
+	own = explanation.Origin == profile.OriginThisGame || explanation.Origin == profile.OriginThisGameSame
+	return profile.ValueText(descriptor, explanation), profile.SourceText(descriptor, explanation), own
+}
+
+// SetOwnValueGames records which games set their own value for each field.
+func (m *DetailModel) SetOwnValueGames(games map[string][]string) { m.ownValueGames = games }
+
+// FocusedOwnValueGameCount is the number of games that set their own value for
+// the focused field, on the All games page; zero elsewhere.
+func (m DetailModel) FocusedOwnValueGameCount() int {
+	if !m.isRoot {
+		return 0
+	}
+	return len(m.ownValueGames[m.FocusedField()])
+}
+
+// focusedNotes returns the lines of explanation shown under the focused row:
+// what the setting does, and on All games where to apply it to the games that
+// set their own value.
+func (m DetailModel) focusedNotes(field string) []string {
+	var notes []string
+	if descriptor, ok := profile.Field(field); ok && descriptor.Description != "" {
+		notes = append(notes, descriptor.Description)
+	}
+	if count := len(m.ownValueGames[field]); m.isRoot && count > 0 {
+		notes = append(notes, fmt.Sprintf("Actions (0): %s (%s)", profile.ActionApplyToGamesWithOwnValue, profile.GamesText(count)))
+	}
+	return notes
+}
+
+// wrapIndented wraps text to width and indents every line. A width of zero
+// means the size is not known yet and the text is returned on one line.
+func wrapIndented(text string, width int, indent string) []string {
+	if width <= 0 {
+		return []string{indent + text}
+	}
+	wrapped := strings.Split(ansi.Wrap(text, max(width-ansi.StringWidth(indent)-4, 8), ""), "\n")
+	for index := range wrapped {
+		wrapped[index] = indent + wrapped[index]
+	}
+	return wrapped
+}
+
+// editorHint names the unit and shown range of a numeric field and says how a
+// typed value is entered.
+func editorHint(descriptor profile.FieldDescriptor) string {
+	hint := profile.NumberHint(descriptor)
+	if hint == "" {
+		return ""
+	}
+	return hint + " Typing replaces the value."
+}
+
+// editorBackspaceHint puts Backspace in the control line of text-like editors.
+func editorBackspaceHint(kind EditorValueKind) string {
+	if kind == EditorBool || kind == EditorChoice {
+		return ""
+	}
+	return "  Backspace delete"
+}
+
 // editorView reserves the local controls before allocating explanatory content.
 func (m DetailModel) editorView() string {
+	if m.editor.Kind() == EditorChoice && len(m.editor.spec.Labels) > 0 {
+		return m.pickerView()
+	}
 	styles := m.styles
 	descriptor := m.focusedDescriptor()
 	width := max(m.width, 1)
 	lines := []string{
-		styles.Title.Render("Edit " + descriptor.Label),
+		styles.Title.MarginBottom(0).Render("Edit " + descriptor.Label),
 		styles.Dim.Render("Value before edit: " + m.editor.original),
 		styles.FocusStyle().Render(m.editor.InputView(width)),
+	}
+	if hint := editorHint(descriptor); hint != "" {
+		lines = append(lines, styles.Dim.Render(hint))
 	}
 	if m.editor.Error() != nil {
 		lines = append(lines, styles.Error.Render("Invalid value: "+m.editor.Error().Error()))
@@ -750,7 +978,7 @@ func (m DetailModel) editorView() string {
 	}
 	controls := []string{
 		m.editor.Controls(styles),
-		styles.Dim.Render("Tab control  Enter " + m.EditorEnterLabel() + "  Ctrl+S save"),
+		styles.Dim.Render("Tab control  Enter " + m.EditorEnterLabel() + editorBackspaceHint(m.editor.Kind()) + "  Esc cancel"),
 	}
 	if m.height > 0 && len(lines)+len(controls) > m.height {
 		lines = append(lines[:1], lines[2:]...)
@@ -764,70 +992,46 @@ func (m DetailModel) editorView() string {
 	return strings.Join(lines, "\n")
 }
 
-func (m DetailModel) formatFieldSemantics(field string) string {
-	if field == profile.FieldGPUVRR {
-		switch m.resolved.GPU.VRR {
-		case "automatic":
-			return "KDE primary: fullscreen VRR; restored on exit"
-		case "always":
-			return "KDE primary: desktop and game VRR; restored on exit"
-		case "never":
-			return "KDE primary: VRR disabled; restored on exit"
-		default:
-			if m.isRoot {
-				return "KDE unchanged; Reset clears the default policy"
-			}
-			return "KDE unchanged; Reset inherits defaults"
+// pickerView lists the choices of the focused field, windowed around the
+// current one, with the controls below.
+func (m DetailModel) pickerView() string {
+	styles := m.styles
+	descriptor := m.focusedDescriptor()
+	width := max(m.width, 1)
+	labels, cursor := m.editor.ChoiceRows()
+	title := styles.Title.MarginBottom(0).Render("Edit " + descriptor.Label)
+	if m.editor.search != "" {
+		title += styles.Dim.Render("  jump: " + m.editor.search)
+	}
+	lines := []string{title}
+	capacity := len(labels)
+	if m.height > 0 {
+		capacity = max(m.height-3, 3)
+	}
+	start, end := visibleRange(cursor, len(labels), capacity)
+	for index := start; index < end; index++ {
+		row := "  " + labels[index]
+		switch {
+		case index == cursor && m.editor.InputFocused():
+			row = styles.FocusStyle().Render("> " + labels[index])
+		case index == cursor:
+			row = styles.Selected.Render("> " + labels[index])
+		}
+		lines = append(lines, row)
+	}
+	lines = append(lines, m.editor.Controls(styles), styles.Dim.Render("Type to jump  ↑ ↓ choose  Tab control  Enter "+m.EditorEnterLabel()+"  Esc cancel"))
+	for index, line := range lines {
+		if m.width > 0 {
+			lines[index] = ansi.Truncate(line, width, "…")
 		}
 	}
-	descriptor, ok := profile.Field(field)
-	if !ok {
-		return ""
-	}
-	if m.isRoot {
-		return "System default when reset. " + fieldEffect(descriptor)
-	}
-	raw := m.raw
-	if raw == nil {
-		raw = &profile.Profile{}
-	}
-	explanation, err := raw.ExplainField(field, m.defaults)
-	if err != nil {
-		return fieldEffect(descriptor)
-	}
-	return fieldEffect(profile.FieldDescriptor{Impact: explanation.Impact, Restore: explanation.Restore})
+	return strings.Join(lines, "\n")
 }
 
-func (m DetailModel) formatFieldState(field string, overridden bool) string {
-	if m.isRoot {
-		return "○ Default for all games"
-	}
-	if overridden {
-		return "Override for this game"
-	}
-	if len(fieldCycleOptions(field)) > 0 {
-		return "↳ Default: " + formatExplicitFieldValue(m.resolved, field)
-	}
-	return "↳ Inherited from defaults"
-}
-
-func fieldEffect(descriptor profile.FieldDescriptor) string {
-	effect := "Applied when the game starts"
-	switch descriptor.Impact {
-	case profile.LaunchImpactSystemState:
-		effect = "Changes system settings while the game runs"
-	case profile.LaunchImpactOverlay:
-		effect = "Changes the in-game overlay"
-	}
-	restore := "ends with the game"
-	switch descriptor.Restore {
-	case profile.RestoreCoverageRestorableMutation:
-		restore = "restored when the game exits"
-	case profile.RestoreCoverageNotApplicable:
-		restore = "no system setting to restore"
-	}
-	return effect + "; " + restore
-}
+// cycleFollow is the first choice of a cycling field: clear the value so the
+// field follows All games (or the system default on the All games page). It is
+// never shown; the row shows the effective value and its source instead.
+const cycleFollow = "\x00follow"
 
 func fieldCycleOptions(field string) []string {
 	descriptor, ok := profile.Field(field)
@@ -835,12 +1039,12 @@ func fieldCycleOptions(field string) []string {
 		return nil
 	}
 	if descriptor.Kind == profile.PrimitiveBool {
-		return []string{"(default)", "true", "false"}
+		return []string{cycleFollow, "true", "false"}
 	}
 	if len(descriptor.AllowedValues) == 0 {
 		return nil
 	}
-	options := []string{"(default)"}
+	options := []string{cycleFollow}
 	hasEmpty := false
 	for _, value := range descriptor.AllowedValues {
 		if value == "" {
@@ -856,32 +1060,14 @@ func fieldCycleOptions(field string) []string {
 	return options
 }
 
-func formatRootBoolField(p *profile.Profile, field string) string {
-	if p == nil {
-		return "(default)"
-	}
-	value, err := profile.ReadField(p, field)
-	val, isBool := value.(bool)
-	if err != nil || !isBool {
-		return "(default)"
-	}
-	if !p.IsOverridden(field) {
-		if !val {
-			return "(default)"
-		}
-		return "true"
-	}
-	if val {
-		return "true"
-	}
-	return "false"
-}
-
+// rootFieldAtDefault reports whether the All games profile leaves a field at
+// the system default.
 func (m DetailModel) rootFieldAtDefault(field string) bool {
 	if m.raw == nil {
 		return true
 	}
-	return formatRootFieldValue(m.raw, field) == "(default)"
+	explanation, err := m.raw.ExplainAllGamesField(field)
+	return err != nil || explanation.Origin == profile.OriginSystemDefault
 }
 
 func (m DetailModel) rootProfileAtDefault() bool {
@@ -894,78 +1080,4 @@ func (m DetailModel) rootProfileAtDefault() bool {
 		}
 	}
 	return true
-}
-
-// formatRootFieldValue renders defaults-profile field values. Bool fields
-// distinguish "(default)" (unset/zero) from explicit "true"/"false".
-func formatRootFieldValue(p *profile.Profile, field string) string {
-	if p != nil && p.IsOverridden(field) {
-		return formatExplicitFieldValue(p, field)
-	}
-	if descriptor, ok := profile.Field(field); ok && descriptor.Kind == profile.PrimitiveBool {
-		return formatRootBoolField(p, field)
-	}
-	return formatFieldValue(p, field)
-}
-
-func formatExplicitFieldValue(p *profile.Profile, field string) string {
-	value, err := profile.ReadField(p, field)
-	if err != nil {
-		return "(unset)"
-	}
-	if value == nil {
-		return "(no value)"
-	}
-	switch value := value.(type) {
-	case bool:
-		return fmt.Sprint(value)
-	case int:
-		return fmt.Sprint(value)
-	case string:
-		if value == "" {
-			return "(empty)"
-		}
-		return value
-	default:
-		return fmt.Sprint(value)
-	}
-}
-
-// formatFieldValue returns a display string for the given field on the
-// resolved profile. Handles every field type that appears in profile.Profile
-// (bool, int, string, DLSS enums, CPU SMT *bool). Returns "(default)" for
-// zero values so the renderer reads naturally for an unset field.
-func formatFieldValue(p *profile.Profile, field string) string {
-	if p == nil {
-		return "(default)"
-	}
-	descriptor, ok := profile.Field(field)
-	if !ok {
-		return "(default)"
-	}
-	value, err := profile.ReadField(p, descriptor.Key)
-	if err != nil || value == nil {
-		return "(default)"
-	}
-	switch value := value.(type) {
-	case bool:
-		if descriptor.Kind == profile.PrimitiveOptionalBool {
-			return fmt.Sprint(value)
-		}
-		if !value {
-			return "(default)"
-		}
-		return "true"
-	case int:
-		if value == 0 {
-			return "(default)"
-		}
-		return fmt.Sprint(value)
-	case string:
-		if value == "" || value == "default" || value == "auto" {
-			return "(default)"
-		}
-		return value
-	}
-	return "(default)"
 }

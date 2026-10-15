@@ -115,7 +115,7 @@ func sendDisplayed(t *testing.T, session *Session, key string) {
 	screen := requireScreen(t, session, nil)
 	labels := map[string][]string{
 		"enter": {"Enter"}, "tab": {"Tab"}, "up": {"↑", "Arrows"}, "down": {"↓", "Arrows"},
-		"left": {"←", "Arrows"}, "right": {"→", "Arrows"}, " ": {"Space", "space"}, "ctrl-s": {"Ctrl+S"},
+		"left": {"←", "Arrows"}, "right": {"→", "Arrows"}, " ": {"Space", "space"}, "escape": {"Esc"},
 	}
 	visible := false
 	if key == "0" {
@@ -292,35 +292,58 @@ func requireProfileHDR(t *testing.T, path string, expected bool) {
 	}
 }
 
+// openGameProfile opens the game under the List cursor. A game opens on its
+// profile, at the first section.
 func openGameProfile(t *testing.T, session *Session) {
 	t.Helper()
 	sendDisplayed(t, session, "enter")
 	waitVisible(t, session, "▸ Detail")
-	sendDisplayed(t, session, "right")
-	waitVisible(t, session, "[Profile]")
+	waitVisible(t, session, "[Proton]")
 }
 
-func cycleBooleanDraft(t *testing.T, session *Session, save bool) {
+// openGameDLLs opens the game under the List cursor and moves Right through the
+// profile sections to the DLLs section.
+func openGameDLLs(t *testing.T, session *Session) {
 	t.Helper()
-	requireScreen(t, session, []string{"Space"}, "Enter: Edit field", "Value before edit:")
-	sendDisplayed(t, session, " ")
-	waitVisible(t, session, "Ctrl+S")
-	requireScreen(t, session, nil, "Value before edit:", "> Input")
-	if save {
-		sendDisplayed(t, session, "ctrl-s")
+	openGameProfile(t, session)
+	for _, section := range []string{"[DLSS]", "[GPU]", "[CPU]", "[Overlay]", "[DLLs]"} {
+		sendDisplayed(t, session, "right")
+		waitVisible(t, session, section)
 	}
 }
 
-func waitSettingsDraftValue(t *testing.T, session *Session, value string) {
+// changeWithSpace presses the displayed Space on the focused row and waits for
+// the message that says what was saved. Nothing else is needed: every change
+// is written at once.
+func changeWithSpace(t *testing.T, session *Session, saved string) {
 	t.Helper()
-	waitForScreen(t, session, "Settings draft value "+value, func(screen string) bool {
+	requireScreen(t, session, []string{"Space", "Enter: Edit value"}, "Value before edit:", "Ctrl+S")
+	sendDisplayed(t, session, " ")
+	waitVisible(t, session, "Saved: "+saved)
+	requireScreen(t, session, nil, "Value before edit:", "> Input", "Unsaved changes", "Ctrl+S")
+}
+
+// waitSettingsValue waits for the value line under the option title in the
+// Settings detail pane.
+func waitSettingsValue(t *testing.T, session *Session, label, value string) {
+	t.Helper()
+	waitForScreen(t, session, "Settings "+label+" "+value, func(screen string) bool {
 		lines := strings.Split(screen, "\n")
 		for index, line := range lines {
-			if !strings.Contains(line, "Draft value") || index+1 >= len(lines) {
+			cells := strings.Split(line, "│")
+			if len(cells) < 3 || strings.TrimSpace(cells[len(cells)-2]) != label || index+1 >= len(lines) {
 				continue
 			}
-			cells := strings.Split(lines[index+1], "│")
-			return len(cells) >= 3 && strings.TrimSpace(cells[len(cells)-2]) == value
+			for _, following := range lines[index+1:] {
+				next := strings.Split(following, "│")
+				if len(next) < 3 {
+					return false
+				}
+				if cell := strings.TrimSpace(next[len(next)-2]); cell != "" {
+					return cell == value
+				}
+			}
+			return false
 		}
 		return false
 	})
@@ -370,11 +393,28 @@ func TestTUIFreshMinimumLongPathBorderClosure(t *testing.T) {
 	session := startTUI(t, environment, 80, 24)
 	requireScreen(t, session, []string{"Library", "Cyberpunk 2077", "▸ List"}, "▸ Detail")
 	sendDisplayed(t, session, "enter")
-	screen := waitVisible(t, session, "Install directory")
-	requireScreen(t, session, []string{"▸ Detail", "Tab"}, "Ctrl+S", "Enter: Edit")
+	screen := waitVisible(t, session, "[Proton]")
+	requireScreen(t, session, []string{"▸ Detail", "Tab", "Enter: Edit value"}, "Ctrl+S")
 	requireClosedSplitPaneBorders(t, screen)
 	sendDisplayed(t, session, "tab")
 	waitVisible(t, session, "▸ List")
+}
+
+// The DLLs section lists where the game lives. Long paths are cut to one line
+// each and never push the pane border out of place.
+func TestTUIDLLSectionKeepsLongPathsInsideTheBorder(t *testing.T) {
+	environment, cleanup := setupLongPathTestEnvironment(t)
+	t.Cleanup(cleanup)
+	session := startTUI(t, environment, 120, 40)
+	openGameDLLs(t, session)
+	screen := waitVisible(t, session, "Install directory")
+	requireScreen(t, session, []string{"Steam launch option: spela %command%", "DLL actions: Cyberpunk 2077"})
+	requireClosedSplitPaneBorders(t, screen)
+	for _, line := range strings.Split(screen, "\n") {
+		if len([]rune(line)) > 120 {
+			t.Fatalf("line wider than the terminal: %q", line)
+		}
+	}
 }
 
 func TestTUIJourneyStandard(t *testing.T) {
@@ -382,6 +422,7 @@ func TestTUIJourneyStandard(t *testing.T) {
 	t.Cleanup(cleanup)
 	session := startTUI(t, environment, 120, 40)
 	requireScreen(t, session, []string{"Library", "▸ List", "Cyberpunk 2077", "Tab"}, "Ctrl+S")
+	profilePath := filepath.Join(environment.ConfigHome, "spela", "profiles", "1091500.yaml")
 
 	chooseAction(t, session, "Search games")
 	typeIntoInput(t, session, "Cyber")
@@ -391,26 +432,37 @@ func TestTUIJourneyStandard(t *testing.T) {
 	})
 	requireScreen(t, session, []string{"Cyberpunk 2077"}, "Elden Ring")
 	openGameProfile(t, session)
-	cycleBooleanDraft(t, session, true)
-	waitVisible(t, session, "Profile saved!")
-	requireScreen(t, session, []string{"HDR", "false"}, "Unsaved changes", "Edit HDR")
-	requireProfileHDR(t, filepath.Join(environment.ConfigHome, "spela", "profiles", "1091500.yaml"), false)
-	requireYAMLValue(t, filepath.Join(environment.ConfigHome, "spela", "profiles", "1091500.yaml"), true, "overrides", "proton.enable_hdr")
+	requireScreen(t, session, []string{"Saved at once", "Own settings"})
+
+	// Space on a value the game sets itself makes it follow All games. The
+	// file changes at once, with no Save step.
+	requireYAMLValue(t, profilePath, true, "overrides", "proton.enable_hdr")
+	changeWithSpace(t, session, "HDR follows All games")
+	requireScreen(t, session, []string{"HDR", "Off", "system default"})
+	requireProfileHDR(t, profilePath, false)
+	requireYAMLValue(t, profilePath, nil, "overrides", "proton.enable_hdr")
+
+	// The same key undoes it.
+	changeWithSpace(t, session, "HDR On")
+	requireProfileHDR(t, profilePath, true)
+	requireYAMLValue(t, profilePath, true, "overrides", "proton.enable_hdr")
+	changeWithSpace(t, session, "HDR follows All games")
 
 	chooseAction(t, session, "Help")
 	waitVisible(t, session, "Keyboard shortcuts")
 	requireScreen(t, session, []string{"Tab", "Close"}, "Esc", "Ctrl+C", "? /", "0:Actions")
 	selectControl(t, session, "Close")
-	waitVisible(t, session, "[Profile]")
+	waitVisible(t, session, "[Proton]")
 
 	// Quit through the visible menu before a second process reads the saved fixture.
 	quitTUI(t, session, environment)
 	restarted := startTUI(t, environment, 120, 40)
 	openGameProfile(t, restarted)
-	requireScreen(t, restarted, []string{"HDR", "false"}, "Unsaved changes")
+	requireScreen(t, restarted, []string{"HDR", "Off", "system default"}, "Unsaved changes")
 }
 
-func TestTUIDefaultDraftReopenResetAndDiscard(t *testing.T) {
+// All games saves at once too, and Space puts the system default back.
+func TestTUIDefaultsAutosaveUndoAndResetAll(t *testing.T) {
 	for _, width := range []int{80, 120} {
 		t.Run(strconv.Itoa(width), func(t *testing.T) {
 			environment, cleanup := SetupTestEnvironment(t)
@@ -420,12 +472,15 @@ func TestTUIDefaultDraftReopenResetAndDiscard(t *testing.T) {
 				height = 24
 			}
 			session := startTUI(t, environment, width, height)
+			defaultsPath := filepath.Join(environment.ConfigHome, "spela", "profiles", "default.yaml")
 			sendDisplayed(t, session, "up")
 			waitVisible(t, session, "> All games")
 			sendDisplayed(t, session, "enter")
 			waitVisible(t, session, "▸ Detail")
-			cycleBooleanDraft(t, session, false)
-			waitVisible(t, session, "Unsaved changes")
+			changeWithSpace(t, session, "HDR On (All games)")
+			requireProfileHDR(t, defaultsPath, true)
+
+			// Another destination and back shows what the file holds.
 			sendDisplayed(t, session, "2")
 			waitForScreen(t, session, "DLL Catalog List", func(screen string) bool {
 				return strings.Contains(screen, "▸ List") && strings.Contains(screen, "◆ 2 DLL Catalog") && strings.Contains(screen, "> DLSS")
@@ -434,25 +489,26 @@ func TestTUIDefaultDraftReopenResetAndDiscard(t *testing.T) {
 			waitVisible(t, session, "▸ List")
 			sendDisplayed(t, session, "enter")
 			waitVisible(t, session, "▸ Detail")
-			requireScreen(t, session, []string{"Unsaved changes", "HDR", "true"})
-			chooseAction(t, session, "Reset field to system default")
-			waitForScreen(t, session, "reset root draft", func(screen string) bool {
-				return !strings.Contains(screen, "Unsaved changes") && strings.Contains(screen, "HDR")
-			})
-			cycleBooleanDraft(t, session, false)
-			waitVisible(t, session, "Unsaved changes")
-			chooseAction(t, session, "Discard draft")
+			requireScreen(t, session, []string{"HDR", "On", "set here"}, "Unsaved changes")
+
+			changeWithSpace(t, session, "HDR uses the system default (All games)")
+			requireProfileHDR(t, defaultsPath, false)
+			changeWithSpace(t, session, "HDR On (All games)")
+
+			// The whole page returns to the system default after a confirmation
+			// that says how many values it clears.
+			chooseAction(t, session, "Use system default for all settings")
 			waitVisible(t, session, "Enter: Cancel")
-			selectControl(t, session, "Discard draft")
-			waitForScreen(t, session, "discarded root draft", func(screen string) bool {
-				return !strings.Contains(screen, "Unsaved changes") && !strings.Contains(screen, "This changes the draft") && strings.Contains(screen, "HDR")
-			})
-			requireProfileHDR(t, filepath.Join(environment.ConfigHome, "spela", "profiles", "default.yaml"), false)
+			requireScreen(t, session, []string{"This clears the", "afterwards"})
+			selectControl(t, session, "Use system default for all settings")
+			waitVisible(t, session, "Saved: All settings use the system default (All games)")
+			requireProfileHDR(t, defaultsPath, false)
 		})
 	}
 }
 
-func TestTUIUnsavedQuitCancelAndSave(t *testing.T) {
+// Quitting right after a change keeps the change: nothing is left to save.
+func TestTUIQuitAfterAChangeKeepsIt(t *testing.T) {
 	environment, cleanup := SetupTestEnvironment(t)
 	t.Cleanup(cleanup)
 	session := startTUI(t, environment, 80, 24)
@@ -460,33 +516,18 @@ func TestTUIUnsavedQuitCancelAndSave(t *testing.T) {
 	waitVisible(t, session, "> All games")
 	sendDisplayed(t, session, "enter")
 	waitVisible(t, session, "▸ Detail")
-	cycleBooleanDraft(t, session, false)
-	waitVisible(t, session, "Unsaved changes")
-	chooseAction(t, session, "Quit")
-	waitVisible(t, session, "Save and continue")
-	requireScreen(t, session, []string{"▸ Cancel", "Enter: Cancel", "Discard and continue"}, "0: Actions", "1 Library")
-	sendDisplayed(t, session, "enter")
-	waitForScreen(t, session, "cancelled Quit and preserved root draft", func(screen string) bool {
-		return strings.Contains(screen, "HDR") && strings.Contains(screen, "Unsaved changes") && !strings.Contains(screen, "Save and continue")
-	})
-	requireProfileHDR(t, filepath.Join(environment.ConfigHome, "spela", "profiles", "default.yaml"), false)
-	chooseAction(t, session, "Quit")
-	waitVisible(t, session, "Save and continue")
-	selectControl(t, session, "Save and continue")
-	waitForScreen(t, session, "saved Quit to release its runtime lock", func(string) bool {
-		_, err := os.Stat(filepath.Join(environment.TempDir, "runtime", "spela", "spela.pid"))
-		return os.IsNotExist(err)
-	})
+	changeWithSpace(t, session, "HDR On (All games)")
+	quitTUI(t, session, environment)
 	requireProfileHDR(t, filepath.Join(environment.ConfigHome, "spela", "profiles", "default.yaml"), true)
 	restarted := startTUI(t, environment, 80, 24)
 	sendDisplayed(t, restarted, "up")
 	waitVisible(t, restarted, "> All games")
 	sendDisplayed(t, restarted, "enter")
 	waitVisible(t, restarted, "▸ Detail")
-	requireScreen(t, restarted, []string{"HDR", "true"}, "Unsaved changes")
+	requireScreen(t, restarted, []string{"HDR", "On"}, "Unsaved changes")
 }
 
-func TestTUISettingsEditorSaveAndHints(t *testing.T) {
+func TestTUISettingsEditorSave(t *testing.T) {
 	for _, width := range []int{80, 120} {
 		t.Run(strconv.Itoa(width), func(t *testing.T) {
 			environment, cleanup := SetupTestEnvironment(t)
@@ -498,28 +539,32 @@ func TestTUISettingsEditorSaveAndHints(t *testing.T) {
 			session := startTUI(t, environment, width, height)
 			artifacts := editorJourneyArtifacts(t, session, environment, width, height, "settings")
 			sendDisplayed(t, session, "4")
-			waitVisible(t, session, "Show hints")
+			waitVisible(t, session, "Re-scan")
 			sendDisplayed(t, session, "enter")
 			waitVisible(t, session, "▸ Detail")
 			configurationPath := filepath.Join(environment.ConfigHome, "spela", "config.yaml")
 			originalConfiguration := readEditorFixture(t, configurationPath)
-			cycleBooleanDraft(t, session, false)
-			waitSettingsDraftValue(t, session, "false")
-			requireEditorFixtureUnchanged(t, configurationPath, originalConfiguration)
-			captureEditorPhase(t, session, artifacts, "01-boolean-draft")
+			// Space saves the option at once; the same key puts it back.
+			requireScreen(t, session, []string{"Space"}, "Ctrl+S", "Unsaved changes")
 			sendDisplayed(t, session, " ")
-			waitSettingsDraftValue(t, session, "true")
-			requireScreen(t, session, nil, "Unsaved changes", "Ctrl+S", "(default)", "> Input")
-			requireEditorFixtureUnchanged(t, configurationPath, originalConfiguration)
-			captureEditorPhase(t, session, artifacts, "02-boolean-round-trip")
-			cycleBooleanDraft(t, session, true)
-			waitVisible(t, session, "saved")
-			requireYAMLValue(t, configurationPath, false, "show_hints")
-			captureEditorPhase(t, session, artifacts, "03-boolean-saved")
+			waitVisible(t, session, "Saved: Re-scan on startup On")
+			waitSettingsValue(t, session, "Re-scan on startup", "On")
+			requireYAMLValue(t, configurationPath, true, "rescan_on_startup")
+			requireScreen(t, session, []string{"Saved at once"}, "Unsaved changes", "Ctrl+S", "(default)", "> Input")
+			captureEditorPhase(t, session, artifacts, "01-boolean-saved")
+			// Restore the value so the restarted process does not rescan a fixture path.
+			sendDisplayed(t, session, " ")
+			waitVisible(t, session, "Saved: Re-scan on startup Off")
+			waitForScreen(t, session, "restored boolean saved", func(string) bool {
+				data, err := os.ReadFile(configurationPath)
+				return err == nil && strings.Contains(string(data), "rescan_on_startup: false")
+			})
+			captureEditorPhase(t, session, artifacts, "02-boolean-restored")
+			_ = originalConfiguration
 			chooseAction(t, session, "Help")
 			waitVisible(t, session, "Keyboard shortcuts")
 			selectControl(t, session, "Close")
-			waitVisible(t, session, "Show hints")
+			waitVisible(t, session, "Re-scan")
 			sendDisplayed(t, session, "tab")
 			waitVisible(t, session, "▸ List")
 			for group := 0; group < 10; group++ {
@@ -543,8 +588,8 @@ func TestTUISettingsEditorSaveAndHints(t *testing.T) {
 			waitVisible(t, session, "01234 [ö]")
 			requireInputOwnsKeys(t, session)
 			captureEditorPhase(t, session, artifacts, "04-path-input")
-			sendDisplayed(t, session, "ctrl-s")
-			waitVisible(t, session, "saved")
+			sendDisplayed(t, session, "enter")
+			waitVisible(t, session, "Saved: Steam path")
 			requireYAMLValue(t, filepath.Join(environment.ConfigHome, "spela", "config.yaml"), steamPath, "steam_path")
 			captureEditorPhase(t, session, artifacts, "05-path-saved")
 			sendDisplayed(t, session, "enter")
@@ -579,7 +624,7 @@ func TestTUIReadOnlyDestinations(t *testing.T) {
 			requireScreen(t, session, []string{"▸ List"}, "▸ CPU", "▸ Alerts")
 			sendDisplayed(t, session, "enter")
 			waitVisible(t, session, "▸ Detail")
-			requireScreen(t, session, []string{"GPU", "Tab"}, "Ctrl+S", "Enter: Edit field")
+			requireScreen(t, session, []string{"GPU", "Tab"}, "Ctrl+S", "Enter: Edit value")
 			sendDisplayed(t, session, "tab")
 			waitVisible(t, session, "▸ List")
 			sendDisplayed(t, session, "down")
@@ -587,7 +632,7 @@ func TestTUIReadOnlyDestinations(t *testing.T) {
 			requireScreen(t, session, []string{"▸ List"}, "▸ GPU", "▸ Alerts")
 			sendDisplayed(t, session, "enter")
 			waitVisible(t, session, "▸ Detail")
-			requireScreen(t, session, []string{"CPU"}, "Ctrl+S", "Enter: Edit field")
+			requireScreen(t, session, []string{"CPU"}, "Ctrl+S", "Enter: Edit value")
 			sendDisplayed(t, session, "2")
 			waitVisible(t, session, "▸ List")
 			sendDisplayed(t, session, "right")
@@ -627,7 +672,10 @@ func TestTUIFiltersSortAndVisibleSelection(t *testing.T) {
 			chooseAction(t, session, "Search games")
 			typeIntoInput(t, session, "Elden")
 			sendDisplayed(t, session, "enter")
-			waitVisible(t, session, "Selected: 1 total, 0 visible")
+			// The count already shows while typing, so wait for Search to close.
+			waitForScreen(t, session, "applied search", func(screen string) bool {
+				return strings.Contains(screen, "Selected: 1 total, 0 visible") && !strings.Contains(screen, "Clear search")
+			})
 			chooseAction(t, session, "Select all filtered games")
 			waitVisible(t, session, "Selected: 2 total, 1 visible")
 			sendDisplayed(t, session, "enter")
@@ -711,10 +759,9 @@ func TestTUIJourneysConstrained(t *testing.T) {
 		environment, cleanup := SetupTestEnvironment(t)
 		t.Cleanup(cleanup)
 		session := startTUI(t, environment, 80, 24)
-		openGameProfile(t, session)
-		sendDisplayed(t, session, "right")
+		openGameDLLs(t, session)
 		waitVisible(t, session, "DLL versions")
-		requireScreen(t, session, []string{"DLLs", "▸ Detail"}, "Ctrl+S", "Enter: Edit field")
+		requireScreen(t, session, []string{"[DLLs]", "▸ Detail"}, "Ctrl+S", "Enter: Edit value")
 		dllPath := filepath.Join(environment.TempDir, "games", "Cyberpunk 2077", "bin", "x64", "nvngx_dlss.dll")
 		before, err := os.ReadFile(dllPath)
 		if err != nil {

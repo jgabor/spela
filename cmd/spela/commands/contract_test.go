@@ -54,7 +54,7 @@ func TestProfileCLITextJSONAndErrorContract(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	for _, fragment := range []string{"Profile for", "Cyberpunk 2077", "DLSS", "HDR:", "true", "Overlay", "KDE VRR:", "unset"} {
+	for _, fragment := range []string{"Profile for", "Cyberpunk 2077", "DLSS", "HDR", "On", "this game", "Overlay", "KDE VRR", "unset"} {
 		if !strings.Contains(text, fragment) {
 			t.Errorf("profile text missing %q:\n%s", fragment, text)
 		}

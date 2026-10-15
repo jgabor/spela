@@ -19,4 +19,4 @@ record:
       description: "[bug] Register a restore for every privileged change, including a failed apply"
       severity: degraded
       status: open
-      order: 10
+      order: 5

@@ -167,7 +167,6 @@ func setupTestEnvironment(t *testing.T, fixturePath string) (*TestEnvironment, f
 		"log_level":              "info",
 		"shader_cache":           filepath.Join(tempDir, "nvidia"),
 		"check_updates":          false,
-		"show_hints":             true,
 		"rescan_on_startup":      false,
 		"auto_update_dlls":       false,
 		"auto_refresh_manifest":  false,

@@ -40,7 +40,7 @@ func TestActiveLayoutDestinationsRenderAndPreserveNavigationState(t *testing.T) 
 		{"monitor GPU", withMonitorSection(nav.MonitorGPU), "GPU"},
 		{"monitor CPU", withMonitorSection(nav.MonitorCPU), "CPU"},
 		{"monitor alerts", withMonitorSection(nav.MonitorAlerts), "Alerts"},
-		{"settings display", withSettingsSection(nav.SettingsDisplay), "Show hints"},
+		{"settings display", withSettingsSection(nav.SettingsStartup), "Re-scan on startup"},
 	}
 	for _, test := range states {
 		t.Run(test.name, func(t *testing.T) {
@@ -64,7 +64,7 @@ func TestActiveLayoutDestinationsRenderAndPreserveNavigationState(t *testing.T) 
 func TestOptionsModalEditsEveryCatalogOptionThroughKeyboardContract(t *testing.T) {
 	state := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", state)
-	modal := NewOptionsModal(NewStyles(DefaultTheme, true))
+	modal := NewOptionsModal(NewStyles(DefaultTheme))
 	modal.OpenEmbedded(config.Default())
 	modal.SetSize(100, 40)
 
@@ -86,10 +86,10 @@ func TestOptionsModalEditsEveryCatalogOptionThroughKeyboardContract(t *testing.T
 				if modal.Editing() || modal.getConfigValue(option.Key) != before {
 					t.Fatalf("Enter changed cyclic setting %s or opened an editor", option.Key)
 				}
-				next, command := modal.Update(keyMsg("space"))
+				next, _ := modal.Update(keyMsg("space"))
 				modal = next
-				if command != nil || modal.Editing() || option.Get(modal.config) != before {
-					t.Fatalf("Space saved %s or opened an editor", option.Key)
+				if modal.Editing() || option.Get(modal.config) != before {
+					t.Fatalf("Space opened an editor or moved the stored value of %s before the write finished", option.Key)
 				}
 			default:
 				t.Fatalf("add keyboard coverage for newly exposed option kind %v", option.Kind)
@@ -103,15 +103,7 @@ func TestOptionsModalEditsEveryCatalogOptionThroughKeyboardContract(t *testing.T
 			}
 		}
 	}
-	if !modal.modified {
-		t.Fatal("catalog edits did not mark settings modified")
-	}
-	next, command := modal.Update(keyMsg("ctrl+s"))
-	modal = next
-	if command == nil {
-		t.Fatal("save key did not return a persistence command")
-	}
-	if message, ok := command().(optionsSavedMsg); !ok {
-		t.Fatalf("save command returned %#v", message)
+	if !modal.modified || !modal.saving {
+		t.Fatal("catalog edits did not start a write and leave later edits to follow it")
 	}
 }

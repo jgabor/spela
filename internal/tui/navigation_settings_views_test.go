@@ -13,7 +13,7 @@ import (
 )
 
 func TestListPaneSupportedStateTransitionsAndViews(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	entry := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	sidebar := testSidebar(entry)
 	state := nav.DefaultState()
@@ -47,12 +47,12 @@ func TestListPaneSupportedStateTransitionsAndViews(t *testing.T) {
 }
 
 func TestOptionsModalSupportedSaveFailureAndInlineSections(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	original := config.Default()
 	modal := NewOptionsModal(styles)
 	modal.OpenEmbedded(original)
 	modal.SetSize(100, 40)
-	if !strings.Contains(stripANSI(modal.renderOptionsBody()), "Show hints") {
+	if !strings.Contains(stripANSI(modal.renderOptionsBody()), "Re-scan on startup") {
 		t.Fatal("settings destination did not render")
 	}
 	modal.cycleValue(1)
@@ -69,11 +69,14 @@ func TestOptionsModalSupportedSaveFailureAndInlineSections(t *testing.T) {
 	if _, command := modal.Update(keyMsg("esc")); command != nil {
 		t.Fatal("embedded escape should not emit a command")
 	}
-	for section := range nav.SettingsSectionLabels {
-		modal.SyncNavSection(nav.SettingsSection(section))
+	for index, section := range modal.sections {
+		if len(section.Options) == 0 {
+			t.Errorf("settings group %q is empty and must not be listed", section.Title)
+		}
+		modal.SyncNavSection(section.ID)
 		view := stripANSI(modal.renderOptionsBody())
-		if len(modal.sections[section].Options) > 0 && !strings.Contains(view, modal.sections[section].Options[0].Label) {
-			t.Errorf("inline section %d missing heading:\n%s", section, view)
+		if !strings.Contains(view, section.Options[0].Label) {
+			t.Errorf("inline section %d missing heading:\n%s", index, view)
 		}
 	}
 	modal.sectionCursor = len(modal.sections)
@@ -115,9 +118,10 @@ func TestOptionsModalSupportedSaveFailureAndInlineSections(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("XDG_CONFIG_HOME", configHomeFile)
-	modal.OpenEmbedded(config.Default())
-	modal.modified = true
-	_, command := modal.Update(keyMsg("ctrl+s"))
+	failing := NewOptionsModal(styles)
+	failing.OpenEmbedded(config.Default())
+	failing.cycleValue(1)
+	_, command := failing.save()
 	if command == nil {
 		t.Fatal("save failure path did not return command")
 	}
@@ -130,7 +134,7 @@ func TestOptionsModalSupportedSaveFailureAndInlineSections(t *testing.T) {
 func TestSidebarSupportedRenderedSelectionFilterAndBatchStates(t *testing.T) {
 	services := testServices()
 	services.ProfileExists = func(appID uint64) bool { return appID == 2 }
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	first := testGame("Alpha", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	first.AppID = 1
 	second := testGame("Beta")

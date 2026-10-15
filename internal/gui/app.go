@@ -238,15 +238,44 @@ type ProfileFieldSemantics struct {
 	Source  string `json:"source"`
 	Impact  string `json:"impact"`
 	Restore string `json:"restore"`
+	// The remaining fields carry the shared words for the field, so the
+	// graphical interface prints exactly what the terminal and the command line do.
+	Label       string `json:"label"`
+	Description string `json:"description"`
+	Origin      string `json:"origin"`
+	SourceText  string `json:"sourceText"`
+	// Action names what the button on the field does: Follow All games when
+	// the game has its own value, Set for this game when it does not; on the
+	// All games page Use system default when a value is set there, else Set here.
+	Action string `json:"action"`
+	// ValueText is the effective value in the shared words (On, Off, none, 150 MHz).
+	ValueText string `json:"valueText"`
+	// Hint is the unit and shown range of a free number, or empty. Unit is the
+	// unit alone, such as MHz.
+	Hint string `json:"hint"`
+	Unit string `json:"unit"`
+	// OwnValueSuffix, OwnValueCount and OwnValueAction are set on the All games
+	// page only: how many games set their own value for the field, in words and
+	// as a number, and what the button that applies All games to them says.
+	OwnValueSuffix string `json:"ownValueSuffix"`
+	OwnValueCount  int    `json:"ownValueCount"`
+	OwnValueAction string `json:"ownValueAction"`
 }
 
-func profileView(p *profile.Profile, semantics []profile.FieldExplanation, inheritedFromDefault bool) map[string]any {
+func profileView(p *profile.Profile, semantics []profile.FieldExplanation, inheritedFromDefault, allGamesScope bool) map[string]any {
 	if p == nil {
 		return nil
 	}
 	view := map[string]any{
 		"inheritedFromDefault": inheritedFromDefault,
-		"semantics":            profileFieldSemanticsFromExplanations(semantics),
+		"semantics":            profileFieldSemanticsFromExplanations(semantics, allGamesScope),
+		// clearAll describes the whole-page Follow: its action word, how many
+		// settings it would clear, and the sentence that says so.
+		"clearAll": map[string]any{
+			"action": profile.ClearAllAction(allGamesScope),
+			"count":  profile.OwnCount(semantics, allGamesScope),
+			"body":   profile.ClearAllBody(allGamesScope, profile.OwnCount(semantics, allGamesScope)),
+		},
 	}
 	for _, descriptor := range profile.Fields() {
 		key := profileViewKey(descriptor)
@@ -269,20 +298,42 @@ func profileView(p *profile.Profile, semantics []profile.FieldExplanation, inher
 	return view
 }
 
-func profileFieldSemanticsFromExplanations(explanations []profile.FieldExplanation) []ProfileFieldSemantics {
+func profileFieldSemanticsFromExplanations(explanations []profile.FieldExplanation, allGamesScope bool) []ProfileFieldSemantics {
 	if len(explanations) == 0 {
 		return nil
 	}
 	items := make([]ProfileFieldSemantics, 0, len(explanations))
 	for _, explanation := range explanations {
+		descriptor, _ := profile.Field(explanation.Field)
 		items = append(items, ProfileFieldSemantics{
-			Field:   explanation.Field,
-			Source:  string(explanation.Source),
-			Impact:  string(explanation.Impact),
-			Restore: string(explanation.Restore),
+			Field:       explanation.Field,
+			Source:      string(explanation.Source),
+			Impact:      string(explanation.Impact),
+			Restore:     string(explanation.Restore),
+			Label:       descriptor.Label,
+			Description: descriptor.Description,
+			Origin:      string(explanation.Origin),
+			SourceText:  profile.SourceText(descriptor, explanation),
+			Action:      fieldActionText(explanation, allGamesScope),
+			ValueText:   profile.ValueText(descriptor, explanation),
+			Hint:        profile.NumberHint(descriptor),
+			Unit:        descriptor.Unit,
 		})
 	}
 	return items
+}
+
+func fieldActionText(explanation profile.FieldExplanation, allGamesScope bool) string {
+	switch {
+	case allGamesScope && explanation.Origin == profile.OriginSetHere:
+		return profile.ActionUseSystemDefault
+	case allGamesScope:
+		return profile.ActionSetHere
+	case explanation.Source == profile.ExplanationSourceOverride:
+		return profile.ActionFollowAllGames
+	default:
+		return profile.ActionSetForThisGame
+	}
 }
 
 func (a *App) GetProfile(appID uint64) map[string]any {
@@ -315,6 +366,21 @@ func (a *App) PatchDefaultProfile(patches []ProfilePatch) (map[string]any, error
 		return nil, err
 	}
 	return boundary.profileView(nil), nil
+}
+
+// PreviewApplyToGamesWithOwnValue words the question asked before All games is
+// applied to the games that set their own value for the fields: the action, the
+// number of games, the sentence that names them, and their app IDs.
+func (a *App) PreviewApplyToGamesWithOwnValue(fields []string) (map[string]any, error) {
+	return defaultGUIApplicationBoundary(a.databaseSnapshot()).previewApplyToOwnValues(fields)
+}
+
+// ApplyToGamesWithOwnValue makes the games the question named (appIDs, from the
+// preview) follow All games for the fields. It returns the message to show, the
+// failure part of it, the games that could not be written, and the refreshed
+// All games profile.
+func (a *App) ApplyToGamesWithOwnValue(fields []string, appIDs []uint64) (map[string]any, error) {
+	return defaultGUIApplicationBoundary(a.databaseSnapshot()).applyToOwnValues(fields, appIDs)
 }
 
 type GPUInfo struct {

@@ -14,6 +14,7 @@ record:
     - The GUI has no control for fan speed or power limit, so their zero case exists in the TUI and CLI only; the clock and memory offsets show 0 MHz in the GUI.
     - Found by the 2026-10-14 recon (defect D5) and confirmed by the audit field audit.
     - "Reviewed in the 2026-10-14 TUI profile and settings UX review (audit stream: field audit, vocabulary matrix); the review report is docs/design/tui-profile-settings-ux-review.md. Fold this item into the implementation plan for the alternative the user chooses."
+    - "Step 1 (branch feat/shared-profile-vocabulary, unmerged): the descriptions of clock offset, memory offset, power limit, and fan speed now say that 0 leaves the setting unchanged. Still open: the dry run Hardware block versus Profile impacts disagreement, the gpu set help text, and refusing negative or out-of-range input."
   acceptance:
     - GIVEN defaults with a nonzero fan speed and a game that overrides it with 0 WHEN the game is viewed in either interface THEN the screen states that fan control is left unchanged for that game.
     - GIVEN any numeric profile field with a special zero or negative meaning WHEN it is shown THEN that meaning is visible.

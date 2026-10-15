@@ -50,7 +50,7 @@ func TestRenderProbe_Task6(t *testing.T) {
 		},
 	}
 
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	svc := testServices()
 	db := testDatabase(alpha, beta)
 

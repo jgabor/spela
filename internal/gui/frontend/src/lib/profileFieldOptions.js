@@ -45,7 +45,9 @@ export const multiFrameOptions = [
 export const powerMizerOptions = [
   { value: '', label: 'No power mode' },
   { value: 'adaptive', label: 'Adaptive' },
-  { value: 'max', label: 'Max performance' }
+  { value: 'max', label: 'Max performance' },
+  { value: 'prefer_max_performance', label: 'Prefer max performance' },
+  { value: 'prefer_maximum_performance', label: 'Prefer maximum performance' }
 ]
 
 export const vrrOptions = [
@@ -59,29 +61,6 @@ export const frameGenerationOptions = [
   { value: 'no_override', label: 'No override value' },
   { value: 'enabled', label: 'Enabled' },
   { value: 'disabled', label: 'Disabled' }
-]
-
-export const clockOffsetOptions = [
-  { value: 0, label: '0 MHz' },
-  { value: -200, label: '-200 MHz' },
-  { value: -100, label: '-100 MHz' },
-  { value: -50, label: '-50 MHz' },
-  { value: 50, label: '+50 MHz' },
-  { value: 100, label: '+100 MHz' },
-  { value: 150, label: '+150 MHz' },
-  { value: 200, label: '+200 MHz' },
-  { value: 250, label: '+250 MHz' },
-  { value: 300, label: '+300 MHz' }
-]
-
-export const memoryOffsetOptions = [
-  { value: 0, label: '0 MHz' },
-  { value: -500, label: '-500 MHz' },
-  { value: -200, label: '-200 MHz' },
-  { value: 200, label: '+200 MHz' },
-  { value: 500, label: '+500 MHz' },
-  { value: 750, label: '+750 MHz' },
-  { value: 1000, label: '+1000 MHz' }
 ]
 
 export const governorOptions = [
@@ -119,7 +98,8 @@ export const profileFieldDefinitions = [
   ['vrr', 'gpu.vrr', ''],
   ['threadedOptimization', 'gpu.threaded_optimization', false],
   ['powerMizer', 'gpu.power_mizer', ''], ['clockOffset', 'gpu.clock_offset', 0],
-  ['memoryOffset', 'gpu.memory_offset', 0], ['governor', 'cpu.governor', ''],
+  ['memoryOffset', 'gpu.memory_offset', 0], ['powerLimit', 'gpu.power_limit', 0], ['fanSpeed', 'gpu.fan_speed', 0],
+  ['affinity', 'cpu.affinity', ''], ['governor', 'cpu.governor', ''],
   ['smt', 'cpu.smt', ''], ['enableHdr', 'proton.enable_hdr', false],
   ['enableWayland', 'proton.enable_wayland', false],
   ['enableNgxUpdater', 'proton.enable_ngx_updater', false],

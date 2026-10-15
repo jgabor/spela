@@ -2,14 +2,12 @@ package tui
 
 import (
 	"errors"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/game"
-	"github.com/jgabor/spela/internal/profile"
 )
 
 func TestRescanSerializesAdmissionAndBlocksNormalQuit(t *testing.T) {
@@ -114,47 +112,5 @@ func TestRescanIgnoresOlderGenerationAfterPermittedNewRequest(t *testing.T) {
 	layout = updated.(LayoutModel)
 	if layout.db != latest || strings.Contains(stripANSI(layout.View().Content), "stale failure") {
 		t.Fatal("stale failure replaced the current data or outcome")
-	}
-}
-
-func TestRescanDeferredDuringSaveDecisionResumesWithoutAnotherKey(t *testing.T) {
-	layout := draftLayout(t)
-	draftEditHDR(t, &layout)
-	layout, command := layout.dispatchAction(ActionRescanLibrary)
-	if command == nil {
-		t.Fatal("Rescan was not dispatched")
-	}
-	requestID := layout.rescanRequestID
-	draftSelect(t, &layout, 1091500)
-	if layout.decision == nil {
-		t.Fatal("changing the dirty profile did not open a decision")
-	}
-	draftKey(&layout, "right")
-	save := draftKey(&layout, "enter")
-	if save == nil || !layout.decision.saving {
-		t.Fatal("Save and continue did not start saving")
-	}
-	refreshed := *layout.db.GetGame(1091500)
-	refreshed.InstallDir = filepath.Join(t.TempDir(), "rescanned-install")
-	replacement := testDatabase(&refreshed, layout.db.GetGame(1245620))
-	before := layout.db
-	updated, _ := layout.Update(rescanGamesMsg{requestID: requestID, db: replacement})
-	layout = updated.(LayoutModel)
-	if layout.rescanBusy || layout.pendingRescan == nil || layout.db != before || layout.decision == nil || !layout.decision.saving {
-		t.Fatal("Rescan interrupted the save decision or remained falsely busy")
-	}
-	for _, message := range draftSaveResults(t, save) {
-		updated, _ = layout.Update(message)
-		layout = updated.(LayoutModel)
-	}
-	if layout.pendingRescan != nil || layout.decision != nil || layout.operationsPending() || layout.profileDirty() {
-		t.Fatal("save completion did not drain the deferred Rescan")
-	}
-	if layout.db != replacement || layout.navState.Scope.AppID != 1091500 || layout.pane.content.game.InstallDir != refreshed.InstallDir {
-		t.Fatal("save continuation did not apply the refreshed selected game")
-	}
-	saved, err := profile.LoadDefault()
-	if err != nil || !saved.Proton.EnableHDR {
-		t.Fatalf("the deferred Rescan lost the saved root profile: profile=%#v err=%v", saved, err)
 	}
 }

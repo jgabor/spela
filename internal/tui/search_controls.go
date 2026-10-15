@@ -16,6 +16,9 @@ func (m LayoutModel) startSearch() (LayoutModel, tea.Cmd) {
 	m.inputMode = ModeSearch
 	m.focus = FocusList
 	m.listPane.sidebar.searching = true
+	// The session keeps the Find row cursor for Cancel; while typing, the
+	// match list owns the cursor.
+	m.listPane.sidebar.findFocused = false
 	command := m.listPane.sidebar.search.Focus()
 	return m, command
 }
@@ -51,14 +54,6 @@ func (m LayoutModel) handleSearchKey(key tea.KeyPressMsg, action KeyAction) (Lay
 		}
 		next.search.Blur()
 		next.searching = false
-		// A guarded restoration also keeps Search open until the choice succeeds.
-		if !sameSidebarScope(next, *m.navState) && m.profileDirty() {
-			return m.guardDrafts(false, func(model LayoutModel) (LayoutModel, tea.Cmd) {
-				model.searchSession = nil
-				model.inputMode = ModeBrowse
-				return model.applySidebar(next, false)
-			}), nil
-		}
 		m.searchSession = nil
 		m.inputMode = ModeBrowse
 		return m.applySidebar(next, false)
@@ -70,7 +65,7 @@ func (m LayoutModel) handleSearchKey(key tea.KeyPressMsg, action KeyAction) (Lay
 	var command tea.Cmd
 	next.search, command = next.search.Update(key)
 	next.applyFiltersAndSort()
-	updated, selectionCommand := m.requestSidebar(next, false)
+	updated, selectionCommand := m.applySidebar(next, false)
 	return updated, tea.Batch(command, selectionCommand)
 }
 

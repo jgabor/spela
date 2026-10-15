@@ -73,7 +73,7 @@ func TestProfilePersistenceStartsAsynchronously(t *testing.T) {
 		if err := content.detail.RawProfile().Set(profile.FieldProtonEnableHDR, true); err != nil {
 			t.Fatal(err)
 		}
-		message := requireDeferredSave(t, content.saveResolvedProfile, holdProfileMutationLock(t, configHome))
+		message := requireDeferredSave(t, func() tea.Cmd { return content.saveResolvedProfile("") }, holdProfileMutationLock(t, configHome))
 		if message.err != nil {
 			t.Fatalf("save failed: %v", message.err)
 		}
@@ -82,13 +82,13 @@ func TestProfilePersistenceStartsAsynchronously(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		configHome := t.TempDir()
 		t.Setenv("XDG_CONFIG_HOME", configHome)
-		pane := newResourcePane(NewStyles(DefaultTheme, true), ContentModel{})
+		pane := newResourcePane(NewStyles(DefaultTheme), ContentModel{})
 		pane.persistedDefaults = (&profile.Profile{}).Clone()
 		pane.defaultsDetail = NewRootDetail(pane.styles, &profile.Profile{})
 		if err := pane.defaultsDetail.RawProfile().Set(profile.FieldProtonEnableHDR, true); err != nil {
 			t.Fatal(err)
 		}
-		message := requireDeferredSave(t, pane.saveDefaultProfile, holdProfileMutationLock(t, configHome))
+		message := requireDeferredSave(t, func() tea.Cmd { return pane.saveDefaultProfile("") }, holdProfileMutationLock(t, configHome))
 		if message.err != nil {
 			t.Fatalf("save failed: %v", message.err)
 		}
@@ -103,14 +103,14 @@ func TestContentProfileSaveCoalescesLatestIntent(t *testing.T) {
 	if err := raw.Set(profile.FieldProtonEnableHDR, true); err != nil {
 		t.Fatal(err)
 	}
-	first := content.saveResolvedProfile()
+	first := content.saveResolvedProfile("")
 	if profile.Exists(entry.AppID) {
 		t.Fatal("profile was written before the save command ran")
 	}
 	if err := raw.Reset(profile.FieldProtonEnableHDR); err != nil {
 		t.Fatal(err)
 	}
-	if command := content.saveResolvedProfile(); command != nil {
+	if command := content.saveResolvedProfile(""); command != nil {
 		t.Fatal("second save ran concurrently instead of being coalesced")
 	}
 	firstMessage := first().(profileSaveMsg)
@@ -128,18 +128,18 @@ func TestContentProfileSaveCoalescesLatestIntent(t *testing.T) {
 
 func TestDefaultProfileSaveCoalescesLatestIntent(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	pane := newResourcePane(NewStyles(DefaultTheme, true), ContentModel{})
+	pane := newResourcePane(NewStyles(DefaultTheme), ContentModel{})
 	pane.persistedDefaults = (&profile.Profile{}).Clone()
 	pane.defaultsDetail = NewRootDetail(pane.styles, &profile.Profile{})
 	raw := pane.defaultsDetail.RawProfile()
 	if err := raw.Set(profile.FieldProtonEnableHDR, true); err != nil {
 		t.Fatal(err)
 	}
-	first := pane.saveDefaultProfile()
+	first := pane.saveDefaultProfile("")
 	if err := raw.Reset(profile.FieldProtonEnableHDR); err != nil {
 		t.Fatal(err)
 	}
-	if command := pane.saveDefaultProfile(); command != nil {
+	if command := pane.saveDefaultProfile(""); command != nil {
 		t.Fatal("second default save ran concurrently instead of being coalesced")
 	}
 	second := pane.completeDefaultSave(first().(profileSaveMsg))
@@ -165,11 +165,11 @@ func TestPendingProfileSaveContinuesFromBaselineAfterFailure(t *testing.T) {
 	if err := raw.Set(profile.FieldProtonEnableHDR, true); err != nil {
 		t.Fatal(err)
 	}
-	first := content.saveResolvedProfile()
+	first := content.saveResolvedProfile("")
 	if err := raw.Set(profile.FieldProtonEnableWayland, true); err != nil {
 		t.Fatal(err)
 	}
-	content.saveResolvedProfile()
+	content.saveResolvedProfile("")
 	failed := first().(profileSaveMsg)
 	if failed.err == nil {
 		t.Fatal("first save unexpectedly succeeded")
@@ -193,21 +193,21 @@ func TestGameLoadAndPinUsePendingDefaultIntent(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	gameB := testGame("Hades")
 	gameB.AppID = 1145360
-	pane := newResourcePane(NewStyles(DefaultTheme, true), testContent(testGame("Cyberpunk 2077")))
+	pane := newResourcePane(NewStyles(DefaultTheme), testContent(testGame("Cyberpunk 2077")))
 	pane.persistedDefaults = (&profile.Profile{}).Clone()
 	pane.defaultsDetail = NewRootDetail(pane.styles, &profile.Profile{})
 	if err := pane.defaultsDetail.RawProfile().Set(profile.FieldProtonEnableHDR, true); err != nil {
 		t.Fatal(err)
 	}
-	defaultSave := pane.saveDefaultProfile()
+	defaultSave := pane.saveDefaultProfile("")
 	pane.content = pane.content.SetGame(gameB)
 	if !pane.content.detail.resolved.Proton.EnableHDR || pane.content.detail.RawProfile().IsOverridden(profile.FieldProtonEnableHDR) {
 		t.Fatal("game did not display pending inherited HDR value")
 	}
-	if !pane.content.detail.BeginEdit() || !pane.content.detail.UpdateEditor(keyMsg("enter")) {
+	if !pane.content.detail.BeginEdit() || !pickOption(&pane.content.detail, "o") {
 		t.Fatal("could not create concrete override from inherited HDR")
 	}
-	if command := pane.content.saveResolvedProfile(); command != nil {
+	if command := pane.content.saveResolvedProfile(""); command != nil {
 		t.Fatal("game pin ran concurrently with pending defaults")
 	}
 	gameSave := pane.completeDefaultSave(defaultSave().(profileSaveMsg))
@@ -223,24 +223,24 @@ func TestProfileSaveQueuePreservesInterleavedTargets(t *testing.T) {
 	gameA := testGame("Cyberpunk 2077")
 	gameB := testGame("Hades")
 	gameB.AppID = 1145360
-	pane := newResourcePane(NewStyles(DefaultTheme, true), testContent(gameA))
+	pane := newResourcePane(NewStyles(DefaultTheme), testContent(gameA))
 	pane.persistedDefaults = (&profile.Profile{}).Clone()
 	pane.defaultsDetail = NewRootDetail(pane.styles, &profile.Profile{})
 	if err := pane.content.detail.RawProfile().Set(profile.FieldProtonEnableHDR, true); err != nil {
 		t.Fatal(err)
 	}
-	gameASave := pane.content.saveResolvedProfile()
+	gameASave := pane.content.saveResolvedProfile("")
 	if err := pane.defaultsDetail.RawProfile().Set(profile.FieldProtonEnableHDR, true); err != nil {
 		t.Fatal(err)
 	}
-	if command := pane.saveDefaultProfile(); command != nil {
+	if command := pane.saveDefaultProfile(""); command != nil {
 		t.Fatal("default save ran concurrently with game save")
 	}
 	pane.content = pane.content.SetGame(gameB)
 	if err := pane.content.detail.RawProfile().Set(profile.FieldProtonEnableWayland, true); err != nil {
 		t.Fatal(err)
 	}
-	if command := pane.content.saveResolvedProfile(); command != nil {
+	if command := pane.content.saveResolvedProfile(""); command != nil {
 		t.Fatal("game B save ran concurrently with game A save")
 	}
 	updatedContent, defaultSave, _ := pane.content.updateContentMessage(gameASave())
@@ -271,7 +271,7 @@ func TestGameReloadUsesQueuedIntentAsNextSaveBaseline(t *testing.T) {
 	if err := content.detail.RawProfile().Set(profile.FieldProtonEnableHDR, true); err != nil {
 		t.Fatal(err)
 	}
-	first := content.saveResolvedProfile()
+	first := content.saveResolvedProfile("")
 	content = content.SetGame(gameB).SetGame(gameA)
 	if !content.detail.RawProfile().IsOverridden(profile.FieldProtonEnableHDR) {
 		t.Fatal("game reload discarded active save intent")
@@ -279,7 +279,7 @@ func TestGameReloadUsesQueuedIntentAsNextSaveBaseline(t *testing.T) {
 	if err := content.detail.RawProfile().Set(profile.FieldProtonEnableWayland, true); err != nil {
 		t.Fatal(err)
 	}
-	content.saveResolvedProfile()
+	content.saveResolvedProfile("")
 	content, second, _ := content.updateContentMessage(first())
 	content, _, _ = content.updateContentMessage(second())
 	stored, err := profile.Load(gameA.AppID)
@@ -290,13 +290,13 @@ func TestGameReloadUsesQueuedIntentAsNextSaveBaseline(t *testing.T) {
 
 func TestDefaultsReloadUsesQueuedIntentAsNextSaveBaseline(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	pane := newResourcePane(NewStyles(DefaultTheme, true), ContentModel{})
+	pane := newResourcePane(NewStyles(DefaultTheme), ContentModel{})
 	pane.persistedDefaults = (&profile.Profile{}).Clone()
 	pane.defaultsDetail = NewRootDetail(pane.styles, &profile.Profile{})
 	if err := pane.defaultsDetail.RawProfile().Set(profile.FieldProtonEnableHDR, true); err != nil {
 		t.Fatal(err)
 	}
-	first := pane.saveDefaultProfile()
+	first := pane.saveDefaultProfile("")
 	pane.refreshDefaultsDetail()
 	if !pane.defaultsDetail.RawProfile().IsOverridden(profile.FieldProtonEnableHDR) {
 		t.Fatal("defaults reload discarded active save intent")
@@ -304,7 +304,7 @@ func TestDefaultsReloadUsesQueuedIntentAsNextSaveBaseline(t *testing.T) {
 	if err := pane.defaultsDetail.RawProfile().Set(profile.FieldProtonEnableWayland, true); err != nil {
 		t.Fatal(err)
 	}
-	pane.saveDefaultProfile()
+	pane.saveDefaultProfile("")
 	second := pane.completeDefaultSave(first().(profileSaveMsg))
 	pane.completeDefaultSave(second().(profileSaveMsg))
 	stored, err := profile.LoadDefault()

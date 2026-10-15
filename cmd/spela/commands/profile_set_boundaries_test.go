@@ -118,7 +118,7 @@ func TestProtonSetNoChangeValidationAndMissingProfileContracts(t *testing.T) {
 		if err := runProtonReset(command, []string{"Cyberpunk 2077", "hdr"}); err != nil {
 			t.Fatal(err)
 		}
-	}); !strings.Contains(output, "already inherited") {
+	}); !strings.Contains(output, "already follows All games") {
 		t.Fatalf("missing Proton reset output = %q", output)
 	}
 }
@@ -165,7 +165,7 @@ func TestOverlaySetNoChangeAndBooleanValidationContracts(t *testing.T) {
 		if err := runOverlayReset(command, []string{"Cyberpunk 2077", "enabled"}); err != nil {
 			t.Fatal(err)
 		}
-	}); !strings.Contains(output, "already inherited") {
+	}); !strings.Contains(output, "already follows All games") {
 		t.Fatalf("missing overlay reset output = %q", output)
 	}
 }

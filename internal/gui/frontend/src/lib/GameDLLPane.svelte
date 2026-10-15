@@ -1,4 +1,5 @@
 <script>
+  import { dllLabel } from './dllLabels.js'
   import { onMount, onDestroy, createEventDispatcher } from 'svelte'
 
   export let game
@@ -146,14 +147,7 @@
   }
 
   function formatInstallType(type) {
-    const labels = {
-      dlss: 'DLSS',
-      dlssg: 'DLSS-G',
-      dlssd: 'DLSS-D',
-      xess: 'XeSS',
-      fsr: 'FSR'
-    }
-    return labels[type] || type.toUpperCase()
+    return dllLabel(type)
   }
 
   function formatInstallVersion(version, index) {

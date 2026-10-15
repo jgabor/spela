@@ -33,7 +33,7 @@
         {#each games as game}
           <tr>
             <td>{game.name}</td>
-            <td>{game.dlls?.length ? game.dlls.map(d => d.type).join(', ') : '—'}</td>
+            <td>{game.dlls?.length ? game.dlls.map(d => d.dllType).join(', ') : '—'}</td>
           </tr>
         {/each}
       </tbody>

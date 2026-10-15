@@ -1,0 +1,42 @@
+id: nfyilvdwgr
+artifact: plan
+record:
+  header:
+    level: full
+    created: 2026-10-15
+    status: archived
+    reviewed: 2026-10-15
+    critic_issues: 6 found, 6 addressed, 0 dismissed
+    title: "Plan: Keep game profiles inheriting after the last override is reset (F1)"
+  what: Fix defect F1 from the 2026-10-14 TUI profile and settings UX review (TODO nsbxkoodkq). A game profile with no overrides left is saved without an overrides map, so the next load treats it as a legacy file and pins every field that differs from a non-zero default. After this plan, every saved profile carries an overrides key, only files that lack the key are migrated, and the reset, Reset all, profile create, and no-edit save paths all reload as fully inherited. This plan covers F1 only; the redesign gets its own plan.
+  why: The screen says Profile saved! and shows the fields as inherited, but the next load follows phantom pins, so launch applies false, zero, or empty values instead of the defaults, for example threaded optimization off and no clock offset or fan speed. Four of five review streams reproduced it through the TUI, the GUI, and the CLI. Autosave and the proposed redesign would make it worse, so the fix ships first and alone. By a read-only simulation, the real profile files 1091500.yaml (Cyberpunk 2077, the primary test target) and 1601580.yaml are {} and load with eight phantom pins each.
+  constraints: "Decisions from the user on 2026-10-15: fix F1 now as its own change, and leave existing profile files alone (no repair prompt or migration of damaged files). Change no UI wording, flow, or key. Keep migration for genuine legacy files that lack the overrides key. Use the rule from AGENTS.md: no abbreviations in identifiers, slog logging, XDG paths. The uncommitted dependency update in the main checkout breaks mage build, so do the work in a clean git worktree created from the review commit dcd699e, outside the repository tree, and leave the dependency work, go.mod, go.sum, the frontend lock files, and the CHANGELOG dependency entry untouched. Never touch real files under ~/.config/spela, ~/.local/share/spela, or ~/.cache/spela; tests and journeys use isolated XDG state, and journeys use the review's jail (tools/jail.sh in ~/.local/state/spela-ux-review/2026-10-14/). No privileged action, no game launch, no push. Commit only when the user asks."
+  overall_acceptance: "GIVEN a game profile with a non-empty defaults profile WHEN its last override is reset, or Reset all is used, or profile create is followed by a first edit, through the TUI, the GUI backend, or the CLI, and the profile is saved and loaded again THEN every field the game never set inherits from the defaults and gpu show, proton show, and dlss show report [inherited] for it; AND GIVEN a legacy file with no overrides key WHEN it loads THEN it still migrates as before; AND mage test and mage lint pass; AND the review's T10 and T5 journeys replayed on the fixed build show Profile overrides: 0 after a restart."
+  scope:
+    included:
+      - "Writing the overrides key on every save (internal/profile/profile.go and migrate_sr_preset.go struct tags), with the load rule unchanged: nil means legacy"
+      - An audit of every save path for a profile with leaf values and a nil overrides map, and a guard only if the audit finds one
+      - Not rewriting a profile when a mutation changes nothing, so a no-edit save cannot freeze migrated pins
+      - Tests under a non-empty default.yaml for the profile package, the CLI, the GUI backend, and the TUI save path, plus a replay of the review's T10 and T5 journeys
+      - docs/profile-fields.md and the README sample, a CHANGELOG Unreleased entry, and resolving TODO nsbxkoodkq
+    excluded:
+      - Repairing or migrating profile files that are already damaged, and the detection of phantom pins
+      - Any change to labels, key bindings, screens, vocabulary, or the redesign alternatives
+      - The other review TODOs, including the GUI draft loss, show hints, and the field editor
+      - The dependency update and its build break
+    deferred:
+      - A one-time repair prompt for suspected phantom pins, if the user later wants it
+      - A format version field, only if a second format change ever needs one
+  design: "Smallest change that makes the marker reliable. yaml.v3 writes a nil or empty map as overrides: {} when the tag has no omitempty, and reads overrides: {} back as a non-nil empty map, while an absent key reads back as nil (probed in the review). So removing omitempty from the Profile tag and the profileYAML tag turns the existing load rule (nil means legacy) into a correct one with no new field. First write the failing tests so the bug is pinned. Then change the tags. Then audit the writers, because any code that saves leaf values with a nil map would lose them under the new format where it used to be rescued by migration on the next load; add a guard only if the audit finds such a path. Then stop no-op mutations from writing, because loading a legacy file migrates it in memory and any save, even with no edit, would freeze the phantom pins as deliberate. Then prove it on every surface and replay the review's journeys. Residual risk: files already saved without the key stay legacy and keep migrating, and a first edit to such a file still freezes its pins; the user chose to leave them, and spela profile delete remains the workaround for files that hold no deliberate overrides. Options considered and not taken: a format version field (the overrides key already carries the distinction and a second marker needs its own migration); detecting and repairing phantom pins on load (they cannot be told from deliberate choices, and the user chose to leave existing files); making Reset all delete the profile file (the game list still expects the file and it changes a documented behavior)."
+  unknowns:
+    - question: Does any code path save a profile with non-zero leaf values and a nil overrides map, which the new format would silently lose?
+      affects_task: 3
+      resolve_by: Temporarily make save() panic in that state, run mage test and the CLI, GUI, and TUI journeys, and read the callers listed in the review (inheritance_render.go, content.go, the GUI patch functions). Add a guard only if something trips it.
+    - question: Does the GUI frontend or the Wails binding assume the overrides key can be absent or nil?
+      affects_task: 5
+      resolve_by: Read GetProfile and the Svelte profile code for uses of overrides, and run the GUI Go tests and the frontend tests.
+    - question: Does skipping a no-op write change any behavior a test or journey relies on, such as creating a file for a game that has none?
+      affects_task: 4
+      resolve_by: Skip only when the file already existed and the mutation changed nothing; run the full suite and the TUI journeys.
+  rejected:
+    []

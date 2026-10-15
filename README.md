@@ -70,8 +70,8 @@ it does not replace this launch path.
 ### Inspect effective settings
 
 ```bash
-spela profile show 1091500          # stored profile, not merged defaults
-spela dlss show 1091500             # effective DLSS values and inheritance sources
+spela profile show 1091500          # every setting: effective value and where it comes from
+spela dlss show 1091500             # effective DLSS values and their sources
 spela gpu show 1091500              # effective GPU profile settings
 spela proton show 1091500           # effective Proton settings
 spela dlss show 1091500 --json       # effective DLSS values as JSON
@@ -95,10 +95,13 @@ spela dlss reset 1091500 fg_enabled
 spela dlss reset 1091500 fg_override
 spela gpu profile-reset 1091500 shader_cache
 spela proton reset 1091500 ngx_updater
+
+# Make a game follow All games for every setting.
+spela profile reset 1091500
 ```
 
 `dlss set --sr-mode` enables the SR override; `--fg true` enables the FG override
-as well as frame generation. Resetting a field means “inherit,” not “turn off.”
+as well as frame generation. Resetting a field makes the game follow All games again; it does not turn the setting off.
 Use profile commands or the TUI for launch-time hardware settings: live controls
 such as `cpu governor`, `cpu smt`, and `gpu reset` are separate operations.
 
@@ -128,11 +131,14 @@ Use `spela --help` or `spela <command> --help` for the full command reference.
 
 ## Profiles and inheritance
 
-Game profiles live in `~/.config/spela/profiles/<app-id>.yaml`. Fields inherit
-from `profiles/default.yaml` unless explicitly pinned in the game profile.
-CLI setters pin fields; reset commands return them to the current defaults.
-The subsystem `show` commands mark values as inherited or overridden, so you
-can see which choices are specific to a game.
+Game profiles live in `~/.config/spela/profiles/<app-id>.yaml`. The file
+`profiles/default.yaml` holds the All games profile. A game follows All games
+for every setting it does not set itself. CLI setters give a game its own
+value; reset commands make it follow All games again. The `show` commands print
+each setting with its value and its source: `from All games`, `system default`,
+`this game · All games: <value>` for a value the game set itself, or
+`this game · same as All games` for one that will not follow later changes to
+All games. `--json` prints the stored values only.
 
 For example, `~/.config/spela/profiles/1091500.yaml` can request DLSS Quality
 with the default preset and enable shader caching, without choosing hardware
@@ -155,8 +161,9 @@ overrides:
 
 `dlss.sr_override` activates the DLSS override. The top-level `overrides` map
 has a different purpose: it pins each chosen field against changes to defaults.
-Unlisted fields still inherit, so review the effective settings and dry-run
-output before launching, especially if you have customized defaults. See the
+Unlisted fields still inherit, and a profile with nothing pinned is saved as
+`overrides: {}`. Review the effective settings and dry-run output before
+launching, especially if you have customized defaults. See the
 [profile field reference](docs/profile-fields.md) for settings and their effects.
 
 ## Launch and cleanup limits

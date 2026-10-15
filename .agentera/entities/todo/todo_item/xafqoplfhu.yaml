@@ -12,12 +12,16 @@ record:
     - GIVEN an unsaved edit WHEN the user tries to leave THEN the dialog lists the changed fields and offers a choice that keeps the draft.
     - GIVEN the dialog WHEN it opens THEN the page stays visible behind it and the keys that leave the screen are guarded alike.
   release_blocker: false
-  status: open
+  status: resolved
   reconciliation:
     schema_version: agentera.todoReconciliation.v1
     public:
       present: true
       description: "[bug] Name the changed fields in the draft dialog and let the user keep editing"
+      status: resolved
+      order: 16
       severity: degraded
-      status: open
-      order: 2
+  lifecycle:
+    operation: resolve
+    reason: "Obsolete: the draft dialog and the draft guard are removed. Moving between games, filtering, searching, and rescanning never ask a question. Built in step 2 (plan mdwrquqtci), worktree ~/.cache/spela-step2, not yet committed or merged."
+    date: 2026-10-15

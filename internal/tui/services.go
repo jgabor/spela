@@ -30,6 +30,9 @@ type Services struct {
 	// notice for the given AppID, or "" when everything is compatible or
 	// checks were skipped cleanly. Tests may override to inject a stub.
 	VKD3DNotice func(appID uint64) string
+	// FollowAllGames clears the games' own value for the fields so each follows
+	// All games. Tests substitute a fake.
+	FollowAllGames func(entries []profile.OwnValueEntry, fields []string) profile.FollowOutcome
 }
 
 // DefaultServices returns the production implementations.
@@ -40,6 +43,7 @@ func DefaultServices() *Services {
 		ScanGames:          steam.Rescan,
 		LoadProfile:        profile.Load,
 		LoadDefaultProfile: profile.LoadDefault,
+		FollowAllGames:     profile.FollowAllGamesIn,
 		ProfileExists:      profile.Exists,
 		BackupExists:       dll.BackupExists,
 		LoadDLLBackup:      dll.LoadBackup,
@@ -52,6 +56,13 @@ func DefaultServices() *Services {
 		RestoreDLLs: func(appID uint64) (dll.Result, error) { return dll.Restore(appID, nil) },
 		VKD3DNotice: defaultVKD3DNotice,
 	}
+}
+
+func (services *Services) followAllGames(entries []profile.OwnValueEntry, fields []string) profile.FollowOutcome {
+	if services != nil && services.FollowAllGames != nil {
+		return services.FollowAllGames(entries, fields)
+	}
+	return profile.FollowAllGamesIn(entries, fields)
 }
 
 func (services *Services) installDLL(appID uint64, dllType, version string) (dll.Result, error) {

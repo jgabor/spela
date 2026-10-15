@@ -1,0 +1,25 @@
+id: pydqjhmxiz
+artifact: todo
+record:
+  kind: task
+  target_version: null
+  title: Update compatible Go and frontend dependencies
+  requirements:
+    - Inspect all Go modules with go list -m -u all and all frontend dependencies, including transitive dependencies, for compatible updates.
+    - Preserve existing security fixes, current major versions and supported build requirements; skip breaking updates rather than migrate application behavior.
+    - Regenerate dependency records and document skipped upgrades and remaining vulnerability findings.
+  acceptance:
+    - Compatible dependency updates are applied and remaining candidates have a concrete compatibility reason for being held back.
+    - Frozen install, Go and frontend tests, coverage, lint and build pass; inspect the rebuilt TUI using Terminal Control because terminal dependencies may change.
+    - Vulnerability scans run and remaining findings are disclosed; no commit, push, publication, system tuning or real game mutations.
+  release_blocker: false
+  severity: normal
+  status: open
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[task] Update compatible Go and frontend dependencies"
+      severity: normal
+      status: open
+      order: 20

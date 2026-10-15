@@ -1,0 +1,47 @@
+id: pmdtzsxing
+artifact: plan
+record:
+  header:
+    level: full
+    created: 2026-10-15
+    status: archived
+    reviewed: 2026-10-15
+    critic_issues: 11 found, 11 addressed, 0 dismissed
+    revised: Reconciled the key-bar and T9 acceptance, moved the known show_hints breakages into task 4, made unit ranges display-only, fixed the branch base, narrowed the TODOs to resolve, and moved the parity test to each surface task.
+    title: "Plan: Shared profile vocabulary and visible value sources (redesign step 1 of 3)"
+  what: Step 1 of the profile and settings redesign (alternative B, TODO qiqoepaeuz). Give the TUI, GUI, and CLI one set of words for profile values and show where each value comes from, without changing how anyone moves or saves. After this plan every value row says whether it comes from All games or from this game, numbers show units and ranges, booleans read On and Off, the CLI can reset a whole game, the Show hints option is gone, and the TUI List has a Find row. Steps 2 (TUI flow and autosave) and 3 (GUI parity) get their own plans.
+  why: "The 2026-10-14 UX review found four label sets, a value column that never names its source (F3, F18), numeric fields with no unit or range (F8), an undiscoverable Search (F11), empty Settings groups (F15), and a Show hints option that changes nothing (F16). These are presentation and wording faults that block comprehension, and step 2 builds its Follow action and header on the same words. Design: docs/plans/optimized-munching-zephyr.md. Review: docs/design/tui-profile-settings-ux-review.md sections 9.2 and 10."
+  constraints: "User decisions of 2026-10-15: alternative B with autosave, Show hints removed, On and Off, DLLs as the last section of the game page (step 2), three steps. This plan changes no key binding, view order, save model, or draft behavior, and builds none of the draft-only fixes (F5, F6, GUI draft guard). Work in a clean git worktree outside the repository, on a branch from fix/profile-overrides-key (dec0678) until that branch is merged, because mage build fails in the main checkout. Leave the dependency work and docs/plans/ files not written for this alone. Never touch ~/.config/spela, ~/.local/share/spela, or ~/.cache/spela; use isolated XDG state and the review jail. No privileged action, no game launch, no push, no commit unless asked. AGENTS.md style applies. The parent owns every Agentera write."
+  design: 'Put the words in Go. New internal/profile/vocabulary.go holds review section 9.2: source and action words, All games, On, Off, none, and the impact and restore sentences now in tui/detail.go. Revise the comment at fields.go:32-34 on purpose: descriptors gain Unit, Min, Max, and real descriptions. Min and Max are display-only in this plan: no save is refused and a stored out-of-range value still loads; refusing out-of-range input is left to TODOs hxvtaqzzfg and bdnaynbvan. Split "All games sets this" from "system default" in ExplainField, keeping the JSON source strings or changing them with json_contract_test.go. The table is tested once in task 1; each surface task adds its own parity assertion. The GUI receives the words through a Wails catalog binding or generated JS (task 5 chooses). Not taken: the pinned unsaved line and named draft dialog (step 2 deletes the draft), nav or view changes, bulk edit, alternative C.'
+  overall_acceptance: "GIVEN the review fixture WHEN the TUI, GUI, and CLI show Cyberpunk 2077 THEN each value row names its source with the shared words and no surface prints (default), Override for this game, Inherited from defaults, Default for all games, Pin, or Unset; AND measured with Terminal Control, T3 takes 7 keys or fewer, T1 far 8 or fewer, and T5 40 or fewer, with no key binding added or removed (the number editor now displays Backspace); AND spela profile reset leaves a game fully inherited after reload; AND an old config.yaml with show_hints loads, and Settings has no empty group and no Display group in the TUI and GUI; AND mage test, mage lint, the frontend tests, and mage build in the clean worktree pass; AND the real Spela directories hash the same before and after the journeys. T9 is dropped: the task turns Show hints off, which no longer exists."
+  scope:
+    included:
+      - internal/profile/vocabulary.go, descriptor units, ranges, and descriptions, and the All games versus system default source state
+      - CLI wording, profile show with value and source, on and off, one reset message set, and the new profile reset command
+      - TUI value and source column, units and ranges, Effect line wrapping, game name at 80x24, Find row, games that keep their own value on the All games page, typed replace in the number editor, reset rows first in Actions, hidden empty Settings groups, On and Off
+      - Removal of the Show hints option with tolerance for old config files
+      - GUI source column, Follow All games and Set for this game wording, On and Off, labels from the shared table, repair or removal of stale e2e specs
+      - docs/profile-fields.md including the missing gpu.vrr row, README, CHANGELOG, and resolving the covered TODOs
+    excluded:
+      - Autosave, draft removal, sticky view or cursor, section jump, Overview removal, DLL placement (step 2)
+      - GUI autosave, Profile tab first, nav changes, new GUI controls (step 3)
+      - The draft-only fixes F5, F6, and the GUI draft guard
+      - Alternative C, bulk edit, new accelerators, repair of damaged profile files
+      - F19, F20, and F21 (own TODOs)
+    deferred:
+      - Showing how many pins came from legacy migration (F2 optional item)
+      - The profile show --json stdout corruption, unless task 2 finds a one-line fix
+  unknowns:
+    - question: Does the GUI get the words through a Wails catalog binding or generated JS?
+      affects_task: 5
+      resolve_by: Read e2e/fixtures.js, vitest setup, and GetSettingsCatalog; choose the option that keeps frontend tests offline and needs the fewest hand-kept lists, and record the choice.
+    - question: Can a default.yaml without an overrides map hold a zero value the user set on purpose, which the All games versus system default rule would call system default?
+      affects_task: 1
+      resolve_by: Read every MutateDefault caller and the TUI and CLI default writers; if Set always marks the override, the rule is exact for new files, and a stored non-zero value covers old files.
+    - question: Which unit ranges are safe to display for clock offset, memory offset, power limit, and fan speed?
+      affects_task: 1
+      resolve_by: Use the NVML-reported limits or a documented source, name it in the descriptor comment, and show the unit alone when no reliable range exists.
+    - question: Is the Find row a List row or a header line, and does it fit 80x24 without hiding a game row?
+      affects_task: 3
+      resolve_by: Build it as a List row, read termctrl show at both sizes, and keep the key count of the Search route in the measurement.
+  previous_plan_archived: nfyilvdwgr

@@ -754,9 +754,7 @@ func (m DLLsResourceModel) renderCell(g *game.Game, info dll.KnownDLLTypeInfo, w
 func (m DLLsResourceModel) renderFooter() string {
 	s := m.styles
 	var parts []string
-	if s.ShowHints {
-		parts = append(parts, s.Dim.Render("Read-only deployment status"))
-	}
+	parts = append(parts, s.Dim.Render("Read-only deployment status"))
 	if m.busy {
 		parts = append(parts, s.Warning.Render("updating..."))
 	}

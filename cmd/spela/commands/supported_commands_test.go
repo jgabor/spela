@@ -127,13 +127,13 @@ func TestProfileSettingCommandsExecuteSupportedMutationAndProjectionFlows(t *tes
 	if !strings.Contains(dlssOutput, "Updated DLSS configuration") {
 		t.Fatalf("DLSS set output:\n%s", dlssOutput)
 	}
-	if output := executeSupportedCommand(t, DLSSCmd, "show", "Cyberpunk 2077"); !strings.Contains(output, "Super Resolution") || !strings.Contains(output, "quality") {
+	if output := executeSupportedCommand(t, DLSSCmd, "show", "Cyberpunk 2077"); !strings.Contains(output, "Super resolution") || !strings.Contains(output, "quality") {
 		t.Fatalf("DLSS show output:\n%s", output)
 	}
 	if output := executeSupportedCommand(t, DLSSCmd, "show", "Cyberpunk 2077", "--json"); !strings.Contains(output, `"SRMode": "quality"`) {
 		t.Fatalf("DLSS JSON output:\n%s", output)
 	}
-	if output := executeSupportedCommand(t, DLSSCmd, "reset", "Cyberpunk 2077", "sr-mode"); !strings.Contains(output, "inherited") {
+	if output := executeSupportedCommand(t, DLSSCmd, "reset", "Cyberpunk 2077", "sr-mode"); !strings.Contains(output, "now follows All games") {
 		t.Fatalf("DLSS reset output:\n%s", output)
 	}
 
@@ -152,7 +152,7 @@ func TestProfileSettingCommandsExecuteSupportedMutationAndProjectionFlows(t *tes
 	if output := executeSupportedCommand(t, OverlayCmd, "show", "Cyberpunk 2077", "--json"); !strings.Contains(output, `"Position": "bottom-right"`) {
 		t.Fatalf("overlay JSON output:\n%s", output)
 	}
-	if output := executeSupportedCommand(t, OverlayCmd, "reset", "Cyberpunk 2077", "show-fps"); !strings.Contains(output, "inherited") {
+	if output := executeSupportedCommand(t, OverlayCmd, "reset", "Cyberpunk 2077", "show-fps"); !strings.Contains(output, "now follows All games") {
 		t.Fatalf("overlay reset output:\n%s", output)
 	}
 
@@ -171,7 +171,7 @@ func TestProfileSettingCommandsExecuteSupportedMutationAndProjectionFlows(t *tes
 	if output := executeSupportedCommand(t, GPUCmd, "show", "Cyberpunk 2077", "--json"); !strings.Contains(output, `"ClockOffset": 150`) {
 		t.Fatalf("GPU JSON output:\n%s", output)
 	}
-	if output := executeSupportedCommand(t, GPUCmd, "profile-reset", "Cyberpunk 2077", "clock-offset"); !strings.Contains(output, "inherited") {
+	if output := executeSupportedCommand(t, GPUCmd, "profile-reset", "Cyberpunk 2077", "clock-offset"); !strings.Contains(output, "now follows All games") {
 		t.Fatalf("GPU reset output:\n%s", output)
 	}
 
@@ -179,13 +179,13 @@ func TestProfileSettingCommandsExecuteSupportedMutationAndProjectionFlows(t *tes
 	if !strings.Contains(cpuOutput, "Updated CPU profile") {
 		t.Fatalf("CPU set output:\n%s", cpuOutput)
 	}
-	if output := executeSupportedCommand(t, CPUCmd, "show", "Cyberpunk 2077"); !strings.Contains(output, "performance") || !strings.Contains(output, "off") {
+	if output := executeSupportedCommand(t, CPUCmd, "show", "Cyberpunk 2077"); !strings.Contains(output, "performance") || !strings.Contains(output, "Off") {
 		t.Fatalf("CPU show output:\n%s", output)
 	}
 	if output := executeSupportedCommand(t, CPUCmd, "show", "Cyberpunk 2077", "--json"); !strings.Contains(output, `"Governor": "performance"`) {
 		t.Fatalf("CPU JSON output:\n%s", output)
 	}
-	if output := executeSupportedCommand(t, CPUCmd, "profile-reset", "Cyberpunk 2077", "smt"); !strings.Contains(output, "inherited") {
+	if output := executeSupportedCommand(t, CPUCmd, "profile-reset", "Cyberpunk 2077", "smt"); !strings.Contains(output, "now follows All games") {
 		t.Fatalf("CPU reset output:\n%s", output)
 	}
 
@@ -198,7 +198,7 @@ func TestProfileSettingCommandsExecuteSupportedMutationAndProjectionFlows(t *tes
 	if output := executeSupportedCommand(t, ProtonCmd, "show", "Cyberpunk 2077", "--json"); !strings.Contains(output, `"EnableHDR": true`) {
 		t.Fatalf("Proton JSON output:\n%s", output)
 	}
-	if output := executeSupportedCommand(t, ProtonCmd, "reset", "Cyberpunk 2077", "hdr"); !strings.Contains(output, "inherited") {
+	if output := executeSupportedCommand(t, ProtonCmd, "reset", "Cyberpunk 2077", "hdr"); !strings.Contains(output, "now follows All games") {
 		t.Fatalf("Proton reset output:\n%s", output)
 	}
 

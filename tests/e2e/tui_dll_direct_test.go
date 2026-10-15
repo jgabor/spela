@@ -33,16 +33,11 @@ func TestTUIDirectDLLControls(t *testing.T) {
 			session := startTUI(t, environment, size.width, size.height)
 			artifacts := editorJourneyArtifacts(t, session, environment, size.width, size.height, "direct-dll-controls")
 
-			sendDisplayed(t, session, "enter")
-			waitVisible(t, session, "▸ Detail")
-			waitVisible(t, session, "[Overview]")
-			sendDisplayed(t, session, "right")
-			waitVisible(t, session, "[Profile]")
-			sendDisplayed(t, session, "right")
+			openGameDLLs(t, session)
 			waitVisible(t, session, "DLL actions: Cyberpunk 2077")
 			waitVisible(t, session, "Update DLLs (1 file)")
-			requireScreen(t, session, []string{"▸ Install DLL", "Restore originals (0 files)", "no backup for this game", "Enter"}, "Enter: Edit field", "Ctrl+S")
-			captureEditorPhase(t, session, artifacts, "01-direct-controls-hints-off")
+			requireScreen(t, session, []string{"▸ Install DLL", "Restore originals (0 files)", "no backup for this game", "Enter"}, "Enter: Edit value", "Ctrl+S")
+			captureEditorPhase(t, session, artifacts, "01-direct-controls")
 
 			// Inactive Detail must offer a focus path, not its own active keys.
 			sendDisplayed(t, session, "tab")
@@ -105,12 +100,10 @@ func TestTUIDirectDLLControls(t *testing.T) {
 			sendDisplayed(t, session, "tab")
 			waitVisible(t, session, "▸ List")
 			sendDisplayed(t, session, "down")
+			// The next game opens on the same section.
 			sendDisplayed(t, session, "enter")
 			waitVisible(t, session, "▸ Detail")
-			waitVisible(t, session, "[Overview]")
-			sendDisplayed(t, session, "right")
-			waitVisible(t, session, "[Profile]")
-			sendDisplayed(t, session, "right")
+			waitVisible(t, session, "[DLLs]")
 			waitVisible(t, session, "DLL actions: Elden Ring")
 			requireScreen(t, session, []string{"▸ Install DLL", "no stale DLLs", "no backup"})
 			sendDisplayed(t, session, "enter")
@@ -160,8 +153,6 @@ func prepareDirectDLLFixture(t *testing.T, environment *TestEnvironment) map[str
 	if err := yaml.Unmarshal(readEditorFixture(t, configurationPath), &configuration); err != nil {
 		t.Fatal(err)
 	}
-	configuration["show_hints"] = false
-	writeYAML(t, configurationPath, configuration)
 	manifestPath := filepath.Join(environment.CacheHome, "spela", "manifest.json")
 	var manifest dll.Manifest
 	if err := json.Unmarshal(readEditorFixture(t, manifestPath), &manifest); err != nil {

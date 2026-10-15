@@ -6,37 +6,32 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/nav"
 )
 
-func TestSettingsDraftIsolationCancelAndSuccessfulCommit(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+func TestSettingsChangeStaysOffTheLiveConfigUntilSavedThenCommits(t *testing.T) {
+	styles := NewStyles(DefaultTheme)
 	live := config.Default()
 	modal := NewOptionsModal(styles)
 	modal.OpenEmbedded(live)
-	modal.SyncNavSection(nav.SettingsDisplay)
+	modal.SyncNavSection(nav.SettingsStartup)
 	modal.optionCursor = 0
 	modal.cycleValue(1)
-	if !live.ShowHints || !modal.config.ShowHints || modal.draft.ShowHints || !styles.ShowHints {
+	if !live.RescanOnStartup || !modal.config.RescanOnStartup || modal.draft.RescanOnStartup {
 		t.Fatal("Settings edit escaped the draft boundary")
 	}
 
-	modal.CancelDraft()
-	if !modal.draft.ShowHints || modal.modified {
-		t.Fatal("Settings cancel did not restore the saved value")
-	}
-
-	modal.cycleValue(1)
 	modal.SetSaveConfig(func(*config.Config) error { return nil })
 	modal, command := modal.save()
 	message, ok := command().(optionsSavedMsg)
-	if !ok || message.config.ShowHints {
+	if !ok || message.config.RescanOnStartup {
 		t.Fatalf("save message = %#v", message)
 	}
 	layout := LayoutModel{styles: styles, config: live, pane: resourcePaneModel{settings: modal}, messageBar: NewMessageBar(styles)}
 	layout, _ = layout.handleAppMessages(message, nil)
-	if layout.config.ShowHints || layout.pane.settings.draft.ShowHints || styles.ShowHints {
+	if layout.config.RescanOnStartup || layout.pane.settings.draft.RescanOnStartup {
 		t.Fatal("successful Settings save was not committed and kept visible")
 	}
 }
@@ -49,17 +44,17 @@ func TestSettingsTUIInventoryContainsOnlyRuntimeBackedControls(t *testing.T) {
 			keys = append(keys, option.Key)
 		}
 	}
-	if got, want := strings.Join(keys, ","), "show_hints,rescan_on_startup,steam_path"; got != want {
+	if got, want := strings.Join(keys, ","), "rescan_on_startup,steam_path"; got != want {
 		t.Fatalf("visible Settings keys = %q, want %q", got, want)
 	}
 }
 
-func TestSettingsSaveFailureRetainsDraftFocusAndError(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+func TestSettingsSaveFailureReturnsToStoredValueKeepsFocusAndShowsError(t *testing.T) {
+	styles := NewStyles(DefaultTheme)
 	live := config.Default()
 	modal := NewOptionsModal(styles)
 	modal.OpenEmbedded(live)
-	modal.SyncNavSection(nav.SettingsDisplay)
+	modal.SyncNavSection(nav.SettingsStartup)
 	modal.optionCursor = 0
 	modal.cycleValue(1)
 	modal.SetSaveConfig(func(*config.Config) error { return errors.New("read-only") })
@@ -69,24 +64,24 @@ func TestSettingsSaveFailureRetainsDraftFocusAndError(t *testing.T) {
 	layout := LayoutModel{styles: styles, config: live, pane: resourcePaneModel{settings: modal}, messageBar: NewMessageBar(styles)}
 	layout, _ = layout.handleAppMessages(message, nil)
 	settings := layout.pane.settings
-	if settings.saving || !settings.modified || settings.draft.ShowHints || !settings.config.ShowHints {
-		t.Fatal("failed Settings save lost or committed its draft")
+	if settings.saving || settings.modified || !settings.draft.RescanOnStartup || !settings.config.RescanOnStartup {
+		t.Fatal("failed Settings save kept the unsaved value or changed the stored one")
 	}
 	if settings.sectionCursor != wantSection || settings.optionCursor != wantOption || settings.saveError == nil {
 		t.Fatal("failed Settings save lost focus or inline error")
 	}
-	if view := stripANSI(settings.DetailView()); !strings.Contains(view, "Saved value\ntrue") || !strings.Contains(view, "Draft value\nfalse") || !strings.Contains(view, "Draft retained") || !strings.Contains(view, "read-only") {
+	if view := stripANSI(settings.DetailView()); !strings.Contains(view, "On") || !strings.Contains(view, "Not saved: read-only") || strings.Contains(view, "Draft") {
 		t.Fatalf("failed Settings Detail view:\n%s", view)
 	}
 }
 
 func TestSettingsPathEditingPreservesPrintableInputAndDocumentsKeys(t *testing.T) {
-	modal := NewOptionsModal(NewStyles(DefaultTheme, true))
+	modal := NewOptionsModal(NewStyles(DefaultTheme))
 	modal.OpenEmbedded(config.Default())
 	modal.SyncNavSection(nav.SettingsPaths)
 	modal, _ = modal.Update(keyMsg("enter"))
 	modal.pathInput.SetValue("  /Steam Library/#1  ")
-	if view := stripANSI(modal.DetailView()); !strings.Contains(view, "Tab control  Enter apply to draft  Ctrl+S save") {
+	if view := stripANSI(modal.DetailView()); !strings.Contains(view, "Tab control  Enter apply  Esc cancel") {
 		t.Fatalf("path editor omitted key contract:\n%s", view)
 	}
 	modal, _ = modal.Update(keyMsg("enter"))
@@ -116,7 +111,7 @@ func TestSettingsSavePreservesUnchangedSupportedYAML(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	modal := NewOptionsModal(NewStyles(DefaultTheme, loaded.ShowHints))
+	modal := NewOptionsModal(NewStyles(DefaultTheme))
 	modal.OpenEmbedded(loaded)
 	modal.cycleValue(1)
 	modal, command := modal.save()
@@ -126,7 +121,7 @@ func TestSettingsSavePreservesUnchangedSupportedYAML(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if restarted.ShowHints || restarted.Theme != "light" || restarted.ConfirmDestructive || !restarted.AutoUpdateDLLs || restarted.DLLCachePath != "/unchanged/cache" {
+	if restarted.RescanOnStartup || restarted.Theme != "light" || restarted.ConfirmDestructive || !restarted.AutoUpdateDLLs || restarted.DLLCachePath != "/unchanged/cache" {
 		t.Fatalf("restart config lost values: %+v", restarted)
 	}
 	if _, err := os.Stat(home + "/spela/config.yaml"); err != nil {
@@ -135,14 +130,14 @@ func TestSettingsSavePreservesUnchangedSupportedYAML(t *testing.T) {
 }
 
 func TestOptionsModal_EmbeddedShowsSingleSection(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	modal := NewOptionsModal(styles)
 	modal.OpenEmbedded(config.Default())
-	modal.SyncNavSection(nav.SettingsDisplay)
+	modal.SyncNavSection(nav.SettingsStartup)
 
 	view := modal.renderOptionsBody()
-	if !strings.Contains(view, "Show hints") {
-		t.Fatalf("expected display option in view, got %q", view)
+	if !strings.Contains(stripANSI(view), "Re-scan on st") {
+		t.Fatalf("expected startup option in view, got %q", view)
 	}
 	if strings.Contains(view, "Steam path") {
 		t.Fatal("paths section should not render when display section is active")
@@ -152,12 +147,12 @@ func TestOptionsModal_EmbeddedShowsSingleSection(t *testing.T) {
 func TestOptionsModal_SaveUsesInvocationSnapshot(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	configuration := config.Default()
-	modal := NewOptionsModal(NewStyles(DefaultTheme, true))
+	modal := NewOptionsModal(NewStyles(DefaultTheme))
 	modal.OpenEmbedded(configuration)
 	modal.modified = true
 
 	modal, command := modal.save()
-	configuration.ShowHints = false
+	configuration.RescanOnStartup = false
 	if _, ok := command().(optionsSavedMsg); !ok {
 		t.Fatal("save command did not report success")
 	}
@@ -165,75 +160,56 @@ func TestOptionsModal_SaveUsesInvocationSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !persisted.ShowHints || !modal.saving {
-		t.Fatalf("persisted live mutation or lost pending state: show hints=%v saving=%v", persisted.ShowHints, modal.saving)
+	if !persisted.RescanOnStartup || !modal.saving {
+		t.Fatalf("persisted live mutation or lost pending state: show hints=%v saving=%v", persisted.RescanOnStartup, modal.saving)
 	}
 }
 
-func TestOptionsModal_SavePendingSerializesEditsAndRecovers(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+func TestOptionsModal_ChangeDuringAWriteIsSavedAfterIt(t *testing.T) {
+	styles := NewStyles(DefaultTheme)
 	configuration := config.Default()
 	modal := NewOptionsModal(styles)
 	modal.OpenEmbedded(configuration)
-	modal.SyncNavSection(nav.SettingsDisplay)
+	modal.SyncNavSection(nav.SettingsStartup)
 	modal.optionCursor = 0
-	modal.modified = true
+	var writes int
+	modal.SetSaveConfig(func(*config.Config) error { writes++; return nil })
 
-	modal, first := modal.save()
-	before := configuration.ShowHints
-	modal, edit := modal.Update(keyMsg("right"))
-	modal, second := modal.UpdateAction(ActionDetailSave)
-	if first == nil || edit != nil || second != nil || configuration.ShowHints != before {
-		t.Fatal("an edit or second save passed an in-flight save")
+	modal, first := modal.UpdateAction(ActionDetailCycle)
+	modal, second := modal.UpdateAction(ActionDetailCycle)
+	if first == nil || second != nil || !modal.saving || configuration.RescanOnStartup != true {
+		t.Fatal("a second change during a write was refused, started a parallel write, or reached the live config")
 	}
 
 	layout := LayoutModel{config: configuration, pane: resourcePaneModel{settings: modal}, messageBar: NewMessageBar(styles)}
-	layout, _ = layout.handleAppMessages(optionsSaveErrorMsg{err: errors.New("read-only")}, nil)
-	if layout.pane.settings.saving || !layout.pane.settings.modified {
-		t.Fatal("failed save was not left retryable")
+	layout, commands := layout.handleAppMessages(first(), nil)
+	if !layout.pane.settings.saving || !layout.pane.settings.modified {
+		t.Fatal("the change made during the write was not scheduled")
 	}
-	layout.pane.settings, second = layout.pane.settings.UpdateAction(ActionDetailSave)
-	if second == nil || !layout.pane.settings.saving {
-		t.Fatal("failed save could not be retried")
+	var followUp tea.Cmd
+	for _, command := range commands {
+		if command != nil {
+			if saved, ok := command().(optionsSavedMsg); ok {
+				followUp = func() tea.Msg { return saved }
+			}
+		}
 	}
-	desired := layout.pane.settings.draft.Clone()
-	layout, _ = layout.handleAppMessages(optionsSavedMsg{config: desired}, nil)
-	if layout.pane.settings.saving || layout.pane.settings.modified || !configsEqual(layout.config, layout.pane.settings.config) {
-		t.Fatal("successful save did not reset state with coherent config ownership")
+	if followUp == nil {
+		t.Fatal("no follow-up write after the first one finished")
 	}
-	committed := layout.config.ShowHints
-	layout.pane.settings, _ = layout.pane.settings.Update(keyMsg("right"))
-	if layout.config.ShowHints != committed {
-		t.Fatal("post-save draft edit mutated committed config")
-	}
-}
-
-func TestOptionsModal_ShowHintsTakesEffectOnlyAfterSave(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
-	modal := NewOptionsModal(styles)
-	configuration := config.Default()
-	modal.OpenEmbedded(configuration)
-	modal.SyncNavSection(nav.SettingsDisplay)
-	modal.optionCursor = 0
-
-	modal.cycleValue(1)
-
-	if !configuration.ShowHints || !styles.ShowHints || modal.draft.ShowHints {
-		t.Fatalf("ShowHints draft boundary = live %v, styles %v, draft %v", configuration.ShowHints, styles.ShowHints, modal.draft.ShowHints)
-	}
-	modal.cycleValue(1)
-	if modal.modified {
-		t.Fatal("cycling back to the saved value remained modified")
+	layout, _ = layout.handleAppMessages(followUp(), nil)
+	if layout.pane.settings.saving || layout.pane.settings.modified || writes != 2 || !configsEqual(layout.config, layout.pane.settings.config) {
+		t.Fatalf("after both writes: saving=%v modified=%v writes=%d", layout.pane.settings.saving, layout.pane.settings.modified, writes)
 	}
 }
 
 func TestOptionsModal_CompactWidthKeepsValuesOnOptionRows(t *testing.T) {
-	modal := NewOptionsModal(NewStyles(DefaultTheme, false))
+	modal := NewOptionsModal(NewStyles(DefaultTheme))
 	modal.OpenEmbedded(config.Default())
 	modal.SetSize(34, 14)
 
 	view := stripANSI(modal.renderOptionsBody())
-	for _, row := range []string{"Show hints: true"} {
+	for _, row := range []string{"Re-scan on st…: On"} {
 		if !strings.Contains(view, row) {
 			t.Errorf("compact settings missing row %q:\n%s", row, view)
 		}

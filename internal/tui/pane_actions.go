@@ -28,17 +28,15 @@ func (p resourcePaneModel) UpdateAction(action KeyAction) (resourcePaneModel, te
 	case nav.DestinationLibrary:
 		if p.content.HasModalOpen() || p.State().Aspect == nav.AspectDLLs {
 			p.content, command = p.content.UpdateDLLAction(action)
-		} else if p.State().Aspect == nav.AspectProfile {
-			save, _ := p.profileDetail().UpdateAction(action)
-			if save {
+		} else {
+			detail := p.profileDetail()
+			if changed, _ := detail.UpdateAction(action); changed {
 				if p.State().Scope.Kind == nav.ScopeGlobal {
-					command = p.saveDefaultProfile()
+					command = p.saveDefaultProfile(detail.LastChange())
 				} else {
-					command = p.content.saveResolvedProfile()
+					command = p.content.saveResolvedProfile(detail.LastChange())
 				}
 			}
-		} else {
-			p.scrollDetail(action)
 		}
 	case nav.DestinationMonitor:
 		p.scrollDetail(action)
@@ -79,12 +77,6 @@ func (p resourcePaneModel) readOnlyContent() string {
 		metrics.height = 0
 		return metrics.View(true, p.State().MonitorSection)
 	case nav.DestinationLibrary:
-		if p.State().Aspect == nav.AspectOverview {
-			overview := p.overview
-			overview.height = 100000
-			overview.offset = 0
-			return overview.View()
-		}
 	}
 	return ""
 }

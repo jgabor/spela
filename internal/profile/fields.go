@@ -29,9 +29,17 @@ const (
 	EditorText    EditorKind = "text"
 )
 
-// FieldDescriptor is the domain-owned contract for one persisted profile leaf.
-// UI layout, formatting, and command aliases deliberately remain with their
-// presentation layers.
+// ValueRange is the display range of a numeric field. It is shown to users and
+// never enforced: a stored value outside it still loads and still saves.
+type ValueRange struct {
+	Min, Max int
+}
+
+// FieldDescriptor is the domain-owned contract for one persisted profile leaf,
+// including the words that describe it. Layout, key bindings, and command
+// aliases remain with the presentation layers; the words every surface prints
+// for a field (label, description, unit, display range) live here so that the
+// terminal, graphical, and command-line interfaces cannot drift apart.
 type FieldDescriptor struct {
 	Key           string
 	Subsystem     string
@@ -42,48 +50,54 @@ type FieldDescriptor struct {
 	Restore       RestoreCoverage
 	Description   string
 	Editor        EditorKind
+	// Unit is the unit of a numeric field, such as "MHz", or empty.
+	Unit string
+	// Range is the display range of a numeric field, or nil when no reliable
+	// range is known. Hardware limits differ per GPU, so only ranges that hold
+	// for every device are listed.
+	Range *ValueRange
 }
 
 var fieldDescriptors = []FieldDescriptor{
-	{FieldProtonEnableHDR, "proton", PrimitiveBool, "HDR", nil, LaunchImpactCompatibility, RestoreCoverageEphemeralLaunch, "", ""},
-	{FieldProtonEnableWayland, "proton", PrimitiveBool, "Wayland", nil, LaunchImpactCompatibility, RestoreCoverageEphemeralLaunch, "", ""},
-	{FieldProtonEnableNGXUpdater, "proton", PrimitiveBool, "NGX updater", nil, LaunchImpactCompatibility, RestoreCoverageEphemeralLaunch, "", ""},
-	{FieldProtonVKD3DHeap, "proton", PrimitiveBool, "VKD3D heap", nil, LaunchImpactCompatibility, RestoreCoverageEphemeralLaunch, "", ""},
+	{FieldProtonEnableHDR, "proton", PrimitiveBool, "HDR", nil, LaunchImpactCompatibility, RestoreCoverageEphemeralLaunch, "Enables HDR output in Proton (PROTON_ENABLE_HDR=1) when the game starts. Off leaves the variable unset.", "", "", nil},
+	{FieldProtonEnableWayland, "proton", PrimitiveBool, "Wayland", nil, LaunchImpactCompatibility, RestoreCoverageEphemeralLaunch, "Runs the game on native Wayland in Proton (PROTON_ENABLE_WAYLAND=1) when the game starts. Off leaves the variable unset.", "", "", nil},
+	{FieldProtonEnableNGXUpdater, "proton", PrimitiveBool, "NGX updater", nil, LaunchImpactCompatibility, RestoreCoverageEphemeralLaunch, "Lets Proton update the DLSS DLLs (PROTON_ENABLE_NGX_UPDATER=1) when the game starts. Off leaves the variable unset.", "", "", nil},
+	{FieldProtonVKD3DHeap, "proton", PrimitiveBool, "VKD3D heap", nil, LaunchImpactCompatibility, RestoreCoverageEphemeralLaunch, "Enables the VKD3D descriptor heap path (VKD3D_CONFIG=descriptor_heap) when the game starts. Needs Proton-CachyOS 10.0-20260321+ or 11.0+ and NVIDIA driver 580.94.16+.", "", "", nil},
 
-	{FieldDLSSSRMode, "dlss", PrimitiveString, "Super resolution", []string{"", "off", "ultra_performance", "performance", "balanced", "quality", "dlaa"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
-	{FieldDLSSSRPreset, "dlss", PrimitiveString, "Resolution preset", []string{"", "default", "auto", "A", "B", "C", "D", "E", "F", "J", "K", "L", "M"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
-	{FieldDLSSSROverride, "dlss", PrimitiveBool, "Resolution override", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
-	{FieldDLSSRRMode, "dlss", PrimitiveString, "Ray reconstruction", []string{"", "off", "ultra_performance", "performance", "balanced", "quality", "dlaa"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
-	{FieldDLSSRRPreset, "dlss", PrimitiveString, "Ray preset", []string{"", "default", "A", "B", "C", "D", "E", "F", "J", "K", "L", "M"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
-	{FieldDLSSRROverride, "dlss", PrimitiveBool, "Ray override", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
-	{FieldDLSSFGEnabled, "dlss", PrimitiveBool, "Frame generation", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
-	{FieldDLSSFGOverride, "dlss", PrimitiveBool, "Generation override", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
-	{FieldDLSSMultiFrame, "dlss", PrimitiveInt, "Multi-frame", []string{"0", "1", "2", "3", "4"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
-	{FieldDLSSIndicator, "dlss", PrimitiveBool, "SR indicator", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
-	{FieldDLSSFGIndicator, "dlss", PrimitiveBool, "FG indicator", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
+	{FieldDLSSSRMode, "dlss", PrimitiveString, "Super resolution", []string{"", "off", "ultra_performance", "performance", "balanced", "quality", "dlaa"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "DLSS super resolution quality mode. Applied only when Resolution override is On.", "", "", nil},
+	{FieldDLSSSRPreset, "dlss", PrimitiveString, "Resolution preset", []string{"", "default", "auto", "A", "B", "C", "D", "E", "F", "J", "K", "L", "M"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "DLSS super resolution render preset: auto follows the mode, A to F are the CNN presets (DLSS 2/3), J to M are the transformer presets (DLSS 4/4.5). Applied only when Resolution override is On.", "", "", nil},
+	{FieldDLSSSROverride, "dlss", PrimitiveBool, "Resolution override", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "Turns on the DLSS super resolution override. Mode and preset take effect only when this is On.", "", "", nil},
+	{FieldDLSSRRMode, "dlss", PrimitiveString, "Ray reconstruction", []string{"", "off", "ultra_performance", "performance", "balanced", "quality", "dlaa"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "DLSS ray reconstruction quality mode. Applied only when Ray override is On.", "", "", nil},
+	{FieldDLSSRRPreset, "dlss", PrimitiveString, "Ray preset", []string{"", "default", "A", "B", "C", "D", "E", "F", "J", "K", "L", "M"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "DLSS ray reconstruction render preset: A to F are the CNN presets, J to M are the transformer presets. Applied only when Ray override is On.", "", "", nil},
+	{FieldDLSSRROverride, "dlss", PrimitiveBool, "Ray override", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "Turns on the DLSS ray reconstruction override. Mode and preset take effect only when this is On.", "", "", nil},
+	{FieldDLSSFGEnabled, "dlss", PrimitiveBool, "Frame generation", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "Requests DLSS frame generation. Applied only when Generation override is On.", "", "", nil},
+	{FieldDLSSFGOverride, "dlss", PrimitiveBool, "Generation override", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "Turns on the DLSS frame generation override. Frame generation and multi-frame take effect only when this is On.", "", "", nil},
+	{FieldDLSSMultiFrame, "dlss", PrimitiveInt, "Multi-frame", []string{"0", "1", "2", "3", "4"}, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "Extra frames to generate, 0 to 4. Applied only when Generation override and Frame generation are both On.", "", "", nil},
+	{FieldDLSSIndicator, "dlss", PrimitiveBool, "SR indicator", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "Shows the DLSS status indicator in the game.", "", "", nil},
+	{FieldDLSSFGIndicator, "dlss", PrimitiveBool, "FG indicator", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "Shows the DLSS frame generation indicator in the game.", "", "", nil},
 
-	{FieldGPUClockOffset, "gpu", PrimitiveInt, "Clock offset", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "", ""},
-	{FieldGPUVRR, "gpu", PrimitiveString, "KDE VRR", []string{"", "unset", "automatic", "always", "never"}, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "Primary display only: unset leaves KDE unchanged; automatic uses fullscreen VRR; always includes the desktop; never disables VRR. Restored after tracked launch. Reset inherits defaults.", EditorChoice},
-	{FieldGPUMemoryOffset, "gpu", PrimitiveInt, "Memory offset", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "", ""},
-	{FieldGPUPowerLimit, "gpu", PrimitiveInt, "Power limit", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "", ""},
-	{FieldGPUFanSpeed, "gpu", PrimitiveInt, "Fan speed", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "", ""},
-	{FieldGPUPowerMizer, "gpu", PrimitiveString, "Power mode", []string{"", "adaptive", "max", "prefer_max_performance", "prefer_maximum_performance"}, LaunchImpactSystemState, RestoreCoverageNotApplicable, "", ""},
-	{FieldGPUShaderCache, "gpu", PrimitiveBool, "Shader cache", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
-	{FieldGPUShaderCachePath, "gpu", PrimitiveString, "Shader cache path", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
-	{FieldGPUThreadedOptimization, "gpu", PrimitiveBool, "Threaded optimization", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "", ""},
+	{FieldGPUClockOffset, "gpu", PrimitiveInt, "Clock offset", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "Limits the GPU clock to at most 2100 MHz plus this offset while the game runs. Clocks return to the driver default at exit. 0 leaves clocks unchanged.", "", "MHz", nil},
+	{FieldGPUVRR, "gpu", PrimitiveString, "KDE VRR", []string{"", "unset", "automatic", "always", "never"}, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "KDE Wayland primary display only: unset leaves KDE unchanged; automatic uses fullscreen VRR; always includes the desktop; never disables VRR. Restored after a tracked launch.", EditorChoice, "", nil},
+	{FieldGPUMemoryOffset, "gpu", PrimitiveInt, "Memory offset", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "Limits the GPU memory clock to at most this value while the game runs. Clocks return to the driver default at exit. 0 leaves the memory clock unchanged.", "", "MHz", nil},
+	{FieldGPUPowerLimit, "gpu", PrimitiveInt, "Power limit", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "Sets the GPU power limit while the game runs. The previous limit returns at exit when it could be read. 0 leaves the limit unchanged.", "", "W", nil},
+	{FieldGPUFanSpeed, "gpu", PrimitiveInt, "Fan speed", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "Sets every GPU fan to this speed while the game runs. Fans return to automatic at exit. 0 leaves fan control unchanged.", "", "%", &ValueRange{Min: 0, Max: 100}},
+	{FieldGPUPowerMizer, "gpu", PrimitiveString, "Power mode", []string{"", "adaptive", "max", "prefer_max_performance", "prefer_maximum_performance"}, LaunchImpactSystemState, RestoreCoverageNotApplicable, "Not used yet: Spela does not apply this setting when a game launches.", "", "", nil},
+	{FieldGPUShaderCache, "gpu", PrimitiveBool, "Shader cache", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "Turns on the NVIDIA shader disk cache (__GL_SHADER_DISK_CACHE=1) when the game starts. Off leaves the driver setting alone.", "", "", nil},
+	{FieldGPUShaderCachePath, "gpu", PrimitiveString, "Shader cache path", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "Folder for the NVIDIA shader cache. Empty uses Spela's own cache folder. Used only when Shader cache is On.", "", "", nil},
+	{FieldGPUThreadedOptimization, "gpu", PrimitiveBool, "Threaded optimization", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "Sets __GL_THREADED_OPTIMIZATION to 1 (On) or 0 (Off) when the game starts. Unlike other toggles, Off is applied.", "", "", nil},
 
-	{FieldCPUGovernor, "cpu", PrimitiveString, "Governor", []string{"", "performance", "powersave", "schedutil", "ondemand"}, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "", ""},
-	{FieldCPUSMT, "cpu", PrimitiveOptionalBool, "SMT", []string{"", "true", "false"}, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "", ""},
-	{FieldCPUAffinity, "cpu", PrimitiveString, "Affinity", nil, LaunchImpactSystemState, RestoreCoverageNotApplicable, "", ""},
+	{FieldCPUGovernor, "cpu", PrimitiveString, "Governor", []string{"", "performance", "powersave", "schedutil", "ondemand"}, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "Sets the CPU frequency governor while the game runs. The previous governor returns at exit when it could be read. Empty leaves it unchanged.", "", "", nil},
+	{FieldCPUSMT, "cpu", PrimitiveOptionalBool, "SMT", []string{"", "true", "false"}, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "Turns simultaneous multithreading (SMT) on or off while the game runs, then restores it at exit. Empty leaves it unchanged.", "", "", nil},
+	{FieldCPUAffinity, "cpu", PrimitiveString, "Affinity", nil, LaunchImpactSystemState, RestoreCoverageNotApplicable, "Not used yet: Spela does not apply this setting when a game launches.", "", "", nil},
 
-	{FieldOverlayEnabled, "overlay", PrimitiveBool, "Enabled", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "", ""},
-	{FieldOverlayPosition, "overlay", PrimitiveString, "Position", []string{"", "top-left", "top-right", "bottom-left", "bottom-right"}, LaunchImpactOverlay, RestoreCoverageNotApplicable, "", ""},
-	{FieldOverlayShowFPS, "overlay", PrimitiveBool, "Show FPS", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "", ""},
-	{FieldOverlayShowFrametime, "overlay", PrimitiveBool, "Show frametime", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "", ""},
-	{FieldOverlayShowCPU, "overlay", PrimitiveBool, "Show CPU", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "", ""},
-	{FieldOverlayShowGPU, "overlay", PrimitiveBool, "Show GPU", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "", ""},
-	{FieldOverlayShowVRAM, "overlay", PrimitiveBool, "Show VRAM", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "", ""},
-	{FieldOverlayToggleKey, "overlay", PrimitiveString, "Toggle key", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "", ""},
+	{FieldOverlayEnabled, "overlay", PrimitiveBool, "Enabled", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "Starts the overlay data feed when the game starts. Nothing is drawn unless an overlay layer reads it.", "", "", nil},
+	{FieldOverlayPosition, "overlay", PrimitiveString, "Position", []string{"", "top-left", "top-right", "bottom-left", "bottom-right"}, LaunchImpactOverlay, RestoreCoverageNotApplicable, "Screen corner for the overlay. Passed to the overlay layer.", "", "", nil},
+	{FieldOverlayShowFPS, "overlay", PrimitiveBool, "Show FPS", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "Not used yet: Spela does not apply this setting when a game launches.", "", "", nil},
+	{FieldOverlayShowFrametime, "overlay", PrimitiveBool, "Show frametime", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "Not used yet: Spela does not apply this setting when a game launches.", "", "", nil},
+	{FieldOverlayShowCPU, "overlay", PrimitiveBool, "Show CPU", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "Not used yet: Spela does not apply this setting when a game launches.", "", "", nil},
+	{FieldOverlayShowGPU, "overlay", PrimitiveBool, "Show GPU", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "Not used yet: Spela does not apply this setting when a game launches.", "", "", nil},
+	{FieldOverlayShowVRAM, "overlay", PrimitiveBool, "Show VRAM", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "Not used yet: Spela does not apply this setting when a game launches.", "", "", nil},
+	{FieldOverlayToggleKey, "overlay", PrimitiveString, "Toggle key", nil, LaunchImpactOverlay, RestoreCoverageNotApplicable, "Not used yet: Spela does not apply this setting when a game launches.", "", "", nil},
 }
 
 var descriptorsByKey = func() map[string]FieldDescriptor {
@@ -112,13 +126,14 @@ func Field(key string) (FieldDescriptor, bool) {
 func cloneDescriptor(descriptor FieldDescriptor) FieldDescriptor {
 	descriptor = completeDescriptor(descriptor)
 	descriptor.AllowedValues = append([]string(nil), descriptor.AllowedValues...)
+	if descriptor.Range != nil {
+		valueRange := *descriptor.Range
+		descriptor.Range = &valueRange
+	}
 	return descriptor
 }
 
 func completeDescriptor(descriptor FieldDescriptor) FieldDescriptor {
-	if descriptor.Description == "" {
-		descriptor.Description = "Configure " + descriptor.Label + "."
-	}
 	if descriptor.Editor == "" {
 		switch {
 		case descriptor.Kind == PrimitiveBool:

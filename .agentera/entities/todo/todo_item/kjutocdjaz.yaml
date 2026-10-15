@@ -29,12 +29,16 @@ record:
     gate: null
     queue_rank: 1
     order_reason: Smallest independent fix; restores the field contract before other defects build on it.
-  status: open
+  status: resolved
   reconciliation:
     schema_version: agentera.todoReconciliation.v1
     public:
       present: true
       description: "[bug] Document the KDE VRR profile field"
+      status: resolved
+      order: 10
       severity: normal
-      status: open
-      order: 26
+  lifecycle:
+    operation: resolve
+    reason: Done in redesign step 1 on branch feat/shared-profile-vocabulary (worktree ~/.cache/spela-step1, patch ~/.cache/spela-step1.patch); uncommitted and not merged into main.
+    date: 2026-10-15

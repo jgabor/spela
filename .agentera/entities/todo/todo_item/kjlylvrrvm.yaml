@@ -12,12 +12,16 @@ record:
     - GIVEN an unsaved edit on any field WHEN the field list is scrolled at 120x40 or 80x24 THEN a status line naming the changed fields stays in view.
     - GIVEN a save WHEN the user moves to another game THEN the saved message does not appear over the other game.
   release_blocker: false
-  status: open
+  status: resolved
   reconciliation:
     schema_version: agentera.todoReconciliation.v1
     public:
       present: true
       description: "[bug] Keep the unsaved cue in view and name the changed fields"
+      status: resolved
+      order: 15
       severity: degraded
-      status: open
-      order: 1
+  lifecycle:
+    operation: resolve
+    reason: "Obsolete: the TUI no longer has a draft or an unsaved cue. Every change saves at once and the header shows Saving, Saved at once, or Not saved. Built in step 2 (plan mdwrquqtci), worktree ~/.cache/spela-step2, not yet committed or merged."
+    date: 2026-10-15

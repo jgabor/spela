@@ -1,0 +1,22 @@
+id: ihvoobdelk
+artifact: plan
+record:
+  name: Settings autosave
+  status: complete
+  depends_on:
+    - zjirhjtjow
+  acceptance:
+    - GIVEN the Settings destination WHEN Space or the editor Apply changes an option THEN it saves at once, a change made during a save is saved by a re-save, and CompleteSave moves only the saved config.
+    - GIVEN a failed Settings save WHEN it completes THEN the draft returns to the saved config and the error shows; the header reads Saved at once when idle.
+    - GIVEN options_modal_test, navigation_settings_views_test, application_messages_test, and active_state_contract_test WHEN the lock and Ctrl+S are gone THEN they are rewritten with stated reasons and mage test passes.
+  plan: mdwrquqtci
+  evaluation:
+    attempt_count: 1
+    failure_count: 0
+    last_verdict: pass
+    last_failure_evidence: null
+    provenance:
+      attempt_id: t4-build
+      source: go test ./internal/tui passes. Settings save at once on Space and editor Apply; a change during a write sets resave when the draft differs from the in-flight snapshot and CompleteSave schedules the next write; a failed write returns the draft to the saved config and shows Not saved. Built before task 3 (order swapped) because the Ctrl+S removal is shared with task 2; editor controls are now Input, Apply, Cancel and Esc cancels. Config.Save still writes the whole file (recorded limit).
+      recorded_at: 2026-10-15 08:25
+      writer_command: agentera state plan record-evaluation

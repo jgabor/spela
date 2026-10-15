@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -165,7 +166,7 @@ func testContent(g *game.Game) ContentModel {
 	svc.LoadProfile = func(appID uint64) (*profile.Profile, error) {
 		return &profile.Profile{}, nil
 	}
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	m := NewContent(styles, true, svc)
 	m.SetSize(100, 30)
 	if g != nil {
@@ -178,7 +179,7 @@ func testContent(g *game.Game) ContentModel {
 // testSidebar creates a SidebarModel with the given games.
 func testSidebar(games ...*game.Game) SidebarModel {
 	svc := testServices()
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	m, _ := NewSidebar(games, styles, svc)
 	return m
 }
@@ -206,7 +207,7 @@ func sendAction(m tea.Model, action KeyAction) (tea.Model, tea.Cmd) {
 		if !item.Available {
 			panic("test action unavailable: " + item.Reason)
 		}
-		for step := 0; step < index; step++ {
+		for step := layout.actions.cursor; step < index; step++ {
 			next, _ := sendKey(&layout, "down")
 			layout = next.(LayoutModel)
 		}
@@ -441,4 +442,60 @@ func TestFactories_Smoke(t *testing.T) {
 			t.Error("expected nil from execCmd(nil)")
 		}
 	})
+}
+
+// sessionLayout builds a two-game layout on isolated XDG state with the first game open.
+func sessionLayout(t *testing.T) LayoutModel {
+	t.Helper()
+	directory := t.TempDir()
+	for _, entry := range []struct{ name, child string }{{"XDG_CONFIG_HOME", "config"}, {"XDG_DATA_HOME", "data"}, {"XDG_CACHE_HOME", "cache"}} {
+		t.Setenv(entry.name, filepath.Join(directory, entry.child))
+	}
+	first := testGame("Cyberpunk 2077")
+	second := testGame("Elden Ring", testDLL(game.DLLTypeDLSS, "3.8.10"))
+	second.AppID = 1245620
+	services := testServices()
+	services.LoadProfile = profile.Load
+	services.LoadDefaultProfile = profile.LoadDefault
+	layout := NewLayout(testDatabase(first, second), services)
+	sized, _ := layout.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	layout = sized.(LayoutModel)
+	next := layout.listPane.sidebar.cloneSelection()
+	next.cursor = 0
+	layout, _ = layout.applySidebar(next, true)
+	return layout
+}
+
+func sessionKey(layout *LayoutModel, key string) tea.Cmd {
+	next, command := layout.Update(keyMsg(key))
+	*layout = next.(LayoutModel)
+	return command
+}
+
+func sessionSelect(t *testing.T, layout *LayoutModel, appID uint64) tea.Cmd {
+	t.Helper()
+	next := layout.listPane.sidebar.cloneSelection()
+	found := false
+	for index, item := range next.filtered {
+		if appID == 0 && item.kind == sidebarItemDefaultProfile || item.game != nil && item.game.AppID == appID {
+			next.cursor, found = index, true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("missing selection %d", appID)
+	}
+	updated, command := layout.applySidebar(next, true)
+	*layout = updated
+	return command
+}
+
+// pickOption types ahead in the open picker and applies the match. It reports
+// whether the profile changed.
+func pickOption(detail *DetailModel, typed string) bool {
+	for _, character := range typed {
+		detail.editor.TypeAhead(string(character))
+	}
+	changed, _ := detail.UpdateAction(ActionEditCommit)
+	return changed
 }

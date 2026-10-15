@@ -190,7 +190,7 @@ func printOverlaySummary(p *profile.Profile) {
 	fmt.Printf("\n%s\n", tui.CLIPrimary("Overlay"))
 	if p != nil && p.Overlay.Enabled {
 		fmt.Printf("  %s\n", tui.CLIDim("collector IPC will be created before launch"))
-		fmt.Printf("  %s  %s\n", tui.CLIDim("Position:"), profileVal(p.Overlay.Position))
+		fmt.Printf("  %s  %s\n", tui.CLIDim("Position:"), valueOrNone(p.Overlay.Position))
 		return
 	}
 	fmt.Printf("  %s\n", tui.CLIDim("overlay collector not planned"))
@@ -201,7 +201,7 @@ func printDLLSummary(g *game.Game) {
 	fmt.Printf("  %s\n", tui.CLIDim("no launch-time DLL file mutation planned"))
 	denied, reason := denylist.IsDenied(g.AppID)
 	if denied {
-		fmt.Printf("  %s denied (%s)\n", tui.CLIDim("denylist:"), profileVal(reason))
+		fmt.Printf("  %s denied (%s)\n", tui.CLIDim("denylist:"), valueOrNone(reason))
 	} else {
 		fmt.Printf("  %s allowed\n", tui.CLIDim("denylist:"))
 	}
@@ -221,7 +221,7 @@ func printDLLSummary(g *game.Game) {
 		return dlls[i].Type < dlls[j].Type
 	})
 	for _, detected := range dlls {
-		version := profileVal(detected.Version)
+		version := valueOrNone(detected.Version)
 		fmt.Printf("  %s %s %s; %s\n", tui.CLIDim(string(detected.Type)+":"), detected.Name, version, dllPathWriteOutcome(detected.Path))
 	}
 }
@@ -310,4 +310,12 @@ func summaryValue(v any) string {
 		return "unset"
 	}
 	return s
+}
+
+// valueOrNone prints "none" for an empty text value.
+func valueOrNone(text string) string {
+	if text == "" {
+		return profile.WordNone
+	}
+	return text
 }

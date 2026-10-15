@@ -11,19 +11,14 @@ import (
 	"github.com/jgabor/spela/internal/profile"
 )
 
-func TestProfileSpaceCyclesPreserveInheritanceAndExplicitValues(t *testing.T) {
+func TestProfileSpaceTogglesBooleansBetweenFollowingAndTheOppositeValue(t *testing.T) {
 	for _, root := range []bool{true, false} {
 		for _, test := range []struct {
 			field     string
-			inherited any
-			values    []any
+			inherited bool
 		}{
-			{profile.FieldProtonEnableHDR, true, []any{true, false}},
-			{profile.FieldProtonVKD3DHeap, true, []any{true, false}},
-			{profile.FieldCPUSMT, true, []any{true, false, nil}},
-			{profile.FieldGPUVRR, "always", []any{"unset", "automatic", "always", "never"}},
-			{profile.FieldDLSSMultiFrame, 3, []any{0, 1, 2, 3, 4}},
-			{profile.FieldDLSSRRMode, "quality", []any{"off", "ultra_performance", "performance", "balanced", "quality", "dlaa", ""}},
+			{profile.FieldProtonEnableHDR, true},
+			{profile.FieldProtonVKD3DHeap, false},
 		} {
 			name := "game/"
 			if root {
@@ -34,40 +29,35 @@ func TestProfileSpaceCyclesPreserveInheritanceAndExplicitValues(t *testing.T) {
 				if err := defaults.Set(test.field, test.inherited); err != nil {
 					t.Fatal(err)
 				}
-				detail := NewDetail(NewStyles(DefaultTheme, false), &profile.Profile{}, defaults)
+				detail := NewDetail(NewStyles(DefaultTheme), &profile.Profile{}, defaults)
+				followed := test.inherited
 				if root {
 					detail = NewRootDetail(detail.styles, &profile.Profile{})
+					followed = false
 				}
 				focusField(t, &detail, test.field)
 				cursor := detail.Cursor()
-				if !detail.CanCycleFocusedField() {
-					t.Fatal("finite field cannot cycle")
+				if !root && !strings.Contains(detail.View(), "from All games") {
+					t.Fatal("inherited choice does not name All games as its source")
 				}
-				if !root && (!strings.Contains(detail.View(), "(default)") || !strings.Contains(detail.View(), "Default:")) {
-					t.Fatal("inherited choice does not show default and its effective value")
-				}
-				for _, expected := range test.values {
-					save, handled := detail.UpdateAction(ActionDetailCycle)
-					actual, err := profile.ReadField(detail.RawProfile(), test.field)
-					if err != nil || !reflect.DeepEqual(actual, expected) || !detail.RawProfile().IsOverridden(test.field) {
-						t.Fatalf("cycle value = %#v, want explicit %#v (error %v)", actual, expected, err)
-					}
-					if !handled || save || detail.Editing() || !detail.Dirty() || detail.Cursor() != cursor {
-						t.Fatal("Space saved, opened an editor, lost focus or failed to retain the draft")
+				for round := 0; round < 2; round++ {
+					changed, handled := detail.UpdateAction(ActionDetailCycle)
+					actual, _ := profile.ReadField(detail.RawProfile(), test.field)
+					if !handled || !changed || actual != !followed || !detail.RawProfile().IsOverridden(test.field) || detail.Editing() || !detail.Dirty() || detail.Cursor() != cursor {
+						t.Fatalf("Space from following gave %v (changed %v), want the opposite %v set on the page", actual, changed, !followed)
 					}
 					if detail.persisted.IsOverridden(test.field) {
-						t.Fatal("Space changed the saved baseline")
+						t.Fatal("Space moved the saved baseline before the write finished")
 					}
-				}
-				detail.UpdateAction(ActionDetailCycle)
-				if detail.RawProfile().IsOverridden(test.field) || detail.Dirty() || detail.Editing() {
-					t.Fatal("full rotation did not return to an unchanged inherited/default draft")
+					changed, _ = detail.UpdateAction(ActionDetailCycle)
+					if !changed || detail.RawProfile().IsOverridden(test.field) || detail.Dirty() || detail.Editing() {
+						t.Fatal("Space from an own value did not return to following")
+					}
 				}
 				if !root {
 					actual, _ := profile.ReadField(detail.resolved, test.field)
-					expected, _ := profile.ReadField(defaults, test.field)
-					if !reflect.DeepEqual(actual, expected) {
-						t.Fatalf("return to inheritance resolved to %#v, want %#v", actual, expected)
+					if actual != test.inherited {
+						t.Fatalf("following resolved to %v, want %v", actual, test.inherited)
 					}
 				}
 			})
@@ -75,84 +65,130 @@ func TestProfileSpaceCyclesPreserveInheritanceAndExplicitValues(t *testing.T) {
 	}
 }
 
-func TestProfileSpaceAfterSaveFailureKeepsDraftAndClearsStaleError(t *testing.T) {
-	detail := NewRootDetail(NewStyles(DefaultTheme, true), &profile.Profile{})
-	focusField(t, &detail, profile.FieldProtonEnableHDR)
-	detail.UpdateAction(ActionDetailCycle)
-	detail.CompleteSaveSnapshot(detail.RawProfile(), errors.New("read-only"))
-	if !detail.Dirty() || detail.SaveError() == nil {
-		t.Fatal("failed save did not retain the draft and error")
-	}
-	detail.UpdateAction(ActionDetailCycle)
-	if detail.RawProfile().Proton.EnableHDR || !detail.RawProfile().IsOverridden(profile.FieldProtonEnableHDR) || detail.SaveError() != nil || !detail.Dirty() {
-		t.Fatal("Space after failure lost the explicit false draft or kept a stale error")
-	}
-	detail.UpdateAction(ActionCancelDraft)
-	if detail.Dirty() || detail.RawProfile().IsOverridden(profile.FieldProtonEnableHDR) {
-		t.Fatal("discard after cycling did not restore the saved baseline")
+func TestProfileSpaceOnOtherFieldsPicksOnceThenPutsTheValueBack(t *testing.T) {
+	for _, test := range []struct {
+		field     string
+		inherited any
+		typed     string
+		want      any
+	}{
+		{profile.FieldGPUVRR, "always", "n", "never"},
+		{profile.FieldDLSSMultiFrame, 3, "2", 2},
+		{profile.FieldDLSSRRMode, "quality", "d", "dlaa"},
+		{profile.FieldCPUSMT, true, "o", true},
+	} {
+		t.Run(test.field, func(t *testing.T) {
+			defaults := &profile.Profile{}
+			if err := defaults.Set(test.field, test.inherited); err != nil {
+				t.Fatal(err)
+			}
+			detail := NewDetail(NewStyles(DefaultTheme), &profile.Profile{}, defaults)
+			focusField(t, &detail, test.field)
+			if changed, handled := detail.UpdateAction(ActionDetailCycle); changed || !handled || !detail.Editing() {
+				t.Fatal("Space on a following field with no earlier value did not open the picker")
+			}
+			detail.editor.TypeAhead(test.typed)
+			if changed, _ := detail.UpdateAction(ActionEditCommit); !changed || detail.Editing() {
+				t.Fatal("applying the picked value did not change the profile")
+			}
+			if actual, _ := profile.ReadField(detail.RawProfile(), test.field); !reflect.DeepEqual(actual, test.want) || !detail.RawProfile().IsOverridden(test.field) {
+				t.Fatalf("picked value = %#v, want %#v", actual, test.want)
+			}
+			if changed, _ := detail.UpdateAction(ActionDetailCycle); !changed || detail.RawProfile().IsOverridden(test.field) {
+				t.Fatal("Space did not return the field to following")
+			}
+			if changed, _ := detail.UpdateAction(ActionDetailCycle); !changed || detail.Editing() {
+				t.Fatal("Space did not put the earlier value back")
+			}
+			if actual, _ := profile.ReadField(detail.RawProfile(), test.field); !reflect.DeepEqual(actual, test.want) || !detail.RawProfile().IsOverridden(test.field) {
+				t.Fatalf("restored value = %#v, want %#v", actual, test.want)
+			}
+		})
 	}
 }
 
-func TestSpaceFieldBindingMatchesActiveFocusAndFieldKind(t *testing.T) {
+func TestProfileSpaceAfterWriteFailureShowsTheStoredValueAndClearsTheStaleError(t *testing.T) {
+	detail := NewRootDetail(NewStyles(DefaultTheme), &profile.Profile{})
+	focusField(t, &detail, profile.FieldProtonEnableHDR)
+	detail.UpdateAction(ActionDetailCycle)
+	detail.CompleteSaveSnapshot(detail.RawProfile(), errors.New("read-only"))
+	detail.RevertToPersisted()
+	if detail.RawProfile().Proton.EnableHDR || detail.Dirty() || detail.SaveError() == nil {
+		t.Fatal("a failed write did not return the row to the stored value with its error")
+	}
+	if changed, _ := detail.UpdateAction(ActionDetailCycle); !changed || !detail.RawProfile().Proton.EnableHDR || detail.SaveError() != nil || !detail.Dirty() {
+		t.Fatal("Space after the failure did not repeat the change or kept a stale error")
+	}
+}
+
+func TestSpaceAndEnterBindingsFollowFocusAndFieldState(t *testing.T) {
 	layout := testLayout()
 	layout.pane.loadGlobalScope()
 	focusField(t, &layout.pane.defaultsDetail, profile.FieldProtonEnableHDR)
 	layout.focus = FocusList
 	if hasHelpAction(CanonicalKeymap.HelpBindings(layout.bindingContext()), ActionDetailCycle) {
-		t.Fatal("inactive Detail advertised Space for cycling")
-	}
-	updated, _ := sendKey(&layout, "space")
-	layout = updated.(LayoutModel)
-	if layout.pane.defaultsDetail.Dirty() {
-		t.Fatal("List Space changed the profile")
+		t.Fatal("inactive Detail advertised Space for the field")
 	}
 	layout.focus = FocusDetail
 	context := layout.bindingContext()
-	if !hasHelpAction(CanonicalKeymap.HelpBindings(context), ActionDetailCycle) || CanonicalKeymap.Lookup(context, "enter").Available {
-		t.Fatal("finite field did not advertise Space as its only value control")
+	space := CanonicalKeymap.Lookup(context, "space")
+	if !space.Available || space.Binding.Description != profile.ActionSetHere {
+		t.Fatalf("Space on a field at the system default = %q (available %v), want %q", space.Binding.Description, space.Available, profile.ActionSetHere)
 	}
+	if enter := CanonicalKeymap.Lookup(context, "enter"); !enter.Available || enter.Binding.Description != "Edit value" {
+		t.Fatalf("Enter on a boolean = %q (available %v)", enter.Binding.Description, enter.Available)
+	}
+	updated, _ := sendKey(&layout, "space")
+	layout = updated.(LayoutModel)
+	if !layout.pane.defaultsDetail.RawProfile().Proton.EnableHDR {
+		t.Fatal("Space did not set the value")
+	}
+	if space := CanonicalKeymap.Lookup(layout.bindingContext(), "space"); space.Binding.Description != profile.ActionUseSystemDefault {
+		t.Fatalf("Space on an own value = %q, want %q", space.Binding.Description, profile.ActionUseSystemDefault)
+	}
+
 	updated, _ = sendKey(&layout, "enter")
 	layout = updated.(LayoutModel)
-	if layout.pane.Editing() || layout.pane.defaultsDetail.Dirty() {
-		t.Fatal("undisplayed Enter opened or changed a choice field")
+	if !layout.pane.defaultsDetail.Editing() || layout.pane.defaultsDetail.editor.Kind() != EditorChoice {
+		t.Fatal("Enter on a boolean did not open the picker")
 	}
+	updated, _ = sendKey(&layout, "esc")
+	layout = updated.(LayoutModel)
+	if layout.pane.defaultsDetail.Editing() {
+		t.Fatal("Esc did not close the picker")
+	}
+
 	for _, field := range []string{profile.FieldGPUPowerLimit, profile.FieldGPUShaderCachePath} {
 		focusField(t, &layout.pane.defaultsDetail, field)
-		context = layout.bindingContext()
-		if hasHelpAction(CanonicalKeymap.HelpBindings(context), ActionDetailCycle) || !CanonicalKeymap.Lookup(context, "enter").Available {
-			t.Fatal("free input did not advertise Enter and hide Space")
-		}
 		updated, _ = sendKey(&layout, "space")
 		layout = updated.(LayoutModel)
-		if layout.pane.defaultsDetail.Dirty() || layout.pane.Editing() {
-			t.Fatal("undisplayed Space changed a free input")
+		detail := layout.pane.defaultsDetail
+		if !detail.Editing() || detail.editor.Kind() == EditorChoice || detail.RawProfile().IsOverridden(field) {
+			t.Fatalf("Space on %s with no earlier value did not open its editor", field)
 		}
+		updated, _ = sendKey(&layout, "esc")
+		layout = updated.(LayoutModel)
 	}
 }
 
 func TestSettingsSpaceCyclesWithoutOpeningEditor(t *testing.T) {
-	for _, key := range []string{"show_hints", "rescan_on_startup"} {
+	for _, key := range []string{"rescan_on_startup", "rescan_on_startup"} {
 		t.Run(key, func(t *testing.T) {
-			settings := NewOptionsModal(NewStyles(DefaultTheme, false))
+			settings := NewOptionsModal(NewStyles(DefaultTheme))
 			settings.OpenEmbedded(config.Default())
 			option := *config.OptionByKey(key)
 			settings.sections = []config.Section{{Options: []config.Option{option}}}
 			settings.sectionCursor, settings.optionCursor = 0, 0
 			original := option.Get(settings.config)
 			settings, command := settings.UpdateAction(ActionDetailCycle)
-			if command != nil || settings.Editing() || !settings.Dirty() || option.Get(settings.config) != original || option.Get(settings.draft) == original {
-				t.Fatalf("Space did not change only the Settings draft: editing=%t dirty=%t saved=%q draft=%q error=%v", settings.Editing(), settings.Dirty(), option.Get(settings.config), option.Get(settings.draft), settings.saveError)
+			if command == nil || settings.Editing() || !settings.Dirty() || option.Get(settings.config) != original || option.Get(settings.draft) == original {
+				t.Fatalf("Space did not save the new value or moved the stored one early: editing=%t dirty=%t saved=%q draft=%q error=%v", settings.Editing(), settings.Dirty(), option.Get(settings.config), option.Get(settings.draft), settings.saveError)
 			}
 			for index := 1; index < len(option.Choices); index++ {
 				settings, _ = settings.UpdateAction(ActionDetailCycle)
 			}
 			if settings.Dirty() || option.Get(settings.draft) != original {
 				t.Fatal("full Settings rotation did not return to its saved value")
-			}
-			settings.saving = true
-			settings, _ = settings.UpdateAction(ActionDetailCycle)
-			if settings.Dirty() {
-				t.Fatal("Space changed Settings during a save")
 			}
 		})
 	}

@@ -6,6 +6,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"strconv"
 	"syscall"
 
@@ -143,13 +145,62 @@ func mutate(appID uint64, create bool, callback func(current, defaults *Profile)
 		if err != nil {
 			return fmt.Errorf("load default profile: %w", err)
 		}
+		before := current.Clone()
 		current = current.Clone()
 		if err := callback(current, defaults); err != nil {
 			return err
 		}
+		// An existing profile that the callback left unchanged is not rewritten:
+		// a legacy file is migrated in memory on load, and saving it unchanged
+		// would freeze the migrated values as deliberate overrides.
+		if exists && reflect.DeepEqual(before, current) {
+			return nil
+		}
 		return Save(appID, current)
 	})
 	return exists, err
+}
+
+// FollowOutcome says which games now follow All games for the fields, and which
+// could not be changed. Both list game names; Errors is keyed by those names.
+type FollowOutcome struct {
+	Followed []string
+	Failed   []string
+	Errors   map[string]error
+}
+
+// FollowAllGamesIn clears the games' own value for the fields, so each follows
+// All games for them. It touches only the games whose entry has an own value for
+// one of the fields, and only those fields, one locked write per game. The
+// writes are not atomic across games: a game that cannot be written is named in
+// the outcome and the others still change.
+func FollowAllGamesIn(entries []OwnValueEntry, fields []string) FollowOutcome {
+	outcome := FollowOutcome{Errors: map[string]error{}}
+	for _, entry := range entries {
+		if !slices.ContainsFunc(fields, entry.Profile.IsOverridden) {
+			continue
+		}
+		_, err := MutateExisting(entry.AppID, func(current, _ *Profile) error {
+			for _, field := range fields {
+				if !current.IsOverridden(field) {
+					continue
+				}
+				if err := current.Reset(field); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			outcome.Failed = append(outcome.Failed, entry.Name)
+			outcome.Errors[entry.Name] = err
+			continue
+		}
+		outcome.Followed = append(outcome.Followed, entry.Name)
+	}
+	slices.Sort(outcome.Followed)
+	slices.Sort(outcome.Failed)
+	return outcome
 }
 
 // MutateDefault is the default-profile form of Mutate. Its callback must not recurse.

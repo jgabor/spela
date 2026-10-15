@@ -19,7 +19,7 @@ func TestDLLConfirmationPinsButtonsAndScrollsBackupPolicy(t *testing.T) {
 		targets = append(targets, target)
 	}
 	confirmation := newDLLMutationConfirmation("Confirm DLL updates", targets, "each original DLL is backed up before replacement")
-	styles := NewStyles(DefaultTheme, false)
+	styles := NewStyles(DefaultTheme)
 	view := stripANSI(confirmation.viewSized(styles, 54, 9))
 	if strings.Count(view, "\n") >= 9 || !strings.Contains(view, "[ Cancel ]") || !strings.Contains(view, "[ Confirm ]") || !strings.Contains(view, "Tab Details") {
 		t.Fatalf("short dialog clipped its controls:\n%s", view)
@@ -50,7 +50,7 @@ func TestDLLConfirmationPinsButtonsAndScrollsBackupPolicy(t *testing.T) {
 
 func TestDLLProgressCannotCancelOrDispatchAgainAndResultCanClose(t *testing.T) {
 	entry, services, path, original, calls := newDLLCancellationFixture(t)
-	content := NewContent(NewStyles(DefaultTheme, false), true, services).SetGame(entry)
+	content := NewContent(NewStyles(DefaultTheme), true, services).SetGame(entry)
 	content.SetSize(70, 12)
 	content.hasUpdates = true
 	content.dllUpdateTargets = []dllMutationTarget{newDLLMutationTarget(entry, entry.DLLs[0], "3.8.0")}
@@ -89,7 +89,7 @@ func TestDLLProgressCannotCancelOrDispatchAgainAndResultCanClose(t *testing.T) {
 
 func TestDLLChooserBackAndCancelNeverMutate(t *testing.T) {
 	entry, services, path, original, calls := newDLLCancellationFixture(t)
-	content := NewContent(NewStyles(DefaultTheme, false), true, services).SetGame(entry)
+	content := NewContent(NewStyles(DefaultTheme), true, services).SetGame(entry)
 	content.SetSize(70, 12)
 	content.dllInstallState = DLLInstallSelectVersion
 	content.selectedDLLType = "dlss"

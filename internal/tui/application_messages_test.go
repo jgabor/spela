@@ -43,8 +43,8 @@ func TestLayoutApplicationMessagesMaintainCrossComponentState(t *testing.T) {
 	}
 	updated.pane.settings.saving, updated.pane.settings.modified = true, true
 	updated, commands = updated.handleAppMessages(optionsSaveErrorMsg{err: errors.New("read-only")}, nil)
-	if updated.pane.settings.saving || !updated.pane.settings.modified || len(commands) == 0 {
-		t.Fatal("options save failure did not preserve retry state and announce error")
+	if updated.pane.settings.saving || updated.pane.settings.modified || updated.pane.settings.SaveError() == nil || len(commands) == 0 {
+		t.Fatal("options save failure did not return to the stored value, keep the error, and announce it")
 	}
 
 	updated.pane.content.dllOperating = true

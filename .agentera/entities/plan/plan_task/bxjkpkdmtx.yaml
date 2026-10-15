@@ -1,0 +1,22 @@
+id: bxjkpkdmtx
+artifact: plan
+record:
+  name: Controls
+  status: complete
+  depends_on:
+    - eeqdpzrxol
+  acceptance:
+    - GIVEN the GPU section WHEN it renders THEN clock offset, memory offset, power limit, and fan speed are number inputs with their unit and hint, an invalid entry returns to the stored value with an error, and affinity is a text input.
+    - GIVEN a stored value that a dropdown does not list WHEN the dropdown renders THEN that value is shown selected with its valueText and no placeholder, and powerMizerOptions lists the two legacy values Go accepts.
+    - GIVEN profileFieldDefinitions, testSemantics.js, and the fixtures WHEN the new fields exist THEN they are covered by tests.
+  plan: pmybbznzim
+  evaluation:
+    attempt_count: 1
+    failure_count: 0
+    last_verdict: pass
+    last_failure_evidence: null
+    provenance:
+      attempt_id: t4-build
+      source: Clock offset, memory offset, power limit, and fan speed are number inputs (NumberField) with unit and hint from Go; an invalid entry sends nothing, returns the stored value, and shows an alert; affinity is a text input; Dropdown shows a stored value it does not list with its valueText and adds it to the menu; powerMizerOptions lists the two legacy values; profileFieldDefinitions, testSemantics, and tests cover the new fields. Go semantics gained unit. bun run test passes (60); gui tests pass.
+      recorded_at: 2026-10-15 10:20
+      writer_command: agentera state plan record-evaluation

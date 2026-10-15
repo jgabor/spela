@@ -1,5 +1,6 @@
 import { test as base } from '@playwright/test'
 import { profilePropertyByField } from '../src/lib/profileFieldOptions.js'
+import { fieldSemantics } from '../src/lib/testSemantics.js'
 
 export const games = [
   {
@@ -47,6 +48,9 @@ export const cpuInfo = {
   model: 'AMD Ryzen 9 7950X',
   cores: 16,
   averageFrequency: 5200,
+  utilizationPercent: 12,
+  memoryUsedMegabytes: 16384,
+  memoryTotalMegabytes: 32768,
   governor: 'performance',
   smtEnabled: true,
 }
@@ -61,12 +65,27 @@ export const profiles = {
     enableHdr: true,
     enableWayland: false,
     enableNgxUpdater: false,
+    clockOffset: 100,
+    memoryOffset: 0,
+    powerLimit: 0,
+    fanSpeed: 0,
+    affinity: '',
   },
+}
+
+// The settings each game holds itself. The mock backend derives the sources, the
+// action words, and the whole-page Follow from these, as the real one does.
+export const ownFields = {
+  default: ['proton.enable_hdr'],
+  1091500: ['dlss.sr_mode', 'dlss.fg_enabled', 'dlss.fg_override', 'proton.enable_hdr', 'gpu.clock_offset'],
 }
 
 export const defaultProfile = {
   clockOffset: 0,
   memoryOffset: 0,
+  powerLimit: 0,
+  fanSpeed: 0,
+  affinity: '',
   vrr: '',
   preset: 'balanced',
   srMode: 'balanced',
@@ -80,7 +99,6 @@ export const defaultProfile = {
 
 export const config = {
   theme: 'dark',
-  showHints: true,
   compactMode: false,
   logLevel: 'info',
   steamPath: '',
@@ -101,7 +119,6 @@ export const settingsCatalog = [
     title: 'Display',
     options: [
       { key: 'theme', label: 'Theme', description: 'Choose the application theme.', type: 'select', choices: ['default', 'dark', 'light'] },
-      { key: 'showHints', label: 'Show hints', description: 'Show keyboard hints.', type: 'toggle', choices: ['true', 'false'] },
       { key: 'compactMode', label: 'Compact mode', description: 'Use compact spacing.', type: 'toggle', choices: ['true', 'false'] },
       { key: 'confirmDestructive', label: 'Confirm destructive', description: 'Confirm destructive actions.', type: 'toggle', choices: ['true', 'false'] },
     ],
@@ -127,12 +144,80 @@ function createMockScript(mockData) {
     const cpuInfo = ${JSON.stringify(mockData.cpuInfo)};
     const profiles = ${JSON.stringify(mockData.profiles)};
     const defaultProfile = ${JSON.stringify(mockData.defaultProfile)};
+    // The real backend sends the shared words with every projection.
+    const gameWords = ${JSON.stringify(fieldSemantics())};
+    const allGamesWords = ${JSON.stringify(fieldSemantics({}, { allGames: true }))};
     const profileProperties = ${JSON.stringify(profilePropertyByField)};
-    const applyProfilePatch = (target, patch) => {
+    const owns = ${JSON.stringify(mockData.ownFields)};
+    const defaultOwn = new Set(owns.default || []);
+    const ownSet = (appId) => (owns[appId] = new Set(owns[appId] || []));
+    Object.keys(owns).filter((key) => key !== 'default').forEach((appId) => ownSet(appId));
+    const zero = (value) => (typeof value === 'number' ? 0 : typeof value === 'boolean' ? false : '');
+    const applyProfilePatch = (target, own, patch) => {
       const property = profileProperties[patch.field];
-      target[property] = patch.operation === 'reset' ? (typeof target[property] === 'number' ? 0 : typeof target[property] === 'boolean' ? false : '') : patch.value;
+      if (patch.operation === 'reset') {
+        target[property] = zero(target[property]);
+        own.delete(patch.field);
+      } else if (patch.operation === 'pin') {
+        own.add(patch.field);
+      } else {
+        target[property] = patch.value;
+        own.add(patch.field);
+      }
+    };
+    const valueText = (word, value) => {
+      if (typeof value === 'boolean') return value ? 'On' : 'Off';
+      if (typeof value === 'number') return word.unit ? value + (word.unit === '%' ? '' : ' ') + word.unit : String(value);
+      return value === '' || value === undefined ? 'none' : String(value);
+    };
+    // The games that set their own value for a field, by name.
+    const gamesWith = (fields) => games
+      .filter((entry) => fields.some((field) => ownSet(entry.appId).has(field)))
+      .map((entry) => entry.name)
+      .sort();
+    // project mirrors the real projection: sources, action words, value text, and
+    // the whole-page Follow all follow from what the page holds itself.
+    const project = (profile, own, allGames) => {
+      const base = allGames ? allGamesWords : gameWords;
+      const semantics = base.map((word) => {
+        const isOwn = own.has(word.field);
+        const owners = allGames ? gamesWith([word.field]).length : 0;
+        return {
+          ...word,
+          ownValueSuffix: owners ? (owners === 1 ? '1 game has its own value' : owners + ' games have their own value') : '',
+          ownValueCount: owners,
+          ownValueAction: owners ? 'Apply to games with their own value' : '',
+          source: isOwn ? 'override' : 'default',
+          origin: allGames ? (isOwn ? 'set_here' : 'system_default') : (isOwn ? 'this_game' : 'all_games'),
+          sourceText: allGames ? (isOwn ? 'set here' : 'system default') : (isOwn ? 'this game · All games: Off' : 'from All games'),
+          action: allGames ? (isOwn ? 'Use system default' : 'Set here') : (isOwn ? 'Follow All games' : 'Set for this game'),
+          valueText: valueText(word, profile[profileProperties[word.field]]),
+        };
+      });
+      const count = own.size;
+      return {
+        ...profile,
+        semantics,
+        clearAll: {
+          action: allGames ? 'Use system default for all settings' : 'Follow All games for all settings',
+          count,
+          body: count === 0 ? 'Nothing to clear.' : 'This clears the ' + count + ' setting' + (count === 1 ? '' : 's') + ' that ' + (allGames ? 'All games sets' : 'this game sets') + ' itself. It is saved at once.',
+        },
+      };
     };
     window.__profilePatchCalls = [];
+    window.__applyPreviews = [];
+    window.__applyCalls = [];
+    window.__failNextPatch = '';
+    window.__patchDelay = 0;
+    const settle = async () => {
+      if (window.__patchDelay) await new Promise((resolve) => setTimeout(resolve, window.__patchDelay));
+      if (window.__failNextPatch) {
+        const reason = window.__failNextPatch;
+        window.__failNextPatch = '';
+        throw new Error(reason);
+      }
+    };
     let config = ${JSON.stringify(mockData.config)};
     const settingsCatalog = ${JSON.stringify(mockData.settingsCatalog)};
     const dllUpdates = ${JSON.stringify(mockData.dllUpdates)};
@@ -157,7 +242,7 @@ function createMockScript(mockData) {
           GetSettingsCatalog: async () => settingsCatalog,
           DefaultNavState: async () => cloneNav(defaultNav),
           NavSelectDestination: async (state, destination) => cloneNav({ ...state, destination }),
-          NavSelectScope: async (state, scopeGlobal, gameName = '') => cloneNav({ ...state, scopeGlobal, gameName, aspect: scopeGlobal ? 1 : state.aspect }),
+          NavSelectScope: async (state, scopeGlobal, gameName = '') => cloneNav({ ...state, scopeGlobal, gameName, aspect: scopeGlobal || state.aspect !== 2 ? 1 : state.aspect }),
           NavSelectAspect: async (state, aspect) => cloneNav({ ...state, aspect }),
           NavSelectSubsystem: async (state, subsystem) => cloneNav({ ...state, subsystem }),
           NavSelectDLLSection: async (state, section) => cloneNav({ ...state, dllSection: section }),
@@ -177,21 +262,62 @@ function createMockScript(mockData) {
             }
           },
           GetVersion: async () => '0.5.1',
+          GetLogo: async () => '',
           GetGames: async () => games,
           GetGame: async (appId) => games.find((g) => g.appId === appId) || null,
           ScanGames: async () => {},
-          GetDefaultProfile: async () => defaultProfile,
+          GetDefaultProfile: async () => project(defaultProfile, defaultOwn, true),
           PatchDefaultProfile: async (patches) => {
             window.__profilePatchCalls.push({ scope: 'default', patches: structuredClone(patches) });
-            patches.forEach((patch) => applyProfilePatch(defaultProfile, patch));
-            return defaultProfile;
+            await settle();
+            patches.forEach((patch) => applyProfilePatch(defaultProfile, defaultOwn, patch));
+            return project(defaultProfile, defaultOwn, true);
           },
-          GetProfile: async (appId) => profiles[appId] || null,
+          // A game without a profile reads as All games, as the real backend projects it.
+          GetProfile: async (appId) => profiles[appId]
+            ? project(profiles[appId], ownSet(appId), false)
+            : { ...project(structuredClone(defaultProfile), new Set(), false), inheritedFromDefault: true },
           PatchProfile: async (appId, patches) => {
             window.__profilePatchCalls.push({ scope: 'game', appId, patches: structuredClone(patches) });
+            await settle();
             profiles[appId] ||= structuredClone(defaultProfile);
-            patches.forEach((patch) => applyProfilePatch(profiles[appId], patch));
-            return profiles[appId];
+            const own = ownSet(appId);
+            patches.forEach((patch) => applyProfilePatch(profiles[appId], own, patch));
+            const game = games.find((entry) => entry.appId === appId);
+            if (game) game.hasProfile = true;
+            return project(profiles[appId], own, false);
+          },
+          PreviewApplyToGamesWithOwnValue: async (fields) => {
+            window.__applyPreviews.push(structuredClone(fields));
+            const names = gamesWith(fields);
+            const word = gameWords.find((entry) => entry.field === fields[0]);
+            const value = fields.length === 1 ? ' (' + valueText(word, defaultProfile[profileProperties[fields[0]]]) + ')' : '';
+            return {
+              action: 'Apply to games with their own value',
+              count: names.length,
+              appIds: games.filter((entry) => fields.some((field) => ownSet(entry.appId).has(field))).map((entry) => entry.appId),
+              body: word.label + ': ' + names.length + (names.length === 1 ? ' game has' : ' games have') + ' their own value: ' + names.join(', ') + '. ' + (names.length === 1 ? 'It' : 'They') + ' will follow All games' + value + '. It is saved at once and cannot be undone.',
+            };
+          },
+          ApplyToGamesWithOwnValue: async (fields, appIds) => {
+            window.__applyCalls.push(structuredClone(fields));
+            await settle();
+            const named = games.filter((entry) => appIds.includes(entry.appId));
+            const names = named.filter((entry) => fields.some((field) => ownSet(entry.appId).has(field))).map((entry) => entry.name);
+            named.forEach((entry) => {
+              fields.forEach((field) => {
+                if (!ownSet(entry.appId).has(field)) return;
+                profiles[entry.appId] ||= structuredClone(defaultProfile);
+                applyProfilePatch(profiles[entry.appId], ownSet(entry.appId), { field, operation: 'reset' });
+              });
+            });
+            const word = gameWords.find((entry) => entry.field === fields[0]);
+            return {
+              message: word.label + ': ' + names.length + (names.length === 1 ? ' game follows' : ' games follow') + ' All games',
+              failure: '',
+              failed: [],
+              profile: project(defaultProfile, defaultOwn, true),
+            };
           },
           GetGPUInfo: async () => gpuInfo,
           GetCPUInfo: async () => cpuInfo,
@@ -235,7 +361,7 @@ function createMockScript(mockData) {
 
 export const test = base.extend({
   page: async ({ page }, use) => {
-    const mockData = { games, gpuInfo, cpuInfo, profiles, defaultProfile, config, settingsCatalog, dllUpdates }
+    const mockData = { games, gpuInfo, cpuInfo, profiles, ownFields, defaultProfile, config, settingsCatalog, dllUpdates }
     await page.addInitScript(createMockScript(mockData))
     await use(page)
   },

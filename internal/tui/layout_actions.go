@@ -7,9 +7,18 @@ import (
 	"github.com/jgabor/spela/internal/nav"
 )
 
+// operationsPending reports work that blocks Quit and batch actions. Profile
+// and Settings writes are not part of it: they never block anything but Quit,
+// which waits for them (see savesPending).
 func (m LayoutModel) operationsPending() bool {
+	return m.rescanBusy || m.batchBusy || m.pane.content.dllOperating || m.pane.dllsResource.busy || m.pane.content.dllInstallState == DLLInstallDownloading
+}
+
+// savesPending reports a profile or Settings write that has not finished,
+// including All games being applied to the games that set their own value.
+func (m LayoutModel) savesPending() bool {
 	saves := m.pane.content.profileSaves
-	return saves != nil && (saves.active != nil || len(saves.queued) > 0) || m.rescanBusy || m.pane.settings.Busy() || m.batchBusy || m.pane.content.dllOperating || m.pane.dllsResource.busy || m.pane.content.dllInstallState == DLLInstallDownloading
+	return saves != nil && (saves.active != nil || len(saves.queued) > 0) || m.pane.settings.Saving() || m.applyingOwnValues
 }
 
 func (m LayoutModel) actionContext() BindingContext {
@@ -23,17 +32,22 @@ func (m LayoutModel) actionContext() BindingContext {
 	switch c.Destination {
 	case nav.DestinationLibrary:
 		c.CanMoveList, c.CanOpen = len(m.listPane.sidebar.filtered) > 0, m.listPane.sidebar.SelectedItem() != nil
-		c.CanSelect = m.listPane.sidebar.Selected() != nil
+		c.FindRow = m.listPane.sidebar.findFocused
+		c.CanSelect = m.listPane.sidebar.Selected() != nil && !c.FindRow
 		c.HasFields = c.ProfileScope && c.Aspect == nav.AspectProfile
-		c.Scrollable = c.Aspect == nav.AspectOverview && m.pane.detailScrollMaximum() > 0
-		c.SaveAvailable = c.HasFields && c.Focus == FocusDetail
 		if c.HasFields {
 			detail := m.pane.profileDetail()
-			c.CanCycle = detail.CanCycleFocusedField()
-			c.Editable = !c.CanCycle
-			c.Dirty, c.EditorInput, c.EditorEnterLabel, c.EditorKind = detail.Dirty(), detail.EditorInputFocused(), detail.EditorEnterLabel(), detail.EditorInputKind()
+			c.CanCycle = detail.CanToggleFocusedField()
+			c.Editable = c.CanCycle
+			c.FieldOwn = detail.FocusedIsOwn()
+			c.OwnValueGames = detail.FocusedOwnValueGameCount()
+			c.SavesPending = m.savesPending()
+			c.CanJumpPrevious = detail.CanJumpSection(-1)
+			c.CanJumpNext = detail.CanJumpSection(1) || c.GameScope
+			c.EditorInput, c.EditorEnterLabel, c.EditorKind = detail.EditorInputFocused(), detail.EditorEnterLabel(), detail.EditorInputKind()
 		}
 		if c.GameScope && c.Aspect == nav.AspectDLLs {
+			c.CanJumpPrevious = true
 			c.DLLActionCount = m.pane.content.DLLActionCount()
 			c.DLLSelectedAction = m.pane.content.DLLSelectedAction()
 			c.DLLSelectedName = m.pane.content.DLLSelectedActionName()
@@ -41,9 +55,7 @@ func (m LayoutModel) actionContext() BindingContext {
 	case nav.DestinationSettings:
 		c.CanMoveList, c.CanOpen = m.pane.settings.getCurrentOption() != nil, m.pane.settings.getCurrentOption() != nil
 		c.CanCycle = m.pane.settings.CanCycleFocusedField()
-		c.Editable = c.CanOpen && !c.CanCycle && !m.pane.settings.Busy()
-		c.SaveAvailable = !m.pane.settings.Busy()
-		c.Dirty = m.pane.settings.Dirty()
+		c.Editable = c.CanOpen && !c.CanCycle
 		c.EditorInput, c.EditorEnterLabel, c.EditorKind = m.pane.settings.EditorInputFocused(), m.pane.settings.EditorEnterLabel(), m.pane.settings.EditorInputKind()
 	case nav.DestinationDLLCatalog:
 		count := len(m.pane.dllsResource.knownDLLTypes())
@@ -121,6 +133,12 @@ func (m LayoutModel) routeKey(key tea.KeyPressMsg) (LayoutModel, tea.Cmd) {
 		}
 		return m, nil
 	}
+	if !resolution.Supported && key.Text != "" && c.Destination == nav.DestinationLibrary && m.focus == FocusList && m.listPane.sidebar.findFocused {
+		// Typing on the Find row starts Search with that character.
+		started, command := m.startSearch()
+		next, typed := started.handleSearchKey(key, ActionSearchInput)
+		return next, tea.Batch(command, typed)
+	}
 	if !resolution.Supported || !resolution.Available {
 		return m, nil
 	}
@@ -128,8 +146,12 @@ func (m LayoutModel) routeKey(key tea.KeyPressMsg) (LayoutModel, tea.Cmd) {
 }
 
 func isEditorTextKey(key tea.KeyPressMsg, context BindingContext) bool {
-	if !context.EditorInput || context.EditorKind == EditorBool || context.EditorKind == EditorChoice {
+	if !context.EditorInput || context.EditorKind == EditorBool {
 		return false
+	}
+	if context.EditorKind == EditorChoice {
+		// A picker takes letters and digits to jump; Space and the arrows move.
+		return key.Text != "" && key.String() != "space" && isPrintableKey(key.String())
 	}
 	if key.Text != "" || isPrintableKey(key.String()) {
 		return true
@@ -204,6 +226,13 @@ func (m LayoutModel) dispatchAction(action KeyAction) (LayoutModel, tea.Cmd) {
 	switch action {
 	case ActionShowActions:
 		m.actions = &actionMenu{}
+		// The cursor starts on the first row that can run, so Enter does something.
+		for index, item := range m.menuBindings() {
+			if item.Available {
+				m.actions.cursor = index
+				break
+			}
+		}
 		return m, nil
 	case ActionShowHelp:
 		m.help = NewHelpForContext(m.styles, context)
@@ -223,17 +252,19 @@ func (m LayoutModel) dispatchAction(action KeyAction) (LayoutModel, tea.Cmd) {
 		m.calculateDimensions()
 		return m, nil
 	case ActionDetailPrevious:
-		return m.selectAdjacentLibraryAspect(-1), nil
+		return m.jumpSection(-1), nil
 	case ActionDetailNext:
-		return m.selectAdjacentLibraryAspect(1), nil
+		return m.jumpSection(1), nil
 	case ActionRescanLibrary:
 		m.rescanBusy = true
 		m.rescanRequestID++
 		return m, tea.Batch(m.messageBar.SetMessage("Rescanning games...", MessageInfo), m.rescanGames())
 	case ActionStartSearch:
 		return m.startSearch()
-	case ActionCancelDraft, ActionDetailResetAll:
-		return m.confirmDraftAction(action), nil
+	case ActionDetailResetAll:
+		return m.confirmClearAll(), nil
+	case ActionApplyOwnValues:
+		return m.confirmApplyOwnValues(), nil
 	}
 	if resolution.Binding.Scope == ScopeList {
 		return m.updateListAction(action)
@@ -253,8 +284,11 @@ func (m LayoutModel) updateListAction(action KeyAction) (LayoutModel, tea.Cmd) {
 			m.batchScrollOffset = 0
 			return m, nil
 		}
+		if action == ActionListSelect && m.listPane.sidebar.findFocused {
+			return m.startSearch()
+		}
 		next, _ := m.listPane.sidebar.cloneSelection().UpdateAction(action)
-		return m.requestSidebar(next, action == ActionListSelect)
+		return m.applySidebar(next, action == ActionListSelect)
 	case nav.DestinationDLLCatalog:
 		if action == ActionListSelect {
 			m.focus = FocusDetail
@@ -281,7 +315,7 @@ func (m LayoutModel) updateListAction(action KeyAction) (LayoutModel, tea.Cmd) {
 				}
 				m.pane.settings.sectionCursor = (m.pane.settings.sectionCursor + delta + count) % count
 				m.pane.settings.optionCursor = 0
-				m.navState.SettingsSection = nav.SettingsSection(m.pane.settings.sectionCursor)
+				m.navState.SettingsSection = m.pane.settings.sections[m.pane.settings.sectionCursor].ID
 			}
 		case ActionListPrevious:
 			m.pane.settings.moveCursor(-1)

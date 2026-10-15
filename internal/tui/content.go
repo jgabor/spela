@@ -91,6 +91,8 @@ type profileSaveMsg struct {
 type profileSaveRequest struct {
 	appID           uint64
 	before, desired *profile.Profile
+	// summary names the change for the message bar, such as "HDR On".
+	summary string
 }
 
 type profileSaveState struct {
@@ -142,6 +144,19 @@ func (s *profileSaveState) complete(message profileSaveMsg) tea.Cmd {
 	request := s.queued[0]
 	s.queued = s.queued[1:]
 	return s.start(request)
+}
+
+// pending reports a write in flight or queued for one profile.
+func (s *profileSaveState) pending(appID uint64) bool {
+	if s.active != nil && s.active.appID == appID {
+		return true
+	}
+	for _, request := range s.queued {
+		if request.appID == appID {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *profileSaveState) latest(appID uint64) *profile.Profile {
@@ -201,6 +216,9 @@ func (m ContentModel) SetGame(g *game.Game) ContentModel {
 		m.hasBackup = m.services.BackupExists(g.AppID)
 		return m
 	}
+	// The field under the cursor stays when the game changes, so the same
+	// setting can be changed on the next game without finding it again.
+	focused := m.detail.FocusedField()
 	m.game, m.dllOperating = g, false
 	m.scrollOffset, m.dllInstallState = 0, DLLInstallNone
 	m.hasUpdates, m.usingDefaultProfile, m.lastDLLResult = false, false, ""
@@ -218,6 +236,7 @@ func (m ContentModel) SetGame(g *game.Game) ContentModel {
 			rawProfile, m.usingDefaultProfile = desired.Clone(), false
 		}
 		m.detail = NewDetail(m.styles, rawProfile, defaults)
+		m.detail.RestoreFocus(focused, 0)
 		m.detail.SetSize(max(m.width, 1), m.height)
 		m.hasBackup = m.services.BackupExists(g.AppID)
 	}
@@ -250,8 +269,9 @@ func (m ContentModel) Update(msg tea.Msg) (ContentModel, tea.Cmd) {
 	return m, nil
 }
 
-// saveResolvedProfile emits a save command for the current game's raw profile.
-func (m *ContentModel) saveResolvedProfile() tea.Cmd {
+// saveResolvedProfile emits a save command for the current game's working
+// copy. summary names the change for the message bar.
+func (m *ContentModel) saveResolvedProfile(summary string) tea.Cmd {
 	if m.game == nil {
 		return nil
 	}
@@ -268,7 +288,7 @@ func (m *ContentModel) saveResolvedProfile() tea.Cmd {
 	if desired := m.profileSaves.latest(m.game.AppID); desired != nil {
 		before = desired
 	}
-	return m.profileSaves.start(profileSaveRequest{appID: m.game.AppID, before: before.Clone(), desired: raw.Clone()})
+	return m.profileSaves.start(profileSaveRequest{appID: m.game.AppID, before: before.Clone(), desired: raw.Clone(), summary: summary})
 }
 
 func (m ContentModel) updateDLLs() tea.Cmd {

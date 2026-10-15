@@ -10,27 +10,22 @@ import (
 	"github.com/jgabor/spela/internal/profile"
 )
 
-func TestProfileEditorCreatesDraftOverrideAndCancelRestoresPersisted(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+func TestProfileEditorCreatesExactOverrideFromInheritedValue(t *testing.T) {
+	styles := NewStyles(DefaultTheme)
 	defaults := &profile.Profile{Proton: profile.ProtonSettings{EnableHDR: true}}
 	detail := NewDetail(styles, nil, defaults)
 	focusField(t, &detail, profile.FieldProtonEnableHDR)
 
-	if !detail.BeginEdit() || !detail.UpdateEditor(keyMsg("enter")) {
+	if !detail.BeginEdit() || !pickOption(&detail, "o") {
 		t.Fatal("inherited field did not enter and commit through EditorHost")
 	}
 	if !detail.Dirty() || !detail.RawProfile().IsOverridden(profile.FieldProtonEnableHDR) || !detail.RawProfile().Proton.EnableHDR {
 		t.Fatalf("concrete inherited edit did not create exact override: %+v", detail.RawProfile())
 	}
-
-	detail.CancelDraft()
-	if detail.Dirty() || detail.RawProfile().IsOverridden(profile.FieldProtonEnableHDR) {
-		t.Fatal("cancel did not restore the persisted inherited value")
-	}
 }
 
-func TestProfileEditorRetainsInvalidAndFailedDrafts(t *testing.T) {
-	detail := NewDetail(NewStyles(DefaultTheme, true), &profile.Profile{}, &profile.Profile{})
+func TestProfileEditorKeepsInvalidInputAndReportsFailedWrites(t *testing.T) {
+	detail := NewDetail(NewStyles(DefaultTheme), &profile.Profile{}, &profile.Profile{})
 	focusField(t, &detail, profile.FieldGPUPowerLimit)
 	detail.BeginEdit()
 	detail.editor.Set("not-a-number")
@@ -55,12 +50,12 @@ func TestProfileEditorRetainsInvalidAndFailedDrafts(t *testing.T) {
 }
 
 func TestProfileAndSettingsUseSharedEditorHost(t *testing.T) {
-	profileDetail := NewDetail(NewStyles(DefaultTheme, true), &profile.Profile{}, &profile.Profile{})
+	profileDetail := NewDetail(NewStyles(DefaultTheme), &profile.Profile{}, &profile.Profile{})
 	if !profileDetail.BeginEdit() || !profileDetail.editor.Active() {
 		t.Fatal("profile did not activate EditorHost")
 	}
 
-	settings := NewOptionsModal(NewStyles(DefaultTheme, true))
+	settings := NewOptionsModal(NewStyles(DefaultTheme))
 	settings.OpenEmbedded(config.Default())
 	settings.SyncNavSection(nav.SettingsPaths)
 	settings.startPathEditing()
@@ -72,8 +67,8 @@ func TestProfileAndSettingsUseSharedEditorHost(t *testing.T) {
 		t.Fatal("settings cancellation did not close EditorHost")
 	}
 
-	root := NewRootDetail(NewStyles(DefaultTheme, true), &profile.Profile{})
-	if !strings.Contains(stripANSI(root.View()), "System default") {
-		t.Fatal("root reset semantics are not labelled System default")
+	root := NewRootDetail(NewStyles(DefaultTheme), &profile.Profile{})
+	if !strings.Contains(stripANSI(root.View()), "system default") {
+		t.Fatal("root reset semantics are not labelled system default")
 	}
 }

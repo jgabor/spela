@@ -45,8 +45,8 @@ func init() {
 
 var cpuProfileResetCmd = &cobra.Command{
 	Use:   "profile-reset <game> <field>",
-	Short: "Reset a CPU profile field to inherit from defaults",
-	Long: `Reset a CPU profile field back to inherited. Valid fields:
+	Short: "Make a CPU profile field follow All games",
+	Long: `Make a CPU profile field follow All games again. Valid fields:
   governor, smt, affinity.`,
 	Args: cobra.ExactArgs(2),
 	RunE: runCPUProfileReset,
@@ -107,13 +107,13 @@ func runCPUSet(cmd *cobra.Command, args []string) error {
 }
 
 func runCPUShow(cmd *cobra.Command, args []string) error {
-	g, p, resolved, err := resolvedProfileForShow(args[0])
+	snapshot, err := loadProfileSnapshot(args[0])
 	if err != nil {
 		return err
 	}
 
 	if cpuShowJSON {
-		data, err := json.MarshalIndent(resolved.CPU, "", "  ")
+		data, err := json.MarshalIndent(snapshot.resolved.CPU, "", "  ")
 		if err != nil {
 			return err
 		}
@@ -121,20 +121,10 @@ func runCPUShow(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Printf("CPU profile for %s:\n\n", g.Name)
-	fmt.Println(renderField("Governor:", profile.FieldCPUGovernor, p, displayGPUString(resolved.CPU.Governor)))
-	fmt.Println(renderField("SMT:", profile.FieldCPUSMT, p, displaySMT(resolved.CPU.SMT)))
-	fmt.Println(renderField("Affinity:", profile.FieldCPUAffinity, p, displayGPUString(resolved.CPU.Affinity)))
-
+	fmt.Printf("CPU profile for %s:\n\n", snapshot.game.Name)
+	snapshot.printNoProfileNote()
+	if err := printSubsystemFields("cpu", snapshot, ""); err != nil {
+		return err
+	}
 	return nil
-}
-
-func displaySMT(b *bool) string {
-	if b == nil {
-		return "(default)"
-	}
-	if *b {
-		return "on"
-	}
-	return "off"
 }

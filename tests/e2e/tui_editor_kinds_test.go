@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -26,80 +27,117 @@ func TestTUIProfileEditorKinds(t *testing.T) {
 			artifacts := editorJourneyArtifacts(t, session, environment, size.width, size.height, "editor-kinds")
 			openGameProfile(t, session)
 
-			// Space cycles a finite choice in Browse. Saving remains explicit
-			// and is also reachable through the visible Actions menu.
+			// A finite choice opens a picker. Typing jumps to a choice, Enter
+			// applies it, and the change is written at once.
 			focusProfileField(t, session, "Super resolution")
 			beforeChoice := readEditorFixture(t, profilePath)
-			requireScreen(t, session, []string{"Space"}, "Enter: Edit field")
-			sendDisplayed(t, session, " ")
-			waitProfileField(t, session, "Super resolution", "quality")
-			requireScreen(t, session, nil, "Value before edit:", "> Input")
-			captureEditorPhase(t, session, artifacts, "01-choice-draft")
+			requireScreen(t, session, []string{"Space", "Enter: Edit value"}, "Ctrl+S")
+			sendDisplayed(t, session, "enter")
+			waitVisible(t, session, "Edit Super resolution")
+			requireScreen(t, session, []string{"Follow All games (balanced)", "Type to jump", "Esc cancel", "> balanced"}, "Value before edit:")
+			captureEditorPhase(t, session, artifacts, "01-choice-picker")
 			requireEditorFixtureUnchanged(t, profilePath, beforeChoice)
-			chooseAction(t, session, "Save")
+			typeIntoPicker(t, session, "q")
+			waitVisible(t, session, "> quality")
+			sendDisplayed(t, session, "enter")
+			waitVisible(t, session, "Saved: Super resolution quality")
 			waitSavedProfile(t, session, profilePath, beforeChoice)
 			requireYAMLValue(t, profilePath, "quality", "dlss", "sr_mode")
 			requireYAMLValue(t, profilePath, true, "overrides", "dlss.sr_mode")
+			waitProfileField(t, session, "Super resolution", "quality")
 			captureEditorPhase(t, session, artifacts, "02-choice-saved")
 
-			// Cycling past the final choice restores inheritance. The state
-			// column shows its effective value, while the value is (default).
-			beforeReset := readEditorFixture(t, profilePath)
+			// Space follows All games and the next Space puts the value back.
+			beforeFollow := readEditorFixture(t, profilePath)
 			sendDisplayed(t, session, " ")
-			waitProfileField(t, session, "Super resolution", "dlaa")
-			sendDisplayed(t, session, " ")
-			waitProfileField(t, session, "Super resolution", "(empty)")
-			requireEditorFixtureUnchanged(t, profilePath, beforeReset)
-			sendDisplayed(t, session, "ctrl-s")
-			waitSavedProfile(t, session, profilePath, beforeReset)
-			requireYAMLValue(t, profilePath, nil, "dlss", "sr_mode")
-			requireYAMLValue(t, profilePath, true, "overrides", "dlss.sr_mode")
-			captureEditorPhase(t, session, artifacts, "03-choice-explicit-empty")
-			beforeReset = readEditorFixture(t, profilePath)
-			sendDisplayed(t, session, " ")
-			waitProfileField(t, session, "Super resolution", "(default)")
-			requireScreen(t, session, []string{"↳ Default: balanced"}, "> ◆ Super resolution")
-			requireEditorFixtureUnchanged(t, profilePath, beforeReset)
-			sendDisplayed(t, session, "ctrl-s")
-			waitSavedProfile(t, session, profilePath, beforeReset)
+			waitVisible(t, session, "Saved: Super resolution follows All games")
+			waitSavedProfile(t, session, profilePath, beforeFollow)
+			waitProfileRow(t, session, "Super resolution", "balanced", "from All games")
 			requireYAMLValue(t, profilePath, nil, "dlss", "sr_mode")
 			requireYAMLValue(t, profilePath, nil, "overrides", "dlss.sr_mode")
-			requireYAMLValue(t, defaultsPath, "balanced", "dlss", "sr_mode")
-			captureEditorPhase(t, session, artifacts, "03-choice-inherited")
+			captureEditorPhase(t, session, artifacts, "03-choice-follows")
+			beforeBack := readEditorFixture(t, profilePath)
+			sendDisplayed(t, session, " ")
+			waitVisible(t, session, "Saved: Super resolution quality")
+			waitSavedProfile(t, session, profilePath, beforeBack)
+			requireYAMLValue(t, profilePath, "quality", "dlss", "sr_mode")
 
-			// Invalid integer input must remain available for recovery while
-			// the previous file stays intact. Cancel/reopen corrects it using
-			// displayed controls, without relying on an undisplayed delete key.
+			// The explicit empty value is a choice of its own.
+			beforeNone := readEditorFixture(t, profilePath)
+			sendDisplayed(t, session, "enter")
+			waitVisible(t, session, "Edit Super resolution")
+			typeIntoPicker(t, session, "n")
+			waitVisible(t, session, "> none")
+			sendDisplayed(t, session, "enter")
+			waitVisible(t, session, "Saved: Super resolution none")
+			waitSavedProfile(t, session, profilePath, beforeNone)
+			requireYAMLValue(t, profilePath, nil, "dlss", "sr_mode")
+			requireYAMLValue(t, profilePath, true, "overrides", "dlss.sr_mode")
+			captureEditorPhase(t, session, artifacts, "04-choice-explicit-empty")
+
+			// Esc leaves a picker without a change.
+			beforeEscape := readEditorFixture(t, profilePath)
+			sendDisplayed(t, session, "enter")
+			waitVisible(t, session, "Edit Super resolution")
+			typeIntoPicker(t, session, "d")
+			sendDisplayed(t, session, "escape")
+			waitProfileField(t, session, "Super resolution", "none")
+			requireEditorFixtureUnchanged(t, profilePath, beforeEscape)
+
+			// Picking the follow row clears the value.
+			sendDisplayed(t, session, "enter")
+			waitVisible(t, session, "Edit Super resolution")
+			typeIntoPicker(t, session, "f")
+			sendDisplayed(t, session, "enter")
+			waitVisible(t, session, "Saved: Super resolution follows All games")
+			waitSavedProfile(t, session, profilePath, beforeEscape)
+			requireYAMLValue(t, profilePath, nil, "overrides", "dlss.sr_mode")
+			requireYAMLValue(t, defaultsPath, "balanced", "dlss", "sr_mode")
+
+			// Invalid integer input stays in the editor with its error while the
+			// file is untouched. Cancel and reopen to correct it.
 			focusProfileField(t, session, "Clock offset")
-			requireScreen(t, session, []string{"Enter: Edit field"}, "Space:")
+			requireScreen(t, session, []string{"Enter: Edit value"})
 			beforeInteger := readEditorFixture(t, profilePath)
 			beginProfileFieldEdit(t, session, "Clock offset", "0")
+			requireScreen(t, session, []string{"Typing replaces the value", "Backspace delete"})
 			typeIntoInput(t, session, "x")
-			waitVisible(t, session, "0x")
-			sendDisplayed(t, session, "ctrl-s")
-			waitVisible(t, session, "Invalid value: invalid integer: 0x")
+			waitVisible(t, session, "x▏")
+			sendDisplayed(t, session, "enter")
+			waitVisible(t, session, "Invalid value: invalid integer: x")
 			requireInputOwnsKeys(t, session)
-			requireScreen(t, session, []string{"Edit Clock offset", "> Input", "0x▏"}, "Profile saved!")
+			requireScreen(t, session, []string{"Edit Clock offset", "> Input", "x▏"}, "Saved: Clock offset")
 			requireEditorFixtureUnchanged(t, profilePath, beforeInteger)
-			captureEditorPhase(t, session, artifacts, "04-integer-invalid")
+			captureEditorPhase(t, session, artifacts, "05-integer-invalid")
 			selectControl(t, session, "Cancel")
-			waitProfileField(t, session, "Clock offset", "(default)")
+			waitProfileField(t, session, "Clock offset", "none")
 			beginProfileFieldEdit(t, session, "Clock offset", "0")
 			typeIntoInput(t, session, "01234")
-			waitVisible(t, session, "001234▏")
+			waitVisible(t, session, "01234▏")
 			requireInputOwnsKeys(t, session)
 			requireScreen(t, session, []string{"Edit Clock offset"}, "Invalid value:", "Actions ·")
-			captureEditorPhase(t, session, artifacts, "05-integer-corrected")
-			selectControl(t, session, "Save")
+			captureEditorPhase(t, session, artifacts, "06-integer-corrected")
+			sendDisplayed(t, session, "enter")
+			waitVisible(t, session, "Saved: Clock offset 1234 MHz")
 			waitSavedProfile(t, session, profilePath, beforeInteger)
 			requireYAMLValue(t, profilePath, 1234, "gpu", "clock_offset")
 			requireYAMLValue(t, profilePath, true, "overrides", "gpu.clock_offset")
-			captureEditorPhase(t, session, artifacts, "06-integer-saved")
+			captureEditorPhase(t, session, artifacts, "07-integer-saved")
+
+			// Space follows All games and puts the number back.
+			sendDisplayed(t, session, " ")
+			waitVisible(t, session, "Saved: Clock offset follows All games")
+			waitForScreen(t, session, "clock offset follows", func(screen string) bool {
+				data, err := os.ReadFile(profilePath)
+				return err == nil && !strings.Contains(string(data), "gpu.clock_offset")
+			})
+			sendDisplayed(t, session, " ")
+			waitVisible(t, session, "Saved: Clock offset 1234 MHz")
+			requireYAMLValue(t, profilePath, 1234, "gpu", "clock_offset")
 
 			// Digits, punctuation, spaces, and locale text are literal input.
-			// A local Cancel must retain the path applied by the previous edit.
 			focusProfileField(t, session, "Shader cache path")
-			requireScreen(t, session, []string{"Enter: Edit field"}, "Space:")
+			requireScreen(t, session, []string{"Enter: Edit value"})
 			beforeText := readEditorFixture(t, profilePath)
 			beginProfileFieldEdit(t, session, "Shader cache path", "")
 			const cachePath = "01234 /åäö/[cache]"
@@ -108,25 +146,24 @@ func TestTUIProfileEditorKinds(t *testing.T) {
 			typeIntoInput(t, session, "/åäö/[cache]")
 			waitVisible(t, session, cachePath+"▏")
 			requireInputOwnsKeys(t, session)
-			captureEditorPhase(t, session, artifacts, "07-path-input")
+			captureEditorPhase(t, session, artifacts, "08-path-input")
 			selectControl(t, session, "Apply")
-			waitProfileField(t, session, "Shader cache path", "01234")
-			requireEditorFixtureUnchanged(t, profilePath, beforeText)
-			beginProfileFieldEdit(t, session, "Shader cache path", cachePath)
-			typeIntoInput(t, session, " discarded")
-			waitVisible(t, session, "discarded▏")
-			selectControl(t, session, "Cancel")
-			waitProfileField(t, session, "Shader cache path", "01234")
-			requireEditorFixtureUnchanged(t, profilePath, beforeText)
-			beginProfileFieldEdit(t, session, "Shader cache path", cachePath)
-			requireScreen(t, session, []string{cachePath + "▏"}, "discarded")
-			captureEditorPhase(t, session, artifacts, "08-path-cancel-retained-draft")
-			selectControl(t, session, "Save")
+			waitVisible(t, session, "Saved: Shader cache path")
 			waitSavedProfile(t, session, profilePath, beforeText)
 			requireYAMLValue(t, profilePath, cachePath, "gpu", "shader_cache_path")
 			requireYAMLValue(t, profilePath, true, "overrides", "gpu.shader_cache_path")
 			requireYAMLValue(t, profilePath, 1234, "gpu", "clock_offset")
-			requireYAMLValue(t, profilePath, nil, "overrides", "dlss.sr_mode")
+
+			// Esc abandons an edit and keeps the saved path.
+			afterText := readEditorFixture(t, profilePath)
+			beginProfileFieldEdit(t, session, "Shader cache path", cachePath)
+			typeIntoInput(t, session, " discarded")
+			waitVisible(t, session, "discarded▏")
+			sendDisplayed(t, session, "escape")
+			waitForScreen(t, session, "abandoned path edit", func(screen string) bool {
+				return !strings.Contains(screen, "Value before edit:") && !strings.Contains(screen, "discarded")
+			})
+			requireEditorFixtureUnchanged(t, profilePath, afterText)
 			requireEditorFixtureUnchanged(t, defaultsPath, originalDefaults)
 			captureEditorPhase(t, session, artifacts, "09-path-saved")
 			quitTUI(t, session, environment)
@@ -134,7 +171,7 @@ func TestTUIProfileEditorKinds(t *testing.T) {
 	}
 }
 
-func TestTUIProfileSpaceCycles(t *testing.T) {
+func TestTUIProfileSpaceTogglesFollow(t *testing.T) {
 	for _, size := range []struct{ width, height int }{{80, 24}, {120, 40}} {
 		for _, scope := range []string{"root", "game"} {
 			t.Run(fmt.Sprintf("%dx%d/%s", size.width, size.height, scope), func(t *testing.T) {
@@ -144,8 +181,8 @@ func TestTUIProfileSpaceCycles(t *testing.T) {
 				gamePath := filepath.Join(environment.ConfigHome, "spela", "profiles", "1091500.yaml")
 				activePath := defaultsPath
 				if scope == "game" {
-					// Inheritance can resolve to true while the field remains
-					// (default). Its first Space must still create an explicit pin.
+					// All games sets HDR On while the game follows it: the first Space
+					// must set the opposite on the game.
 					var defaults, gameProfile profile.Profile
 					if err := yaml.Unmarshal(readEditorFixture(t, defaultsPath), &defaults); err != nil {
 						t.Fatal(err)
@@ -172,8 +209,8 @@ func TestTUIProfileSpaceCycles(t *testing.T) {
 					waitVisible(t, session, "▸ Detail")
 				} else {
 					openGameProfile(t, session)
-					waitProfileField(t, session, "HDR", "(default)")
-					requireScreen(t, session, []string{"↳ Default: true"}, "> ◆ HDR")
+					waitProfileField(t, session, "HDR", "On")
+					requireScreen(t, session, []string{"from All games"}, "> ◆ HDR")
 
 					// The same displayed Space selects a game when List owns
 					// focus. It must not change the profile behind that pane.
@@ -188,58 +225,82 @@ func TestTUIProfileSpaceCycles(t *testing.T) {
 					})
 					sendDisplayed(t, session, "tab")
 					waitVisible(t, session, "▸ Detail")
-					waitProfileField(t, session, "HDR", "(default)")
-					requireScreen(t, session, nil, "Unsaved changes")
+					waitProfileField(t, session, "HDR", "On")
 				}
 
 				for _, field := range []struct {
-					label, artifact string
-					values          []string
+					label, artifact, key string
+					initial, other       string
 				}{
-					{"HDR", "hdr", []string{"true", "false", "(default)"}},
-					{"VKD3D heap", "vkd3d", []string{"true", "false", "(default)"}},
-					{"Ray reconstruction", "ray", []string{"off", "ultra_performance", "performance", "balanced", "quality", "dlaa", "(empty)", "(default)"}},
-					{"Multi-frame", "multi-frame", []string{"0", "1", "2", "3", "4", "(default)"}},
+					{"HDR", "hdr", "proton.enable_hdr", map[bool]string{true: "On", false: "Off"}[scope == "game"], map[bool]string{true: "Off", false: "On"}[scope == "game"]},
+					{"VKD3D heap", "vkd3d", "proton.vkd3d_heap", "Off", "On"},
 				} {
 					focusProfileField(t, session, field.label)
-					waitProfileField(t, session, field.label, "(default)")
-					for index, expected := range field.values {
-						requireScreen(t, session, []string{"Space"}, "Enter: Edit field")
+					waitProfileField(t, session, field.label, field.initial)
+					fileBefore := readEditorFixture(t, activePath)
+					for round := 0; round < 2; round++ {
+						// Following to an own value takes the opposite.
+						requireScreen(t, session, []string{"Space"}, "Ctrl+S", "Value before edit:")
 						sendDisplayed(t, session, " ")
-						waitProfileField(t, session, field.label, expected)
-						requireScreen(t, session, nil, "Value before edit:", "> Input")
+						source := "set here"
 						if scope == "game" {
-							if expected == "(default)" {
-								requireScreen(t, session, nil, "> ◆ "+field.label)
-							} else {
-								requireScreen(t, session, []string{"> ◆ " + field.label})
-							}
+							source = "this game"
 						}
-						requireEditorFixtureUnchanged(t, activePath, before)
-						if field.artifact == "hdr" || field.artifact == "vkd3d" || expected == "(default)" {
-							captureEditorPhase(t, session, artifacts, fmt.Sprintf("%s-%02d", field.artifact, index+1))
+						waitProfileRow(t, session, field.label, field.other, source)
+						waitForScreen(t, session, field.label+" written", func(string) bool {
+							return !bytes.Equal(fileBefore, readEditorFixture(t, activePath))
+						})
+						requireYAMLValue(t, activePath, true, "overrides", field.key)
+						waitVisible(t, session, "Saved: "+field.label)
+						requireScreen(t, session, nil, "Unsaved changes", "Value before edit:")
+						captureEditorPhase(t, session, artifacts, fmt.Sprintf("%s-%d-own", field.artifact, round+1))
+
+						// The same key follows again and the file returns to its start.
+						sendDisplayed(t, session, " ")
+						source = "system default"
+						if scope == "game" && field.label == "HDR" {
+							source = "from All games"
 						}
+						waitProfileRow(t, session, field.label, field.initial, source)
+						waitForScreen(t, session, field.label+" follows again in the file", func(string) bool {
+							return !overrideSet(activePath, field.key)
+						})
 					}
-					// A full cycle restores the original draft, including pins.
-					requireScreen(t, session, nil, "Unsaved changes", "Ctrl+S")
 				}
-				requireEditorFixtureUnchanged(t, defaultsPath, originalDefaults)
-				requireEditorFixtureUnchanged(t, gamePath, originalGame)
+				// Only the open profile was written.
+				if scope == "game" {
+					requireEditorFixtureUnchanged(t, defaultsPath, originalDefaults)
+				} else {
+					requireEditorFixtureUnchanged(t, gamePath, originalGame)
+				}
 				quitTUI(t, session, environment)
 			})
 		}
 	}
 }
 
-// The focused profile row is immediately followed by its Effect explanation.
-// Reading this visible pair avoids confusing the selected Library game with
-// the active field when both panes display a cursor at the wider size.
+// overrideSet reports whether a profile file pins a field.
+func overrideSet(path, field string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return true
+	}
+	var document struct {
+		Overrides map[string]bool `yaml:"overrides"`
+	}
+	if err := yaml.Unmarshal(data, &document); err != nil {
+		return true
+	}
+	return document.Overrides[field]
+}
+
+// The focused profile row carries a source column (system default, from All
+// games, this game, set here). Requiring it avoids confusing the selected
+// Library game with the active field when both panes display a cursor at the
+// wider size.
 func selectedProfileField(screen string) string {
-	lines := strings.Split(screen, "\n")
-	for index, line := range lines {
-		if index+1 >= len(lines) || !strings.Contains(lines[index+1], "Effect:") {
-			continue
-		}
+	sources := []string{"system default", "from All games", "this game", "set here"}
+	for _, line := range strings.Split(screen, "\n") {
 		marker := strings.LastIndex(line, "> ")
 		if marker < 0 {
 			continue
@@ -247,6 +308,9 @@ func selectedProfileField(screen string) string {
 		row := strings.TrimPrefix(line[marker+2:], "◆ ")
 		if border := strings.Index(row, "│"); border >= 0 {
 			row = row[:border]
+		}
+		if !slices.ContainsFunc(sources, func(source string) bool { return strings.Contains(row, source) }) {
+			continue
 		}
 		return strings.TrimSpace(row)
 	}
@@ -258,8 +322,8 @@ func focusProfileField(t *testing.T, session *Session, label string) {
 	seen := make(map[string]bool)
 	for range 64 {
 		screen := requireScreen(t, session, []string{"▸ Detail"})
-		if !strings.Contains(screen, "[Profile]") && !strings.Contains(screen, "All games (default profile)") {
-			t.Fatalf("profile navigation requires the visible root or game Profile view:\n%s", screen)
+		if !strings.Contains(screen, "Own settings") && !strings.Contains(screen, "Games follow these values") {
+			t.Fatalf("profile navigation requires the visible root or game profile page:\n%s", screen)
 		}
 		selected := selectedProfileField(screen)
 		if strings.HasPrefix(selected, label+"  ") {
@@ -289,12 +353,36 @@ func waitProfileField(t *testing.T, session *Session, label, value string) {
 	})
 }
 
+// waitProfileRow waits for the focused row to show a value and a source. Values
+// alone repeat during a rotation (a pinned Off looks like an inherited Off).
+func waitProfileRow(t *testing.T, session *Session, label, value, source string) {
+	t.Helper()
+	waitForScreen(t, session, label+" "+value+" from "+source, func(screen string) bool {
+		selected := selectedProfileField(screen)
+		if !strings.HasPrefix(selected, label+"  ") || strings.Contains(screen, "Value before edit:") {
+			return false
+		}
+		columns := strings.Fields(strings.TrimPrefix(selected, label))
+		return len(columns) > 0 && columns[0] == value && strings.Contains(selected, source)
+	})
+}
+
 func beginProfileFieldEdit(t *testing.T, session *Session, label, value string) {
 	t.Helper()
 	sendDisplayed(t, session, "enter")
 	waitVisible(t, session, "Edit "+label)
 	requireInputOwnsKeys(t, session)
-	requireScreen(t, session, []string{"Value before edit: " + value, "> Input", "Apply", "Cancel", "Save"})
+	requireScreen(t, session, []string{"Value before edit: " + value, "> Input", "Apply", "Cancel"}, "Cancel  Save", "Ctrl+S")
+}
+
+// typeIntoPicker types letters to jump within the open picker. They are not
+// text for an input, so the helper only requires that the picker is shown.
+func typeIntoPicker(t *testing.T, session *Session, text string) {
+	t.Helper()
+	requireScreen(t, session, []string{"Type to jump"})
+	if err := session.SendText(text); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func readEditorFixture(t *testing.T, path string) []byte {
@@ -317,7 +405,7 @@ func waitSavedProfile(t *testing.T, session *Session, path string, before []byte
 	t.Helper()
 	waitForScreen(t, session, "profile save to complete", func(screen string) bool {
 		after, err := os.ReadFile(path)
-		return err == nil && !bytes.Equal(before, after) && strings.Contains(screen, "Profile saved!") && !strings.Contains(screen, "Value before edit:") && !strings.Contains(screen, "Unsaved changes")
+		return err == nil && !bytes.Equal(before, after) && strings.Contains(screen, "Saved: ") && !strings.Contains(screen, "Value before edit:") && !strings.Contains(screen, "Unsaved changes")
 	})
 }
 

@@ -1,0 +1,12 @@
+id: bgaekwrerk
+artifact: plan
+record:
+  name: Write the overrides key on every save
+  depends_on:
+    - ntlwduvpiw
+  acceptance:
+    - "GIVEN internal/profile/profile.go and migrate_sr_preset.go WHEN the overrides tag has no omitempty THEN a unit test shows that a nil map and an empty map marshal as overrides: {}, that overrides: {} loads as a non-nil empty map, and that an absent key loads as nil."
+    - GIVEN the tests from task 1 WHEN the suite runs THEN they pass, and every existing profile test passes or is updated with a stated reason.
+    - GIVEN the comments on Profile.Overrides and the migration section of docs/profile-fields.md WHEN read THEN they say that every saved profile carries the key and only files without it are legacy.
+  status: complete
+  plan: nfyilvdwgr

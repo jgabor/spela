@@ -20,9 +20,6 @@ func TestDefault(t *testing.T) {
 	if !cfg.CheckUpdates {
 		t.Error("CheckUpdates = false, want true")
 	}
-	if !cfg.ShowHints {
-		t.Error("ShowHints = false, want true")
-	}
 	if !cfg.RescanOnStartup {
 		t.Error("RescanOnStartup = false, want true")
 	}
@@ -46,9 +43,6 @@ func TestLoadMissingFile(t *testing.T) {
 	if cfg.LogLevel != defaults.LogLevel {
 		t.Errorf("LogLevel = %q, want default %q", cfg.LogLevel, defaults.LogLevel)
 	}
-	if cfg.ShowHints != defaults.ShowHints {
-		t.Errorf("ShowHints = %v, want default %v", cfg.ShowHints, defaults.ShowHints)
-	}
 	if cfg.CheckUpdates != defaults.CheckUpdates {
 		t.Errorf("CheckUpdates = %v, want default %v", cfg.CheckUpdates, defaults.CheckUpdates)
 	}
@@ -61,7 +55,6 @@ func TestRoundtrip(t *testing.T) {
 		LogLevel:               LogLevelDebug,
 		ShaderCache:            "/tmp/shaders",
 		CheckUpdates:           false,
-		ShowHints:              false,
 		RescanOnStartup:        false,
 		AutoUpdateDLLs:         true,
 		SteamPath:              "/opt/steam",
@@ -94,9 +87,6 @@ func TestRoundtrip(t *testing.T) {
 	}
 	if loaded.CheckUpdates != original.CheckUpdates {
 		t.Errorf("CheckUpdates = %v, want %v", loaded.CheckUpdates, original.CheckUpdates)
-	}
-	if loaded.ShowHints != original.ShowHints {
-		t.Errorf("ShowHints = %v, want %v", loaded.ShowHints, original.ShowHints)
 	}
 	if loaded.RescanOnStartup != original.RescanOnStartup {
 		t.Errorf("RescanOnStartup = %v, want %v", loaded.RescanOnStartup, original.RescanOnStartup)
@@ -172,7 +162,7 @@ func TestClone(t *testing.T) {
 		LogLevel:               LogLevelDebug,
 		SteamPath:              "/opt/steam",
 		AdditionalLibraryPaths: []string{"/mnt/a", "/mnt/b"},
-		ShowHints:              true,
+		ConfirmDestructive:     true,
 	}
 
 	clone := original.Clone()
@@ -192,8 +182,8 @@ func TestClone(t *testing.T) {
 	}
 
 	// Verify field independence
-	clone.ShowHints = false
-	if !original.ShowHints {
+	clone.ConfirmDestructive = false
+	if !original.ConfirmDestructive {
 		t.Error("Clone mutation affected original — not a deep copy")
 	}
 }

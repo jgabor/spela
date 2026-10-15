@@ -25,7 +25,7 @@ record:
       present: true
       description: "[feat] Support KDE VRR policy for the primary display"
       status: resolved
-      order: 5
+      order: 6
       severity: normal
   lifecycle:
     operation: resolve

@@ -4,6 +4,7 @@ package gui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/jgabor/spela/internal/config"
@@ -23,6 +24,7 @@ type guiApplicationBoundary struct {
 	loadDefaultProfile  func() (*profile.Profile, error)
 	mutateProfile       func(uint64, func(*profile.Profile, *profile.Profile) error) error
 	mutateDefault       func(func(*profile.Profile) error) error
+	followAllGames      func([]profile.OwnValueEntry, []string) profile.FollowOutcome
 	findSteamPath       func() string
 	compatibilityNotice func(uint64, proton.NoticeDeps) string
 	resolveProton       func(string, uint64) (proton.Build, error)
@@ -40,6 +42,7 @@ func defaultGUIApplicationBoundary(db *game.Database) guiApplicationBoundary {
 		loadDefaultProfile:  profile.LoadDefault,
 		mutateProfile:       profile.Mutate,
 		mutateDefault:       profile.MutateDefault,
+		followAllGames:      profile.FollowAllGamesIn,
 		findSteamPath:       steam.FindSteamPath,
 		compatibilityNotice: proton.CompatibilityNotice,
 		resolveProton:       proton.ResolveForAppID,
@@ -77,11 +80,144 @@ func (b guiApplicationBoundary) profileView(appID *uint64) map[string]any {
 	if resolved == nil {
 		return nil
 	}
-	explanations, err := raw.Explain(defaultProfile)
+	var explanations []profile.FieldExplanation
+	if appID == nil {
+		explanations, err = defaultProfile.ExplainAllGames()
+	} else {
+		explanations, err = raw.Explain(defaultProfile)
+	}
 	if err != nil {
 		return nil
 	}
-	return profileView(resolved, explanations, raw == nil)
+	view := profileView(resolved, explanations, raw == nil, appID == nil)
+	if appID == nil && view != nil {
+		b.annotateOwnValueGames(view)
+	}
+	return view
+}
+
+// ownValueEntries reads every game profile once. The count on All games and
+// the action that applies All games to those games both start from this list,
+// so the number on screen and the games that change are the same.
+func (b guiApplicationBoundary) ownValueEntries() []profile.OwnValueEntry {
+	if b.db == nil {
+		return nil
+	}
+	var entries []profile.OwnValueEntry
+	for _, entry := range b.db.List() {
+		if entry == nil {
+			continue
+		}
+		if stored, err := b.loadProfile(entry.AppID); err == nil {
+			entries = append(entries, profile.OwnValueEntry{AppID: entry.AppID, Name: entry.Name, Profile: stored})
+		}
+	}
+	return entries
+}
+
+// annotateOwnValueGames tells each All games row how many games set their own
+// value for it, so a change there is not mistaken for a change everywhere.
+func (b guiApplicationBoundary) annotateOwnValueGames(view map[string]any) {
+	items, _ := view["semantics"].([]ProfileFieldSemantics)
+	if len(items) == 0 {
+		return
+	}
+	games := profile.CollectOwnValueGames(b.ownValueEntries())
+	for index := range items {
+		count := len(games[items[index].Field])
+		items[index].OwnValueSuffix = profile.OwnValueSuffix(count)
+		items[index].OwnValueCount = count
+		if count > 0 {
+			items[index].OwnValueAction = profile.ActionApplyToGamesWithOwnValue
+		}
+	}
+}
+
+// ownValueGamesFor names the games that set their own value for any of the
+// fields, sorted and without repeats.
+func ownValueGamesFor(entries []profile.OwnValueEntry, fields []string) []string {
+	games := profile.CollectOwnValueGames(entries)
+	var names []string
+	for _, field := range fields {
+		names = append(names, games[field]...)
+	}
+	slices.Sort(names)
+	return slices.Compact(names)
+}
+
+// previewApplyToOwnValues words the question asked before All games is applied
+// to the games that set their own value for the fields.
+func (b guiApplicationBoundary) previewApplyToOwnValues(fields []string) (map[string]any, error) {
+	label, valueText, err := b.ownValueLabel(fields)
+	if err != nil {
+		return nil, err
+	}
+	names := ownValueGamesFor(b.ownValueEntries(), fields)
+	// appIds are the games the question names; the apply changes only those.
+	var appIDs []uint64
+	for _, entry := range b.ownValueEntries() {
+		if slices.ContainsFunc(fields, entry.Profile.IsOverridden) {
+			appIDs = append(appIDs, entry.AppID)
+		}
+	}
+	preview := map[string]any{"action": profile.ActionApplyToGamesWithOwnValue, "count": len(names), "body": "", "appIds": appIDs}
+	if len(names) > 0 {
+		preview["body"] = profile.ApplyToOwnValueBody(label, valueText, names)
+	}
+	return preview, nil
+}
+
+// applyToOwnValues makes the games the question named follow All games for the
+// fields, and returns what happened with the refreshed All games view. A game
+// that gained its own value after the question was asked is not touched: the
+// games that change are the games that were named.
+func (b guiApplicationBoundary) applyToOwnValues(fields []string, appIDs []uint64) (map[string]any, error) {
+	label, _, err := b.ownValueLabel(fields)
+	if err != nil {
+		return nil, err
+	}
+	var named []profile.OwnValueEntry
+	for _, entry := range b.ownValueEntries() {
+		if slices.Contains(appIDs, entry.AppID) {
+			named = append(named, entry)
+		}
+	}
+	outcome := b.followAllGames(named, fields)
+	return map[string]any{
+		"message": profile.FollowOutcomeText(label, outcome),
+		"failure": profile.FollowFailureText(outcome),
+		"failed":  outcome.Failed,
+		"profile": b.profileView(nil),
+	}, nil
+}
+
+// ownValueLabel is the label of the first field, and the All games value in
+// words when one field is asked about (empty for a control that covers two).
+func (b guiApplicationBoundary) ownValueLabel(fields []string) (label, valueText string, err error) {
+	if len(fields) == 0 {
+		return "", "", fmt.Errorf("no profile field given")
+	}
+	for _, field := range fields {
+		if !profile.IsValidField(field) {
+			return "", "", fmt.Errorf("unknown profile field: %q", field)
+		}
+	}
+	descriptor, _ := profile.Field(fields[0])
+	if len(fields) > 1 {
+		return descriptor.Label, "", nil
+	}
+	defaults, err := b.loadDefaultProfile()
+	if err != nil {
+		return "", "", err
+	}
+	if defaults == nil {
+		defaults = &profile.Profile{}
+	}
+	explanation, err := defaults.ExplainAllGamesField(fields[0])
+	if err != nil {
+		return "", "", err
+	}
+	return descriptor.Label, profile.ValueText(descriptor, explanation), nil
 }
 
 func (b guiApplicationBoundary) patchGameProfile(appID uint64, patches []ProfilePatch) error {
@@ -127,9 +263,6 @@ func applyProfilePatch(current, defaults *profile.Profile, patch ProfilePatch, r
 }
 
 func profileViewKey(descriptor profile.FieldDescriptor) string {
-	if descriptor.Key == profile.FieldGPUPowerLimit || descriptor.Key == profile.FieldGPUFanSpeed || descriptor.Key == profile.FieldCPUAffinity {
-		return "" // These fields have no current GUI control.
-	}
 	leaf := strings.TrimPrefix(descriptor.Key, descriptor.Subsystem+".")
 	parts := strings.Split(leaf, "_")
 	for index := 1; index < len(parts); index++ {

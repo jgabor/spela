@@ -20,7 +20,7 @@ record:
       present: true
       description: "[task] Refresh AUR submission metadata automatically"
       status: resolved
-      order: 6
+      order: 7
       severity: normal
   lifecycle:
     operation: resolve

@@ -106,14 +106,16 @@ func TestBreadcrumb_DLLCatalog(t *testing.T) {
 	}
 }
 
-func TestSelectDestination_GameScopeResetsOverview(t *testing.T) {
-	s := DefaultState()
-	s.Scope = Scope{Kind: ScopeGame, GameName: "Cyberpunk 2077", AppID: 1091500}
-	s.Aspect = AspectDLLs
-	s = s.SelectDestination(DestinationMonitor)
-	s = s.SelectDestination(DestinationLibrary)
-	if s.Aspect != AspectOverview {
-		t.Errorf("SelectDestination(Library) with game scope: got %v, want Overview", s.Aspect)
+func TestSelectDestination_GameScopeKeepsDLLsAndOtherwiseOpensProfile(t *testing.T) {
+	for _, test := range []struct{ before, want Aspect }{{AspectDLLs, AspectDLLs}, {AspectProfile, AspectProfile}, {AspectOverview, AspectProfile}} {
+		s := DefaultState()
+		s.Scope = Scope{Kind: ScopeGame, GameName: "Cyberpunk 2077", AppID: 1091500}
+		s.Aspect = test.before
+		s = s.SelectDestination(DestinationMonitor)
+		s = s.SelectDestination(DestinationLibrary)
+		if s.Aspect != test.want {
+			t.Errorf("SelectDestination(Library) with game scope from %v: got %v, want %v", test.before, s.Aspect, test.want)
+		}
 	}
 }
 
@@ -128,12 +130,22 @@ func TestSelectAspect_GlobalBlocksOverview(t *testing.T) {
 	}
 }
 
-func TestSelectScope_GameDefaultsOverview(t *testing.T) {
+func TestSelectScope_GameOpensProfileAndKeepsDLLs(t *testing.T) {
 	s := DefaultState()
-	s.Scope = Scope{Kind: ScopeGame, GameName: "Test"}
 	s = s.SelectScope(Scope{Kind: ScopeGame, GameName: "Test"})
-	if s.Aspect != AspectOverview {
-		t.Errorf("game scope aspect = %v, want Overview", s.Aspect)
+	if s.Aspect != AspectProfile {
+		t.Errorf("a game from All games opened on %v, want Profile", s.Aspect)
+	}
+	s = s.SelectAspect(AspectDLLs).SelectScope(Scope{Kind: ScopeGame, GameName: "Other"})
+	if s.Aspect != AspectDLLs {
+		t.Errorf("the next game opened on %v, want DLLs kept", s.Aspect)
+	}
+	s.Aspect = AspectOverview
+	if got := s.SelectScope(Scope{Kind: ScopeGame, GameName: "Third"}).Aspect; got != AspectProfile {
+		t.Errorf("an Overview from older state opened as %v, want Profile", got)
+	}
+	if got := s.SelectScope(Scope{Kind: ScopeGlobal}).Aspect; got != AspectProfile {
+		t.Errorf("All games opened on %v, want Profile", got)
 	}
 }
 

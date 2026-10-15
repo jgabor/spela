@@ -1,0 +1,14 @@
+id: mvclcodazr
+artifact: plan
+record:
+  name: Prove it on the CLI, the GUI backend, and the TUI
+  depends_on:
+    - bgaekwrerk
+    - nylxnzavsa
+    - sruiilmnhs
+  acceptance:
+    - GIVEN cmd/spela/commands tests WHEN proton set then proton reset hdr runs on a fresh game with a non-empty default.yaml THEN gpu show, proton show, and dlss show report [inherited] for every field after a reload.
+    - GIVEN the GUI Go tests (mage Test) WHEN PatchProfile resets every override, and WHEN it is called with no operations on a {} profile, THEN the reloaded profile is fully inherited and the {} file is unchanged; and the frontend tests pass with the key present.
+    - "GIVEN the TUI save path test and one Terminal Control journey on isolated state with the review's fixture WHEN the last override is reset, saved, and Spela is restarted THEN Overview shows Profile overrides: 0 and the Profile view shows every field inherited at 120x40 and 80x24, read from termctrl show."
+  status: complete
+  plan: nfyilvdwgr

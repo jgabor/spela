@@ -1,0 +1,22 @@
+id: abtxezcccm
+artifact: plan
+record:
+  name: End-to-end helpers and journeys
+  status: complete
+  depends_on:
+    - ihvoobdelk
+  acceptance:
+    - GIVEN tests/e2e WHEN the helpers openGameProfile, cycleBooleanDraft, focusProfileField, waitSavedProfile, beginProfileFieldEdit, and a new openGameDLLs are rewritten for the new flow THEN TestTUIJourneyStandard, TestTUISettingsEditorSave, TestTUIProfileEditorKinds, TestTUIProfileSpaceCycles, TestTUIDirectDLLControls, the constrained DLL subtest, and TestTUIFreshMinimumLongPathBorderClosure pass.
+    - GIVEN the draft-only journeys WHEN reviewed THEN TestTUIUnsavedQuitCancelAndSave and TestTUIDefaultDraftReopenResetAndDiscard are deleted with a stated reason, and an undo journey and a quit-while-saving journey are added.
+    - GIVEN go test -tags e2e ./tests/e2e/... with Terminal Control 1.2.1 first on PATH WHEN run THEN it passes.
+  plan: mdwrquqtci
+  evaluation:
+    attempt_count: 1
+    failure_count: 0
+    last_verdict: pass
+    last_failure_evidence: null
+    provenance:
+      attempt_id: t5-build
+      source: "go test -tags e2e ./tests/e2e/... passes with Terminal Control 1.2.1 (38 s). Helpers rewritten: openGameProfile (waits for [Proton]), openGameDLLs (five Rights), changeWithSpace (waits for Saved:), waitSettingsValue, typeIntoPicker; escape is the Terminal Control key name. Journeys rewritten: standard (follow, undo, restart), defaults (autosave, undo, whole-page confirm with count), quit after a change, settings (Space and Enter save at once), editor kinds (picker, Space follow and put back, invalid integer, text path, Esc), Space toggles at both sizes for root and game, DLL controls from the DLLs section, long-path border closure at 80x24 and in the DLLs section at 120x40. Deleted TestTUIUnsavedQuitCancelAndSave and TestTUIDefaultDraftReopenResetAndDiscard (no draft remains). Quit-while-saving is covered by unit tests: a write finishes in milliseconds, so a terminal journey cannot hold one open."
+      recorded_at: 2026-10-15 08:39
+      writer_command: agentera state plan record-evaluation

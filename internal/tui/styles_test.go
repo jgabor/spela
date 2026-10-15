@@ -18,7 +18,7 @@ import (
 // TestInheritedStyle_UsesFgMuted verifies the inherited-row style renders with
 // the fg-muted token. This is the pass case.
 func TestInheritedStyle_UsesFgMuted(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	got := styles.InheritedStyle().Render("x")
 	want := lipgloss.NewStyle().Foreground(DefaultTheme.FgMuted).Render("x")
 	if got != want {
@@ -30,7 +30,7 @@ func TestInheritedStyle_UsesFgMuted(t *testing.T) {
 // must never render with the primary fg or either accent token (that would
 // erase the inherited/overridden visual distinction Task 5 depends on).
 func TestInheritedStyle_DoesNotUseFgOrAccent(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	got := styles.InheritedStyle().Render("x")
 
 	fgRender := lipgloss.NewStyle().Foreground(DefaultTheme.Fg).Render("x")
@@ -51,7 +51,7 @@ func TestInheritedStyle_DoesNotUseFgOrAccent(t *testing.T) {
 // TestOverrideStyle_UsesFg verifies the overridden-row style renders with the
 // fg token.
 func TestOverrideStyle_UsesFg(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	got := styles.OverrideStyle().Render("x")
 	want := lipgloss.NewStyle().Foreground(DefaultTheme.Fg).Render("x")
 	if got != want {
@@ -62,7 +62,7 @@ func TestOverrideStyle_UsesFg(t *testing.T) {
 // TestOverrideStyle_DoesNotUseFgMuted is the fail case: an overridden field
 // rendered with fg-muted would be indistinguishable from an inherited one.
 func TestOverrideStyle_DoesNotUseFgMuted(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	got := styles.OverrideStyle().Render("x")
 	mutedRender := lipgloss.NewStyle().Foreground(DefaultTheme.FgMuted).Render("x")
 	if got == mutedRender {
@@ -73,7 +73,7 @@ func TestOverrideStyle_DoesNotUseFgMuted(t *testing.T) {
 // TestOverrideMarkerStyle_UsesAccentOverride verifies the override marker
 // (magenta) uses the accent-override token.
 func TestOverrideMarkerStyle_UsesAccentOverride(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	got := styles.OverrideMarkerStyle().Render("*")
 	want := lipgloss.NewStyle().Foreground(DefaultTheme.AccentOverride).Render("*")
 	if got != want {
@@ -85,7 +85,7 @@ func TestOverrideMarkerStyle_UsesAccentOverride(t *testing.T) {
 // marker and focus accent carry different semantics (magenta = override,
 // cyan = focus) and must render distinctly.
 func TestOverrideMarkerStyle_DoesNotUseFocus(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	got := styles.OverrideMarkerStyle().Render("*")
 	focusRender := lipgloss.NewStyle().Foreground(DefaultTheme.AccentFocus).Render("*")
 	if got == focusRender {
@@ -96,7 +96,7 @@ func TestOverrideMarkerStyle_DoesNotUseFocus(t *testing.T) {
 // TestFocusStyle_UsesAccentFocus verifies the focus style (focused field /
 // focused rail row) uses the accent-focus token.
 func TestFocusStyle_UsesAccentFocus(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	got := styles.FocusStyle().Render("x")
 	want := lipgloss.NewStyle().Foreground(DefaultTheme.AccentFocus).Bold(true).Render("x")
 	if got != want {
@@ -107,7 +107,7 @@ func TestFocusStyle_UsesAccentFocus(t *testing.T) {
 // TestFocusStyle_DoesNotUseOverride is the fail case: focus must not render
 // as magenta — a focused inherited field would then be misread as overridden.
 func TestFocusStyle_DoesNotUseOverride(t *testing.T) {
-	styles := NewStyles(DefaultTheme, true)
+	styles := NewStyles(DefaultTheme)
 	got := styles.FocusStyle().Render("x")
 	overrideRender := lipgloss.NewStyle().Foreground(DefaultTheme.AccentOverride).Bold(true).Render("x")
 	if got == overrideRender {

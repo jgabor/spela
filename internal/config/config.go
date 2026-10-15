@@ -23,7 +23,6 @@ type Config struct {
 	LogLevel     LogLevel `yaml:"log_level" json:"logLevel"`
 	ShaderCache  string   `yaml:"shader_cache" json:"shaderCache"`
 	CheckUpdates bool     `yaml:"check_updates" json:"checkUpdates"`
-	ShowHints    bool     `yaml:"show_hints" json:"showHints"`
 
 	// Startup behavior
 	RescanOnStartup bool `yaml:"rescan_on_startup" json:"rescanOnStartup"`
@@ -52,7 +51,6 @@ func Default() *Config {
 		LogLevel:     LogLevelInfo,
 		ShaderCache:  xdg.CachePath("nvidia"),
 		CheckUpdates: true,
-		ShowHints:    true,
 
 		RescanOnStartup: true,
 		AutoUpdateDLLs:  false,

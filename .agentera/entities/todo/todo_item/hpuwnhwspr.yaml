@@ -10,6 +10,7 @@ record:
     - The option catalog has 17 options. The terminal exposes 3 of them (Show hints, Re-scan on startup, Steam path) and the GUI exposes 14. With parity a priority, decide per option whether the terminal exposes it or why it does not.
     - Show hints has no visible effect in the terminal (see the show-hints TODO), so one of the three terminal options does nothing a user can see.
     - Found by the 2026-10-14 recon (defect D3) and confirmed by the settings stream of the UX review. The review report is docs/design/tui-profile-settings-ux-review.md. Fold this item into the implementation plan for the alternative the user chooses.
+    - "Step 1 (branch feat/shared-profile-vocabulary, unmerged): the terminal Settings list now hides empty groups. Still open: a stated reason for each option that only one interface exposes."
   acceptance:
     - GIVEN terminal Settings WHEN every group is visited THEN no group is empty, at 120x40 and at 80x24.
     - GIVEN each Settings option exposed by only one interface WHEN reviewed THEN the difference has a stated reason.

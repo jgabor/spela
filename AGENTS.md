@@ -77,7 +77,7 @@ termctrl show spela-tui-review
 
 Use a unique session name when reviews may run concurrently, and use that name
 for every later command. Send only keys displayed in the current frame. Use
-numbers, arrows, Tab, Enter, Space, and Ctrl+S for commands. Send text and keys as
+numbers, arrows, Tab, Enter, and Space for commands. Send text and keys as
 separate arguments; punctuation is ordinary text only inside an input:
 
 ```bash

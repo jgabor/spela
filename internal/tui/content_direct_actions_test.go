@@ -140,13 +140,11 @@ func TestDLLDirectSelectionFollowsGameScope(t *testing.T) {
 	}
 }
 
-func TestDLLDirectControlsRouteDisplayedKeysWithHintsDisabled(t *testing.T) {
+func TestDLLDirectControlsRouteDisplayedKeys(t *testing.T) {
 	for _, size := range [][2]int{{80, 24}, {120, 40}} {
 		entry := testGame("Fixture", testDLL(game.DLLTypeDLSS, "3.7.0"), testDLL(game.DLLTypeDLSSG, "3.7.0"))
 		layout := testLayoutWithGame(entry)
 		layout.rescanBusy = false
-		layout.config.ShowHints = false
-		layout.styles.SetShowHints(false)
 		layout.width, layout.height = size[0], size[1]
 		layout.navState.Aspect = nav.AspectDLLs
 		layout.focus = FocusDetail

@@ -1,0 +1,42 @@
+id: pmybbznzim
+artifact: plan
+record:
+  header:
+    level: full
+    created: 2026-10-15
+    status: complete
+    reviewed: 2026-10-15
+    critic_issues: 0 found, 0 addressed, 0 dismissed
+    revised: No separate critic run; the user reviewed the plan in plan mode and three read-only exploration agents mapped the Go side, the Svelte frontend, and the tests.
+    title: "Plan: GUI parity with the profile-first flow (redesign step 3 of 3)"
+  what: Step 3 of the profile and settings redesign (alternative B, TODO qiqoepaeuz). Give the GUI the TUI's flow and words. A game opens on the Profile tab and keeps its tab across games, the Overview tab is gone, every control saves as it changes, the header says what the game sets itself and whether it is saved, a whole-game Follow all settings action exists, fan speed and power limit have controls, and no control hides a stored value.
+  why: "The 2026-10-14 UX review found the GUI behind the TUI on structure (F17). A game opens on Overview, edits sit in a draft behind a Save button, there is no whole-game reset, fan speed and power limit have no control, a dropdown shows a placeholder for a value it does not list, and nothing says how many settings a game sets itself. Steps 1 and 2 shipped the shared words and the TUI flow. Design: docs/plans/optimized-munching-zephyr.md. Review: docs/design/tui-profile-settings-ux-review.md."
+  constraints: "User decisions: alternative B with autosave and one-key undo; the Overview tab is removed (tabs Profile and DLLs; install directory, prefix, and launch option in a Game block at the top of the DLLs tab). Keep nav.AspectOverview and the generated contract numbers unchanged because the TUI depends on them. Work in the clean worktree ~/.cache/spela-step3 on branch feat/gui-profile-flow from main (f46399c). internal/gui Go tests need the tags dev,webkit2_41; wailsjs and navContract.generated.js are generated and gitignored; the tracked golden file tools/gen-nav-js/testdata/navContract.generated.js is refreshed with go run ./tools/gen-nav-js. Playwright runs with a temporary config outside the repository on port 5199 and /bin/chromium. Never touch ~/.config/spela, ~/.local/share/spela, or ~/.cache/spela; no privileged action, no game launch, no push, no commit unless asked. Leave the user's dependency work and docs/plans/ alone except the plan document. AGENTS.md style applies. The parent owns every Agentera write."
+  design: "PatchProfile already applies set, pin, and reset atomically, so no new write binding is needed. Navigation: State.SelectScope and SelectDestination keep AspectDLLs for a game, otherwise AspectProfile; the GUI drops the Overview tab and GameOverview. Go projection: ProfileFieldSemantics gains valueText, hint, and on All games ownValueSuffix and ownValueNote; the profile view gains clearAll {action, count, body}; clearAllBody, the own-value note, and the number hint move from internal/tui to internal/profile/vocabulary.go; profileViewKey stops hiding fan speed, power limit, and affinity. GameDetail drops the draft and Save button: every control change sends its patches at once through a per-target queue, responses apply in order, a failure returns the profile to the last saved copy, Follow sends reset and Set for this game sends the remembered own value or pin so the same button undoes itself. Header: name, App ID, DLL facts, save state, Own settings (N) from the semantics, a whole-game Follow button with a confirm, All games shows who keeps their own value. Number inputs for clock offset, memory offset, power limit, and fan speed replace dropdowns; Dropdown shows a stored value it does not list. Not taken: a section strip (the existing rail already is one), removing AspectOverview from nav, a new write binding."
+  overall_acceptance: "GIVEN the mock bridge and the review bridge WHEN T1 near, T6, T7, and T5 are replayed with Playwright at 1280x800 THEN the action counts are 3, 5, 7, and 9 or fewer; AND a game opens on Profile and keeps its tab across games; AND there is no Save button or draft, every control saves as it changes with Saved at once, Saving, Not saved, and a Saved: message in the header, and a failed save returns the control to the stored value; AND Follow All games for all settings confirms with a count and clears every own field in one batch; AND fan speed, power limit, clock offset, and memory offset are number inputs with units and nothing shows a placeholder for a stored value; AND All games names the games that keep their own value; AND mage test, mage lint, go test ./tests/..., bun run test, mage build, the Playwright specs, and the TUI e2e suite pass in the worktree; AND the real Spela directories hash the same before and after."
+  scope:
+    included:
+      - Navigation rule in internal/nav and the GUI wrappers, the Overview tab and GameOverview removal, the Game block on the DLLs tab, the dllType fix
+      - Go projection fields, shared words moved from the TUI, the three newly visible fields, view and contract tests
+      - Autosave in GameDetail with queue, revert on failure, status and message, undo through Follow and Set for this game
+      - Header with own settings, whole-game Follow with confirm, All games own-value note
+      - Number inputs, affinity input, Dropdown stored-value fix, powerMizerOptions
+      - Vitest, Playwright, fixture, Go test, doc, and CHANGELOG updates; closing hwddfdauhf, piuftqpwst, rpwrxivkcm and updating qiqoepaeuz
+    excluded:
+      - Removing nav.AspectOverview or changing the generated contract numbers
+      - A section strip in the GUI header (the rail exists), Space-style keyboard toggles, bulk edit, alternative C
+      - Enforcing numeric ranges (they stay display-only), F19 and F20 fixes, repair of damaged profile files
+      - Driving the real Wails window (replay uses the mock bridge and the review bridge)
+    deferred:
+      - What a saved zero means for fan speed and the other offsets (TODO bdnaynbvan)
+  unknowns:
+    - question: Does the frontend dependency set install offline in the fresh worktree?
+      affects_task: 1
+      resolve_by: Checked by running bun install --frozen-lockfile --offline in the worktree; it installed 155 packages and vitest passed 48 tests.
+    - question: Do the 1 and 2 hotkeys or other code bind to the aspect tab indices that the Overview removal shifts?
+      affects_task: 1
+      resolve_by: Search the frontend for aspect hotkeys and tab numbering before changing ContextNav, and keep generated Aspect values untouched.
+    - question: How many game profiles can the All games view read per call without a visible delay?
+      affects_task: 2
+      resolve_by: Time GetDefaultProfile against the 46-game review fixture; if slow, cache the own-value map per database snapshot.
+  previous_plan_archived: mdwrquqtci

@@ -8,6 +8,7 @@ import (
 
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/nav"
+	"github.com/jgabor/spela/internal/profile"
 )
 
 // handleBatchMenuKeys handles key input when the batch-action menu is visible.
@@ -90,21 +91,30 @@ func (m LayoutModel) handleGlobalKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd
 	return next, command, true
 }
 
-func (m LayoutModel) selectAdjacentLibraryAspect(delta int) LayoutModel {
-	if m.navState.Destination != nav.DestinationLibrary || m.navState.Scope.Kind != nav.ScopeGame {
+// jumpSection moves along the sections of the open profile page. Left and Right
+// move the cursor to the first field of the previous or next section; Right from
+// the last section opens the DLLs section of a game, and Left from it returns to
+// the Overlay section. Nothing wraps.
+func (m LayoutModel) jumpSection(delta int) LayoutModel {
+	if m.navState.Destination != nav.DestinationLibrary {
 		return m
 	}
-	aspects := []nav.Aspect{nav.AspectOverview, nav.AspectProfile, nav.AspectDLLs}
-	index := 0
-	for candidate, aspect := range aspects {
-		if aspect == m.navState.Aspect {
-			index = candidate
-			break
+	game := m.navState.Scope.Kind == nav.ScopeGame
+	if m.navState.Aspect == nav.AspectDLLs {
+		if game && delta < 0 {
+			*m.navState = m.navState.SelectAspect(nav.AspectProfile)
+			m.pane.SetState(*m.navState)
+			m.pane.content.detail.FocusSection("overlay")
 		}
+		return m
 	}
-	index = (index + delta + len(aspects)) % len(aspects)
-	*m.navState = m.navState.SelectAspect(aspects[index])
-	m.pane.SetState(*m.navState)
+	if m.pane.profileDetail().JumpSection(delta) {
+		return m
+	}
+	if game && delta > 0 {
+		*m.navState = m.navState.SelectAspect(nav.AspectDLLs)
+		m.pane.SetState(*m.navState)
+	}
 	return m
 }
 
@@ -228,21 +238,21 @@ func (m LayoutModel) handleAppMessages(msg tea.Msg, cmds []tea.Cmd) (LayoutModel
 	case profileSaveMsg:
 		m, cmds = m.handleProfileSaveMsg(msg, cmds)
 
+	case ownValuesAppliedMsg:
+		m, cmds = m.handleOwnValuesApplied(msg, cmds)
+
 	case optionsSavedMsg:
 		if msg.config == nil {
 			break
 		}
-		m.pane.settings.CompleteSave(msg.config)
+		cmds = append(cmds, m.pane.settings.CompleteSave(msg.config))
 		m.config = msg.config.Clone()
-		if m.styles != nil {
-			m.styles.SetShowHints(m.config.ShowHints)
-		}
-		cmds = append(cmds, m.messageBar.SetMessage("Settings saved!", MessageSuccess))
+		cmds = append(cmds, m.messageBar.SetMessage("Saved: "+msg.summary, MessageSuccess))
 
 	case optionsSaveErrorMsg:
-		m.pane.settings.saving = false
-		m.pane.settings.saveError = msg.err
-		cmds = append(cmds, m.messageBar.SetMessage(fmt.Sprintf("Failed to save settings: %v", msg.err), MessageError))
+		m.pane.settings.FailSave(msg.err)
+		m.quitWhenIdle = false
+		cmds = append(cmds, m.messageBar.SetMessage(fmt.Sprintf("Not saved: %v", msg.err), MessageError))
 
 	}
 
@@ -312,7 +322,7 @@ func (m LayoutModel) handleDLLInstallMsg(msg dllInstallMsg, cmds []tea.Cmd) (Lay
 }
 
 // DLL services replace game records after a mutation. All views must use those
-// records without reloading or replacing either profile draft.
+// records without reloading or replacing either profile's working copy.
 func (m *LayoutModel) synchronizeDLLGameReferences() {
 	if m.db == nil {
 		return
@@ -323,7 +333,6 @@ func (m *LayoutModel) synchronizeDLLGameReferences() {
 	if m.pane.content.game != nil {
 		if updated := m.db.GetGame(m.pane.content.game.AppID); updated != nil {
 			m.pane.content.game = updated
-			m.pane.overview = m.pane.overview.SetGame(updated, m.services)
 			m.pane.content.hasBackup = m.services.BackupExists(updated.AppID)
 		}
 	}
@@ -367,30 +376,47 @@ func (m LayoutModel) handleRescanGamesMsg(msg rescanGamesMsg, cmds []tea.Cmd) (L
 		if model.pane.content.game != nil {
 			if refreshed := msg.db.GetGame(model.pane.content.game.AppID); refreshed != nil {
 				model.pane.content = model.pane.content.SetGame(refreshed)
-				model.pane.overview = model.pane.overview.SetGame(refreshed, model.services)
 				selectionCommand = tea.Batch(selectionCommand, model.pane.content.LoadDLLUpdates())
 			}
 		}
 		return model, tea.Batch(selectionCommand, model.messageBar.SetMessage(fmt.Sprintf("Rescan complete: %d games found", len(games)), MessageSuccess))
 	}
-	if !sameSidebarScope(next, *m.navState) && m.profileDirty() {
-		return m.guardDrafts(false, apply), cmds
-	}
 	nextModel, command := apply(m)
 	return nextModel, append(cmds, command)
 }
 
-func (m LayoutModel) handleProfileSaveMsg(msg profileSaveMsg, cmds []tea.Cmd) (LayoutModel, []tea.Cmd) {
-	var msgType MessageType
-	var message string
-	if msg.err == nil {
-		message = "Profile saved!"
-		msgType = MessageSuccess
-	} else if msg.err != nil {
-		message = fmt.Sprintf("Error: %v", msg.err)
-		msgType = MessageError
+// handleOwnValuesApplied reports what applying All games to the games with
+// their own value did, and reads the games again so the count is current.
+func (m LayoutModel) handleOwnValuesApplied(msg ownValuesAppliedMsg, cmds []tea.Cmd) (LayoutModel, []tea.Cmd) {
+	m.applyingOwnValues = false
+	m.pane.refreshOwnValueGames()
+	m.pane.defaultsDetail.SetOwnValueGames(m.pane.ownValueGames)
+	kind := MessageSuccess
+	text := "Saved: " + profile.FollowOutcomeText(msg.label, msg.outcome)
+	if len(msg.outcome.Failed) > 0 {
+		kind, text = MessageError, profile.FollowOutcomeText(msg.label, msg.outcome)
+		// A failed write keeps the program open, so the error can be read.
+		m.quitWhenIdle = false
 	}
-	cmds = append(cmds, m.messageBar.SetMessage(message, msgType))
+	return m, append(cmds, m.messageBar.SetMessage(text, kind))
+}
+
+func (m LayoutModel) handleProfileSaveMsg(msg profileSaveMsg, cmds []tea.Cmd) (LayoutModel, []tea.Cmd) {
+	summary := msg.request.summary
+	if summary == "" {
+		summary = "profile"
+	}
+	shown := msg.request.appID == 0 || m.pane.content.game != nil && m.pane.content.game.AppID == msg.request.appID
+	if !shown && msg.request.desired != nil && msg.request.desired.Name != "" {
+		summary = msg.request.desired.Name + ": " + summary
+	}
+	if msg.err == nil {
+		cmds = append(cmds, m.messageBar.SetMessage("Saved: "+summary, MessageSuccess))
+	} else {
+		cmds = append(cmds, m.messageBar.SetMessage(fmt.Sprintf("Not saved: %s: %v", summary, msg.err), MessageError))
+		// A failed write keeps the program open, so the error can be read.
+		m.quitWhenIdle = false
+	}
 	if msg.request.appID == 0 {
 		cmds = append(cmds, m.pane.completeDefaultSave(msg))
 	} else {

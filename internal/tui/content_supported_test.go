@@ -341,7 +341,7 @@ func TestContentFirstGameProfileSaveClearsInheritedBannerAndRetainsFocus(t *test
 	services.LoadProfile = profile.Load
 	services.LoadDefaultProfile = func() (*profile.Profile, error) { return defaults, nil }
 	entry := testGame("Cyberpunk 2077")
-	content := NewContent(NewStyles(DefaultTheme, true), true, services).SetGame(entry)
+	content := NewContent(NewStyles(DefaultTheme), true, services).SetGame(entry)
 	content.SetSize(100, 30)
 	wantField := content.detail.FocusedField()
 	if !content.usingDefaultProfile || !strings.Contains(stripANSI(content.ViewProfileAspect()), "Destination: this game · values inherited from Defaults") {
@@ -351,9 +351,9 @@ func TestContentFirstGameProfileSaveClearsInheritedBannerAndRetainsFocus(t *test
 	if !content.detail.BeginEdit() {
 		t.Fatal("could not edit inherited field")
 	}
-	content.detail.UpdateEditor(keyMsg("enter"))
+	pickOption(&content.detail, "o")
 	mutated := content
-	saveCommand := mutated.saveResolvedProfile()
+	saveCommand := mutated.saveResolvedProfile("")
 	if saveCommand == nil {
 		t.Fatal("explicit profile save returned no command")
 	}

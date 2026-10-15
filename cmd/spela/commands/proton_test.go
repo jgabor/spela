@@ -198,6 +198,8 @@ func TestRunProtonShow_RendersNoticeWhenIncompatible(t *testing.T) {
 	// Seed a profile with VKD3DHeap=true so runProtonShow calls the notice
 	// helper.
 	p := &profile.Profile{Proton: profile.ProtonSettings{VKD3DHeap: true}}
+	// A leaf saved with a nil overrides map is no longer rescued by migration.
+	p.MarkOverride(profile.FieldProtonVKD3DHeap)
 	if err := profile.Save(1091500, p); err != nil {
 		t.Fatalf("seed profile: %v", err)
 	}
@@ -214,7 +216,7 @@ func TestRunProtonShow_RendersNoticeWhenIncompatible(t *testing.T) {
 		}
 	})
 
-	if !strings.Contains(out, "VKD3D heap:") {
+	if !strings.Contains(out, "VKD3D heap") {
 		t.Errorf("expected output to include VKD3D heap line, got:\n%s", out)
 	}
 	if !strings.Contains(out, "requires NVIDIA driver 580.94.16") {

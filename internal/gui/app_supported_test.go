@@ -110,7 +110,7 @@ func TestAppSupportedConfigProfileGameAndNavigationFlows(t *testing.T) {
 	}
 
 	configInfo := ConfigInfo{
-		LogLevel: "debug", ShaderCache: "/cache", CheckUpdates: false, ShowHints: false,
+		LogLevel: "debug", ShaderCache: "/cache", CheckUpdates: false,
 		RescanOnStartup: false, AutoUpdateDLLs: true, SteamPath: "/steam",
 		AdditionalLibraryPaths: []string{"/games"}, DLLCachePath: "/dlls", BackupPath: "/backups",
 		DLLManifestURL: "https://example.test/manifest", AutoRefreshManifest: false,
@@ -124,10 +124,10 @@ func TestAppSupportedConfigProfileGameAndNavigationFlows(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(gotConfig, configInfo) {
 		t.Fatalf("config round trip = %+v, %v; want %+v", gotConfig, err, configInfo)
 	}
-	if err := app.SaveConfigOption("showHints", "true"); err != nil {
+	if err := app.SaveConfigOption("rescanOnStartup", "true"); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := app.GetConfig(); err != nil || !got.ShowHints {
+	if got, err := app.GetConfig(); err != nil || !got.RescanOnStartup {
 		t.Fatalf("field-level config save = %+v, %v", got, err)
 	}
 	if err := app.SaveConfigOption("shaderCache", "/new"); err == nil || err.Error() != "unknown config option: shaderCache" {
@@ -235,7 +235,7 @@ func TestSaveConfigOptionSerializesConcurrentFieldEdits(t *testing.T) {
 		key   string
 		value string
 	}
-	edits := []edit{{key: "showHints", value: "false"}, {key: "theme", value: "light"}}
+	edits := []edit{{key: "rescanOnStartup", value: "false"}, {key: "theme", value: "light"}}
 	ready := make(chan struct{}, len(edits))
 	start := make(chan struct{})
 	results := make(chan struct {
@@ -279,8 +279,8 @@ func TestSaveConfigOptionSerializesConcurrentFieldEdits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.ShowHints || got.Theme != "light" {
-		t.Fatalf("concurrent field edits persisted ShowHints=%v Theme=%q", got.ShowHints, got.Theme)
+	if got.RescanOnStartup || got.Theme != "light" {
+		t.Fatalf("concurrent field edits persisted RescanOnStartup=%v Theme=%q", got.RescanOnStartup, got.Theme)
 	}
 }
 
@@ -427,7 +427,7 @@ func TestAppDLLMutationInterleavesSafelyWithReaders(t *testing.T) {
 }
 
 func TestAppProjectionAndHostReadBranches(t *testing.T) {
-	if profileView(nil, nil, false) != nil || profileFieldSemanticsFromExplanations(nil) != nil {
+	if profileView(nil, nil, false, false) != nil || profileFieldSemanticsFromExplanations(nil, false) != nil {
 		t.Fatal("nil profile/semantics projections changed")
 	}
 	app := NewApp()

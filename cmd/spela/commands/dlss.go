@@ -69,8 +69,8 @@ func init() {
 
 var dlssResetCmd = &cobra.Command{
 	Use:   "reset <game> <field>",
-	Short: "Reset a DLSS field to inherit from defaults",
-	Long: `Reset a DLSS profile field back to inherited. Valid fields:
+	Short: "Make a DLSS field follow All games",
+	Long: `Make a DLSS profile field follow All games again. Valid fields:
   sr_mode, sr_preset, sr_override,
   rr_mode, rr_preset, rr_override,
   fg_enabled, fg_override, multi_frame, indicator, fg_indicator.`,
@@ -83,13 +83,13 @@ func runDLSSReset(_ *cobra.Command, args []string) error {
 }
 
 func runDLSSShow(cmd *cobra.Command, args []string) error {
-	g, p, resolved, err := resolvedProfileForShow(args[0])
+	snapshot, err := loadProfileSnapshot(args[0])
 	if err != nil {
 		return err
 	}
 
 	if dlssShowJSON {
-		data, err := json.MarshalIndent(resolved.DLSS, "", "  ")
+		data, err := json.MarshalIndent(snapshot.resolved.DLSS, "", "  ")
 		if err != nil {
 			return err
 		}
@@ -97,26 +97,11 @@ func runDLSSShow(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Printf("DLSS configuration for %s:\n\n", g.Name)
-	fmt.Printf("Super Resolution (SR):\n")
-	fmt.Printf("  %s\n", renderField("Mode:", profile.FieldDLSSSRMode, p, resolved.DLSS.SRMode))
-	fmt.Printf("  %s\n", renderField("Preset:", profile.FieldDLSSSRPreset, p, resolved.DLSS.SRPreset))
-	fmt.Printf("  %s\n", renderField("Override:", profile.FieldDLSSSROverride, p, resolved.DLSS.SROverride))
-
-	fmt.Printf("\nRay Reconstruction (RR):\n")
-	fmt.Printf("  %s\n", renderField("Mode:", profile.FieldDLSSRRMode, p, resolved.DLSS.RRMode))
-	fmt.Printf("  %s\n", renderField("Preset:", profile.FieldDLSSRRPreset, p, resolved.DLSS.RRPreset))
-	fmt.Printf("  %s\n", renderField("Override:", profile.FieldDLSSRROverride, p, resolved.DLSS.RROverride))
-
-	fmt.Printf("\nFrame Generation (FG):\n")
-	fmt.Printf("  %s\n", renderField("Enabled:", profile.FieldDLSSFGEnabled, p, resolved.DLSS.FGEnabled))
-	fmt.Printf("  %s\n", renderField("Multi-frame:", profile.FieldDLSSMultiFrame, p, resolved.DLSS.MultiFrame))
-	fmt.Printf("  %s\n", renderField("Override:", profile.FieldDLSSFGOverride, p, resolved.DLSS.FGOverride))
-
-	fmt.Printf("\nDebug:\n")
-	fmt.Printf("  %s\n", renderField("Indicator:", profile.FieldDLSSIndicator, p, resolved.DLSS.Indicator))
-	fmt.Printf("  %s\n", renderField("FG Indicator:", profile.FieldDLSSFGIndicator, p, resolved.DLSS.FGIndicator))
-
+	fmt.Printf("DLSS configuration for %s:\n\n", snapshot.game.Name)
+	snapshot.printNoProfileNote()
+	if err := printSubsystemFields("dlss", snapshot, ""); err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -1,0 +1,22 @@
+id: cgxzwisubu
+artifact: plan
+record:
+  name: Gates, measured replay, and TODO closure
+  status: complete
+  depends_on:
+    - xyzqddnxbx
+  acceptance:
+    - GIVEN the clean worktree WHEN mage test, mage lint, go test ./tests/..., and mage build run THEN all pass and the results are reported.
+    - GIVEN the review jail and fixture WHEN journeys-step2.sh runs T1 near and far, T2, T5, T6, T7, T10, and recon at 120x40 and 80x24 and a session is resized THEN key counts and frames are saved under ~/.local/state/spela-ux-review/2026-10-14/step2-verification/ and compared with the targets, the real Spela directories hash the same before and after, and no session or root remains.
+    - GIVEN the TODO list WHEN task 7 ends THEN kjlylvrrvm and xafqoplfhu are resolved as obsolete, the umbrella qiqoepaeuz records step 2, and the F1 TODO nsbxkoodkq reason is current.
+  plan: mdwrquqtci
+  evaluation:
+    attempt_count: 1
+    failure_count: 0
+    last_verdict: pass
+    last_failure_evidence: null
+    provenance:
+      attempt_id: step2-final
+      source: "Gates in ~/.cache/spela-step2: go test ./... passes except tests/contracts TestReleaseArtifact... which fails only while the rename of draft_navigation.go and the deletion of overview.go are uncommitted (it builds git archive HEAD plus changed files; it passes on the same tree committed in a throwaway repository); mage lint 0 issues; mage build ok; go test -tags e2e ./tests/e2e/... passes twice with Terminal Control 1.2.1. Measured keys at 120x40 and 80x24: T1 near 2, T1 far 6, T2 10, T3 6, T5 21, T6 13, T7 10, T10 19 (definition rebuilt: seeded Dome Keeper), recon 13 (target 14). Frames read at both sizes; real Spela directories hash 632c58d7 before and after; no session or root remains. Deviations from the plan: tasks 2 and 4 were built together (shared Ctrl+S removal) and Settings before editing; Actions menu now opens on the first row that can run and Follow on a row that already follows is unavailable (needed for T5 21); an existing racy e2e wait was fixed. Not committed or merged."
+      recorded_at: 2026-10-15 08:51
+      writer_command: agentera state plan record-evaluation

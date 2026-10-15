@@ -3,6 +3,8 @@ package profile
 import (
 	"errors"
 	"os"
+	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -106,5 +108,77 @@ func TestCreateAndDeleteShareMutationTransaction(t *testing.T) {
 	}
 	if Exists(9) {
 		t.Fatal("serialized delete did not remove profile")
+	}
+}
+
+func TestFollowAllGamesInClearsOnlyTheNamedFieldInGamesThatSetIt(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	defaults := &Profile{Proton: ProtonSettings{EnableHDR: true}}
+	if err := SaveDefault(defaults); err != nil {
+		t.Fatal(err)
+	}
+	own := &Profile{Proton: ProtonSettings{EnableHDR: false, EnableWayland: true}}
+	own.MarkOverride(FieldProtonEnableHDR)
+	own.MarkOverride(FieldProtonEnableWayland)
+	other := &Profile{GPU: GPUSettings{FanSpeed: 40}}
+	other.MarkOverride(FieldGPUFanSpeed)
+	inherits := &Profile{}
+	for appID, stored := range map[uint64]*Profile{1: own, 2: other, 3: inherits} {
+		if err := Save(appID, stored); err != nil {
+			t.Fatal(err)
+		}
+	}
+	entries := []OwnValueEntry{{AppID: 1, Name: "Own", Profile: own}, {AppID: 2, Name: "Other", Profile: other}, {AppID: 3, Name: "Inherits", Profile: inherits}, {AppID: 4, Name: "No profile"}}
+
+	outcome := FollowAllGamesIn(entries, []string{FieldProtonEnableHDR})
+	if !reflect.DeepEqual(outcome.Followed, []string{"Own"}) || len(outcome.Failed) != 0 {
+		t.Fatalf("outcome = %+v, want only Own followed", outcome)
+	}
+	reloaded, err := Load(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.IsOverridden(FieldProtonEnableHDR) {
+		t.Error("HDR is still the game's own value")
+	}
+	if !reloaded.IsOverridden(FieldProtonEnableWayland) || !reloaded.Proton.EnableWayland {
+		t.Error("another field of the same game changed")
+	}
+	if untouched, _ := Load(2); !untouched.IsOverridden(FieldGPUFanSpeed) || untouched.GPU.FanSpeed != 40 {
+		t.Error("a game that does not set HDR changed")
+	}
+}
+
+func TestFollowAllGamesInKeepsTheOverridesKeyWhenTheLastValueGoes(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	own := &Profile{}
+	own.MarkOverride(FieldProtonEnableHDR)
+	if err := Save(7, own); err != nil {
+		t.Fatal(err)
+	}
+	FollowAllGamesIn([]OwnValueEntry{{AppID: 7, Name: "Only", Profile: own}}, []string{FieldProtonEnableHDR})
+	raw, err := os.ReadFile(profilePath(7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "overrides") {
+		t.Fatalf("overrides key missing, the profile would reload as a legacy file:\n%s", raw)
+	}
+}
+
+func TestFollowAllGamesInNamesAGameItCannotWriteAndStillChangesTheRest(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	good, broken := &Profile{}, &Profile{}
+	good.MarkOverride(FieldProtonEnableHDR)
+	broken.MarkOverride(FieldProtonEnableHDR)
+	if err := Save(1, good); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(profilePath(2), []byte("overrides: [not, a, map"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	outcome := FollowAllGamesIn([]OwnValueEntry{{AppID: 1, Name: "Good", Profile: good}, {AppID: 2, Name: "Broken", Profile: broken}}, []string{FieldProtonEnableHDR})
+	if !reflect.DeepEqual(outcome.Followed, []string{"Good"}) || !reflect.DeepEqual(outcome.Failed, []string{"Broken"}) || outcome.Errors["Broken"] == nil {
+		t.Fatalf("outcome = %+v, want Good followed and Broken failed with an error", outcome)
 	}
 }
