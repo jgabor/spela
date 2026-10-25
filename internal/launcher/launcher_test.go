@@ -237,8 +237,9 @@ func TestSignalForwarding(t *testing.T) {
 	}
 
 	select {
-	case <-errCh:
-		// Launch returned — the child was signaled
+	case launchErr := <-errCh:
+		// Launch returned — the child was signaled, so an exit error is expected.
+		t.Logf("Launch() returned %v after SIGTERM", launchErr)
 	case <-time.After(5 * time.Second):
 		t.Fatal("Launch() did not return after SIGTERM")
 	}
