@@ -2,12 +2,12 @@
 
 ## Summary
 
-spela is being rewritten in Rust: a clean rewrite with full feature parity for the CLI and the TUI, and no GUI. The architecture and terminal UX follow mejl (`~/git/mejl`) wherever that fits. This folder holds the research done on 2026-10-25. The architecture doc comes next, after the decisions below.
+spela is being rewritten in Rust: a clean rewrite with full feature parity for the CLI and the TUI, and no GUI. The architecture and terminal UX follow mejl (`~/git/mejl`) wherever that fits. This folder holds the research done on 2026-10-25. The decisions are recorded below, and the architecture doc comes next.
 
 The short version:
 
 - mejl's reusable part is its terminal shell, not its data stack. The event loop, timer, input thread, terminal manager, signal watcher, capability probe, lock, logger, keymap engine, layout and theme code carry over. JMAP, SQLite, the sync engine and the outbox do not.
-- The biggest open choice is the keyboard model. spela's TUI uses basic keys only, a rule you restated on 2026-10-14. mejl uses letter keys, a palette, `q` and `?`. Adopting mejl's UX means reversing that rule, so it is your call.
+- The keyboard model keeps spela's basic keys and adds mejl's letters, palette, `q` and `?` on top (decision 1).
 - Several current Go behaviours are bugs that should not be ported as they are: wrapper mode hijacks subcommands, restore has holes, and the "clock offset" is really a clock lock.
 - The Rust crates are settled for every non-UI need. A starter set builds in 18.5 s and gives a 5.8 MB binary.
 
@@ -17,6 +17,8 @@ The short version:
 |---|---|
 | [mejl-study.md](mejl-study.md) | How mejl was researched and documented, its mockups, mejl-ui as built, its binary, terminal layer, tests and infrastructure, and every place mejl's docs and code disagree |
 | [parity-inventory.md](parity-inventory.md) | The parity contract: every CLI command, flag, output and exit code, the launch and privilege path, the profile schema and inheritance, storage, env vars, Steam, Proton, display, GPU and CPU, DLLs, the denylist, the overlay, the release check, and the whole TUI. Each item is marked contract, bug or GUI only |
+| [terminal-ux.md](terminal-ux.md) | The TUI's frame, layout, keys, popups, themes, glyphs, mouse, terminal handling, CLI output and budgets, and every change from the Go TUI |
+| [mockups.html](mockups.html) | Self-contained mock-ups of the main screens on exact cell grids, with a self-check |
 | [rust-crates.md](rust-crates.md) | Crates for every non-UI need, with versions, licences and MSRV from crates.io on 2026-10-25, probe builds against real Steam and DLL files, traps, and a starter `Cargo.toml` |
 
 Every research doc ends its sections with the conflicts and open questions its author found.
@@ -76,44 +78,51 @@ Every research doc ends its sections with the conflicts and open questions its a
     The MSRV is 1.89. The starter set is 177 crates, an 18.5 s clean release build and a 5.8 MB binary.
 11. **`~/git/spela.old` is an older Rust spela** with no DLL code. Whether it matters is open.
 
-## Decisions you need to make
+## Decisions
 
-Recommendations are inferred. The architecture doc waits on rows 1 to 6.
+Answered by the user on 2026-10-25. The architecture builds on these.
 
-| # | Decision | Options | Recommendation |
-|---|---|---|---|
-| 1 | Keyboard model | Keep spela's basic keys. Adopt mejl's letters, palette, `q`/`Q`, `?` and prefixes. Or both, through presets | Take mejl's keymap engine and chrome (top bar, framed panes, status line, hint bar from the keymap). Keep basic keys as the default bindings unless you reverse the 2026-10-14 rule. No key editor, custom presets or macros (not in spela today) |
-| 2 | Esc | Editors only (today), or back one level everywhere (mejl) | Back one level everywhere, with confirmations still starting on Cancel |
-| 3 | Layout | spela's 80x24 floor and one 100-column or 30-row threshold, or mejl's 160/100 breakpoints and 30x8 floor | Keep spela's contract. It has two panes, not three |
-| 4 | Undo or confirm | Undo instead of confirm (mejl), or keep confirms | Keep confirms for DLL and hardware changes. Space already undoes a single field |
-| 5 | Mouse | On by default (mejl), off, or later | Later. Every action already has a key, and the review procedure is keyboard only |
-| 6 | Config and profile format after migration | YAML (serde-saphyr), or TOML (mejl, toml_edit keeps comments, errors with line and column) | TOML for `config.toml` and the profiles, migrated on first read. Read the old YAML with serde-saphyr only to migrate |
-| 7 | `--json` output | Keep Go's PascalCase keys and nulls, or a new snake_case schema | A new, versioned schema, unless something you use parses the current one |
-| 8 | Known bugs | Port today's behaviour, or the fixed one | Fixed: wrapper hijack, direct launch, restore holes, the exit code, the XeSS/FSR filter, the denylist failing open, "latest" meaning first in the list |
-| 9 | GPU clock and memory "offsets" | Keep the clock locks, or use real NVML offsets | Real offsets, after you run one live root test on your GPU |
-| 10 | Overlay and inert fields | Keep the IPC writer and the fields stored only, or drop them | Drop the IPC writer until a layer exists, and keep the alert evaluator. The migration drops the six inert overlay fields with a note |
-| 11 | Concurrency | std threads with blocking ureq, or tokio with reqwest as mejl does | std threads and ureq (27 fewer crates, 3.3 MB smaller) |
-| 12 | Logs | stderr only (today), or a rolling file under `XDG_STATE_HOME` as mejl does | Both: the file for the TUI and wrapper runs, so restore results under Steam are visible |
-| 13 | Living with the Go binary | Share files with Go, or move on | New file names. The Go files stay as the migration backup, and Go is not supported side by side |
-| 14 | DLL manifest and `tools/dlss-updater` | Keep the URL and the Go tool, port it, or replace it | Keep the URL. Leave the tool in Go until the rewrite ships |
-| 15 | Licence and dependency licences | MIT with permissive deps only (mejl's code), or MPL-2.0 allowed | MIT. Allow MPL-2.0 only when a dependency is unmodified |
-| 16 | MSRV | 1.89 or later | 1.89, checked once a 1.89 toolchain is installed |
-| 17 | CI | Gate on every push, or on tags only (mejl) | Every push |
-| 18 | Demo mode and a fake backend | Yes or no | Yes. A fake backend makes TUI reviews safe and is the second implementation that justifies the backend trait |
-| 19 | `~/git/spela.old` | Ignore it, or study it | Ignore it, unless you know of something worth taking |
+| # | Decision | Answer |
+|---|---|---|
+| 1 | Keyboard model | Basic keys plus letters (option B in [terminal-ux.md](terminal-ux.md)): today's digits, arrows, Tab, Enter, Space and Ctrl-C, plus `?` help, `:` palette, `/` find, `q`/`Q` quit. This reverses the 2026-10-14 basic-key rule |
+| 2 | Esc | Back one level everywhere. It never quits and never confirms |
+| 3 | Layout | spela's contract stays: 80x24 floor, one breakpoint at 100 columns or 30 rows. The Standard, Compact and Focused layouts and `compact_mode` are dropped |
+| 4 | Undo or confirm | Keep confirms for DLL and hardware changes, Cancel focused first. Space undoes a single field |
+| 5 | Mouse | On by default, with a key for every clickable label |
+| 6 | Config and profile format | TOML, migrated from the Go YAML on first read |
+| 7 | `--json` output | A new, versioned snake_case schema |
+| 8 | Known bugs | Port the fixed behaviour |
+| 9 | GPU clock and memory offsets | Real NVML offsets, after one live root test by the user |
+| 10 | Overlay and inert fields | Drop the IPC writer and the inert fields (overlay show_* and toggle_key, power_mizer, cpu.affinity) until needed. Keep the alert evaluator. The migration notes what it dropped |
+| 11 | Concurrency | std threads and blocking ureq |
+| 12 | Logs | A rolling file under `XDG_STATE_HOME` for TUI and wrapper runs, plus stderr for CLI warnings |
+| 13 | Living with the Go binary | Move on: new file names, the Go files stay as migration backups, no side-by-side support |
+| 14 | DLL manifest | Keep the URL. Port `tools/dlss-updater` to Rust |
+| 15 | Licence | MIT. MPL-2.0 dependencies are allowed when unmodified |
+| 16 | MSRV | 1.89 (recommendation, not asked) |
+| 17 | CI | Gate every push and pull request. Release builds on tags |
+| 18 | Demo mode | Yes: `spela --demo` on a fake backend, which the tests share |
+| 19 | `~/git/spela.old` | Ignore it |
+| 20 | CLI and TUI features | Equal on both, including All games editing, DLL install and pinning, and denylist removal |
+| 21 | Wrapper detection | Known subcommands parse first. Anything else that is a path or a program on PATH is a game launch |
+| 22 | Restore after the game exits | Investigate first: prototype a long-lived privileged helper against two `pkexec` calls, and count prompts under Steam, gamescope and Big Picture |
+| 23 | XDG paths | Spec-strict, as etcetera does |
+| 24 | Steam scanning | Scan once, in the background. The TUI renders from the game cache at once. The CLI rescans only on an empty cache or `spela scan` |
+| 25 | GPUs | GPU 0 only |
+| 26 | `spela gui` | Removed |
+| 27 | Theme | Terminal ANSI 16 by default, with `neon` and `mono` |
+| 28 | Own-value glyph | ⚑ |
+| 29 | Locks | A TUI lock as today, plus a launch lock around apply and restore. Both use flock and keep the "already running (PID: N)" message |
 
 ## What is not done yet
 
 Each of these is a gap against mejl's method:
 
 - No adversarial fact-check pass ran over these docs. The completeness critic checked 30 claims and found 4 wrong ones, which [parity-inventory.md](parity-inventory.md) corrects at the top.
-- There is no spela-specific `terminal-ux.md`, and no mockups. Both depend on decisions 1 to 5.
 - No live probes ran. NVML setters, `kscreen-doctor`, `pkexec` and real launches need you, on this machine, and the open questions in each doc say which.
 - The probe crates are in a temporary folder (`/tmp/claude-1000/-home-jgabor-git-spela/c455c1a5-ee6c-4ad4-a8a6-b6b0f16f5d64/scratchpad/crate-probe`). They will not survive a reboot.
 
 ## Next steps
 
-1. You answer the decisions above.
-2. `architecture.md`: the synthesis, in mejl's shape. Principles, an adopt, adapt or reject table for mejl's parts, threads, crate split, file migration, testing, budgets, a phased roadmap where each phase says what it proves, a risk register, and a table of where the sources disagree.
-3. `terminal-ux.md` and mockups for the chosen keyboard model.
-4. A plan in `docs/plans/`, then the build.
+1. `architecture.md`: the synthesis, in mejl's shape. Principles, an adopt, adapt or reject table for mejl's parts, threads, crate split, file migration, testing, budgets, a phased roadmap where each phase says what it proves, a risk register, and a table of where the sources disagree.
+2. A plan in `docs/plans/`, then the build.

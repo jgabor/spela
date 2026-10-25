@@ -1,0 +1,1324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>spela TUI mock-ups</title>
+<meta name="description" content="Terminal UI mock-ups for spela's Rust rewrite, drawn on exact cell grids.">
+<link rel="icon" href="data:,">
+<style>
+/* Colour tokens. Cells use semantic roles (--r-*), never raw colours, so a
+   theme cannot lose a distinction. "terminal" maps the roles onto the 16 ANSI
+   colours of a dark terminal, "light" onto a light terminal, and "neon" onto
+   spela's own truecolor palette (internal/tui/styles.go, thermal.go). */
+:root {
+  color-scheme: dark;
+  --page-bg: #0f1115;
+  --page-fg: #d6dae1;
+  --page-muted: #8d94a0;
+  --page-line: #262a33;
+  --page-card: #151820;
+  --page-accent: #8cb2e2;
+  --page-kbd: #1d212a;
+
+  --t-bg: #15171c;       /* terminal background, never painted by spela */
+  --t-chrome: #1f232b;
+  --r-fg: #c8cdd5;       /* text: default fg, ANSI 7 */
+  --r-strong: #eef0f3;   /* strong: bold, ANSI 15 */
+  --r-muted: #7c8390;    /* muted: following values, hints, ANSI 8 */
+  --r-border: #666d79;   /* borders: ANSI 8 */
+  --r-focus: #86aee0;    /* focus: pane title, cursor, keys, ANSI 4 blue */
+  --r-own: #bb9fdc;      /* own value, titles: ANSI 5 magenta */
+  --r-ok: #93c393;       /* ok, saved: ANSI 2 green */
+  --r-warn: #d8bb7e;     /* warning, saving: ANSI 3 yellow */
+  --r-err: #d98080;      /* error, not saved: ANSI 1 red */
+  --r-cur: #2e3442;      /* cursor row: dark background (reverse video in a plain theme) */
+  --r-t1: #80c4c4;       /* thermal: cyan */
+  --r-t2: #86aee0;       /* blue */
+  --r-t3: #93c393;       /* green */
+  --r-t4: #d8bb7e;       /* yellow */
+  --r-t5: #d8bb7e;       /* yellow: ANSI has no orange, so stops 4 and 5 share it */
+  --r-t6: #d98080;       /* red */
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --page-bg: #f6f5f1;
+  --page-fg: #23272e;
+  --page-muted: #646a74;
+  --page-line: #dddbd3;
+  --page-card: #ffffff;
+  --page-accent: #2c5f9e;
+  --page-kbd: #ecebe5;
+
+  --t-bg: #fbfaf7;
+  --t-chrome: #e7e5de;
+  --r-fg: #30353d;
+  --r-strong: #101318;
+  --r-muted: #6f747d;
+  --r-border: #8e939b;
+  --r-focus: #2c5f9e;
+  --r-own: #7a4ca6;
+  --r-ok: #3b7a3b;
+  --r-warn: #8a6716;
+  --r-err: #b04848;
+  --r-cur: #dde3ec;
+  --r-t1: #2a7a7a;
+  --r-t2: #2c5f9e;
+  --r-t3: #3b7a3b;
+  --r-t4: #8a6716;
+  --r-t5: #8a6716;
+  --r-t6: #b04848;
+}
+:root[data-theme="neon"] {
+  color-scheme: dark;
+  --page-bg: #07070e;
+  --page-fg: #e8e8f0;
+  --page-muted: #8a8aa0;
+  --page-line: #202030;
+  --page-card: #10101c;
+  --page-accent: #5ff0ff;
+  --page-kbd: #161626;
+
+  --t-bg: #0a0a14;
+  --t-chrome: #12121f;
+  --r-fg: #e8e8f0;
+  --r-strong: #e8e8f0;
+  --r-muted: #6a6a80;
+  --r-border: #3a3a58;   /* brighter than the GUI's #202030, which nearly vanishes on #0a0a14 */
+  --r-focus: #5ff0ff;
+  --r-own: #ff5fd2;
+  --r-ok: #7ce38b;
+  --r-warn: #ffd866;
+  --r-err: #ff6e6e;
+  --r-cur: #24243c;
+  --r-t1: #5ff0ff;
+  --r-t2: #5fbaff;
+  --r-t3: #7ce38b;
+  --r-t4: #ffd866;
+  --r-t5: #ff9e5f;
+  --r-t6: #ff6e6e;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--page-bg);
+  color: var(--page-fg);
+  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow-x: hidden;
+}
+a { color: var(--page-accent); }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 16px; }
+header.page-head { padding: 40px 0 16px; }
+.eyebrow { margin: 0 0 4px; color: var(--page-muted); font-size: 14px; }
+h1 { margin: 0 0 12px; font-size: 32px; line-height: 1.2; letter-spacing: -0.01em; }
+h2 { margin: 0 0 12px; font-size: 22px; line-height: 1.3; }
+h3 { margin: 20px 0 6px; font-size: 16px; }
+p { margin: 0 0 12px; max-width: 78ch; }
+ul { margin: 0 0 12px; padding-left: 20px; max-width: 78ch; }
+li { margin: 2px 0; }
+kbd, code {
+  font-family: ui-monospace, "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+  font-size: 0.88em;
+}
+kbd {
+  background: var(--page-kbd); border: 1px solid var(--page-line); border-radius: 4px;
+  padding: 0 5px; white-space: nowrap;
+}
+code { background: var(--page-kbd); border-radius: 4px; padding: 0 4px; overflow-wrap: anywhere; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+button {
+  font: inherit; font-size: 14px; color: var(--page-fg); background: var(--page-card);
+  border: 1px solid var(--page-line); border-radius: 6px; padding: 6px 12px; cursor: pointer;
+}
+button:hover { border-color: var(--page-accent); }
+nav.tabs {
+  position: sticky; top: 0; z-index: 5;
+  background: color-mix(in srgb, var(--page-bg) 92%, transparent);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--page-line);
+}
+nav.tabs .wrap { display: flex; gap: 4px; overflow-x: auto; padding-top: 8px; padding-bottom: 8px; scrollbar-width: thin; }
+nav.tabs a {
+  flex: none; text-decoration: none; color: var(--page-muted); font-size: 14px;
+  padding: 4px 10px; border-radius: 6px; border: 1px solid transparent; white-space: nowrap;
+}
+nav.tabs a:hover { color: var(--page-fg); }
+nav.tabs a.on { color: var(--page-fg); border-color: var(--page-line); background: var(--page-card); }
+section { padding: 36px 0 8px; scroll-margin-top: 52px; }
+section + section { border-top: 1px solid var(--page-line); }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 8px 32px; }
+.cols > div > :first-child { margin-top: 0; }
+table.legend { border-collapse: collapse; font-size: 14px; margin: 0 0 12px; }
+table.legend td { padding: 3px 12px 3px 0; vertical-align: top; }
+table.legend td:first-child { font-family: ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace; white-space: nowrap; }
+.note { color: var(--page-muted); font-size: 14px; }
+.badge { display: inline-block; font-size: 13px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--page-line); }
+.badge.ok { color: var(--r-ok); }
+.badge.bad { color: var(--r-err); }
+
+/* Terminal window. Page chrome may use web styling; the grid inside may not. */
+.scroller { max-width: 100%; overflow-x: auto; padding-bottom: 8px; margin: 4px 0 16px; }
+figure.window {
+  margin: 0; width: max-content;
+  border: 1px solid var(--page-line); border-radius: 8px; overflow: hidden;
+  background: var(--t-bg);
+}
+.chrome {
+  display: flex; align-items: center; gap: 12px; height: 28px; padding: 0 10px;
+  background: var(--t-chrome); color: var(--page-muted); font-size: 12px;
+  border-bottom: 1px solid var(--page-line);
+}
+.chrome .dots { display: flex; gap: 6px; }
+.chrome .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--page-line); display: block; }
+.chrome .wtitle { flex: 1; text-align: center; }
+:root { --grid-fs: 12px; }
+.term {
+  --fs: var(--grid-fs);
+  font-family: ui-monospace, "JetBrains Mono", "Fira Code", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  font-size: var(--fs);
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 0;
+  line-height: 1.25;
+  color: var(--r-fg);
+  background: var(--t-bg);
+  padding: 6px 8px;
+  white-space: pre;
+  cursor: default;
+}
+.term .r { display: block; height: 1.25em; white-space: pre; }
+.term .w { display: inline-block; width: 1ch; text-align: center; overflow: visible; }
+
+/* Cell roles: only what a terminal can do (colour, bold, background, reverse). */
+.term .s { font-weight: 700; color: var(--r-strong); }
+.term .m { color: var(--r-muted); }
+.term .bd { color: var(--r-border); }
+.term .f { color: var(--r-focus); }
+.term .k { color: var(--r-focus); font-weight: 700; }
+.term .o { color: var(--r-own); }
+.term .ob { color: var(--r-own); font-weight: 700; }
+.term .ok { color: var(--r-ok); }
+.term .wn { color: var(--r-warn); }
+.term .er { color: var(--r-err); }
+.term .hl { color: var(--r-warn); font-weight: 700; }
+.term .t1 { color: var(--r-t1); }
+.term .t2 { color: var(--r-t2); }
+.term .t3 { color: var(--r-t3); }
+.term .t4 { color: var(--r-t4); }
+.term .t5 { color: var(--r-t5); }
+.term .t6 { color: var(--r-t6); }
+.term .cur { background: var(--r-cur); }
+.term .brand { color: var(--t-bg); background: var(--r-focus); font-weight: 700; }
+.term .rv { background: var(--r-fg); color: var(--t-bg); }
+</style>
+</head>
+<body>
+
+<header class="page-head">
+  <div class="wrap">
+    <p class="eyebrow">spela Rust rewrite research, docs/mockups.html, 2026-10-25</p>
+    <h1>spela TUI mock-ups</h1>
+    <p>These are design mock-ups for the terminal UI of spela's Rust rewrite. They are not screenshots of working software. Every screen is drawn on a fixed grid of monospace cells, the way ratatui draws a terminal frame, so each layout could be built as shown.</p>
+    <p>The frame, keys, popups, theme roles and glyphs follow <a href="terminal-ux.md">terminal-ux.md</a>. The destinations, rows, Actions menus and exact wording come from the TUI part of <a href="parity-inventory.md">parity-inventory.md</a>. The decisions are in <a href="README.md">README.md</a>. All eight screens use option B, the chosen keys: the basic keys plus <kbd>?</kbd> <kbd>:</kbd> <kbd>/</kbd> <kbd>q</kbd> <kbd>Q</kbd> (decision 1). Screens 1 to 7 show the basic keys, which option B keeps. Screen 8 shows the command palette that option B adds. The mouse is on by default (decision 5). Game names and App IDs are real Steam titles. Versions, paths and metrics are made up.</p>
+    <div class="controls">
+      <button id="theme" type="button">Theme: terminal</button>
+      <button id="smaller" type="button" aria-label="Smaller grid text">Grid text smaller</button>
+      <button id="bigger" type="button" aria-label="Larger grid text">Grid text larger</button>
+    </div>
+    <p class="note" style="margin-top:10px">Page keys: <kbd>1</kbd> to <kbd>8</kbd> jump to a screen, <kbd>9</kbd> to the grid check, <kbd>t</kbd> cycles the theme (terminal, light, neon).</p>
+  </div>
+</header>
+
+<nav class="tabs" aria-label="Screens">
+  <div class="wrap">
+    <a href="#about">About</a>
+    <a href="#library">1 Library</a>
+    <a href="#edit">2 Edit</a>
+    <a href="#dlls">3 DLLs</a>
+    <a href="#actions">4 Actions</a>
+    <a href="#monitor">5 Monitor</a>
+    <a href="#settings">6 Settings</a>
+    <a href="#narrow">7 Narrow</a>
+    <a href="#palette">8 Palette</a>
+    <a href="#checks">Grid check</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<section id="about">
+  <h2>How to read the grids</h2>
+  <div class="cols">
+    <div>
+      <p>Each screen has the same frame. Row 0 is the top bar: the brand tag, the four destinations and the live GPU metrics. Below it one outer box holds the panes, with each pane's title in the top border. The second to last row is the status line, and the last row is the hint bar.</p>
+      <p>The default page theme is "terminal": the 16 ANSI colours on a dark terminal, so a user's own terminal theme carries over. "light" shows the same roles on a light terminal. "neon" is spela's current truecolor palette. Cells are coloured by role (focus, own value, ok, warning, error, muted), not by a fixed colour.</p>
+      <p>State never depends on colour alone. Each state also has a word or a glyph. The indicator glyphs come from the Unicode Neutral width class, so they stay one cell wide in every locale.</p>
+    </div>
+    <div>
+      <table class="legend">
+        <tr><td>▸</td><td>current destination, focused row, menu cursor</td></tr>
+        <tr><td>⚑</td><td>this game sets its own value, or has its own profile (was ◆)</td></tr>
+        <tr><td>▪</td><td>game has managed DLLs (was ●)</td></tr>
+        <tr><td>✓</td><td>saved, selected or current</td></tr>
+        <tr><td>✗ ⚠</td><td>failed or critical; warning alert</td></tr>
+        <tr><td>⋯</td><td>truncated text</td></tr>
+        <tr><td>┃</td><td>scroll thumb on a pane border</td></tr>
+        <tr><td>▁ to █, ░</td><td>sparklines and gauges</td></tr>
+        <tr><td>blue bold</td><td>a key in the hint bar, or the focused pane title</td></tr>
+        <tr><td>magenta</td><td>own value marker and section titles</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="library">
+  <h2>1. Library with the profile page</h2>
+  <div class="scroller"><figure class="window" data-grid="library"></figure></div>
+  <div class="cols">
+    <div>
+      <h3>Design choices</h3>
+      <ul>
+        <li>The 7-row logo header and the destination bar are gone. Destinations and live metrics share row 0. That leaves the workspace 8 more rows than the Go TUI at 120x40: 37 rows against 29.</li>
+        <li>The List is 32 cells wide, from <code>min(32, max(w/3, 24))</code>. It holds the Find row, the pinned All games row, then the games. ▪ and ⚑ sit in fixed columns on the right so names line up. The legend sits in the bottom border.</li>
+        <li>The profile page is one scrolling page. The header keeps three lines: the game line with its save state, "Own settings", and the section strip. The DLL part of the game line is dropped here because it does not fit, as today.</li>
+        <li>Rows are label, value, source. Own values carry a magenta ⚑ and normal text. Following values are muted. The focused row is followed by its description.</li>
+        <li>The status line shows the last save on the left in green with ✓, and the save state on the right.</li>
+        <li>The List title is "Scope", as in Go. Go adds the sort only when it is not the default, as in "Scope [Z-A]".</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Keys</h3>
+      <p>Focus is on Detail, in Browse. <kbd>Up</kbd>/<kbd>Down</kbd> move between fields, <kbd>Left</kbd>/<kbd>Right</kbd> jump to the next section, and <kbd>Enter</kbd> opens the picker (screen 2). <kbd>Space</kbd> on an own value makes it follow All games. <kbd>Space</kbd> again puts the own value back. <kbd>Tab</kbd> or <kbd>Shift-Tab</kbd> switch pane. <kbd>Esc</kbd> goes back to the List. <kbd>0</kbd> opens Actions, and <kbd>1</kbd> to <kbd>4</kbd> switch destination. The digits show in the top bar only in Browse. <kbd>?</kbd> opens Help and <kbd>/</kbd> jumps to Find games.</p>
+      <p>The mouse works too: click a row to move there, double-click to open it, and right-click for Actions.</p>
+      <p class="note">The hint bar leaves out the destination keys, as the Go footer does. The top bar already shows them.</p>
+    </div>
+  </div>
+</section>
+
+<section id="edit">
+  <h2>2. Editing a field with the picker</h2>
+  <div class="scroller"><figure class="window" data-grid="edit"></figure></div>
+  <div class="cols">
+    <div>
+      <h3>Design choices</h3>
+      <ul>
+        <li>The picker opens inside Detail, right under the field it edits. The rows above and below stay visible, so the user keeps their place.</li>
+        <li>The first choice is "Follow All games (balanced)". It names the value the game would follow. An explicit empty value reads "none".</li>
+        <li>The user typed <kbd>p</kbd>, so the title reads "jump: p" and the cursor sits on the first match. performance is the only choice that starts with p. With two matches, the same letter again would move to the next one.</li>
+        <li>The row above shows the value under the cursor as it would be saved. "Value before edit" and the ✓ mark what is stored now.</li>
+        <li>The top bar shows the destinations without digits, because digits are text in Edit mode.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Keys</h3>
+      <p>Letters jump. <kbd>Up</kbd>/<kbd>Down</kbd> choose, <kbd>Tab</kbd> moves to Apply and Cancel, <kbd>Enter</kbd> applies, <kbd>Esc</kbd> cancels. Applying saves at once: the status line shows "Saving..." on the right, then "Saved". A failed write puts the stored value back and says why.</p>
+      <p class="note">The Go hint uses the arrow glyphs ↑ ↓. The grid writes Up/Down, because arrows are outside the glyph set this page allows. See the grid check.</p>
+    </div>
+  </div>
+</section>
+
+<section id="dlls">
+  <h2>3. The game's DLLs with an update confirmation</h2>
+  <div class="scroller"><figure class="window" data-grid="dlls"></figure></div>
+  <div class="cols">
+    <div>
+      <h3>Design choices</h3>
+      <ul>
+        <li>The DLLs section is the last stop on the section strip. It shows the game facts, the DLL versions, and the DLL actions with their counts.</li>
+        <li>An unavailable action stays in the list, dimmed, with its reason on the next line: "Unavailable: no backup for this game".</li>
+        <li>The confirmation is now a popup over a dimmed workspace, not an in-pane replacement. The user can still see which game and which DLL it is about.</li>
+        <li>The text is unchanged: "1 DLL target(s)", one line per target with the path under it, and "Backup:". Cancel has focus first.</li>
+        <li>Cyberpunk 2077 has DLSS 310.4.0 while the manifest's latest is 310.5.3. DLSS-G and DLSS-D are current. So "Update DLLs (1 file)".</li>
+        <li>The in-pane hints "Tab: Focus DLL controls" and "Choose action · Enter Update DLLs" move to the hint bar, like every other hint. The hint bar writes <code>key label</code> pairs without the colon, as terminal-ux.md asks. So these e2e strings change, and so do <code>Enter: Edit value</code>, <code>Enter: Open selection</code> and <code>Enter: Batch actions</code>. terminal-ux.md's list of changed strings does not name them yet.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Keys</h3>
+      <p><kbd>Left</kbd>/<kbd>Right</kbd> choose a button, <kbd>Enter</kbd> activates it, and <kbd>Tab</kbd> moves into the body to scroll a long target list. <kbd>Esc</kbd> cancels, which is new: today Esc is a no-op here. Esc never confirms. Cancelling writes "DLL update cancelled, no operation ran".</p>
+      <p class="note">The Go TUI writes the target as "310.4.0 → 310.5.3". The grid writes "->", because → is outside the allowed glyph set.</p>
+    </div>
+  </div>
+</section>
+
+<section id="actions">
+  <h2>4. The Actions popup</h2>
+  <div class="scroller"><figure class="window" data-grid="actions"></figure></div>
+  <div class="cols">
+    <div>
+      <h3>Design choices</h3>
+      <ul>
+        <li><kbd>0</kbd> opens Actions for the current context. The title says where: "Actions · Library · list". The popup sits on the right, so the list it acts on stays visible behind the dim. With the reasons it needs 80 cells, so at 120 columns it starts at column 38, still clear of the List.</li>
+        <li>The rows are today's rows for Library with List focus, in today's order. Unavailable rows are dim and keep their reason after a dot, such as "· no selected filtered games".</li>
+        <li>A row with a letter key shows it on the right: <kbd>/</kbd> for Search games, <kbd>?</kbd> for Help and <kbd>q</kbd> for Quit.</li>
+        <li>The cursor starts on the first available row. The Close row stays, so a Tab user keeps a path out.</li>
+        <li>The three Layout rows are left out. Decision 3 drops the Compact and Focused layouts. Screen 6 drops the Compact mode setting to match.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Keys</h3>
+      <p><kbd>Up</kbd>/<kbd>Down</kbd> choose and wrap, <kbd>Enter</kbd> runs an available row, <kbd>Tab</kbd> moves to Close, and <kbd>Esc</kbd> closes. Help and Quit are rows here, as today, and also have their own keys. Quit waits for pending saves. <kbd>Ctrl-C</kbd> still quits at once from anywhere.</p>
+    </div>
+  </div>
+</section>
+
+<section id="monitor">
+  <h2>5. Monitor with an active alert</h2>
+  <div class="scroller"><figure class="window" data-grid="monitor"></figure></div>
+  <div class="cols">
+    <div>
+      <h3>Design choices</h3>
+      <ul>
+        <li>The top bar and the Monitor read the same buffers. There is one 2 s poll on a worker, and the UI only draws the result.</li>
+        <li>The highest alert shows in the top bar as a glyph and a word: "⚠ Power limited". The List shows "⚠ 1" on its Alerts row. Selecting Alerts lists it with the full message and the recovery hint, as in Go.</li>
+        <li>Sparklines hold the 20 samples of today's ring buffers. Temperature uses the thermal scale. Power is coloured sample by sample by its ratio to the limit, so 318W of 320W reads orange in neon and yellow in the 16-colour theme.</li>
+        <li>Gauges use full blocks and ░ only. The partial blocks the Go TUI uses are left out to keep the glyph set small.</li>
+        <li>The status line carries the release notice on the right, in the Go wording that parity section 17 keeps: "Spela v0.9.0 is available (you have v0.8.2)". terminal-ux.md shortens it to "spela v0.9.0 is available", which its own rule that other strings stay does not allow. One of the two needs to change.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Keys</h3>
+      <p>Focus is on the List. <kbd>Up</kbd>/<kbd>Down</kbd> pick GPU, CPU or Alerts. <kbd>Enter</kbd> opens the selection in Detail, and <kbd>Tab</kbd> switches pane. Monitor has no groups, so <kbd>Left</kbd>/<kbd>Right</kbd> do nothing on its List and are not hinted. <kbd>?</kbd> opens Help.</p>
+    </div>
+  </div>
+</section>
+
+<section id="settings">
+  <h2>6. Settings</h2>
+  <div class="scroller"><figure class="window" data-grid="settings"></figure></div>
+  <div class="cols">
+    <div>
+      <h3>Design choices</h3>
+      <ul>
+        <li>The List shows labels only, as today. The groups stack in one column and the current group opens below its name, so the user sees every group and where they are.</li>
+        <li>Detail shows the option's title, value, save state and description. The "Choices" line is new: it shows where the next <kbd>Space</kbd> goes.</li>
+        <li>Display holds "Confirm destructive actions". "Compact mode" is gone, because the config migration drops <code>compact_mode</code> (decision 3). Theme (terminal, neon, mono), Mouse and ASCII glyphs join Display. Their labels are provisional: no doc names them yet.</li>
+        <li>Detail also shows the default, 24 hours, from the Go config defaults.</li>
+        <li>The save reached disk, so the status line says "Saved: Refresh interval 24" in green with ✓.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Keys</h3>
+      <p>Focus is on Detail, on a cyclic option. <kbd>Space</kbd> picks the next value and saves at once. Detail has no <kbd>Up</kbd>/<kbd>Down</kbd> here, and <kbd>Enter</kbd> only opens an editor on path and list options, so neither is hinted. On the List, <kbd>Left</kbd>/<kbd>Right</kbd> change group and <kbd>Up</kbd>/<kbd>Down</kbd> change option. <kbd>Esc</kbd> goes back to the List. <kbd>?</kbd> opens Help.</p>
+    </div>
+  </div>
+</section>
+
+<section id="narrow">
+  <h2>7. Narrow layout, 80 by 24</h2>
+  <div class="scroller"><figure class="window" data-grid="narrow"></figure></div>
+  <div class="cols">
+    <div>
+      <h3>Design choices</h3>
+      <ul>
+        <li>Under 100 columns or 30 rows there is one pane, titled "▸ Detail" or "▸ List". <kbd>Tab</kbd> shows the other one, and the hint bar says so.</li>
+        <li>The header, the section strip and the focused row with its description all fit. The page scrolls to keep the focused row and its notes in view, and the thumb on the border shows where.</li>
+        <li>The hint bar drops lower-priority hints first. "0 Actions" and "Tab List" always stay. Here "Left/Right Section" and "Esc List" were dropped.</li>
+        <li>An alert is active. The destinations with digits end at column 58, which leaves 19 cells. Even after dropping the sparkline, CPU and power, "GPU 71° 98%  ⚠ Power limited" needs 28. So this grid drops util and the GPU label next and keeps the temperature: "71° ⚠ Power limited" starts at column 60, two cells after the destinations. The alert word is never dropped. terminal-ux.md does not state this rule yet.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Below the minimum</h3>
+      <p>Under 80x24 a bounded prompt replaces the screen: "Resize terminal", "Spela needs at least 80x24" and "Current size: WxH". Only <kbd>Ctrl-C</kbd> works there.</p>
+    </div>
+  </div>
+</section>
+
+<section id="palette">
+  <h2>8. The command palette <span class="badge ok">chosen</span></h2>
+  <div class="scroller"><figure class="window" data-grid="palette"></figure></div>
+  <div class="cols">
+    <div>
+      <h3>Design choices</h3>
+      <ul>
+        <li>This is part of option B, which the user chose on 2026-10-25 (decision 1). It reverses the basic-key rule from 2026-10-14 and PLAN.md's ban on a palette.</li>
+        <li><kbd>:</kbd> or <kbd>Ctrl-K</kbd> opens one fuzzy list over every Actions row, game and setting, from every destination. Matched letters are highlighted.</li>
+        <li>A row shows its key when option B has one, such as <kbd>2</kbd> for DLL Catalog. Most rows have none, because Actions rows are only reachable through <kbd>0</kbd>.</li>
+        <li>Every basic key still works. Option B adds <kbd>?</kbd> Help, <kbd>/</kbd> Find, <kbd>q</kbd> back then quit, and <kbd>Q</kbd> quit now.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Keys</h3>
+      <p>Typing filters. <kbd>Up</kbd>/<kbd>Down</kbd> move, <kbd>Enter</kbd> runs the row, and <kbd>Esc</kbd> closes. An unavailable row would show its reason, as in Actions.</p>
+      <p class="note">Actions stays the menu for the current context, with its reasons. The palette is the fast path across contexts: one list, typed into, from anywhere.</p>
+    </div>
+  </div>
+</section>
+
+<section id="checks">
+  <h2>Grid check</h2>
+  <p>When the page loads, a script checks every grid. Each row must hold exactly the declared number of cells. No text may be clipped at a pane edge, and no right-aligned text may overlap left text in the top bar or the status line. It also reports text written over other text. Only printable ASCII, box drawing (U+2500 to U+257F, which includes the ┃ scroll thumb), the Neutral glyphs ▸ ⚑ ▪ ✓ ✗ ⚠ ⋯, the blocks ▁ to █ and ░, and the two accepted exceptions · and ° may appear. It also measures each rendered row against the cell width, which catches glyphs that fall back to a wider font. Results go to the browser console and appear below.</p>
+  <p id="check-result" class="note" aria-live="polite">Running checks...</p>
+  <h3>Wording changed to fit the glyph set</h3>
+  <p>The Go TUI prints some characters that are outside this set. The grids use these stand-ins. A real build would need either these stand-ins or a wider glyph set in terminal-ux.md.</p>
+  <ul>
+    <li>Arrow keys ↑ ↓ ← → in hints are written Up/Down and Left/Right.</li>
+    <li>→ between versions ("310.4.0 → 310.5.3") is written "->".</li>
+    <li>The ellipsis … in "Saving…" is written "..." (⋯ is kept for truncation).</li>
+    <li>The text cursor ▏ is drawn as one reverse-video cell.</li>
+    <li>The Monitor heading prefix › is dropped. It is Neutral width, but it is not in terminal-ux.md's glyph set, and the pane title already names the section.</li>
+    <li>Gauges use █ and ░ only, without the partial blocks ▏ to ▉.</li>
+  </ul>
+  <h3>What these mock-ups cannot show</h3>
+  <ul>
+    <li>Speed. The budget is p99 under 8 ms from key to flushed bytes for a local action. A still picture cannot show that.</li>
+    <li>The save sequence over time: "Saving..." on the right of the status line, then "Saved", or a failure that puts the stored value back.</li>
+    <li>Your terminal's font and palette. A real build uses them, so colours and glyph shapes will differ.</li>
+  </ul>
+</section>
+
+</main>
+
+<noscript><p class="wrap">The grids are drawn by a small inline script. Enable JavaScript to see them.</p></noscript>
+
+<script>
+'use strict';
+
+/* ---------- Cell grid, modelled on a ratatui buffer ---------- */
+
+const U = 1, R = 2, D = 4, L = 8;
+const BOX = {};
+BOX[R | L] = '─'; BOX[R] = '─'; BOX[L] = '─';
+BOX[U | D] = '│'; BOX[U] = '│'; BOX[D] = '│';
+BOX[R | D] = '┌'; BOX[D | L] = '┐'; BOX[U | R] = '└'; BOX[U | L] = '┘';
+BOX[U | R | D] = '├'; BOX[U | D | L] = '┤'; BOX[R | D | L] = '┬'; BOX[U | R | L] = '┴';
+BOX[U | R | D | L] = '┼';
+
+const len = (s) => [...String(s)].length;
+
+function fit(s, n) {
+  const a = [...String(s)];
+  if (n <= 0) return '';
+  if (a.length > n) return a.slice(0, n - 1).join('') + '⋯';
+  return a.join('') + ' '.repeat(n - a.length);
+}
+function rfit(s, n) {
+  const a = [...String(s)];
+  if (a.length > n) return a.slice(0, n - 1).join('') + '⋯';
+  return ' '.repeat(n - a.length) + a.join('');
+}
+function wrap(text, w) {
+  const out = [];
+  for (const para of text.split('\n')) {
+    if (para === '') { out.push(''); continue; }
+    let line = '';
+    for (const word of para.split(' ')) {
+      if (line === '') line = word;
+      else if (len(line) + 1 + len(word) <= w) line += ' ' + word;
+      else { out.push(line); line = word; }
+    }
+    out.push(line);
+  }
+  return out;
+}
+
+class Grid {
+  constructor(id, w, h) {
+    this.id = id; this.w = w; this.h = h; this.issues = [];
+    this.ch = []; this.fg = []; this.bg = []; this.mk = [];
+    for (let y = 0; y < h; y++) {
+      this.ch.push(Array(w).fill(' '));
+      this.fg.push(Array(w).fill(''));
+      this.bg.push(Array(w).fill(''));
+      this.mk.push(Array(w).fill(0));
+    }
+  }
+  inb(x, y) { return x >= 0 && y >= 0 && x < this.w && y < this.h; }
+  /* Write text. Anything past `lim` (a pane edge) is clipped and reported. */
+  put(x, y, s, cls = '', lim = this.w) {
+    const cs = [...String(s)];
+    if (y < 0 || y >= this.h) { this.issues.push(`row ${y} is outside the grid: "${s}"`); return x; }
+    for (let i = 0; i < cs.length; i++) {
+      const xx = x + i;
+      if (xx >= lim || xx >= this.w) { this.issues.push(`text clipped at row ${y}, col ${xx}: "${s}"`); return xx; }
+      if (xx < 0) continue;
+      const was = this.ch[y][xx];
+      if (was !== null && was !== ' ' && cs[i] !== ' ' && was !== cs[i]) this.issues.push(`overwrite at row ${y}, col ${xx}: "${was}" by "${s}"`);
+      this.ch[y][xx] = cs[i]; this.fg[y][xx] = cls; this.mk[y][xx] = 0;
+    }
+    return x + cs.length;
+  }
+  seq(x, y, parts, lim = this.w) {
+    for (const p of parts) x = this.put(x, y, p[0], p[1] || '', lim);
+    return x;
+  }
+  right(y, parts, edge = this.w - 1) {
+    const t = parts.map((p) => p[0]).join('');
+    return this.seq(edge - len(t), y, parts, edge);
+  }
+  line(x, y, bits, cls) {
+    if (!this.inb(x, y)) { this.issues.push(`line outside the grid at ${x},${y}`); return; }
+    this.ch[y][x] = null; this.mk[y][x] |= bits; this.fg[y][x] = cls;
+  }
+  hline(x1, x2, y, cls = 'bd') {
+    for (let x = x1; x <= x2; x++) this.line(x, y, ((x > x1 ? L : 0) | (x < x2 ? R : 0)) || (L | R), cls);
+  }
+  vline(x, y1, y2, cls = 'bd') {
+    for (let y = y1; y <= y2; y++) this.line(x, y, ((y > y1 ? U : 0) | (y < y2 ? D : 0)) || (U | D), cls);
+  }
+  /* Lines OR their direction bits, so crossing lines merge into ┬ ┴ ├ ┤ ┼. */
+  box(x, y, w, h, cls = 'bd') {
+    this.hline(x, x + w - 1, y, cls); this.hline(x, x + w - 1, y + h - 1, cls);
+    this.vline(x, y, y + h - 1, cls); this.vline(x + w - 1, y, y + h - 1, cls);
+  }
+  clear(x, y, w, h) {
+    for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) {
+      if (!this.inb(xx, yy)) continue;
+      this.ch[yy][xx] = ' '; this.fg[yy][xx] = ''; this.bg[yy][xx] = ''; this.mk[yy][xx] = 0;
+    }
+  }
+  shade(x, y, w, cls) { for (let i = 0; i < w; i++) if (this.inb(x + i, y)) this.bg[y][x + i] = cls; }
+  /* The terminal DIM attribute over everything already drawn, as behind a popup.
+     Row 0, the top bar, stays as it is. */
+  dimAll() {
+    for (let y = 1; y < this.h; y++) for (let x = 0; x < this.w; x++) {
+      this.fg[y][x] = this.ch[y][x] === null ? 'bd' : 'm'; this.bg[y][x] = '';
+    }
+  }
+  title(x, y, s, cls = 'm') { return this.put(x, y, ' ' + s + ' ', cls); }
+  cell(x, y) { const c = this.ch[y][x]; return c === null ? (BOX[this.mk[y][x]] || '?') : c; }
+  lines() {
+    const out = [];
+    for (let y = 0; y < this.h; y++) { let s = ''; for (let x = 0; x < this.w; x++) s += this.cell(x, y); out.push(s); }
+    return out;
+  }
+}
+
+/* ---------- Shared pieces ---------- */
+
+const DESTS = ['Library', 'DLL Catalog', 'Monitor', 'Settings'];
+const LIST_W = (w) => Math.min(32, Math.max(Math.floor(w / 3), 24));
+
+/* Row 0: brand tag, destinations (digits only in Browse), live metrics on the right. */
+function topBar(g, active, digits, right) {
+  let x = g.put(0, 0, ' spela ', 'brand');
+  x += 2;
+  DESTS.forEach((name, i) => {
+    if (i > 0) x += 2;
+    const on = i + 1 === active;
+    const label = (on ? '▸ ' : '') + (digits ? (i + 1) + ' ' : '') + name;
+    x = g.put(x, 0, label, on ? 'k' : '');
+  });
+  if (right) {
+    const start = g.w - 1 - len(right.map((p) => p[0]).join(''));
+    if (start < x + 2) g.issues.push(`top bar: metrics start at col ${start}, destinations end at col ${x}`);
+    g.right(0, right);
+  }
+}
+function statusLine(g, y, left, right) {
+  const end = g.seq(1, y, left || []);
+  if (right) {
+    const start = g.w - 1 - len(right.map((p) => p[0]).join(''));
+    if (start < end + 2) g.issues.push(`status line ${y}: left and right text overlap`);
+    g.right(y, right);
+  }
+}
+function hintBar(g, y, items) {
+  let x = 1;
+  items.forEach(([key, label], i) => {
+    if (i > 0) x += 2;
+    x = g.put(x, y, key, 'k', g.w - 1);
+    x = g.put(x, y, ' ' + label, 'm', g.w - 1);
+  });
+}
+function scrollbar(g, x, y1, y2, from, to) {
+  for (let y = y1 + from; y <= Math.min(y2, y1 + to); y++) g.put(x, y, '┃', 'm');
+}
+/* Outer frame: one box from row 1 to h-3, a shared border between the panes. */
+function frame(g, o) {
+  g.box(0, 1, g.w, g.h - 3);
+  const bottom = g.h - 3;
+  if (o.single) {
+    g.title(2, 1, o.title, 'k');
+    return { x: 1, y: 2, w: g.w - 2, h: bottom - 2 };
+  }
+  const lw = LIST_W(g.w);
+  g.vline(lw + 1, 1, bottom);
+  g.title(2, 1, o.listTitle, o.focus === 'list' ? 'k' : 'm');
+  g.title(lw + 3, 1, o.detailTitle, o.focus === 'detail' ? 'k' : 'm');
+  return {
+    list: { x: 1, y: 2, w: lw, h: bottom - 2 },
+    detail: { x: lw + 2, y: 2, w: g.w - lw - 3, h: bottom - 2 },
+  };
+}
+/* Paint a list of line objects: { p: parts, cur: [dx, w] or true }. */
+function paint(g, pane, lines, from = 0) {
+  const cx = pane.x + 1, lim = pane.x + pane.w - 1;
+  for (let i = 0; i < pane.h && from + i < lines.length; i++) {
+    const ln = lines[from + i];
+    if (!ln) continue;
+    const y = pane.y + i;
+    g.seq(cx, y, ln.p, lim);
+    if (ln.cur === true) g.shade(pane.x, y, pane.w, 'cur');
+    else if (ln.cur) g.shade(cx + ln.cur[0], y, ln.cur[1], 'cur');
+  }
+}
+/* A popup: cleared area, a focus-coloured box, a title in the border. */
+function popup(g, x, y, w, h, title) {
+  g.clear(x, y, w, h);
+  g.box(x, y, w, h, 'f');
+  g.title(x + 2, y, title, 'k');
+  return { x, y, w, h, lim: x + w - 1 };
+}
+
+/* ---------- Metrics ---------- */
+
+const SPARK = '▁▂▃▄▅▆▇█';
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+function thermal(ratio) {
+  const stops = [0, 0.3, 0.5, 0.7, 0.85, 1];
+  let i = 0;
+  stops.forEach((s, k) => { if (ratio >= s) i = k; });
+  return 't' + (i + 1);
+}
+const tempRatio = (t) => clamp01((t - 30) / 65);
+function sparkParts(values, lo, hi, colour) {
+  return values.map((v) => {
+    const r = clamp01((v - lo) / (hi - lo));
+    return [SPARK[Math.round(r * 7)], colour === 'thermal' ? thermal(r) : colour];
+  });
+}
+function gaugeParts(used, total, w) {
+  const n = Math.round((used / total) * w);
+  return [['█'.repeat(n), 'f'], ['░'.repeat(w - n), 'm']];
+}
+
+/* Monitor history: the top bar and the Monitor read the same buffers. */
+const MON_TEMPS = [62, 63, 63, 64, 65, 65, 66, 66, 67, 67, 68, 68, 69, 69, 70, 70, 70, 71, 71, 71];
+const CALM = { temp: 54, util: 37, power: 182, limit: 320, cpu: 12, temps: [38, 44, 49, 52, 54] };
+const HOT = { temp: 71, util: 98, power: 318, limit: 320, cpu: 34, temps: MON_TEMPS.slice(-5) };
+function metricsParts(m, alert) {
+  const parts = [['GPU ', 'm'], [m.temp + '°', thermal(tempRatio(m.temp))], [' ' + m.util + '%', ''],
+    [' ' + m.power + 'W', thermal(m.power / m.limit)], [' ', '']];
+  parts.push(...sparkParts(m.temps, 30, 95, 'thermal'));
+  parts.push([' CPU ', 'm'], [m.cpu + '%', '']);
+  if (alert) parts.push(['  ', ''], ['⚠ Power limited', 'wn']);
+  return parts;
+}
+
+/* ---------- Data ---------- */
+
+const GAMES = [
+  ["Baldur's Gate 3", 1086940, 1, 0],
+  ['Black Myth: Wukong', 2358720, 1, 1],
+  ['Cities: Skylines II', 949230, 0, 0],
+  ['Control', 870780, 1, 0],
+  ['Counter-Strike 2', 730, 0, 0],
+  ['Cyberpunk 2077', 1091500, 1, 1],
+  ['Dead Space', 1693980, 1, 0],
+  ['Diablo IV', 2344520, 1, 0],
+  ['Dota 2', 570, 0, 0],
+  ['ELDEN RING', 1245620, 0, 1],
+  ['Forza Horizon 5', 1551360, 1, 0],
+  ['Ghost of Tsushima', 2215430, 1, 0],
+  ['Hades II', 1145350, 0, 0],
+  ['Hogwarts Legacy', 990080, 1, 1],
+  ['Hollow Knight', 367520, 0, 0],
+  ['Horizon Forbidden West', 2420110, 1, 0],
+  ['Indiana Jones and the Great Circle', 2677660, 1, 1],
+  ["Marvel's Spider-Man 2", 2651280, 1, 0],
+  ['Monster Hunter Wilds', 2246340, 1, 0],
+  ["No Man's Sky", 275850, 1, 0],
+  ['Portal with RTX', 2012840, 1, 1],
+  ['Red Dead Redemption 2', 1174180, 1, 0],
+  ['S.T.A.L.K.E.R. 2: Heart of Chornobyl', 1643320, 1, 0],
+  ['Satisfactory', 526870, 1, 0],
+  ['Stardew Valley', 413150, 0, 0],
+  ['Starfield', 1716740, 1, 1],
+  ['The Witcher 3: Wild Hunt', 292030, 1, 1],
+  ['Warhammer 40,000: Space Marine 2', 2183900, 1, 0],
+];
+const SELECTED = 'Cyberpunk 2077';
+
+/* Cyberpunk 2077's profile page: label, value, source, own. Labels and words are
+   spela's (internal/profile/fields.go, vocabulary.go). All games stores the DLSS
+   modes; this game turns the overrides on. Decision 10 drops the inert fields
+   (Power mode, Affinity, the overlay Show rows and Toggle key). */
+const SECTIONS = [
+  ['Proton', [
+    ['HDR', 'On', 'from All games'],
+    ['Wayland', 'Off', 'system default'],
+    ['NGX updater', 'Off', 'system default'],
+    ['VKD3D heap', 'Off', 'system default'],
+  ]],
+  ['DLSS', [
+    ['Super resolution', 'quality', 'this game · All games: balanced', 1],
+    ['Resolution preset', 'K', 'from All games'],
+    ['Resolution override', 'On', 'this game · All games: Off', 1],
+    ['Ray reconstruction', 'quality', 'from All games'],
+    ['Ray preset', 'none', 'system default'],
+    ['Ray override', 'On', 'this game · All games: Off', 1],
+    ['Frame generation', 'On', 'from All games'],
+    ['Generation override', 'On', 'from All games'],
+    ['Multi-frame', '1', 'from All games'],
+    ['SR indicator', 'Off', 'system default'],
+    ['FG indicator', 'Off', 'system default'],
+  ]],
+  ['GPU', [
+    ['Clock offset', '150 MHz', 'this game · All games: none', 1],
+    ['KDE VRR', 'automatic', 'from All games'],
+    ['Memory offset', 'none', 'system default'],
+    ['Power limit', 'none', 'system default'],
+    ['Fan speed', 'none', 'system default'],
+    ['Shader cache', 'On', 'from All games'],
+    ['Shader cache path', 'none', 'system default'],
+    ['Threaded optimization', 'Off', 'system default'],
+  ]],
+  ['CPU', [
+    ['Governor', 'performance', 'from All games'],
+    ['SMT', 'none', 'system default'],
+  ]],
+  ['Overlay', [
+    ['Enabled', 'Off', 'system default'],
+    ['Position', 'none', 'system default'],
+  ]],
+];
+const DESC = {
+  'Super resolution': 'DLSS super resolution quality mode. Applied only when Resolution override is On.',
+  'Ray override': 'Turns on the DLSS ray reconstruction override. Mode and preset take effect only when this is On.',
+};
+const LABEL_W = Math.max(...SECTIONS.flatMap(([, rows]) => rows.map((r) => len(r[0]))));
+const OWN_LINE = 'Own settings (4): Super resolution quality · Resolution override On · Ray override On · Clock offset 150 MHz';
+const DLL_SUMMARY = 'DLSS 310.4.0, DLSS-G 310.5.3, DLSS-D 310.5.3';
+const STRIP = ['Proton', 'DLSS', 'GPU', 'CPU', 'Overlay', 'DLLs'];
+
+/* ---------- Library pieces ---------- */
+
+function libraryList(g, pane, focused) {
+  const cx = pane.x + 1, lim = pane.x + pane.w - 1;
+  const nameW = pane.w - 8;
+  let y = pane.y;
+  g.seq(cx, y++, [['/', 'k'], [' Find games', 'm']], lim);
+  g.put(cx, y++, '  All games', 'o', lim);
+  for (const [name, , dll, own] of GAMES) {
+    if (y >= pane.y + pane.h) break;
+    const cur = name === SELECTED;
+    g.put(cx, y, cur ? '▸' : ' ', focused ? 'k' : 'm', lim);
+    g.put(cx + 2, y, fit(name, nameW), cur && focused ? 's' : '', lim);
+    if (dll) g.put(lim - 3, y, '▪', 'f', lim);
+    if (own) g.put(lim - 1, y, '⚑', 'o', lim);
+    if (cur) g.shade(pane.x, y, pane.w, 'cur');
+    y++;
+  }
+  g.title(2, pane.y + pane.h, '▪ DLLs  ⚑ profile', 'm');
+}
+
+/* The three header lines of a profile page. */
+function profileHead(cw, strip, status) {
+  const name = 'Cyberpunk 2077 · App ID 1091500';
+  const st = status || ['Saved at once', 'm'];
+  const head = len(name + ' · DLLs: ' + DLL_SUMMARY + ' · ' + st[0]) <= cw
+    ? [[name, 'ob'], [' · DLLs: ' + DLL_SUMMARY + ' · ', 'm'], st]
+    : [[name, 'ob'], [' · ', 'm'], st];
+  const stripParts = [];
+  STRIP.forEach((s, i) => {
+    if (i > 0) stripParts.push(['  ', '']);
+    stripParts.push(s === strip ? ['[' + s + ']', 'k'] : [s, 'm']);
+  });
+  return [{ p: head }, { p: [[fit(OWN_LINE, cw), 'm']] }, { p: stripParts }, null];
+}
+
+/* Scrolling body of the profile page. Keeps the focused row and its notes in view. */
+function profileBody(cw, o) {
+  const body = [];
+  let fStart = -1, fEnd = -1;
+  SECTIONS.forEach(([title, rows], si) => {
+    if (si > 0) body.push(null);
+    body.push({ p: [[title, 'ob']] });
+    for (const [label, value, source, own] of rows) {
+      const focus = label === o.focus;
+      const v = focus && o.editValue ? o.editValue : value;
+      const text = fit(label, LABEL_W) + '  ' + fit(v, 12) + '  ' + source;
+      const cls = focus ? (o.focused ? 'k' : 's') : own ? '' : 'm';
+      body.push({ p: [[focus ? '▸ ' : '  ', 'k'], [own ? '⚑ ' : '  ', 'o'], [fit(text, cw - 4), cls]], cur: focus });
+      if (!focus) continue;
+      fStart = body.length - 1;
+      if (o.picker) body.push(...o.picker);
+      else for (const l of wrap(DESC[label] || '', cw - 6)) body.push({ p: [['    ' + l, 'm']] });
+      fEnd = body.length - 1;
+    }
+  });
+  return { body, fStart, fEnd };
+}
+
+function profilePage(g, pane, o) {
+  const cw = pane.w - 2;
+  const head = profileHead(cw, o.strip, o.status);
+  paint(g, pane, head);
+  const bodyPane = { x: pane.x, y: pane.y + head.length, w: pane.w, h: pane.h - head.length };
+  const { body, fStart, fEnd } = profileBody(cw, o);
+  let start = 0;
+  if (body.length > bodyPane.h) {
+    start = Math.max(fEnd - bodyPane.h + 1, 0);
+    start = Math.min(start, fStart, body.length - bodyPane.h);
+    const from = Math.round((start / body.length) * bodyPane.h);
+    const size = Math.max(1, Math.round((bodyPane.h / body.length) * bodyPane.h));
+    scrollbar(g, pane.x + pane.w, bodyPane.y, bodyPane.y + bodyPane.h - 1, from, from + size - 1);
+  }
+  paint(g, bodyPane, body, start);
+}
+
+/* The Super resolution picker, drawn inside Detail under its row. */
+function pickerLines() {
+  const W = 56, ind = '    ';
+  const title = 'Edit Super resolution  jump: p';
+  const side = (parts, cur) => ({ p: [[ind + '│ ', 'f'], ...parts, [' │', 'f']], cur });
+  const choice = (name, cur, extra) => {
+    const parts = [[cur ? '▸ ' : '  ', 'k'], [name, cur ? 'k' : '']];
+    let used = 2 + len(name);
+    if (extra) { parts.push(['  ' + extra[0], extra[1]]); used += 2 + len(extra[0]); }
+    parts.push([' '.repeat(W - 4 - used), '']);
+    return side(parts, cur ? [6, W - 4] : undefined);
+  };
+  const pad = (t, cls) => side([[fit(t, W - 4), cls]]);
+  return [
+    { p: [[ind + '┌─ ', 'f'], [title, 'k'], [' ' + '─'.repeat(W - 5 - len(title)) + '┐', 'f']] },
+    pad('Value before edit: quality', 'm'),
+    pad('', ''),
+    choice('Follow All games (balanced)'),
+    choice('none'),
+    choice('off'),
+    choice('ultra_performance'),
+    choice('performance', true),
+    choice('balanced'),
+    choice('quality', false, ['✓', 'ok']),
+    choice('dlaa'),
+    pad('', ''),
+    side([['  [ Apply ]  [ Cancel ]', ''], [' '.repeat(W - 4 - 23), '']]),
+    { p: [[ind + '└' + '─'.repeat(W - 2) + '┘', 'f']] },
+  ];
+}
+
+function baseLibrary(id, o) {
+  const g = new Grid(id, 120, 40);
+  topBar(g, 1, o.digits, metricsParts(CALM));
+  const panes = frame(g, { listTitle: 'Scope', detailTitle: 'Cyberpunk 2077', focus: o.focus });
+  libraryList(g, panes.list, o.focus === 'list');
+  return { g, panes };
+}
+
+/* ---------- Screen 1: Library with the profile page ---------- */
+
+function buildLibrary() {
+  const { g, panes } = baseLibrary('library', { digits: true, focus: 'detail' });
+  profilePage(g, panes.detail, { strip: 'DLSS', focus: 'Super resolution', focused: true });
+  statusLine(g, 38, [['✓ Saved: Resolution override On', 'ok']], [['Saved', 'm']]);
+  hintBar(g, 39, [['0', 'Actions'], ['Up/Down', 'Field'], ['Left/Right', 'Section'], ['Enter', 'Edit value'],
+    ['Space', 'Follow All games'], ['Tab', 'Pane'], ['Esc', 'List'], ['?', 'Help']]);
+  return g;
+}
+
+/* ---------- Screen 2: editing a field with the picker ---------- */
+
+function buildEdit() {
+  const { g, panes } = baseLibrary('edit', { digits: false, focus: 'detail' });
+  profilePage(g, panes.detail, { strip: 'DLSS', focus: 'Super resolution', focused: true, editValue: 'performance', picker: pickerLines() });
+  statusLine(g, 38, [], [['Saved', 'm']]);
+  hintBar(g, 39, [['Type', 'to jump'], ['Up/Down', 'choose'], ['Tab', 'control'], ['Enter', 'apply'], ['Esc', 'cancel']]);
+  return g;
+}
+
+/* ---------- Screen 3: the game's DLLs with an update confirmation ---------- */
+
+function dllSection(g, pane) {
+  const cw = pane.w - 2;
+  const head = profileHead(cw, 'DLLs');
+  const lines = head.concat([
+    { p: [['Install directory: /mnt/games/SteamLibrary/steamapps/common/Cyberpunk 2077', 'm']] },
+    { p: [['Proton prefix: /mnt/games/SteamLibrary/steamapps/compatdata/1091500/pfx', 'm']] },
+    { p: [['Steam launch option: spela %command%', 'm']] },
+    null,
+    { p: [['DLL versions', 'ob']] },
+    { p: [['DLSS: 310.4.0', '']] },
+    { p: [['DLSS-G: 310.5.3', '']] },
+    { p: [['DLSS-D: 310.5.3', '']] },
+    null,
+    { p: [['DLL actions: Cyberpunk 2077', 'ob']] },
+    { p: [['  Install DLL', '']] },
+    { p: [['▸ ', 'k'], ['Update DLLs (1 file)', 'k']], cur: true },
+    { p: [['  Restore originals (0 files)', 'm']] },
+    { p: [['    Unavailable: no backup for this game', 'm']] },
+    null,
+    { p: [['Review each detected stale DLL before updating.', 'm']] },
+  ]);
+  paint(g, pane, lines);
+}
+
+function buildDlls() {
+  const { g, panes } = baseLibrary('dlls', { digits: false, focus: 'detail' });
+  dllSection(g, panes.detail);
+  g.dimAll();
+  const p = popup(g, Math.floor((g.w - 88) / 2), 24, 88, 12, 'Confirm DLL update');
+  const x = p.x + 3;
+  g.put(x, p.y + 2, '1 DLL target(s)', 's', p.lim);
+  g.seq(x, p.y + 4, [['Cyberpunk 2077 · DLSS · ', ''], ['310.4.0', 'wn'], [' -> ', 'm'], ['310.5.3', 'ok']], p.lim);
+  g.put(x, p.y + 5, '/mnt/games/SteamLibrary/steamapps/common/Cyberpunk 2077/bin/x64/nvngx_dlss.dll', 'm', p.lim);
+  g.seq(x, p.y + 7, [['Backup: ', 's'], ['current DLL is backed up before replacement', '']], p.lim);
+  const bx = p.x + p.w - 3 - len('[ Cancel ]  [ Confirm ]');
+  g.put(bx, p.y + 9, '[ Cancel ]', 'k', p.lim);
+  g.shade(bx, p.y + 9, 10, 'cur');
+  g.put(bx + 12, p.y + 9, '[ Confirm ]', '', p.lim);
+  g.clear(0, 38, 120, 2);
+  statusLine(g, 38, [], [['Saved', 'm']]);
+  hintBar(g, 39, [['Left/Right', 'Choose'], ['Enter', 'Activate'], ['Tab', 'Details'], ['Esc', 'Cancel']]);
+  return g;
+}
+
+/* ---------- Screen 4: the Actions popup ---------- */
+
+function buildActions() {
+  const { g, panes } = baseLibrary('actions', { digits: false, focus: 'list' });
+  profilePage(g, panes.detail, { strip: 'DLSS', focus: 'Super resolution', focused: false });
+  g.dimAll();
+  const rows = [
+    ['Search games', '', '/'],
+    ['Toggle DLL filter'],
+    ['Toggle profile filter'],
+    ['Clear filters (reset sort to A-Z)'],
+    ['Sort: A-Z'],
+    ['Sort: Z-A'],
+    ['Sort: DLLs first'],
+    ['Sort: profiles first'],
+    ['Select all filtered games'],
+    ['Clear selected filtered games', 'no selected filtered games'],
+    ['Update selected games (0 visible)', 'no updates for selected filtered games'],
+    ['Rescan games'],
+    ['Help', '', '?'],
+    ['Quit', '', 'q'],
+  ];
+  const p = popup(g, 38, 3, 80, rows.length + 6, 'Actions · Library · list');
+  rows.forEach(([name, reason, key], i) => {
+    const y = p.y + 2 + i;
+    const cur = i === 0;
+    g.put(p.x + 2, y, cur ? '▸ ' : '  ', 'k', p.lim);
+    if (reason) g.seq(p.x + 4, y, [[name, 'm'], [' · ' + reason, 'm']], p.lim);
+    else g.put(p.x + 4, y, name, cur ? 'k' : '', p.lim);
+    if (key) g.put(p.x + p.w - 4, y, key, 'k', p.lim);
+    if (cur) g.shade(p.x + 1, y, p.w - 2, 'cur');
+  });
+  g.hline(p.x, p.x + p.w - 1, p.y + rows.length + 3, 'f');
+  g.put(p.x + 4, p.y + rows.length + 4, 'Close', '', p.lim);
+  g.clear(0, 38, 120, 2);
+  statusLine(g, 38, [], [['Saved', 'm']]);
+  hintBar(g, 39, [['Up/Down', 'Choose'], ['Enter', 'Run'], ['Tab', 'Next control'], ['Esc', 'Close']]);
+  return g;
+}
+
+/* ---------- Screen 5: Monitor ---------- */
+
+function buildMonitor() {
+  const g = new Grid('monitor', 120, 40);
+  topBar(g, 3, true, metricsParts(HOT, true));
+  const panes = frame(g, { listTitle: 'Monitor', detailTitle: 'GPU', focus: 'list' });
+  const l = panes.list, lcx = l.x + 1, llim = l.x + l.w - 1;
+  g.put(lcx, l.y, '▸ GPU', 'k', llim); g.shade(l.x, l.y, l.w, 'cur');
+  g.put(lcx, l.y + 1, '  CPU', '', llim);
+  g.put(lcx, l.y + 2, '  Alerts', '', llim);
+  g.put(llim - 3, l.y + 2, '⚠ 1', 'wn', llim);
+
+  const temps = MON_TEMPS;
+  const utils = [71, 78, 84, 90, 93, 95, 96, 97, 97, 98, 98, 97, 98, 99, 98, 98, 97, 98, 98, 98];
+  const power = [240, 262, 281, 296, 305, 310, 313, 315, 316, 317, 318, 317, 318, 319, 318, 318, 317, 318, 318, 318];
+  const VAL = 16;
+  const row = (label, value, vcls, spark) => [[fit(label, 7), 'm'], [fit(value, VAL), vcls], ...(spark || [])];
+  const d = panes.detail;
+  const lines = [
+    { p: row('Temp', '71°C', thermal(tempRatio(71)), sparkParts(temps, 30, 95, 'thermal')) },
+    { p: row('Util', '98%', '', sparkParts(utils, 0, 100, 'f')) },
+    { p: row('Power', '318W / 320W', thermal(318 / 320), sparkParts(power, 0, 320, 'thermal')) },
+    { p: [[fit('VRAM', 7), 'm'], ...gaugeParts(11.8, 16, 20), ['  11.8 / 16.0 GB', '']] },
+    { p: [[fit('Clock', 7), 'm'], ['2745 MHz', ''], ['   Mem  ', 'm'], ['11201 MHz', '']] },
+    { p: [[fit('Fan', 7), 'm'], ...gaugeParts(64, 100, 20), ['  64%', '']] },
+  ];
+  paint(g, d, lines);
+  statusLine(g, 38, [], [['Spela v0.9.0 is available (you have v0.8.2)', 'wn']]);
+  hintBar(g, 39, [['0', 'Actions'], ['Up/Down', 'Item'], ['Enter', 'Open'], ['Tab', 'Pane'], ['?', 'Help']]);
+  return g;
+}
+
+/* ---------- Screen 6: Settings ---------- */
+
+const SETTINGS = [
+  ['Display', ['Confirm destructive actions', 'Theme', 'Mouse', 'ASCII glyphs']], // the last three are provisional labels
+  ['Startup', ['Re-scan on startup', 'Auto-update DLLs', 'Check for updates']],
+  ['Paths', ['Steam path', 'Additional library paths', 'DLL cache path', 'Backup path', 'Default shader cache path']],
+  ['DLL policy', ['Auto-refresh manifest', 'Refresh interval', 'DLL manifest URL']],
+  ['Logging', ['Log level']],
+];
+
+function buildSettings() {
+  const g = new Grid('settings', 120, 40);
+  topBar(g, 4, true, metricsParts(CALM));
+  const panes = frame(g, { listTitle: 'Settings · DLL policy', detailTitle: 'Refresh interval', focus: 'detail' });
+  const l = panes.list, lcx = l.x + 1, llim = l.x + l.w - 1;
+  let y = l.y;
+  for (const [group, opts] of SETTINGS) {
+    const open = group === 'DLL policy';
+    g.put(lcx, y++, group, open ? 'ob' : '', llim);
+    if (!open) continue;
+    for (const name of opts) {
+      const cur = name === 'Refresh interval';
+      g.put(lcx, y, cur ? '▸ ' : '  ', 'm', llim);
+      g.put(lcx + 2, y, fit(name, l.w - 4), cur ? 's' : '', llim);
+      if (cur) g.shade(l.x, y, l.w, 'cur');
+      y++;
+    }
+  }
+  const choices = [['Choices: ', 'm']];
+  ['1', '6', '12', '24', '48', '168'].forEach((c, i) => {
+    if (i > 0) choices.push(['  ', '']);
+    choices.push(c === '24' ? ['[24]', 'k'] : [c, 'm']);
+  });
+  const lines = [
+    { p: [['Refresh interval', 'ob']] },
+    { p: [['24', 's']] },
+    { p: [['Saved at once', 'm']] },
+    null,
+    { p: [['Hours before the cached DLL manifest counts as old.', 'm']] },
+    null,
+    { p: choices },
+    null,
+    { p: [['Default: ', 'm'], ['24', '']] },
+  ];
+  paint(g, panes.detail, lines);
+  statusLine(g, 38, [['✓ Saved: Refresh interval 24', 'ok']], [['Saved', 'm']]);
+  hintBar(g, 39, [['0', 'Actions'], ['Space', 'Next value'], ['Tab', 'Pane'], ['Esc', 'List'], ['?', 'Help']]);
+  return g;
+}
+
+/* ---------- Screen 7: narrow, 80 x 24 ---------- */
+
+function buildNarrow() {
+  const g = new Grid('narrow', 80, 24);
+  topBar(g, 1, true, [[HOT.temp + '°', thermal(tempRatio(HOT.temp))], [' ', ''], ['⚠ Power limited', 'wn']]);
+  const pane = frame(g, { single: true, title: '▸ Detail' });
+  profilePage(g, pane, { strip: 'DLSS', focus: 'Ray override', focused: true });
+  statusLine(g, 22, [['Rescan complete: 28 games found', '']], [['Saved', 'm']]);
+  hintBar(g, 23, [['0', 'Actions'], ['Up/Down', 'Field'], ['Enter', 'Edit value'], ['Space', 'Follow All games'], ['Tab', 'List']]);
+  return g;
+}
+
+/* ---------- Screen 8: the command palette (option B) ---------- */
+
+function matchParts(text, q, base, hl) {
+  const parts = [];
+  let qi = 0, buf = '', on = false;
+  for (const c of text) {
+    const h = qi < q.length && c.toLowerCase() === q[qi];
+    if (h) qi++;
+    if (h !== on && buf) { parts.push([buf, on ? hl : base]); buf = ''; }
+    on = h; buf += c;
+  }
+  if (buf) parts.push([buf, on ? hl : base]);
+  return parts;
+}
+
+function buildPalette() {
+  const { g, panes } = baseLibrary('palette', { digits: false, focus: 'list' });
+  profilePage(g, panes.detail, { strip: 'DLSS', focus: 'Super resolution', focused: false });
+  g.dimAll();
+  const items = [
+    ['Go to DLL Catalog', '2', 'destination'],
+    ['Toggle DLL filter', '', 'action'],
+    ['Sort: DLLs first', '', 'action'],
+    ['Install DLL: Cyberpunk 2077', '', 'action'],
+    ['Update stale DLLs: Cyberpunk 2077 (1)', '', 'action'],
+    ['Update all stale deployments (3 DLLs)', '', 'DLL Catalog'],
+    ['Auto-update DLLs', '', 'setting'],
+    ['DLL cache path', '', 'setting'],
+    ['DLL manifest URL', '', 'setting'],
+    ['Diablo IV', '', 'game'],
+  ];
+  const p = popup(g, 18, 4, 84, items.length + 8, 'Commands');
+  g.right(p.y, [[' : or Ctrl-K ', 'm']], p.lim - 1);
+  g.seq(p.x + 2, p.y + 1, [['> ', 'k'], ['dl', 's'], [' ', 'rv']], p.lim);
+  g.hline(p.x, p.x + p.w - 1, p.y + 2, 'f');
+  items.forEach(([name, key, kind], i) => {
+    const y = p.y + 3 + i;
+    const cur = i === 0;
+    g.put(p.x + 2, y, cur ? '▸' : ' ', 'k', p.lim);
+    g.seq(p.x + 4, y, matchParts(name, 'dl', cur ? 's' : '', 'hl'), p.lim);
+    g.put(p.x + 52, y, fit(key, 6), 'k', p.lim);
+    g.put(p.x + 62, y, fit(kind, 18), 'm', p.lim);
+    if (cur) g.shade(p.x + 1, y, p.w - 2, 'cur');
+  });
+  const sep = p.y + 3 + items.length;
+  g.hline(p.x, p.x + p.w - 1, sep, 'f');
+  g.seq(p.x + 2, sep + 1, [['Type to filter. ', 'm'], ['Enter', 'k'], [' runs, ', 'm'], ['Esc', 'k'], [' closes.', 'm']], p.lim);
+  g.seq(p.x + 2, sep + 2, [['A row shows its key when it has one. Actions rows are reached with ', 'm'], ['0', 'k'], ['.', 'm']], p.lim);
+  g.clear(0, 38, 120, 2);
+  statusLine(g, 38, [['10 best matches for "dl"', 'm']], [['Saved', 'm']]);
+  hintBar(g, 39, [['Up/Down', 'Move'], ['Enter', 'Run'], ['Esc', 'Close']]);
+  return g;
+}
+
+/* ---------- Checks ---------- */
+
+const SAFE = new Set([...'▸⚑▪✓✗⚠⋯┃▁▂▃▄▅▆▇█░·°']);
+function safeChar(c) {
+  const n = c.codePointAt(0);
+  return (n >= 0x20 && n <= 0x7e) || (n >= 0x2500 && n <= 0x257f) || SAFE.has(c);
+}
+function checkGrid(g) {
+  const errs = g.issues.slice();
+  g.lines().forEach((line, y) => {
+    const n = len(line);
+    if (n !== g.w) errs.push(`row ${y} is ${n} cells, expected ${g.w}`);
+    for (const c of line) if (!safeChar(c)) errs.push(`row ${y}: glyph U+${c.codePointAt(0).toString(16).toUpperCase()} is outside the safe set`);
+  });
+  return errs;
+}
+
+const SCREENS = [
+  { id: 'library', title: 'spela, Library, profile page', build: buildLibrary, label: 'Library list beside the Cyberpunk 2077 profile page, on the DLSS section, with Super resolution focused and its description shown.' },
+  { id: 'edit', title: 'spela, editing Super resolution', build: buildEdit, label: 'The Super resolution picker open inside Detail, with Follow All games as the first choice.' },
+  { id: 'dlls', title: 'spela, DLLs, confirm update', build: buildDlls, label: 'The Confirm DLL update popup over the game DLLs section, with Cancel focused.' },
+  { id: 'actions', title: 'spela, Actions popup', build: buildActions, label: 'The Actions popup for Library list focus over a dimmed Library, with unavailable rows and their reasons.' },
+  { id: 'monitor', title: 'spela, Monitor', build: buildMonitor, label: 'Monitor GPU detail with sparklines and gauges, with an active power limit alert in the top bar.' },
+  { id: 'settings', title: 'spela, Settings', build: buildSettings, label: 'Settings with the DLL policy group open and Refresh interval shown in Detail.' },
+  { id: 'narrow', title: 'spela, narrow', build: buildNarrow, label: 'The profile page at 80 by 24 cells in a single pane titled Detail.' },
+  { id: 'palette', title: 'spela, command palette', build: buildPalette, label: 'The fuzzy command palette over a dimmed Library, filtered by dl.' },
+];
+
+const BUILT = SCREENS.map((s) => {
+  const g = s.build();
+  return { s, g, errs: checkGrid(g) };
+});
+
+/* ---------- Rendering ---------- */
+
+function esc(c) { return c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&quot;' : c; }
+function renderRows(g, boxed) {
+  let html = '';
+  for (let y = 0; y < g.h; y++) {
+    let row = '', cur = null, buf = '';
+    const flush = () => { if (buf) row += cur ? `<span class="${cur}">${buf}</span>` : buf; buf = ''; };
+    for (let x = 0; x < g.w; x++) {
+      const c = g.cell(x, y);
+      const k = (g.fg[y][x] + ' ' + g.bg[y][x]).trim();
+      if (k !== cur) { flush(); cur = k; }
+      buf += boxed.has(c) ? `<span class="w">${c}</span>` : esc(c);
+    }
+    flush();
+    html += `<span class="r"><span class="ln">${row}</span></span>`;
+  }
+  return html;
+}
+
+/* Glyphs the terminal font draws at exactly one cell stay plain text. Any glyph that
+   falls back to another font with a different width is boxed into one cell. */
+function boxedGlyphs() {
+  const used = new Set();
+  for (const { g } of BUILT) for (const line of g.lines()) for (const c of line) if (c.codePointAt(0) > 126) used.add(c);
+  const host = document.createElement('div');
+  host.className = 'term';
+  host.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden';
+  document.body.appendChild(host);
+  const width = (t) => { const sp = document.createElement('span'); sp.textContent = t.repeat(40); host.appendChild(sp); const w = sp.getBoundingClientRect().width; sp.remove(); return w; };
+  const ref = width('0');
+  const boxed = new Set();
+  for (const c of used) if (Math.abs(width(c) - ref) > 0.25) boxed.add(c);
+  host.remove();
+  return boxed;
+}
+
+function mount() {
+  const boxed = boxedGlyphs();
+  for (const { s, g } of BUILT) {
+    const fig = document.querySelector(`figure[data-grid="${s.id}"]`);
+    if (!fig) continue;
+    fig.innerHTML =
+      `<div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="wtitle">${s.title}</span><span class="wsize">${g.w}x${g.h}</span></div>` +
+      `<div class="term" role="img" aria-label="${s.label} Grid of ${g.w} by ${g.h} cells.">${renderRows(g, boxed)}</div>`;
+  }
+  measure();
+}
+
+/* Rendered width check: every row must be exactly cols x cell width. */
+function measure() {
+  const out = [];
+  let rowsChecked = 0;
+  for (const { s, g, errs } of BUILT) {
+    const term = document.querySelector(`figure[data-grid="${s.id}"] .term`);
+    if (!term) continue;
+    const probe = document.createElement('span');
+    probe.textContent = '0'.repeat(100);
+    term.appendChild(probe);
+    const cw = probe.getBoundingClientRect().width / 100;
+    probe.remove();
+    const domErrs = [];
+    term.querySelectorAll('.ln').forEach((ln, y) => {
+      rowsChecked++;
+      const w = ln.getBoundingClientRect().width;
+      if (Math.abs(w - cw * g.w) > 1) domErrs.push(`row ${y} renders ${w.toFixed(1)}px, expected ${(cw * g.w).toFixed(1)}px`);
+    });
+    out.push({ id: s.id, w: g.w, h: g.h, errs: errs.concat(domErrs) });
+  }
+  const bad = out.filter((o) => o.errs.length);
+  const el = document.getElementById('check-result');
+  if (!bad.length) {
+    console.log(`spela mock-ups: ${out.length} grids, ${rowsChecked} rows, all exact width, no clipped text, safe glyphs only.`);
+    el.innerHTML = `<span class="badge ok">pass</span> ${out.length} grids and ${rowsChecked} rows checked: ` +
+      out.map((o) => `${o.id} ${o.w}x${o.h}`).join(', ') + '. Every row has the declared width in cells and on screen.';
+  } else {
+    bad.forEach((o) => o.errs.forEach((e) => console.warn(`[${o.id}] ${e}`)));
+    el.innerHTML = `<span class="badge bad">issues</span> ` + bad.map((o) => `${o.id}: ${o.errs.length} issue(s), first: ${esc2(o.errs[0])}`).join('; ');
+  }
+}
+function esc2(s) { return String(s).replace(/[&<>"]/g, esc); }
+
+/* ---------- Page controls ---------- */
+
+const THEMES = ['terminal', 'light', 'neon'];
+function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } return null; }
+
+function setTheme(t) {
+  if (!THEMES.includes(t)) t = 'terminal';
+  if (t === 'terminal') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('theme').textContent = 'Theme: ' + t;
+  store('spela-mock-theme', t);
+  return t;
+}
+function setSize(px) {
+  px = Math.max(9, Math.min(16, px));
+  document.documentElement.style.setProperty('--grid-fs', px + 'px');
+  store('spela-mock-fs', String(px));
+  return px;
+}
+
+if (typeof document !== 'undefined') {
+  const prefersLight = typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: light)').matches;
+  let theme = setTheme(store('spela-mock-theme') || (prefersLight ? 'light' : 'terminal'));
+  let fs = setSize(parseInt(store('spela-mock-fs') || '12', 10) || 12);
+  mount();
+  const nextTheme = () => { theme = setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]); };
+  document.getElementById('theme').addEventListener('click', nextTheme);
+  document.getElementById('smaller').addEventListener('click', () => { fs = setSize(fs - 1); mount(); });
+  document.getElementById('bigger').addEventListener('click', () => { fs = setSize(fs + 1); mount(); });
+  const ids = ['library', 'edit', 'dlls', 'actions', 'monitor', 'settings', 'narrow', 'palette', 'checks'];
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    if (e.key === 't') nextTheme();
+    const n = parseInt(e.key, 10);
+    if (n >= 1 && n <= 9) document.getElementById(ids[n - 1]).scrollIntoView({ behavior: 'smooth' });
+  });
+  const links = [...document.querySelectorAll('nav.tabs a')];
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((en) => {
+      if (!en.isIntersecting) return;
+      links.forEach((a) => {
+        const on = a.getAttribute('href') === '#' + en.target.id;
+        a.classList.toggle('on', on);
+        if (on) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current');
+      });
+    });
+  }, { rootMargin: '-45% 0px -50% 0px' });
+  document.querySelectorAll('main section').forEach((s) => io.observe(s));
+} else if (typeof module !== 'undefined') {
+  module.exports = { BUILT };
+}
+</script>
+</body>
+</html>
