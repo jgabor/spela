@@ -1,132 +1,66 @@
-# Spela
+# spela
 
-Linux gaming optimization tool for NVIDIA GPUs with DLSS/DLL management and per-game profiles.
+Linux gaming configuration tool for NVIDIA GPUs, being rewritten in Rust: per-game
+profiles, DLSS and Proton settings, DLL management with backups, and temporary
+GPU and CPU tuning around Steam launches. The rewrite covers the CLI and the TUI
+with full feature parity. There is no GUI.
 
-## Build
+Research and architecture for the rewrite live in `docs/` (start with
+`docs/README.md` and `docs/architecture.md` once they exist). The architecture
+and terminal UX follow mejl (`~/git/mejl`) wherever that fits.
 
-```bash
-mage build    # Build binary with embedded frontend
-mage test     # Run tests
-mage lint     # Run linter
-mage install  # Install to GOPATH/bin
-```
+## Layout
 
-## Project structure
+| Path | Role |
+|---|---|
+| `crates/` | The Rust workspace. The crate split is set in `docs/architecture.md` |
+| `cmd/`, `internal/` | The Go implementation. It is the parity reference until each part is replaced, then it is deleted |
+| `data/polkit/` | Polkit policy for privileged operations |
+| `docs/` | Research, architecture, plans, field and config references |
 
-- `cmd/spela/` - CLI entry point, cobra commands, wrapper mode detection
-- `internal/config/` - Global YAML configuration
-- `internal/cpu/` - CPU governor, SMT, affinity via sysfs
-- `internal/denylist/` - Anti-cheat DLL swap deny list
-- `internal/dll/` - DLL detection, download, backup, restore, version parsing
-- `internal/env/` - Environment variable builder for game launch
-- `internal/game/` - Game database, Steam manifest parsing
-- `internal/gpu/` - NVIDIA GPU metrics and control via NVML and nvidia-smi
-- `internal/gui/` - Wails v2 + Svelte graphical interface
-- `internal/launcher/` - Game launch orchestration, signal forwarding, cleanup
-- `internal/lock/` - File-based process locking
-- `internal/logging/` - Centralized slog-based logging
-- `internal/overlay/` - Overlay IPC protocol (mmap + seqlock), alert detection, stats collector
-- `internal/privilege/` - Polkit (pkexec) privilege escalation, batched apply-profile
-- `internal/profile/` - Per-game YAML profiles, apply/restore with cleanup closures
-- `internal/steam/` - Steam library detection, VDF parsing
-- `internal/tui/` - Bubbletea v2 interactive terminal UI
-- `internal/xdg/` - XDG Base Directory path resolution
-- `data/polkit/` - Polkit policy for privileged operations
-- `docs/` - Design documents and reference material
+The Go GUI (`internal/gui`, Wails, the frontend, `internal/nav/gui.go`,
+`tools/gen-nav-js`) is not ported.
 
-## Code style
+## Commands
 
-- Go 1.25+
-- Use `gopkg.in/yaml.v3` for YAML
-- Use `github.com/spf13/cobra` for CLI
-- XDG Base Directory compliance for all paths
-- No abbreviations in identifiers
-- Centralized logging via `internal/logging` (not `log.Printf`)
+- Build: `cargo build`
+- Gate before handing off: `just check` (`cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`)
+- Pre-commit hook that runs the gate: `just hooks` once per checkout
+- Go reference tests: `go test ./...`
 
-## Privilege model
+## Hard rules
 
-GPU clocks, power limits, CPU governor, and SMT are applied via a single batched
-`pkexec` round-trip using `privilege.ExecSelf("apply-profile", ...)`. The hidden
-`apply-profile` command runs with root privileges and uses go-nvml setters directly.
-Profile.Apply() returns cleanup closures that restore previous state on game exit.
+- No code, test or tool call runs `pkexec` or `sudo`, or changes GPU clocks, power limits, fans, the CPU governor, SMT or display settings on this machine. Tests use fakes for NVML, sysfs, polkit and the display.
+- No test writes to real game files or Steam libraries. Use fixture libraries in temp dirs.
+- No test or tool call contacts a remote host (DLL manifest and downloads, release checks). Tests use fixtures or a loopback fake.
+- Tests never touch the real XDG config, data, cache or state dirs. Use temp dirs.
+- Files written by the Go version (`config.yaml`, `profiles/*.yaml`, `games.yaml`, the DLL backup layout) are migrated to the rewrite's own shape the first time they are read. A migration keeps every value the user set, leaves the original file in place as a backup, and is tested against fixtures written by the Go version.
+- Privileged changes go through one batched `pkexec` round trip, and each applied change registers its restore before the game starts.
+- The UI thread never awaits and never blocks on NVML, `nvidia-smi`, `pkexec`, the network or a Steam scan.
+- Docs and comments: plain words, sentence case headings, no em dashes.
+- Inline `#[cfg(test)] mod tests` blocks go last in their file.
+- Commits use conventional commit format (`feat:`, `fix:`, `refactor:` and so on).
 
-## Testing
+## TUI review
 
-Primary test target: Cyberpunk 2077 (AppID 1091500)
+Review every change that can affect the terminal UI in a real terminal with
+[Terminal Control](https://github.com/anomalyco/terminal-control) 1.2.1 or newer.
+Read the rendered screen with `termctrl show`; logs, raw stdout, screenshots and
+unit tests do not count as visual review. Wait for visible content instead of
+sleeping, and send only keys shown in the current frame.
 
 ```bash
-mage test            # run all tests
-go test ./...        # alternative
-```
-
-### TUI testing
-
-Use [Terminal Control](https://github.com/anomalyco/terminal-control) for every
-change that can affect Spela's interactive terminal. Use version 1.2.1 or a newer
-version that passes the terminal compatibility test documented below. Build the compiled
-executable, run it in a named session, wait for visible content instead of
-sleeping, and read the rendered terminal with `termctrl show`:
-
-```bash
-mage build
-termctrl start spela-tui-review --cols 120 --rows 40 -- ./spela tui
+cargo build
+termctrl start spela-tui-review --cols 120 --rows 40 -- ./target/debug/spela tui
 termctrl wait spela-tui-review "Library" --timeout 20000
-termctrl status spela-tui-review
 termctrl show spela-tui-review
-```
-
-Use a unique session name when reviews may run concurrently, and use that name
-for every later command. Send only keys displayed in the current frame. Use
-numbers, arrows, Tab, Enter, and Space for commands. Send text and keys as
-separate arguments; punctuation is ordinary text only inside an input:
-
-```bash
-termctrl send spela-tui-review 'text:0'
-termctrl wait spela-tui-review "Actions ·" --timeout 20000
-termctrl show spela-tui-review
-termctrl send spela-tui-review tab
-termctrl wait spela-tui-review "▸ Close" --timeout 20000
-termctrl show spela-tui-review
-termctrl send spela-tui-review enter
-```
-
-Visual review means reading the visible screen returned by `termctrl show`.
-Do not substitute process logs, raw stdout, screenshots, or unit tests. Exercise
-relevant keyboard paths, selecting Actions rows by their visible labels. At
-80x24 the compact header and active pane must fit; Tab reveals the other pane.
-Resize the same running session and inspect standard and constrained layouts:
-
-```bash
 termctrl resize spela-tui-review --cols 80 --rows 24
 termctrl wait spela-tui-review "Library" --timeout 20000
 termctrl show spela-tui-review
-termctrl resize spela-tui-review --cols 120 --rows 40
-termctrl wait spela-tui-review "Library" --timeout 20000
-termctrl show spela-tui-review
-```
-
-Inspect the final screen before stopping a failed or exited session. Always stop
-named sessions when finished:
-
-```bash
 termctrl stop spela-tui-review
-termctrl list
 ```
 
-Use isolated XDG state when startup may rescan, and for profile mutations,
-empty-state testing, and failure paths. Never approve privileged or destructive
-actions against real game files during visual review. See
-[`docs/tui-testing.md`](docs/tui-testing.md) for the complete setup, review
-checklist, evidence requirements, and cleanup procedure.
-
-## Workflow
-
-- Use Agentera for task tracking (not TodoWrite). Start with
-  `npx -y agentera@next prime --context build`; read work through
-  `npx -y agentera@next state plan` and `state todo` readers.
-- Before a state mutation, load the artifact's `state <artifact> explain`
-  contract and use its supported writer. Never edit entity files directly.
-- Imported backlog provenance and recovery instructions are in
-  [`docs/migrations/beans-to-agentera.md`](docs/migrations/beans-to-agentera.md).
-- Commit after completing each epic
-- Use conventional commit format (feat:, fix:, refactor:, etc.)
+Check 120x40 and 80x24. Use a unique session name when reviews may run at the
+same time, isolated XDG dirs for anything that rescans or saves, and always stop
+the session. Never approve privileged or destructive actions against real game
+files during a review. `docs/tui-testing.md` has the full checklist.

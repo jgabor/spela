@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+# Runs the `just check` gate before each commit. Install with `just hooks`.
+set -eu
+
+cd "$(git rev-parse --show-toplevel)"
+
+if [ ! -f Cargo.toml ]; then
+    echo "pre-commit: no Cargo.toml yet, skipping just check" >&2
+    exit 0
+fi
+
+exec just check
