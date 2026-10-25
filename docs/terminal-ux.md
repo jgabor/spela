@@ -38,7 +38,7 @@ row h-1    hint bar: keys for the focused pane, from the keymap
 - **Status line.** Messages go on the left: info is plain, success is green with ✓, an error is red with ✗ and the word "Not saved" or "failed". It clears after 5 s, as today. Work and save state go on the right: "Saving…", "Saved", "Scanning games…", or the release notice "spela v0.9.0 is available".
 - **Hint bar.** It shows `key label` pairs for the focused pane and mode, with keys in bold accent and labels dim. In Browse, `0 Actions` is always kept, and when the bar runs out of space, lower-priority hints drop first. Arrow keys are written `Up/Down` and `Left/Right`, because the arrow glyphs are outside the safe set. Help (from Actions) lists everything.
 
-What changes from the Go TUI: the 7-row logo header and its 3-row compact form go. The destination bar becomes part of row 0. The message line and the 2-row footer become the status line plus a 1-row hint bar. Compact and Focused layouts are no longer needed for space. The `compact_mode` setting is dropped by the config migration with a note (open question).
+What changes from the Go TUI: the 7-row logo header and its 3-row compact form go. The destination bar becomes part of row 0. The message line and the 2-row footer become the status line plus a 1-row hint bar. Compact and Focused layouts are no longer needed for space. The `compact_mode` setting is dropped by the config migration with a note (decision 3).
 
 ## Layout
 
@@ -56,7 +56,7 @@ mejl's 160-column breakpoint is not needed, because spela has two panes, not thr
 
 | Destination | List | Detail |
 |---|---|---|
-| 1 Library | The Find row, then the pinned All games row, then games with markers (▪ has DLLs, ⚑ has its own profile). The title shows the sort and filters, and "Selected: N" in select mode | The profile page, with game line, own settings, section strip `[Proton] DLSS GPU CPU Overlay DLLs`, and rows of label, value and source. The focused row is followed by its description. Or the game's DLLs section |
+| 1 Library | The Find row, then the pinned All games row, then games with markers (▪ has DLLs, ⚑ has its own profile). The title shows the sort and filters, and "Selected: N" in select mode | The profile page, with game line, own settings, section strip `[Proton] DLSS GPU CPU DLLs`, and rows of label, value and source. The focused row is followed by its description. Or the game's DLLs section |
 | 2 DLL Catalog | The groups Library and Deployment (← → switch) | Per family: latest, cached versions and deployments marked current, stale or unknown |
 | 3 Monitor | GPU, CPU and Alerts | Sparklines, gauges and the alert list, fed by the same metrics as the top bar |
 | 4 Settings | Groups and options, labels only | The option's value, description and save state |
@@ -201,7 +201,6 @@ The e2e strings that change with this are `◆ 2 DLL Catalog`, the Compact/Focus
 
 ## Open questions
 
-- Overlay Enabled and Position do nothing once the IPC writer is dropped (decision 10). Should they go too?
 - Labels and descriptions for the new Display settings: Theme, Mouse and ASCII glyphs. The mock-ups use provisional ones.
 - Can the cursor sit on the focused row for screen readers while staying hidden? This is open in mejl too.
 - Does the top bar's metrics text stay readable when an alert is active at 80 columns? The narrow mockup tests one case only.

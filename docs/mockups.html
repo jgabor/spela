@@ -733,7 +733,7 @@ const SELECTED = 'Cyberpunk 2077';
 /* Cyberpunk 2077's profile page: label, value, source, own. Labels and words are
    spela's (internal/profile/fields.go, vocabulary.go). All games stores the DLSS
    modes; this game turns the overrides on. Decision 10 drops the inert fields
-   (Power mode, Affinity, the overlay Show rows and Toggle key). */
+   (Power mode, Affinity and every overlay field). */
 const SECTIONS = [
   ['Proton', [
     ['HDR', 'On', 'from All games'],
@@ -768,10 +768,6 @@ const SECTIONS = [
     ['Governor', 'performance', 'from All games'],
     ['SMT', 'none', 'system default'],
   ]],
-  ['Overlay', [
-    ['Enabled', 'Off', 'system default'],
-    ['Position', 'none', 'system default'],
-  ]],
 ];
 const DESC = {
   'Super resolution': 'DLSS super resolution quality mode. Applied only when Resolution override is On.',
@@ -780,7 +776,7 @@ const DESC = {
 const LABEL_W = Math.max(...SECTIONS.flatMap(([, rows]) => rows.map((r) => len(r[0]))));
 const OWN_LINE = 'Own settings (4): Super resolution quality · Resolution override On · Ray override On · Clock offset 150 MHz';
 const DLL_SUMMARY = 'DLSS 310.4.0, DLSS-G 310.5.3, DLSS-D 310.5.3';
-const STRIP = ['Proton', 'DLSS', 'GPU', 'CPU', 'Overlay', 'DLLs'];
+const STRIP = ['Proton', 'DLSS', 'GPU', 'CPU', 'DLLs'];
 
 /* ---------- Library pieces ---------- */
 

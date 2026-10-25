@@ -93,7 +93,7 @@ Answered by the user on 2026-10-25. The architecture builds on these.
 | 7 | `--json` output | A new, versioned snake_case schema |
 | 8 | Known bugs | Port the fixed behaviour |
 | 9 | GPU clock and memory offsets | Real NVML offsets, after one live root test by the user |
-| 10 | Overlay and inert fields | Drop the IPC writer and the inert fields (overlay show_* and toggle_key, power_mizer, cpu.affinity) until needed. Keep the alert evaluator. The migration notes what it dropped |
+| 10 | Overlay and inert fields | Drop the IPC writer, every overlay field (enabled, position, show_*, toggle_key), the Overlay section and the `overlay` command, plus power_mizer and cpu.affinity, until needed. Keep the alert evaluator. The migration notes what it dropped |
 | 11 | Concurrency | std threads and blocking ureq |
 | 12 | Logs | A rolling file under `XDG_STATE_HOME` for TUI and wrapper runs, plus stderr for CLI warnings |
 | 13 | Living with the Go binary | Move on: new file names, the Go files stay as migration backups, no side-by-side support |
