@@ -44,25 +44,27 @@ const (
 // ContentModel renders the detail for the Games resource: the currently
 // selected game's info, its detected DLLs, and its profile.
 type ContentModel struct {
-	styles              *Styles
-	services            *Services
-	database            *game.Database
-	game                *game.Game
-	detail              DetailModel
-	persistedProfile    *profile.Profile
-	profileSaves        *profileSaveState
-	confirmDestructive  bool // persisted compatibility; TUI mutations always confirm
-	pendingAction       PendingAction
-	confirmation        *dllMutationConfirmation
-	width               int
-	height              int
-	dllOperating        bool
-	dllOperatingLabel   string
-	lastDLLResult       string
-	hasBackup           bool
-	hasUpdates          bool
-	usingDefaultProfile bool
-	scrollOffset        int
+	styles           *Styles
+	services         *Services
+	database         *game.Database
+	game             *game.Game
+	detail           DetailModel
+	persistedProfile *profile.Profile
+	profileSaves     *profileSaveState
+	// skipUpdateConfirmation follows Confirm destructive actions being off.
+	// It skips the update confirmation only; restore and install always ask.
+	skipUpdateConfirmation bool
+	pendingAction          PendingAction
+	confirmation           *dllMutationConfirmation
+	width                  int
+	height                 int
+	dllOperating           bool
+	dllOperatingLabel      string
+	lastDLLResult          string
+	hasBackup              bool
+	hasUpdates             bool
+	usingDefaultProfile    bool
+	scrollOffset           int
 
 	dllRequestID      uint64
 	dllActionCursor   int
@@ -201,9 +203,10 @@ type dllTypesLoadedMsg struct {
 
 func NewContent(styles *Styles, confirmDestructive bool, svc *Services) ContentModel {
 	return ContentModel{
-		styles:       styles,
-		services:     svc,
-		profileSaves: &profileSaveState{},
+		styles:                 styles,
+		services:               svc,
+		profileSaves:           &profileSaveState{},
+		skipUpdateConfirmation: !confirmDestructive,
 	}
 }
 

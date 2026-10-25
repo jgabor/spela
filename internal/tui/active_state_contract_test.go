@@ -74,14 +74,14 @@ func TestOptionsModalEditsEveryCatalogOptionThroughKeyboardContract(t *testing.T
 			modal.optionCursor = optionIndex
 			before := modal.getConfigValue(option.Key)
 			switch option.Kind {
-			case config.KindPath:
+			case config.KindPath, config.KindStringList:
 				modal, _ = modal.Update(keyMsg("enter"))
 				if !modal.Editing() || modal.getConfigValue(option.Key) != before {
 					t.Fatalf("%s did not open an isolated field editor", option.Key)
 				}
-				modal.pathInput.SetValue("/contract/" + option.Key)
+				modal.pathInput.SetValue(contractTextValue(option.Key, "/contract/"))
 				modal, _ = modal.Update(keyMsg("enter"))
-			case config.KindBool, config.KindEnum:
+			case config.KindBool, config.KindEnum, config.KindInt:
 				modal, _ = modal.Update(keyMsg("enter"))
 				if modal.Editing() || modal.getConfigValue(option.Key) != before {
 					t.Fatalf("Enter changed cyclic setting %s or opened an editor", option.Key)

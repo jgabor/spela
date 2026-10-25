@@ -42,4 +42,4 @@ record:
       description: "[task] Describe profile fields with units, ranges, and effects"
       severity: normal
       status: open
-      order: 25
+      order: 24

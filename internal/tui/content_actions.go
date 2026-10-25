@@ -267,6 +267,10 @@ func (m ContentModel) UpdateDLLAction(action KeyAction) (ContentModel, tea.Cmd) 
 	case ActionDetailUpdate:
 		m.pendingAction = PendingDLLUpdate
 		m.confirmation = newDLLMutationConfirmation("Confirm DLL update", m.dllUpdateTargets, "current DLL is backed up before replacement")
+		if m.skipUpdateConfirmation {
+			m.confirmation.confirmSelected = true
+			return m.UpdateDLLAction(ActionOverlayConfirm)
+		}
 	case ActionDetailRestore:
 		backup, err := m.services.loadDLLBackup(m.game.AppID)
 		if err != nil {

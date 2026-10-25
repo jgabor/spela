@@ -51,6 +51,7 @@ func TestOptionsModalSupportedSaveFailureAndInlineSections(t *testing.T) {
 	original := config.Default()
 	modal := NewOptionsModal(styles)
 	modal.OpenEmbedded(original)
+	modal.SyncNavSection(nav.SettingsStartup)
 	modal.SetSize(100, 40)
 	if !strings.Contains(stripANSI(modal.renderOptionsBody()), "Re-scan on startup") {
 		t.Fatal("settings destination did not render")

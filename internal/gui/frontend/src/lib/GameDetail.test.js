@@ -89,6 +89,8 @@ import {
 function desktop(overrides = {}) {
   return {
     CheckDLLUpdates: vi.fn().mockResolvedValue([{ dllType: 'dlss', currentVersion: '3.7.0', latestVersion: '3.8.10', hasUpdate: true }]),
+    // DLL result tests start updates directly; confirmations are covered in supportedFlows.
+    GetConfig: vi.fn().mockResolvedValue({ confirmDestructive: false }),
     GetDefaultProfile: vi.fn().mockResolvedValue(null),
     GetGame: vi.fn().mockResolvedValue({ appId: 1091500, name: 'Cyberpunk 2077', installDir: '/games/cyberpunk', dlls: [] }),
     GetProfile: vi.fn().mockImplementation(async () => structuredClone(fixtures.profile)),

@@ -539,6 +539,9 @@ func TestTUISettingsEditorSave(t *testing.T) {
 			session := startTUI(t, environment, width, height)
 			artifacts := editorJourneyArtifacts(t, session, environment, width, height, "settings")
 			sendDisplayed(t, session, "4")
+			// Settings opens on Display; Startup is the next group.
+			waitVisible(t, session, "Compact mode")
+			sendDisplayed(t, session, "right")
 			waitVisible(t, session, "Re-scan")
 			sendDisplayed(t, session, "enter")
 			waitVisible(t, session, "▸ Detail")

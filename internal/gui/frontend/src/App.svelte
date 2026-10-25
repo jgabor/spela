@@ -34,6 +34,8 @@
   let showHelp = false
   let config = null
   let version = ''
+  let releaseNotice = ''
+  let dllNotice = ''
   let configMessage = ''
   let configMessageType = 'info'
   let configMessageTimer
@@ -58,7 +60,13 @@
       for (const option of section.options || []) {
         const loadedVal = loaded[option.key]
         if (loadedVal !== undefined && loadedVal !== null && loadedVal !== '') {
-          state[option.key] = option.type === 'toggle' ? !!loadedVal : String(loadedVal)
+          if (option.type === 'toggle') {
+            state[option.key] = !!loadedVal
+          } else if (Array.isArray(loadedVal)) {
+            state[option.key] = loadedVal.join(':')
+          } else {
+            state[option.key] = String(loadedVal)
+          }
         } else {
           state[option.key] = defaultOptionValue(option)
         }
@@ -72,6 +80,8 @@
     await loadSettingsCatalog()
     loadConfig()
     loadVersion()
+    loadReleaseNotice()
+    runDLLAutoUpdate()
     window.addEventListener('keydown', handleKeydown)
   })
 
@@ -199,7 +209,7 @@
     const updated = event.detail
     if (updated && !nav.scopeGlobal) {
       selectedGame = updated
-      await contextNavComponent?.gameListComponent?.refreshGames?.()
+      await contextNavComponent?.refreshGames?.()
     }
   }
 
@@ -215,9 +225,18 @@
       optionsState = buildOptionsState(optionSections, loaded)
       theme = optionsState.theme || loaded.theme || 'dark'
       document.documentElement.setAttribute('data-theme', theme)
+      applyDensity(!!loaded.compactMode)
       resetOptionsMessage()
     } catch (error) {
       setConfigMessage('Failed to load config', 'error')
+    }
+  }
+
+  function applyDensity(compact) {
+    if (compact) {
+      document.documentElement.setAttribute('data-density', 'compact')
+    } else {
+      document.documentElement.removeAttribute('data-density')
     }
   }
 
@@ -228,6 +247,34 @@
       version = ''
     }
   }
+
+  // The lookup runs after the window is usable and stays silent on failure.
+  async function loadReleaseNotice() {
+    try {
+      releaseNotice = (await desktop.ReleaseNotice()) || ''
+    } catch (error) {
+      releaseNotice = ''
+    }
+  }
+
+  // The startup DLL update returns a notice only when something changed,
+  // failed, or was skipped; then the library is reloaded to show new versions.
+  async function runDLLAutoUpdate() {
+    try {
+      dllNotice = (await desktop.AutoUpdateDLLs?.()) || ''
+    } catch (error) {
+      dllNotice = ''
+    }
+    if (!dllNotice) {
+      return
+    }
+    await contextNavComponent?.refreshGames?.()
+    if (selectedGame?.appId && desktop.GetGame) {
+      selectedGame = (await desktop.GetGame(selectedGame.appId)) || selectedGame
+    }
+  }
+
+  $: displayVersion = /^\d/.test(version) ? `v${version}` : version
 
   function clearConfigMessageAfter(delay) {
     if (configMessageTimer) {
@@ -250,6 +297,9 @@
     if (key === 'theme') {
       theme = value
       document.documentElement.setAttribute('data-theme', value)
+    }
+    if (key === 'compactMode') {
+      applyDensity(value === true || value === 'true')
     }
     if (!config) {
       return
@@ -358,9 +408,26 @@
     </section>
   </div>
 
+  {#if releaseNotice || dllNotice}
+    <div class="notices">
+      {#if dllNotice}
+        <div class="notice" role="status">
+          <span>{dllNotice}</span>
+          <button type="button" on:click={() => (dllNotice = '')}>Dismiss</button>
+        </div>
+      {/if}
+      {#if releaseNotice}
+        <div class="notice" role="status">
+          <span>{releaseNotice}</span>
+          <button type="button" on:click={() => (releaseNotice = '')}>Dismiss</button>
+        </div>
+      {/if}
+    </div>
+  {/if}
+
   <footer class="footer">
     <div class="footer-message">Spela › {crumb}</div>
-    <div class="footer-hints">1-4: navigate • tab: search • ?: help • q: quit{#if version} • v{version}{/if}</div>
+    <div class="footer-hints">1-4: navigate • tab: search • ?: help • q: quit{#if version} • {displayVersion}{/if}</div>
   </footer>
 </main>
 
@@ -507,6 +574,41 @@
     text-transform: none;
     letter-spacing: 0.04em;
     background-color: var(--bg-secondary);
+  }
+
+  .notices {
+    position: fixed;
+    right: 1.5rem;
+    bottom: 4.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+    max-width: min(40rem, calc(100vw - 3rem));
+    z-index: 2000;
+  }
+
+  .notice {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--accent-secondary);
+    color: var(--text-primary);
+    font-size: 0.75rem;
+  }
+
+  .notice button {
+    border: 1px solid var(--border-default);
+    background: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 0.7rem;
+  }
+
+  .notice button:hover {
+    color: var(--text-primary);
   }
 
   .footer-message {

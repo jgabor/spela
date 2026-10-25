@@ -2,7 +2,6 @@
 
 ## ⇶ Critical
 
-
 ## ⇉ Degraded
 
 - [ ] [id:uzofpmrkiu] [bug] Fix the field editor: show how to delete, replace the prefilled value, keep Cancel honest
@@ -37,7 +36,6 @@
 - [ ] [id:gpezszcmet] [task] Phase 4: Interactivity — input and GPU tuning
 - [ ] [id:qgfdabsknk] [task] Phase 5: Polish and compatibility
 - [ ] [id:bdnaynbvan] [bug] Show what a zero fan speed means
-- [ ] [id:hpuwnhwspr] [bug] Remove empty Settings groups from the terminal interface
 - [ ] [id:hxvtaqzzfg] [task] Describe profile fields with units, ranges, and effects
 - [ ] [id:qiqoepaeuz] [task] Build the profile and settings redesign (alternative B) in three steps
 
@@ -69,3 +67,11 @@
 - [x] [id:piuftqpwst] [task] Give the GUI fan speed, power limit, and a whole-game reset
 - [x] [id:rpwrxivkcm] [bug] Show stored values that are not in a GUI dropdown's list
 - [x] [id:omrgwtdwhx] [task] Let All games apply a value to the games that set their own
+- [x] [id:vxxijgkiaq] [task] Settings wiring 1: log level and list setting UI
+- [x] [id:kvzvhplemd] [task] Settings wiring 2: cache, backup, and shader cache paths
+- [x] [id:pmefmuybso] [task] Settings wiring 3: manifest refresh and URL
+- [x] [id:mkkqideoqv] [task] Settings wiring 4: update check
+- [x] [id:hljrjhmlal] [task] Settings wiring 5: auto-update DLLs
+- [x] [id:vhhnfltntn] [task] Settings wiring 6: confirmations and compact mode
+- [x] [id:hpuwnhwspr] [bug] Remove empty Settings groups from the terminal interface
+- [x] [id:bttuaytclk] [task] Settings wiring 7: docs and close-out

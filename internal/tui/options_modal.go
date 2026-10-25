@@ -38,7 +38,7 @@ type OptionsModalModel struct {
 
 func (m *OptionsModalModel) SetSize(width, height int) {
 	m.width, m.height = width, height
-	m.pathInput.SetWidth(max(width-6, 1))
+	m.pathInput.SetWidth(max(width-7, 1))
 }
 
 type optionsSavedMsg struct {
@@ -58,10 +58,16 @@ func NewOptionsModal(styles *Styles) OptionsModalModel {
 	ti.SetWidth(40)
 
 	return OptionsModalModel{
-		styles:     styles,
-		sections:   tuiSettingsSections(),
-		pathInput:  ti,
-		saveConfig: func(configuration *config.Config) error { return configuration.Save() },
+		styles:    styles,
+		sections:  tuiSettingsSections(),
+		pathInput: ti,
+		saveConfig: func(configuration *config.Config) error {
+			if err := configuration.Save(); err != nil {
+				return err
+			}
+			configuration.ApplyLogLevel()
+			return nil
+		},
 	}
 }
 
@@ -235,12 +241,12 @@ func (m *OptionsModalModel) beginEditor() {
 	if option == nil || m.draft == nil {
 		return
 	}
-	value := option.Get(m.draft)
+	value := option.Display(m.draft)
 	kind := EditorChoice
 	switch option.Kind {
 	case config.KindBool:
 		kind = EditorBool
-	case config.KindPath:
+	case config.KindPath, config.KindStringList:
 		kind = EditorPath
 	case config.KindInt:
 		kind = EditorInteger
@@ -250,7 +256,7 @@ func (m *OptionsModalModel) beginEditor() {
 		Validate: func(value string) error { return option.Set(m.draft.Clone(), value) },
 	}, value)
 	m.saveError = nil
-	m.editingPath = option.Kind == config.KindPath
+	m.editingPath = option.Kind == config.KindPath || option.Kind == config.KindStringList
 	if m.editingPath {
 		m.pathInput.SetValue(value)
 		m.pathInput.CursorEnd()
@@ -309,7 +315,11 @@ func (m OptionsModalModel) UpdateEditorInput(msg tea.Msg) (OptionsModalModel, te
 	if m.editingPath {
 		var command tea.Cmd
 		m.pathInput, command = m.pathInput.Update(msg)
-		m.editor.Set(m.pathInput.Value())
+		// Cursor blinks also arrive here; only a changed value clears the
+		// validation error.
+		if value := m.pathInput.Value(); value != m.editor.Value() {
+			m.editor.Set(value)
+		}
 		return m, command
 	}
 	if key, ok := msg.(tea.KeyPressMsg); ok {
@@ -386,9 +396,15 @@ func (m OptionsModalModel) DetailViewFocused(focused bool) string {
 		return m.editorView()
 	}
 	styles := m.styles
-	lines := []string{
-		styles.Title.Render(option.Label),
-		styles.DLSS.Render(displaySettingValue(option, m.getConfigValue(option.Key))),
+	lines := []string{styles.Title.Render(option.Label)}
+	// Long paths and URLs wrap, at a slash where possible, so the whole
+	// value stays readable.
+	value := displaySettingValue(option, m.getConfigValue(option.Key))
+	if m.width > 0 {
+		value = ansi.Wrap(value, max(m.width-4, 1), "/")
+	}
+	for _, line := range strings.Split(value, "\n") {
+		lines = append(lines, styles.DLSS.Render(line))
 	}
 	switch {
 	case m.saveError != nil:
@@ -398,13 +414,26 @@ func (m OptionsModalModel) DetailViewFocused(focused bool) string {
 	default:
 		lines = append(lines, styles.Dim.Render("Saved at once"))
 	}
-	// Descriptions are supplementary. Values and operation results come first.
-	if m.height <= 0 || len(lines)+2 <= m.height {
-		lines = append(lines, "", styles.Dim.Render(option.Description))
-	}
 	for index, line := range lines {
 		if m.width > 0 {
 			lines[index] = ansi.Truncate(line, max(m.width-4, 1), "…")
+		}
+	}
+	// Descriptions are supplementary. Values and operation results come
+	// first; the description wraps into the rows that remain.
+	description := option.Description
+	if m.width > 0 {
+		description = ansi.Wrap(description, max(m.width-4, 1), "")
+	}
+	descriptionLines := strings.Split(description, "\n")
+	if m.height > 0 {
+		used := strings.Count(strings.Join(lines, "\n"), "\n") + 1
+		descriptionLines = descriptionLines[:min(len(descriptionLines), max(m.height-used-1, 0))]
+	}
+	if len(descriptionLines) > 0 {
+		lines = append(lines, "")
+		for _, line := range descriptionLines {
+			lines = append(lines, styles.Dim.Render(line))
 		}
 	}
 	return strings.Join(lines, "\n")
@@ -502,7 +531,7 @@ func (m OptionsModalModel) getConfigValue(key string) string {
 	if option == nil || !option.Visibility.Includes(config.VisibilityTUI) {
 		return ""
 	}
-	value := option.Get(m.draft)
+	value := option.Display(m.draft)
 	if value == "" && option.Kind == config.KindEnum {
 		return option.Get(config.Default())
 	}
@@ -558,7 +587,7 @@ func (m OptionsModalModel) changeSummary(desired *config.Config) string {
 			continue
 		}
 		if option.Get(m.config) != option.Get(desired) {
-			return option.Label + " " + displaySettingValue(&option, option.Get(desired))
+			return option.Label + " " + displaySettingValue(&option, option.Display(desired))
 		}
 	}
 	return "Settings"
@@ -647,7 +676,7 @@ func (m *OptionsModalModel) renderOptionsBody() string {
 		}
 		b.WriteString(style.Render(label))
 
-		if isCurrentOption && m.editingPath && opt.Kind == config.KindPath {
+		if isCurrentOption && m.editingPath && (opt.Kind == config.KindPath || opt.Kind == config.KindStringList) {
 			b.WriteString(m.pathInput.View())
 		} else {
 			value := displaySettingValue(&opt, m.getConfigValue(opt.Key))

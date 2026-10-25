@@ -31,11 +31,13 @@ type DLLsResourceModel struct {
 	lastBatchSummary string
 	busy             bool
 	confirmation     *dllMutationConfirmation
-	resultOpen       bool
-	resultBodyFocus  bool
-	scrollOffset     int
-	width            int
-	height           int
+	// skipUpdateConfirmation follows Confirm destructive actions being off.
+	skipUpdateConfirmation bool
+	resultOpen             bool
+	resultBodyFocus        bool
+	scrollOffset           int
+	width                  int
+	height                 int
 }
 
 // UpdateList accepts only the basic keys displayed for a focused list.
@@ -394,6 +396,10 @@ func (m DLLsResourceModel) UpdateAction(action KeyAction) (DLLsResourceModel, te
 	if action == ActionDetailUpdate && m.hasStaleCells() {
 		m.scrollOffset = 0
 		m.confirmation = newDLLMutationConfirmation("Confirm all stale DLL updates", m.staleDLLMutationTargets(), "each current DLL is backed up before replacement")
+		if m.skipUpdateConfirmation {
+			m.confirmation.confirmSelected = true
+			return m.UpdateAction(ActionOverlayConfirm)
+		}
 	}
 	return m, nil
 }

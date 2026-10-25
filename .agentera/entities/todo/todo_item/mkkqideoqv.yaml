@@ -1,0 +1,38 @@
+id: mkkqideoqv
+artifact: todo
+record:
+  kind: task
+  target_version: null
+  title: "Settings wiring 4: update check"
+  requirements:
+    - "Implement check_updates: a release lookup with a short timeout and stored last-check time, skipped for dev builds."
+    - Show a non-blocking notice in the TUI header and a GUI toast; expose the option on both interfaces.
+    - Part of the approved plan in docs/plans/valiant-herding-dolphin.md; resolves hpuwnhwspr together with the other parts.
+  acceptance:
+    - GIVEN a newer release and check_updates on WHEN Spela starts THEN a notice appears without delaying startup.
+    - GIVEN no network or a dev build WHEN Spela starts THEN no error shows and no check runs for dev.
+  release_blocker: false
+  severity: normal
+  readiness:
+    capability: build
+    reason: Scoped by the approved plan; research is done.
+    dependencies:
+      - artifact: todo
+        id: vxxijgkiaq
+    blocked: null
+    gate: null
+    queue_rank: 4
+    order_reason: Phase order from the approved plan.
+  status: resolved
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[task] Settings wiring 4: update check"
+      status: resolved
+      order: 24
+      severity: normal
+  lifecycle:
+    operation: resolve
+    reason: "check_updates works: TUI and GUI start ask GitHub tags at most daily (5s timeout, attempts stored in cache), skip non X.Y.Z builds, show a TUI header notice and a dismissible GUI notice; editable in TUI. GUI version now comes from the build. mage test, e2e, vitest (78), TUI checks at 120x40 and 80x24 with a stub passed. Offline run: same 3 env failures. Not committed."
+    date: 2026-10-25

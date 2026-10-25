@@ -38,7 +38,6 @@ type Config struct {
 	DLLManifestURL       string `yaml:"dll_manifest_url,omitempty" json:"dllManifestURL"`
 	AutoRefreshManifest  bool   `yaml:"auto_refresh_manifest" json:"autoRefreshManifest"`
 	ManifestRefreshHours int    `yaml:"manifest_refresh_hours" json:"manifestRefreshHours"`
-	PreferredDLLSource   string `yaml:"preferred_dll_source,omitempty" json:"preferredDLLSource"`
 
 	// Display
 	Theme              string `yaml:"theme,omitempty" json:"theme"`
@@ -57,7 +56,6 @@ func Default() *Config {
 
 		AutoRefreshManifest:  true,
 		ManifestRefreshHours: 24,
-		PreferredDLLSource:   "techpowerup",
 
 		Theme:              "default",
 		CompactMode:        false,

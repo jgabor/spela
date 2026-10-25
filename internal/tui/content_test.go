@@ -46,7 +46,6 @@ func TestContent_Update_WithConfirmation(t *testing.T) {
 	}
 	m.hasUpdates = true
 	m.dllUpdateTargets = []dllMutationTarget{newDLLMutationTarget(g, g.DLLs[0], "3.9.0")}
-	m.confirmDestructive = true
 
 	result, cmd := m.UpdateDLLAction(ActionDetailUpdate)
 	if result.pendingAction != PendingDLLUpdate {
@@ -78,7 +77,6 @@ func TestContent_Update_ConfirmationCancelled(t *testing.T) {
 	m := testContent(g)
 	m.hasUpdates = true
 	m.dllUpdateTargets = []dllMutationTarget{newDLLMutationTarget(g, g.DLLs[0], "3.9.0")}
-	m.confirmDestructive = true
 
 	result, _ := m.UpdateDLLAction(ActionDetailUpdate)
 	if result.pendingAction != PendingDLLUpdate {
@@ -118,22 +116,34 @@ func TestContent_PerGameConfirmationRequiresExplicitConfirmChoice(t *testing.T) 
 	}
 }
 
-func TestContent_Update_ConfigCannotBypassConfirmation(t *testing.T) {
+func TestContent_Update_StartsAtOnceWithConfirmDestructiveOff(t *testing.T) {
 	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	m := testContent(g)
+	var requests []dll.UpdateRequest
+	m.services.BatchUpdateDLLs = func(received []dll.UpdateRequest) dll.BatchResult {
+		requests = append(requests, received...)
+		return dll.BatchResult{Updated: len(received)}
+	}
 	m.hasUpdates = true
 	m.dllUpdateTargets = []dllMutationTarget{newDLLMutationTarget(g, g.DLLs[0], "3.9.0")}
-	m.confirmDestructive = false
+	m.skipUpdateConfirmation = true
 
 	result, cmd := m.UpdateDLLAction(ActionDetailUpdate)
-	if result.pendingAction != PendingDLLUpdate {
-		t.Error("expected confirmation even when persisted setting is false")
+	if result.confirmation != nil || !result.dllOperating || result.pendingAction != PendingNone || cmd == nil {
+		t.Fatalf("update with Confirm destructive actions off: confirmation %v, operating %v, pending %v", result.confirmation != nil, result.dllOperating, result.pendingAction)
 	}
-	if result.dllOperating {
-		t.Error("operation started before confirmation")
+	execCmd(cmd)
+	if len(requests) != 1 || requests[0].Version != "3.9.0" {
+		t.Fatalf("executed targets = %+v", requests)
 	}
-	if cmd != nil {
-		t.Error("unexpected update command before confirmation")
+
+	// Restore keeps its confirmation and its backup re-check.
+	restore := testContent(g)
+	restore.hasBackup = true
+	restore.skipUpdateConfirmation = true
+	restore, cmd = restore.UpdateDLLAction(ActionDetailRestore)
+	if restore.confirmation == nil || restore.dllOperating || cmd != nil {
+		t.Fatal("restore must confirm even with Confirm destructive actions off")
 	}
 }
 
@@ -154,7 +164,6 @@ func TestContent_Restore_WithConfirmation(t *testing.T) {
 	g := testGame("Cyberpunk 2077", testDLL(game.DLLTypeDLSS, "3.8.10"))
 	m := testContent(g)
 	m.hasBackup = true
-	m.confirmDestructive = true
 
 	result, cmd := m.UpdateDLLAction(ActionDetailRestore)
 	if result.pendingAction != PendingDLLRestore {

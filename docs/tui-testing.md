@@ -175,7 +175,9 @@ reachable at both sizes.
 
 Confirmations start on Cancel. Inspect target paths and backup policy, use Tab
 to reach scrollable details when needed, then return to the buttons. Confirm
-requires an explicit selection. Results have a selectable Close control.
+requires an explicit selection. Results have a selectable Close control. With
+Confirm destructive actions off, DLL updates start without a confirmation;
+restore and install still ask.
 
 ## Resize and inspect
 

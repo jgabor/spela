@@ -28,12 +28,16 @@ record:
       recovery: Fold into the implementation plan for the chosen alternative.
     queue_rank: 3
     order_reason: Visible product defect, but its fix depends on the chosen Settings model.
-  status: open
+  status: resolved
   reconciliation:
     schema_version: agentera.todoReconciliation.v1
     public:
       present: true
       description: "[bug] Remove empty Settings groups from the terminal interface"
+      status: resolved
+      order: 27
       severity: normal
-      status: open
-      order: 24
+  lifecycle:
+    operation: resolve
+    reason: "Fixed by the Settings wiring plan (docs/plans/valiant-herding-dolphin.md, TODOs vxxijgkiaq..bttuaytclk). Every option is in both TUI and GUI except Theme (GUI only: the TUI uses terminal colours). Show hints and DLL source retired. All five TUI groups have options, checked at 120x40 and 80x24. docs/configuration.md has a parity table; internal/config/docs_contract_test.go checks it and the CLI/TUI/GUI columns against the catalog."
+    date: 2026-10-25

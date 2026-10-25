@@ -38,10 +38,10 @@ func TestOptionsModalPathEditingAndBoundaryContracts(t *testing.T) {
 			if !modal.editingPath {
 				t.Fatalf("%s did not enter path editing", option.Key)
 			}
-			modal.pathInput.SetValue("/tmp/" + option.Key)
+			modal.pathInput.SetValue(contractTextValue(option.Key, "/tmp/"))
 			next, _ := modal.updatePathEditing(keyMsg("enter"))
 			modal = next
-			if got := modal.getConfigValue(option.Key); got != "/tmp/"+option.Key {
+			if got := modal.getConfigValue(option.Key); got != contractTextValue(option.Key, "/tmp/") {
 				t.Errorf("%s = %q", option.Key, got)
 			}
 			modal.startPathEditing()
@@ -73,14 +73,13 @@ func TestOptionsModalPathEditingAndBoundaryContracts(t *testing.T) {
 func TestOptionsModalSupportedKeyAlternatesAndValueProjection(t *testing.T) {
 	modal := NewOptionsModal(NewStyles(DefaultTheme))
 	configuration := config.Default()
-	configuration.PreferredDLLSource = ""
 	configuration.Theme = ""
 	modal.OpenEmbedded(configuration)
 	for _, key := range []string{"j", "k", "h", "l"} {
 		next, _ := modal.Update(keyMsg(key))
 		modal = next
 	}
-	for _, key := range []string{"preferred_dll_source", "theme", "unknown"} {
+	for _, key := range []string{"theme", "unknown"} {
 		_ = modal.getConfigValue(key)
 	}
 	modal.setConfigValue("unknown", "ignored")
@@ -258,4 +257,13 @@ func TestDefaultServicesCachedDLLMutationAndNoticeContracts(t *testing.T) {
 	if result.Game == nil || len(result.Game.DLLs) != 1 || result.Game.DLLs[0].Path == "" {
 		t.Fatalf("updated game DLL = %+v", result.Game)
 	}
+}
+
+// contractTextValue is a valid edit for a text setting: a folder under prefix,
+// or an https URL for the manifest source.
+func contractTextValue(key, prefix string) string {
+	if key == "dll_manifest_url" {
+		return "https://contract.test/" + key
+	}
+	return prefix + key
 }

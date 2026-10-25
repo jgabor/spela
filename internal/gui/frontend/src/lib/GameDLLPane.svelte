@@ -21,6 +21,7 @@
   let dllProgressStage = ''
   let unsubscribeDllProgress = null
   let dllBusy = false
+  let confirmation = null
 
   $: hasUpdates = dllUpdates.some(d => d.hasUpdate)
 
@@ -160,6 +161,48 @@
     return version
   }
 
+  // Confirm destructive actions decides whether an update asks first. A
+  // restore always asks, as in the TUI, and so does a failed settings read.
+  async function confirmsUpdates() {
+    try {
+      return (await desktop.GetConfig())?.confirmDestructive !== false
+    } catch (e) {
+      return true
+    }
+  }
+
+  async function requestUpdate() {
+    if (dllBusy) return
+    if (!(await confirmsUpdates())) {
+      await updateDLLs()
+      return
+    }
+    confirmation = {
+      action: updateDLLs,
+      title: 'Update DLLs',
+      items: dllUpdates.filter(d => d.hasUpdate).map(d => `${d.name} · ${d.currentVersion || 'unknown'} → ${d.latestVersion}`),
+      note: 'Each current DLL is backed up before it is replaced.',
+      confirmLabel: 'Update'
+    }
+  }
+
+  function requestRestore() {
+    if (dllBusy) return
+    confirmation = {
+      action: restoreDLLs,
+      title: 'Restore original DLLs',
+      items: [],
+      note: 'The backed-up DLLs replace the current ones. The current DLLs are not backed up again.',
+      confirmLabel: 'Restore'
+    }
+  }
+
+  async function confirmAction() {
+    const action = confirmation?.action
+    confirmation = null
+    await action?.()
+  }
+
   async function updateDLLs() {
     if (dllBusy) return
     dllBusy = true
@@ -222,7 +265,7 @@
   </div>
   <div class="dll-actions">
     {#if hasUpdates}
-      <button class="update-btn" on:click={updateDLLs} disabled={dllBusy}>
+      <button class="update-btn" on:click={requestUpdate} disabled={dllBusy}>
         {updatingDLLs ? 'Updating...' : 'Update all DLLs'}
       </button>
     {/if}
@@ -230,7 +273,7 @@
       {installingDLL ? 'Installing...' : 'Install DLL'}
     </button>
     {#if hasBackup}
-      <button class="restore-btn" on:click={restoreDLLs} disabled={dllBusy}>
+      <button class="restore-btn" on:click={requestRestore} disabled={dllBusy}>
         {restoringDLLs ? 'Restoring...' : 'Restore original DLLs'}
       </button>
     {/if}
@@ -242,6 +285,28 @@
     {/if}
   </div>
 </div>
+
+{#if confirmation}
+  <button type="button" class="install-overlay" on:click={() => (confirmation = null)} aria-label="Cancel"></button>
+  <div class="install-panel" role="dialog" aria-modal="true" aria-label={confirmation.title}>
+    <div class="install-header">
+      <div class="install-title">{confirmation.title}</div>
+    </div>
+    {#if confirmation.items.length}
+      <ul class="confirm-items">
+        {#each confirmation.items as item}
+          <li>{item}</li>
+        {/each}
+      </ul>
+    {/if}
+    <p class="confirm-note">{confirmation.note}</p>
+    <div class="confirm-actions">
+      <!-- svelte-ignore a11y-autofocus -->
+      <button type="button" class="install-option" autofocus on:click={() => (confirmation = null)}>Cancel</button>
+      <button type="button" class="install-option" on:click={confirmAction}>{confirmation.confirmLabel}</button>
+    </div>
+  </div>
+{/if}
 
 {#if installOpen}
   <button type="button" class="install-overlay" on:click={closeInstallWizard} aria-label="Close install"></button>
@@ -429,6 +494,26 @@
     margin-bottom: 0.6rem;
     color: var(--error);
     font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  }
+
+  .confirm-items {
+    margin: 0 0 0.75rem;
+    padding-left: 1rem;
+    font-size: 0.8rem;
+    font-family: var(--font-mono, "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  }
+
+  .confirm-note {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+
+  .confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
   }
 
   .install-back {

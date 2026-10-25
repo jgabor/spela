@@ -197,3 +197,37 @@ func TestAlertLabelsCoverSupportedAlertKinds(t *testing.T) {
 		t.Fatal("empty alerts should not have a highest severity")
 	}
 }
+
+func TestHeaderShowsAReleaseNoticeWithoutGrowing(t *testing.T) {
+	header := NewHeader(NewStyles(DefaultTheme))
+	header, _ = header.Update(metricsMsg{
+		gpuMetrics: &gpu.GPUMetrics{Temperature: 50, PowerDraw: 100, PowerLimit: 300, Utilization: 40, MemoryUsed: 2048, MemoryTotal: 12288},
+		cpuMetrics: &cpu.CPUMetrics{AverageFrequency: 4000, Utilization: 20, RAMUsedMB: 8192, RAMTotalMB: 32768},
+	})
+	const notice = "Spela v0.7.0 is available (you have v0.6.2)"
+	for _, test := range []struct {
+		name  string
+		width int
+		view  func(HeaderModel) string
+	}{
+		{"standard", 120, HeaderModel.View},
+		{"compact", 80, HeaderModel.ViewCompact},
+	} {
+		header.SetWidth(test.width)
+		header.SetNotice("")
+		before := test.view(header)
+		header.SetNotice(notice)
+		after := test.view(header)
+		if lipgloss.Height(after) != lipgloss.Height(before) {
+			t.Errorf("%s header grew from %d to %d rows", test.name, lipgloss.Height(before), lipgloss.Height(after))
+		}
+		if !strings.Contains(stripANSI(after), notice) {
+			t.Errorf("%s header lacks the notice:\n%s", test.name, stripANSI(after))
+		}
+		for _, line := range strings.Split(after, "\n") {
+			if lipgloss.Width(line) > test.width {
+				t.Errorf("%s line is %d cells wide, over %d", test.name, lipgloss.Width(line), test.width)
+			}
+		}
+	}
+}

@@ -64,7 +64,6 @@ func TestRoundtrip(t *testing.T) {
 		DLLManifestURL:         "https://example.com/manifest.json",
 		AutoRefreshManifest:    false,
 		ManifestRefreshHours:   48,
-		PreferredDLLSource:     "github",
 		Theme:                  "dark",
 		CompactMode:            true,
 		ConfirmDestructive:     false,
@@ -119,9 +118,6 @@ func TestRoundtrip(t *testing.T) {
 	}
 	if loaded.ManifestRefreshHours != original.ManifestRefreshHours {
 		t.Errorf("ManifestRefreshHours = %d, want %d", loaded.ManifestRefreshHours, original.ManifestRefreshHours)
-	}
-	if loaded.PreferredDLLSource != original.PreferredDLLSource {
-		t.Errorf("PreferredDLLSource = %q, want %q", loaded.PreferredDLLSource, original.PreferredDLLSource)
 	}
 	if loaded.Theme != original.Theme {
 		t.Errorf("Theme = %q, want %q", loaded.Theme, original.Theme)

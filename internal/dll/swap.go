@@ -12,9 +12,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/denylist"
 	"github.com/jgabor/spela/internal/game"
-	"github.com/jgabor/spela/internal/xdg"
 )
 
 type Backup struct {
@@ -32,12 +32,17 @@ type BackedUpFile struct {
 	Version      string `json:"version"`
 }
 
+// GetBackupDir returns the folder that receives new backup files for a game.
+// It follows the configured backup path.
 func GetBackupDir(appID uint64) string {
-	return xdg.DataPath(filepath.Join("backups", strconv.FormatUint(appID, 10)))
+	return filepath.Join(config.BackupFilesDir(), strconv.FormatUint(appID, 10))
 }
 
+// GetBackupMetadataPath returns the backup index for a game. The index always
+// stays in the default data folder and records absolute backup file paths, so
+// a changed backup path never hides earlier backups.
 func GetBackupMetadataPath(appID uint64) string {
-	return filepath.Join(GetBackupDir(appID), "backup.json")
+	return filepath.Join(config.DefaultBackupDir(), strconv.FormatUint(appID, 10), "backup.json")
 }
 
 func LoadBackup(appID uint64) (*Backup, error) {
@@ -70,8 +75,7 @@ func LoadBackup(appID uint64) (*Backup, error) {
 }
 
 func SaveBackup(backup *Backup) error {
-	dir := GetBackupDir(backup.AppID)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(GetBackupMetadataPath(backup.AppID)), 0o755); err != nil {
 		return err
 	}
 

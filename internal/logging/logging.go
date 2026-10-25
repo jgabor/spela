@@ -4,14 +4,38 @@
 package logging
 
 import (
+	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 )
 
 var (
 	mu     sync.RWMutex
-	logger = slog.Default()
+	level  slog.LevelVar
+	logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: &level}))
 )
+
+// SetLevel sets the minimum level of the default handler from a configured
+// name: debug, info, warn, or error. Handlers installed with SetHandler apply
+// their own levels.
+func SetLevel(name string) error {
+	var parsed slog.Level
+	switch name {
+	case "debug":
+		parsed = slog.LevelDebug
+	case "info":
+		parsed = slog.LevelInfo
+	case "warn":
+		parsed = slog.LevelWarn
+	case "error":
+		parsed = slog.LevelError
+	default:
+		return fmt.Errorf("unknown log level %q", name)
+	}
+	level.Set(parsed)
+	return nil
+}
 
 // Debug emits a debug-level record using the current logger.
 func Debug(msg string, args ...any) {

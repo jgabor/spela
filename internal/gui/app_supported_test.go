@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"github.com/jgabor/spela/internal/config"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -22,6 +23,7 @@ import (
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/nav"
 	"github.com/jgabor/spela/internal/profile"
+	"github.com/jgabor/spela/internal/release"
 )
 
 func isolateGUIState(t *testing.T) string {
@@ -114,7 +116,7 @@ func TestAppSupportedConfigProfileGameAndNavigationFlows(t *testing.T) {
 		RescanOnStartup: false, AutoUpdateDLLs: true, SteamPath: "/steam",
 		AdditionalLibraryPaths: []string{"/games"}, DLLCachePath: "/dlls", BackupPath: "/backups",
 		DLLManifestURL: "https://example.test/manifest", AutoRefreshManifest: false,
-		ManifestRefreshHours: 0, PreferredDLLSource: "github", Theme: "light",
+		ManifestRefreshHours: 0, Theme: "light",
 		CompactMode: true, ConfirmDestructive: false,
 	}
 	if err := app.SaveConfig(configInfo); err != nil {
@@ -130,7 +132,7 @@ func TestAppSupportedConfigProfileGameAndNavigationFlows(t *testing.T) {
 	if got, err := app.GetConfig(); err != nil || !got.RescanOnStartup {
 		t.Fatalf("field-level config save = %+v, %v", got, err)
 	}
-	if err := app.SaveConfigOption("shaderCache", "/new"); err == nil || err.Error() != "unknown config option: shaderCache" {
+	if err := app.SaveConfigOption("preferredDLLSource", "github"); err == nil || err.Error() != "unknown config option: preferredDLLSource" {
 		t.Fatalf("hidden GUI option error = %v", err)
 	}
 	themeChoices := []string{}
@@ -150,7 +152,7 @@ func TestAppSupportedConfigProfileGameAndNavigationFlows(t *testing.T) {
 		want string
 	}{
 		{"log level", func(info *ConfigInfo) { info.LogLevel = "verbose" }, "unsupported log level"},
-		{"DLL source", func(info *ConfigInfo) { info.PreferredDLLSource = "mirror" }, "unsupported DLL source"},
+		{"manifest URL", func(info *ConfigInfo) { info.DLLManifestURL = "http://example.test/manifest" }, "dll_manifest_url must be an https URL"},
 		{"theme", func(info *ConfigInfo) { info.Theme = "neon" }, "unsupported theme"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -225,6 +227,70 @@ func TestAppSupportedConfigProfileGameAndNavigationFlows(t *testing.T) {
 	}
 
 	app.shutdown(context.Background())
+}
+
+func TestReleaseNoticeFollowsCheckForUpdates(t *testing.T) {
+	isolateGUIState(t)
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		requests++
+		_, _ = writer.Write([]byte(`[{"name":"v0.7.0"},{"name":"v0.6.2"}]`))
+	}))
+	t.Cleanup(server.Close)
+	originalURL := release.TagsURL
+	release.TagsURL = server.URL
+	t.Cleanup(func() { release.TagsURL = originalURL })
+	app := NewApp()
+
+	t.Setenv("SPELA_VERSION", "v0.6.2")
+	if err := app.SaveConfigOption("checkUpdates", "false"); err != nil {
+		t.Fatal(err)
+	}
+	if notice := app.ReleaseNotice(); notice != "" || requests != 0 {
+		t.Fatalf("check off: notice %q after %d requests", notice, requests)
+	}
+	if err := app.SaveConfigOption("checkUpdates", "true"); err != nil {
+		t.Fatal(err)
+	}
+	if notice := app.ReleaseNotice(); notice != "Spela v0.7.0 is available (you have v0.6.2)" || requests != 1 {
+		t.Fatalf("check on: notice %q after %d requests", notice, requests)
+	}
+
+	t.Setenv("SPELA_VERSION", "")
+	originalVersion := release.Version
+	release.Version = "v0.6.2-3-gabcdef0"
+	t.Cleanup(func() { release.Version = originalVersion })
+	if app.GetVersion() != "v0.6.2-3-gabcdef0" {
+		t.Fatalf("GetVersion() = %q, want the build version", app.GetVersion())
+	}
+	if notice := app.ReleaseNotice(); notice != "" {
+		t.Fatalf("development build notice = %q", notice)
+	}
+}
+
+func TestSaveConfigOptionChecksOnlyTheEditedFolder(t *testing.T) {
+	root := isolateGUIState(t)
+	if err := os.MkdirAll(filepath.Join(root, "config", "spela"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// A relative folder saved before folder checks existed must not block other edits.
+	if err := os.WriteFile(filepath.Join(root, "config", "spela", "config.yaml"), []byte("dll_cache_path: dlls\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	app := NewApp()
+	if err := app.SaveConfigOption("theme", "light"); err != nil {
+		t.Fatalf("theme save with a stored relative folder: %v", err)
+	}
+	if err := app.SaveConfigOption("backupPath", "backups"); err == nil || !strings.Contains(err.Error(), "backup_path must be an absolute path") {
+		t.Fatalf("relative backup path error = %v", err)
+	}
+	if err := app.SaveConfigOption("backupPath", "/srv/backups"); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := config.Load()
+	if err != nil || saved.Theme != "light" || saved.BackupPath != "/srv/backups" || saved.DLLCachePath != "dlls" {
+		t.Fatalf("saved config = %+v, %v", saved, err)
+	}
 }
 
 func TestSaveConfigOptionSerializesConcurrentFieldEdits(t *testing.T) {
@@ -521,5 +587,59 @@ func TestAppConcurrentProfileTransactionsPreserveEveryCaller(t *testing.T) {
 		if !stored.IsOverridden(patch.Field) {
 			t.Errorf("concurrent patch lost %s", patch.Field)
 		}
+	}
+}
+
+func TestAutoUpdateDLLsFollowsTheSettingAndRunsOnce(t *testing.T) {
+	isolateGUIState(t)
+	payload := []byte("replacement")
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) { _, _ = writer.Write(payload) }))
+	t.Cleanup(server.Close)
+	hash := sha256.Sum256(payload)
+	if err := dll.SaveManifest(&dll.Manifest{Version: "test", UpdatedAt: time.Now(), DLLs: map[string][]dll.DLL{"dlss": {{Version: "2.0.0", Filename: "nvngx_dlss.dll", URL: server.URL, SHA256: fmt.Sprintf("%x", hash)}}}}); err != nil {
+		t.Fatal(err)
+	}
+	installDirectory := t.TempDir()
+	path := filepath.Join(installDirectory, "nvngx_dlss.dll")
+	if err := os.WriteFile(path, []byte("original"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	entry := &game.Game{AppID: 1091500, Name: "Cyberpunk 2077", InstallDir: installDirectory, DLLs: []game.DetectedDLL{{Name: "nvngx_dlss.dll", Path: path, Version: "1.0.0", Type: game.DLLTypeDLSS}}}
+	saveGUIDatabase(t, &game.Database{Games: map[uint64]*game.Game{entry.AppID: entry}})
+
+	off := NewApp()
+	if notice := off.AutoUpdateDLLs(); notice != "" {
+		t.Fatalf("setting off: notice %q", notice)
+	}
+	if data, _ := os.ReadFile(path); string(data) != "original" {
+		t.Fatalf("setting off changed the DLL to %q", data)
+	}
+
+	if err := off.SaveConfigOption("autoUpdateDLLs", "true"); err != nil {
+		t.Fatal(err)
+	}
+	app := NewApp()
+	database, err := game.LoadDatabase()
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.setDatabase(database)
+	if notice := app.AutoUpdateDLLs(); notice != "DLL auto-update: updated 1 DLL" {
+		t.Fatalf("setting on: notice %q", notice)
+	}
+	if data, _ := os.ReadFile(path); string(data) != "replacement" {
+		t.Fatalf("setting on left the DLL as %q", data)
+	}
+	if got := app.GetGame(entry.AppID); got == nil || len(got.DLLs) != 1 || got.DLLs[0].Version == "1.0.0" {
+		t.Fatalf("GUI library still shows the old DLL: %+v", got)
+	}
+	if err := os.WriteFile(path, []byte("original"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if notice := app.AutoUpdateDLLs(); notice != "DLL auto-update: updated 1 DLL" {
+		t.Fatalf("a second call must repeat the first notice, got %q", notice)
+	}
+	if data, _ := os.ReadFile(path); string(data) != "original" {
+		t.Fatal("the update must run once per process")
 	}
 }

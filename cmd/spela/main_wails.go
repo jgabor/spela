@@ -7,10 +7,12 @@ import (
 	"io"
 	"os"
 
+	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/gui"
 )
 
 func main() {
+	config.ApplyLogLevel()
 	if code := runWails(gui.Run, os.Stderr); code != 0 {
 		os.Exit(code)
 	}

@@ -188,8 +188,10 @@ Monitor List owns GPU, CPU, and Alerts selection. Enter opens the source in
 Detail. Detail provides inspection and scrolling, with Tab returning to List.
 It exposes no edit/save action.
 
-Settings List owns the configured option groups and fields. Left/Right changes
-group, Up/Down selects a setting, and Enter opens Detail. Space cycles a choice
+Settings List owns the configured option groups and fields. It opens on
+Display and hides a group with no terminal option; the
+[parity table](../configuration.md#settings-parity) lists each group's options.
+Left/Right changes group, Up/Down selects a setting, and Enter opens Detail. Space cycles a choice
 and saves it; Enter opens a text or free-number editor whose Apply saves.
 
 A scan captures its configuration snapshot and has one request identity. A

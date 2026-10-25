@@ -22,7 +22,7 @@ func TestWailsJSONKeyContracts(t *testing.T) {
 		value any
 		keys  []string
 	}{
-		{"config", ConfigInfo{}, []string{"additionalLibraryPaths", "autoRefreshManifest", "autoUpdateDLLs", "backupPath", "checkUpdates", "compactMode", "confirmDestructive", "dllCachePath", "dllManifestURL", "logLevel", "manifestRefreshHours", "preferredDLLSource", "rescanOnStartup", "shaderCache", "steamPath", "theme"}},
+		{"config", ConfigInfo{}, []string{"additionalLibraryPaths", "autoRefreshManifest", "autoUpdateDLLs", "backupPath", "checkUpdates", "compactMode", "confirmDestructive", "dllCachePath", "dllManifestURL", "logLevel", "manifestRefreshHours", "rescanOnStartup", "shaderCache", "steamPath", "theme"}},
 		{"game", GameInfo{}, []string{"appId", "dlls", "hasProfile", "installDir", "name", "prefixPath"}},
 		{"dll", DLLInfo{}, []string{"dllType", "name", "path", "version"}},
 		{"dll update", DLLUpdateInfo{}, []string{"currentVersion", "hasUpdate", "latestVersion", "name"}},

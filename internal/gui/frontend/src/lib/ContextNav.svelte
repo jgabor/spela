@@ -27,6 +27,10 @@
   export function focusSearch() {
     gameListComponent?.focusSearch?.()
   }
+
+  export function refreshGames() {
+    return gameListComponent?.refreshGames?.()
+  }
 </script>
 
 <nav class="context-nav" aria-label="Context">

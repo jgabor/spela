@@ -13,7 +13,10 @@ import (
 
 // handleBatchMenuKeys handles key input when the batch-action menu is visible.
 func (m LayoutModel) handleBatchMenuKeys(msg tea.KeyPressMsg) (LayoutModel, tea.Cmd, bool) {
-	action := CanonicalKeymap.Lookup(BindingContext{Mode: ModeOverlay}, msg.String()).Binding.Action
+	return m.handleBatchMenuAction(CanonicalKeymap.Lookup(BindingContext{Mode: ModeOverlay}, msg.String()).Binding.Action)
+}
+
+func (m LayoutModel) handleBatchMenuAction(action KeyAction) (LayoutModel, tea.Cmd, bool) {
 	if m.batchBusy {
 		return m, nil, true
 	}
@@ -60,6 +63,10 @@ func (m LayoutModel) handleBatchMenuKeys(msg tea.KeyPressMsg) (LayoutModel, tea.
 			return m, nil, true
 		}
 		m.batchConfirmation = newDLLMutationConfirmation("Confirm batch DLL update", targets, "each current DLL is backed up before replacement")
+		if !m.confirmsUpdates() {
+			m.batchConfirmation.confirmSelected = true
+			return m.handleBatchMenuAction(ActionOverlayConfirm)
+		}
 	}
 	return m, nil, true
 }
@@ -135,6 +142,9 @@ func (m LayoutModel) handleTabKey(_ bool) LayoutModel {
 // handleAppMessages routes application-level messages that affect multiple components.
 func (m LayoutModel) handleAppMessages(msg tea.Msg, cmds []tea.Cmd) (LayoutModel, []tea.Cmd) {
 	switch msg := msg.(type) {
+	case releaseNoticeMsg:
+		m.header.SetNotice(msg.text)
+
 	case gameSelectedMsg:
 		m.pane.loadGameScope(msg.game)
 		m.syncNavToComponents()
@@ -235,6 +245,9 @@ func (m LayoutModel) handleAppMessages(msg tea.Msg, cmds []tea.Cmd) (LayoutModel
 	case rescanGamesMsg:
 		m, cmds = m.handleRescanGamesMsg(msg, cmds)
 
+	case autoUpdateMsg:
+		m, cmds = m.handleAutoUpdateMsg(msg, cmds)
+
 	case profileSaveMsg:
 		m, cmds = m.handleProfileSaveMsg(msg, cmds)
 
@@ -246,7 +259,9 @@ func (m LayoutModel) handleAppMessages(msg tea.Msg, cmds []tea.Cmd) (LayoutModel
 			break
 		}
 		cmds = append(cmds, m.pane.settings.CompleteSave(msg.config))
+		previous := m.config
 		m.config = msg.config.Clone()
+		m.applyDisplaySettings(previous)
 		cmds = append(cmds, m.messageBar.SetMessage("Saved: "+msg.summary, MessageSuccess))
 
 	case optionsSaveErrorMsg:
@@ -349,6 +364,15 @@ func formatDLLBatch(batch dll.BatchResult) string {
 }
 
 func (m LayoutModel) handleRescanGamesMsg(msg rescanGamesMsg, cmds []tea.Cmd) (LayoutModel, []tea.Cmd) {
+	m, cmds = m.applyRescan(msg, cmds)
+	if m.autoUpdateAfterRescan && !m.rescanBusy && m.pendingRescan == nil {
+		m.autoUpdateAfterRescan = false
+		cmds = append(cmds, m.autoUpdateDLLs())
+	}
+	return m, cmds
+}
+
+func (m LayoutModel) applyRescan(msg rescanGamesMsg, cmds []tea.Cmd) (LayoutModel, []tea.Cmd) {
 	if msg.requestID != m.rescanRequestID {
 		return m, cmds
 	}

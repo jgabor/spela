@@ -110,7 +110,6 @@ export const config = {
   checkUpdates: false,
   autoRefreshManifest: true,
   manifestRefreshHours: 24,
-  preferredDLLSource: 'techpowerup',
 }
 
 export const settingsCatalog = [
@@ -262,6 +261,8 @@ function createMockScript(mockData) {
             }
           },
           GetVersion: async () => '0.5.1',
+          ReleaseNotice: async () => '',
+          AutoUpdateDLLs: async () => '',
           GetLogo: async () => '',
           GetGames: async () => games,
           GetGame: async (appId) => games.find((g) => g.appId === appId) || null,

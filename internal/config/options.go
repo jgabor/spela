@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/jgabor/spela/internal/nav"
 )
@@ -52,6 +53,23 @@ type Option struct {
 // Get returns the option's canonical string value.
 func (option Option) Get(configuration *Config) string { return option.get(configuration) }
 
+// ListSeparator separates entries in the single-line text form of a list option.
+const ListSeparator = ":"
+
+// Display returns the value as users edit it. Lists show one entry per
+// ListSeparator; every other option shows its canonical value.
+func (option Option) Display(configuration *Config) string {
+	value := option.get(configuration)
+	if option.Kind != KindStringList {
+		return value
+	}
+	var entries []string
+	if err := json.Unmarshal([]byte(value), &entries); err != nil {
+		return value
+	}
+	return strings.Join(entries, ListSeparator)
+}
+
 // Set parses, validates, and applies a canonical string value.
 func (option Option) Set(configuration *Config, value string) error {
 	return option.set(configuration, value)
@@ -65,22 +83,21 @@ type Section struct {
 }
 
 var options = []Option{
-	enumOption("log_level", "logLevel", nav.SettingsLogging, "Log level", "Control logging verbosity for troubleshooting.", []string{"debug", "info", "warn", "error"}, VisibilityCLI|VisibilityGUI|VisibilityWails, func(c *Config) string { return string(c.LogLevel) }, func(c *Config, value string) { c.LogLevel = LogLevel(value) }, "log level"),
-	stringOption("shader_cache", "shaderCache", nav.SettingsPaths, "Shader cache", "Global NVIDIA shader cache path.", KindPath, VisibilityCLI|VisibilityWails, func(c *Config) string { return c.ShaderCache }, func(c *Config, value string) { c.ShaderCache = value }),
-	boolOption("check_updates", "checkUpdates", nav.SettingsStartup, "Check for updates", "Look for new Spela releases at startup.", VisibilityCLI|VisibilityGUI|VisibilityWails, func(c *Config) bool { return c.CheckUpdates }, func(c *Config, value bool) { c.CheckUpdates = value }),
+	enumOption("log_level", "logLevel", nav.SettingsLogging, "Log level", "Control logging verbosity for troubleshooting.", []string{"debug", "info", "warn", "error"}, VisibilityCLI|VisibilityTUI|VisibilityGUI|VisibilityWails, func(c *Config) string { return string(c.LogLevel) }, func(c *Config, value string) { c.LogLevel = LogLevel(value) }, "log level"),
+	folderOption("shader_cache", "shaderCache", "Default shader cache path", "Folder for the NVIDIA shader cache when a profile turns Shader cache on and leaves its path empty. Empty uses Spela's cache folder.", VisibilityCLI|VisibilityTUI|VisibilityGUI|VisibilityWails, func(c *Config) string { return c.ShaderCache }, func(c *Config, value string) { c.ShaderCache = value }),
+	boolOption("check_updates", "checkUpdates", nav.SettingsStartup, "Check for updates", "At startup, ask GitHub once a day whether a newer Spela release exists and show a notice. Development builds never ask.", VisibilityCLI|VisibilityTUI|VisibilityGUI|VisibilityWails, func(c *Config) bool { return c.CheckUpdates }, func(c *Config, value bool) { c.CheckUpdates = value }),
 	boolOption("rescan_on_startup", "rescanOnStartup", nav.SettingsStartup, "Re-scan on startup", "Scan for games when Spela next starts. Requires restart.", VisibilityTUI|VisibilityGUI|VisibilityWails, func(c *Config) bool { return c.RescanOnStartup }, func(c *Config, value bool) { c.RescanOnStartup = value }),
-	boolOption("auto_update_dlls", "autoUpdateDLLs", nav.SettingsStartup, "Auto-update DLLs", "Update DLLs automatically when the app starts.", VisibilityGUI|VisibilityWails, func(c *Config) bool { return c.AutoUpdateDLLs }, func(c *Config, value bool) { c.AutoUpdateDLLs = value }),
+	boolOption("auto_update_dlls", "autoUpdateDLLs", nav.SettingsStartup, "Auto-update DLLs", "At startup, update DLLs older than the manifest's latest version. Running and deny-listed games and DLLs of unknown version are skipped.", VisibilityTUI|VisibilityGUI|VisibilityWails, func(c *Config) bool { return c.AutoUpdateDLLs }, func(c *Config, value bool) { c.AutoUpdateDLLs = value }),
 	stringOption("steam_path", "steamPath", nav.SettingsPaths, "Steam path", "Use this Steam installation for future manual scans and when Spela next starts.", KindPath, VisibilityTUI|VisibilityGUI|VisibilityWails, func(c *Config) string { return c.SteamPath }, func(c *Config, value string) { c.SteamPath = value }),
-	listOption("additional_library_paths", "additionalLibraryPaths", nav.SettingsPaths, "Additional library paths", "Additional Steam library roots.", VisibilityWails, func(c *Config) []string { return c.AdditionalLibraryPaths }, func(c *Config, value []string) { c.AdditionalLibraryPaths = value }),
-	stringOption("dll_cache_path", "dllCachePath", nav.SettingsPaths, "DLL cache path", "Override where downloaded DLLs are stored.", KindPath, VisibilityGUI|VisibilityWails, func(c *Config) string { return c.DLLCachePath }, func(c *Config, value string) { c.DLLCachePath = value }),
-	stringOption("backup_path", "backupPath", nav.SettingsPaths, "Backup path", "Location for DLL and save backups.", KindPath, VisibilityGUI|VisibilityWails, func(c *Config) string { return c.BackupPath }, func(c *Config, value string) { c.BackupPath = value }),
-	stringOption("dll_manifest_url", "dllManifestURL", nav.SettingsDLLPolicy, "DLL manifest URL", "Override the DLL manifest endpoint.", KindPath, VisibilityWails, func(c *Config) string { return c.DLLManifestURL }, func(c *Config, value string) { c.DLLManifestURL = value }),
-	boolOption("auto_refresh_manifest", "autoRefreshManifest", nav.SettingsDLLPolicy, "Auto-refresh manifest", "Refresh the DLL manifest automatically.", VisibilityGUI|VisibilityWails, func(c *Config) bool { return c.AutoRefreshManifest }, func(c *Config, value bool) { c.AutoRefreshManifest = value }),
-	intOption("manifest_refresh_hours", "manifestRefreshHours", nav.SettingsDLLPolicy, "Refresh interval", "How often to refresh the manifest (hours).", []string{"1", "6", "12", "24", "48", "168"}, VisibilityGUI|VisibilityWails, func(c *Config) int { return c.ManifestRefreshHours }, func(c *Config, value int) { c.ManifestRefreshHours = value }),
-	enumOption("preferred_dll_source", "preferredDLLSource", nav.SettingsDLLPolicy, "DLL source", "Preferred source for DLL downloads.", []string{"techpowerup", "github"}, VisibilityGUI|VisibilityWails, func(c *Config) string { return c.PreferredDLLSource }, func(c *Config, value string) { c.PreferredDLLSource = value }, "DLL source"),
+	listOption("additional_library_paths", "additionalLibraryPaths", nav.SettingsPaths, "Additional library paths", "Additional Steam library folders, separated by colons.", VisibilityTUI|VisibilityGUI|VisibilityWails, func(c *Config) []string { return c.AdditionalLibraryPaths }, func(c *Config, value []string) { c.AdditionalLibraryPaths = value }),
+	folderOption("dll_cache_path", "dllCachePath", "DLL cache path", "Folder for downloaded DLLs. Empty uses Spela's cache folder. Earlier downloads are not moved.", VisibilityTUI|VisibilityGUI|VisibilityWails, func(c *Config) string { return c.DLLCachePath }, func(c *Config, value string) { c.DLLCachePath = value }),
+	folderOption("backup_path", "backupPath", "Backup path", "Folder for new DLL backup files. Empty uses Spela's data folder. Earlier backups stay restorable.", VisibilityTUI|VisibilityGUI|VisibilityWails, func(c *Config) string { return c.BackupPath }, func(c *Config, value string) { c.BackupPath = value }),
+	manifestURLOption(),
+	boolOption("auto_refresh_manifest", "autoRefreshManifest", nav.SettingsDLLPolicy, "Auto-refresh manifest", "Fetch a new DLL manifest when the cached one is older than the refresh interval. Off keeps the cached manifest.", VisibilityTUI|VisibilityGUI|VisibilityWails, func(c *Config) bool { return c.AutoRefreshManifest }, func(c *Config, value bool) { c.AutoRefreshManifest = value }),
+	intOption("manifest_refresh_hours", "manifestRefreshHours", nav.SettingsDLLPolicy, "Refresh interval", "Hours before the cached DLL manifest counts as old.", []string{"1", "6", "12", "24", "48", "168"}, VisibilityTUI|VisibilityGUI|VisibilityWails, func(c *Config) int { return c.ManifestRefreshHours }, func(c *Config, value int) { c.ManifestRefreshHours = value }),
 	enumOption("theme", "theme", nav.SettingsDisplay, "Theme", "Use the default, dark, or light theme.", []string{"default", "dark", "light"}, VisibilityGUI|VisibilityWails, func(c *Config) string { return c.Theme }, func(c *Config, value string) { c.Theme = value }, "theme"),
-	boolOption("compact_mode", "compactMode", nav.SettingsDisplay, "Compact mode", "Use tighter spacing in lists and panels.", VisibilityGUI|VisibilityWails, func(c *Config) bool { return c.CompactMode }, func(c *Config, value bool) { c.CompactMode = value }),
-	boolOption("confirm_destructive", "confirmDestructive", nav.SettingsDisplay, "Confirm destructive actions", "Ask before supported restore and update actions. Requires restart.", VisibilityGUI|VisibilityWails, func(c *Config) bool { return c.ConfirmDestructive }, func(c *Config, value bool) { c.ConfirmDestructive = value }),
+	boolOption("compact_mode", "compactMode", nav.SettingsDisplay, "Compact mode", "Use tighter spacing. The TUI starts in the Compact layout; Actions still switch layout for the session.", VisibilityTUI|VisibilityGUI|VisibilityWails, func(c *Config) bool { return c.CompactMode }, func(c *Config, value bool) { c.CompactMode = value }),
+	boolOption("confirm_destructive", "confirmDestructive", nav.SettingsDisplay, "Confirm destructive actions", "Ask before updating DLLs. Restoring and installing DLLs always ask.", VisibilityTUI|VisibilityGUI|VisibilityWails, func(c *Config) bool { return c.ConfirmDestructive }, func(c *Config, value bool) { c.ConfirmDestructive = value }),
 }
 
 // Options returns every Config field descriptor in Config declaration order.
@@ -129,8 +146,8 @@ func Sections(visibility Visibility) []Section {
 var settingsOrder = map[string]int{
 	"theme": 0, "compact_mode": 2, "confirm_destructive": 3,
 	"rescan_on_startup": 0, "auto_update_dlls": 1, "check_updates": 2,
-	"steam_path": 0, "dll_cache_path": 1, "backup_path": 2,
-	"auto_refresh_manifest": 0, "manifest_refresh_hours": 1, "preferred_dll_source": 2,
+	"steam_path": 0, "additional_library_paths": 1, "dll_cache_path": 2, "backup_path": 3, "shader_cache": 4,
+	"auto_refresh_manifest": 0, "manifest_refresh_hours": 1, "dll_manifest_url": 2,
 	"log_level": 0,
 }
 
@@ -165,6 +182,34 @@ func boolOption(key, jsonKey string, section nav.SettingsSection, label, descrip
 
 func stringOption(key, jsonKey string, section nav.SettingsSection, label, description string, kind Kind, visibility Visibility, get func(*Config) string, assign func(*Config, string)) Option {
 	return Option{Key: key, JSONKey: jsonKey, Section: section, Label: label, Description: description, Kind: kind, Visibility: visibility, get: get, set: func(c *Config, value string) error { assign(c, value); return nil }}
+}
+
+// folderOption is a Paths option that holds an absolute folder or nothing.
+func folderOption(key, jsonKey, label, description string, visibility Visibility, get func(*Config) string, assign func(*Config, string)) Option {
+	option := stringOption(key, jsonKey, nav.SettingsPaths, label, description, KindPath, visibility, get, assign)
+	option.set = func(c *Config, value string) error {
+		if err := validateFolder(key, value); err != nil {
+			return err
+		}
+		assign(c, value)
+		return nil
+	}
+	return option
+}
+
+// manifestURLOption holds the DLL manifest source: an https URL or nothing.
+func manifestURLOption() Option {
+	option := stringOption("dll_manifest_url", "dllManifestURL", nav.SettingsDLLPolicy, "DLL manifest URL", "Where Spela gets the list of DLLs and checksums it installs. Empty uses Spela's own manifest. A new URL is fetched at next use.", KindPath, VisibilityTUI|VisibilityGUI|VisibilityWails, func(c *Config) string { return c.DLLManifestURL }, func(c *Config, value string) { c.DLLManifestURL = value })
+	option.set = func(c *Config, value string) error {
+		if value != "" {
+			if err := ValidateManifestURL(value); err != nil {
+				return err
+			}
+		}
+		c.DLLManifestURL = value
+		return nil
+	}
+	return option
 }
 
 func enumOption(key, jsonKey string, section nav.SettingsSection, label, description string, choices []string, visibility Visibility, get func(*Config) string, assign func(*Config, string), errorLabel string) Option {
@@ -202,9 +247,17 @@ func listOption(key, jsonKey string, section nav.SettingsSection, label, descrip
 		Key: key, JSONKey: jsonKey, Section: section, Label: label, Description: description, Kind: KindStringList, Visibility: visibility,
 		get: func(c *Config) string { encoded, _ := json.Marshal(get(c)); return string(encoded) },
 		set: func(c *Config, value string) error {
-			var parsed []string
-			if err := json.Unmarshal([]byte(value), &parsed); err != nil {
-				return fmt.Errorf("invalid string list for %s: %w", key, err)
+			parsed := []string{}
+			if strings.HasPrefix(strings.TrimSpace(value), "[") {
+				if err := json.Unmarshal([]byte(value), &parsed); err != nil {
+					return fmt.Errorf("invalid string list for %s: %w", key, err)
+				}
+			} else {
+				for _, entry := range strings.Split(value, ListSeparator) {
+					if entry = strings.TrimSpace(entry); entry != "" {
+						parsed = append(parsed, entry)
+					}
+				}
 			}
 			assign(c, parsed)
 			return nil

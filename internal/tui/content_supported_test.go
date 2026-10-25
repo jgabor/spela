@@ -321,7 +321,7 @@ func TestContentSupportedMessageAndKeyRouting(t *testing.T) {
 	content.dllInstallState = DLLInstallNone
 	content.dllOperating = false
 	content.hasBackup = true
-	content.confirmDestructive = false
+	content.skipUpdateConfirmation = true
 	content, command = content.UpdateDLLAction(ActionDetailRestore)
 	if content.confirmation == nil || content.dllOperating || command != nil {
 		t.Fatal("restore action did not request confirmation")

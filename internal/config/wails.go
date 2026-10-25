@@ -33,7 +33,7 @@ func wailsType(kind Kind) string {
 	switch kind {
 	case KindBool:
 		return "toggle"
-	case KindPath:
+	case KindPath, KindStringList:
 		return "path"
 	default:
 		return "select"

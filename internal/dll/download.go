@@ -12,15 +12,15 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jgabor/spela/internal/xdg"
+	"github.com/jgabor/spela/internal/config"
 )
 
 func GetDLLCachePath(name, version string) string {
-	return xdg.CachePath(filepath.Join("dlls", name, version+".dll"))
+	return filepath.Join(GetDLLCacheDir(name), version+".dll")
 }
 
 func GetDLLCacheDir(name string) string {
-	return xdg.CachePath(filepath.Join("dlls", name))
+	return filepath.Join(config.DLLCacheDir(), name)
 }
 
 func ListCachedVersions(name string) ([]string, error) {

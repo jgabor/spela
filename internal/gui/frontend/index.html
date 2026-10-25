@@ -50,6 +50,12 @@
         --warning: #e67700;
       }
 
+      /* Compact mode: every spacing and size is in rem, so a smaller root
+         tightens the whole interface at once. */
+      [data-density="compact"] {
+        font-size: 87.5%;
+      }
+
       * {
         margin: 0;
         padding: 0;

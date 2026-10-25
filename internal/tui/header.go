@@ -50,6 +50,7 @@ type HeaderModel struct {
 	cpuBuffer   *MetricsBuffer
 	gpuState    metricState
 	cpuState    metricState
+	notice      string
 }
 
 func NewHeader(styles *Styles) HeaderModel {
@@ -63,6 +64,10 @@ func NewHeader(styles *Styles) HeaderModel {
 		cpuState:    metricLoading,
 	}
 }
+
+// SetNotice shows a one-line notice, such as a newer release, under the
+// metrics. Empty removes it.
+func (m *HeaderModel) SetNotice(notice string) { m.notice = notice }
 
 func (m *HeaderModel) SetWidth(width int) {
 	m.width = width
@@ -267,6 +272,14 @@ func (m HeaderModel) View() string {
 		metricsLines = append(metricsLines, labelStyle.Render("RAM: ")+valueStyle.Render("N/A"))
 	}
 
+	// Line 6: notice, level with the last logo row so the header keeps its height
+	if m.notice != "" {
+		for len(metricsLines) < len(logo)-1 {
+			metricsLines = append(metricsLines, "")
+		}
+		metricsLines = append(metricsLines, lipgloss.NewStyle().Foreground(t.Warning).Render(m.notice))
+	}
+
 	// Build combined lines
 	var lines []string
 	numLines := max(len(logo), len(metricsLines))
@@ -367,6 +380,10 @@ func (m HeaderModel) ViewCompact() string {
 		if icon != "" {
 			line2.WriteString("  " + alertStyle.Render(icon+" "+alertLabel(highest)))
 		}
+	}
+	// The notice trails line 2 and is cut first when the width runs out.
+	if m.notice != "" {
+		line2.WriteString("  " + lipgloss.NewStyle().Foreground(t.Warning).Render(m.notice))
 	}
 	lines = append(lines, line2.String())
 

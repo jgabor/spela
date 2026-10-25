@@ -12,6 +12,7 @@ import (
 	"github.com/jgabor/spela/internal/dll"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/nav"
+	"github.com/jgabor/spela/internal/release"
 )
 
 // DensityMode controls the information density of the TUI layout.
@@ -53,6 +54,7 @@ type LayoutModel struct {
 	pendingRescan         *rescanGamesMsg
 	rescanBusy            bool
 	rescanRequestID       uint64
+	autoUpdateAfterRescan bool
 	decision              *decisionDialog
 	quitWhenIdle          bool
 	applyingOwnValues     bool
@@ -83,7 +85,7 @@ func NewLayout(db *game.Database, svc *Services) LayoutModel {
 
 	games := db.List()
 	sidebar, _ := NewSidebar(games, styles, svc)
-	content := NewContent(styles, true, svc)
+	content := NewContent(styles, cfg.ConfirmDestructive, svc)
 	content.database = db
 	pane := newResourcePane(styles, content)
 	pane.dllsResource.database = db
@@ -115,6 +117,8 @@ func NewLayout(db *game.Database, svc *Services) LayoutModel {
 	if cfg.RescanOnStartup || len(db.Games) == 0 {
 		layout.rescanBusy = true
 		layout.rescanRequestID = 1
+		// The startup update waits for the scan so it sees current DLL paths.
+		layout.autoUpdateAfterRescan = cfg.AutoUpdateDLLs
 	}
 	layout.listPane = NewListPane(styles, sidebar, layout.navState)
 	if selected := sidebar.Selected(); selected != nil {
@@ -122,11 +126,18 @@ func NewLayout(db *game.Database, svc *Services) LayoutModel {
 	} else {
 		layout.pane.loadNoScope()
 	}
+	layout.applyDisplaySettings(nil)
 	return layout
 }
 
 func (m LayoutModel) Init() tea.Cmd {
 	cmds := []tea.Cmd{m.header.Init(), m.initCmd, m.pane.content.LoadDLLUpdates()}
+	if m.config != nil && m.config.CheckUpdates {
+		cmds = append(cmds, checkForRelease(release.Version))
+	}
+	if m.config.AutoUpdateDLLs && !m.autoUpdateAfterRescan {
+		cmds = append(cmds, m.autoUpdateDLLs())
+	}
 	if m.config.RescanOnStartup || len(m.db.Games) == 0 {
 		cmds = append(
 			cmds,
@@ -177,7 +188,7 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Route application messages that affect multiple components.
 	m, cmds = m.handleAppMessages(msg, cmds)
 	switch msg.(type) {
-	case profileSaveMsg, ownValuesAppliedMsg, optionsSavedMsg, optionsSaveErrorMsg, dllTypesLoadedMsg, dllVersionsLoadedMsg, dllUpdateMsg, dllRestoreMsg, dllInstallMsg, dllUpdatesCheckedMsg, gameSelectedMsg, gameConfirmedMsg, defaultProfileSelectedMsg, defaultProfileConfirmedMsg, noLibrarySelectionMsg, rescanGamesMsg, batchCompleteMsg, batchActionRequestMsg:
+	case profileSaveMsg, ownValuesAppliedMsg, optionsSavedMsg, optionsSaveErrorMsg, dllTypesLoadedMsg, dllVersionsLoadedMsg, dllUpdateMsg, dllRestoreMsg, dllInstallMsg, dllUpdatesCheckedMsg, gameSelectedMsg, gameConfirmedMsg, defaultProfileSelectedMsg, defaultProfileConfirmedMsg, noLibrarySelectionMsg, rescanGamesMsg, batchCompleteMsg, batchActionRequestMsg, autoUpdateMsg:
 	default:
 		var command tea.Cmd
 		m.pane, command = m.pane.Update(msg)

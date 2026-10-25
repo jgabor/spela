@@ -26,6 +26,8 @@ type Services struct {
 	BatchUpdateDLLs    func([]dll.UpdateRequest) dll.BatchResult
 	InstallDLL         func(uint64, string, string) (dll.Result, error)
 	RestoreDLLs        func(uint64) (dll.Result, error)
+	// AutoUpdateDLLs runs the startup DLL update. Tests substitute a fake.
+	AutoUpdateDLLs func() dll.AutoUpdateResult
 	// VKD3DNotice returns a human-readable descriptor_heap compatibility
 	// notice for the given AppID, or "" when everything is compatible or
 	// checks were skipped cleanly. Tests may override to inject a stub.
@@ -38,8 +40,14 @@ type Services struct {
 // DefaultServices returns the production implementations.
 func DefaultServices() *Services {
 	return &Services{
-		LoadConfig:         config.Load,
-		SaveConfig:         func(configuration *config.Config) error { return configuration.Save() },
+		LoadConfig: config.Load,
+		SaveConfig: func(configuration *config.Config) error {
+			if err := configuration.Save(); err != nil {
+				return err
+			}
+			configuration.ApplyLogLevel()
+			return nil
+		},
 		ScanGames:          steam.Rescan,
 		LoadProfile:        profile.Load,
 		LoadDefaultProfile: profile.LoadDefault,
@@ -53,8 +61,9 @@ func DefaultServices() *Services {
 		InstallDLL: func(appID uint64, dllType, version string) (dll.Result, error) {
 			return dll.Install(appID, dllType, version, nil)
 		},
-		RestoreDLLs: func(appID uint64) (dll.Result, error) { return dll.Restore(appID, nil) },
-		VKD3DNotice: defaultVKD3DNotice,
+		RestoreDLLs:    func(appID uint64) (dll.Result, error) { return dll.Restore(appID, nil) },
+		AutoUpdateDLLs: func() dll.AutoUpdateResult { return dll.AutoUpdate(game.RunningGames) },
+		VKD3DNotice:    defaultVKD3DNotice,
 	}
 }
 

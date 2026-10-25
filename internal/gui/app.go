@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/cpu"
@@ -18,6 +19,7 @@ import (
 	"github.com/jgabor/spela/internal/logging"
 	"github.com/jgabor/spela/internal/nav"
 	"github.com/jgabor/spela/internal/profile"
+	"github.com/jgabor/spela/internal/release"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -33,6 +35,8 @@ type App struct {
 	configurationMutex sync.Mutex
 	dbMutex            sync.RWMutex
 	dllMutex           sync.Mutex
+	autoUpdateOnce     sync.Once
+	autoUpdateNotice   string
 }
 
 // ConfigInfo preserves the Wails-owned source model while sharing Config's fields and tags.
@@ -124,13 +128,52 @@ func (a *App) SaveConfigOption(key, value string) error {
 	if err := option.Set(current, value); err != nil {
 		return err
 	}
-	return current.Save()
+	if err := current.Save(); err != nil {
+		return err
+	}
+	current.ApplyLogLevel()
+	return nil
+}
+
+// ReleaseNotice returns the notice for a newer Spela release, or an empty
+// string when Check for updates is off, the build is a development build, no
+// newer release is known, or the lookup failed.
+func (a *App) ReleaseNotice() string {
+	configuration, err := config.Load()
+	if err != nil || !configuration.CheckUpdates {
+		return ""
+	}
+	notice, _ := release.Check(context.Background(), a.GetVersion(), time.Now())
+	if notice == nil {
+		return ""
+	}
+	return notice.Text()
+}
+
+// AutoUpdateDLLs runs the startup DLL update once per process when the
+// setting is on, and returns its notice. An empty notice means nothing
+// changed, failed, or was skipped.
+func (a *App) AutoUpdateDLLs() string {
+	a.autoUpdateOnce.Do(func() {
+		configuration, err := config.Load()
+		if err != nil || !configuration.AutoUpdateDLLs {
+			return
+		}
+		a.dllMutex.Lock()
+		defer a.dllMutex.Unlock()
+		result := dll.AutoUpdate(game.RunningGames)
+		for _, item := range result.Batch.Items {
+			a.applyDLLResults(item.Result)
+		}
+		a.autoUpdateNotice = result.Notice()
+	})
+	return a.autoUpdateNotice
 }
 
 func (a *App) GetVersion() string {
 	version := os.Getenv("SPELA_VERSION")
 	if version == "" {
-		return "dev"
+		return release.Version
 	}
 	return version
 }

@@ -5,13 +5,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/cpu"
 	"github.com/jgabor/spela/internal/display"
 	"github.com/jgabor/spela/internal/env"
 	"github.com/jgabor/spela/internal/gpu"
 	"github.com/jgabor/spela/internal/logging"
 	"github.com/jgabor/spela/internal/privilege"
-	"github.com/jgabor/spela/internal/xdg"
 )
 
 // Cleanup describes a restorable mutation that should be reverted after launch.
@@ -211,7 +211,7 @@ func (p *Profile) applyGPU(e *env.Environment) []Cleanup {
 	if p.GPU.ShaderCache {
 		cachePath := p.GPU.ShaderCachePath
 		if cachePath == "" {
-			cachePath = xdg.CachePath("nvidia")
+			cachePath = config.ShaderCacheDir()
 		}
 		e.SetShaderCache(cachePath)
 	}

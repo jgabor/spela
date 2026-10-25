@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/nav"
 )
@@ -44,8 +45,82 @@ func TestSettingsTUIInventoryContainsOnlyRuntimeBackedControls(t *testing.T) {
 			keys = append(keys, option.Key)
 		}
 	}
-	if got, want := strings.Join(keys, ","), "rescan_on_startup,steam_path"; got != want {
+	if got, want := strings.Join(keys, ","), "compact_mode,confirm_destructive,rescan_on_startup,auto_update_dlls,check_updates,steam_path,additional_library_paths,dll_cache_path,backup_path,shader_cache,auto_refresh_manifest,manifest_refresh_hours,dll_manifest_url,log_level"; got != want {
 		t.Fatalf("visible Settings keys = %q, want %q", got, want)
+	}
+}
+
+func TestSettingsDetailWrapsTheDescriptionIntoRemainingRows(t *testing.T) {
+	modal := NewOptionsModal(NewStyles(DefaultTheme))
+	modal.OpenEmbedded(config.Default())
+	modal.SyncNavSection(nav.SettingsPaths)
+	for index, option := range modal.sections[modal.sectionCursor].Options {
+		if option.Key == "backup_path" {
+			modal.optionCursor = index
+		}
+	}
+	modal.SetSize(44, 20)
+	view := ansi.Strip(modal.DetailView())
+	for _, line := range strings.Split(view, "\n") {
+		if ansi.StringWidth(line) > 40 {
+			t.Fatalf("line %q is wider than the pane", line)
+		}
+	}
+	if flat := strings.Join(strings.Fields(view), " "); !strings.Contains(flat, "Earlier backups stay restorable.") {
+		t.Fatalf("description was cut:\n%s", view)
+	}
+	modal.SetSize(44, 6)
+	if lines := strings.Split(modal.DetailView(), "\n"); len(lines) > 6 {
+		t.Fatalf("detail uses %d rows, want at most 6: %q", len(lines), lines)
+	}
+}
+
+func TestSettingsDetailWrapsALongValue(t *testing.T) {
+	configuration := config.Default()
+	configuration.DLLManifestURL = "https://mirror.example.test/spela/releases/latest/download/manifest.json"
+	modal := NewOptionsModal(NewStyles(DefaultTheme))
+	modal.OpenEmbedded(configuration)
+	modal.SyncNavSection(nav.SettingsDLLPolicy)
+	for index, option := range modal.sections[modal.sectionCursor].Options {
+		if option.Key == "dll_manifest_url" {
+			modal.optionCursor = index
+		}
+	}
+	modal.SetSize(44, 20)
+	view := ansi.Strip(modal.DetailView())
+	for _, line := range strings.Split(view, "\n") {
+		if ansi.StringWidth(line) > 40 || strings.Contains(line, "…") {
+			t.Fatalf("value line %q was cut", line)
+		}
+	}
+	if flat := strings.ReplaceAll(view, "\n", ""); !strings.Contains(flat, configuration.DLLManifestURL) {
+		t.Fatalf("value not shown in full:\n%s", view)
+	}
+}
+
+func TestSettingsPathEditorKeepsErrorAndFitsThePane(t *testing.T) {
+	modal := NewOptionsModal(NewStyles(DefaultTheme))
+	modal.OpenEmbedded(config.Default())
+	modal.SyncNavSection(nav.SettingsPaths)
+	for index, option := range modal.sections[modal.sectionCursor].Options {
+		if option.Key == "backup_path" {
+			modal.optionCursor = index
+		}
+	}
+	modal.SetSize(60, 20)
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: 'b', Text: "backups"})
+	if view := ansi.Strip(modal.DetailView()); strings.Contains(view, "…") {
+		t.Fatalf("short value was truncated:\n%s", view)
+	}
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	// A cursor blink or other non-key message must not hide the error.
+	modal, _ = modal.Update(struct{}{})
+	if view := modal.DetailView(); !strings.Contains(view, "backup_path must be an absolute path") {
+		t.Fatalf("validation error not shown:\n%s", ansi.Strip(view))
+	}
+	if modal.draft.BackupPath != "" {
+		t.Fatalf("relative backup path reached the draft: %q", modal.draft.BackupPath)
 	}
 }
 
@@ -113,6 +188,7 @@ func TestSettingsSavePreservesUnchangedSupportedYAML(t *testing.T) {
 	}
 	modal := NewOptionsModal(NewStyles(DefaultTheme))
 	modal.OpenEmbedded(loaded)
+	modal.SyncNavSection(nav.SettingsStartup)
 	modal.cycleValue(1)
 	modal, command := modal.save()
 	message := command().(optionsSavedMsg)
@@ -206,6 +282,7 @@ func TestOptionsModal_ChangeDuringAWriteIsSavedAfterIt(t *testing.T) {
 func TestOptionsModal_CompactWidthKeepsValuesOnOptionRows(t *testing.T) {
 	modal := NewOptionsModal(NewStyles(DefaultTheme))
 	modal.OpenEmbedded(config.Default())
+	modal.SyncNavSection(nav.SettingsStartup)
 	modal.SetSize(34, 14)
 
 	view := stripANSI(modal.renderOptionsBody())

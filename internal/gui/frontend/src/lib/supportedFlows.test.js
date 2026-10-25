@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import DLLCatalogPane from './DLLCatalogPane.svelte'
@@ -108,6 +108,7 @@ function dllDesktop(overrides = {}) {
         { dllType: 'dlss', currentVersion: '3.7.0', latestVersion: '3.8.10', hasUpdate: true }
       ]),
       HasDLLBackup: vi.fn().mockResolvedValue(true),
+      GetConfig: vi.fn().mockResolvedValue({ confirmDestructive: true }),
       GetGame: vi.fn().mockResolvedValue({
         appId: 1091500, name: 'Cyberpunk 2077',
         dlls: [{ dllType: 'dlss', version: '3.8.10' }]
@@ -137,10 +138,21 @@ describe('game DLL mutation adapter flow', () => {
     expect(screen.getByText('Backup available')).toBeTruthy()
 
     await fireEvent.click(screen.getByText('Update all DLLs'))
+    const update = await screen.findByRole('dialog', { name: 'Update DLLs' })
+    expect(update.textContent).toContain('Each current DLL is backed up before it is replaced.')
+    await fireEvent.click(within(update).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Update DLLs' })).toBeNull())
+    expect(adapter.desktop.UpdateDLLs).not.toHaveBeenCalled()
+
+    await fireEvent.click(screen.getByText('Update all DLLs'))
+    await fireEvent.click(within(await screen.findByRole('dialog', { name: 'Update DLLs' })).getByRole('button', { name: 'Update' }))
     await waitFor(() => expect(adapter.desktop.UpdateDLLs).toHaveBeenCalledWith(1091500))
     await waitFor(() => expect(adapter.desktop.GetGame).toHaveBeenCalledWith(1091500))
 
     await fireEvent.click(screen.getByText('Restore original DLLs'))
+    const restore = await screen.findByRole('dialog', { name: 'Restore original DLLs' })
+    expect(adapter.desktop.RestoreDLLs).not.toHaveBeenCalled()
+    await fireEvent.click(within(restore).getByRole('button', { name: 'Restore' }))
     await waitFor(() => expect(adapter.desktop.RestoreDLLs).toHaveBeenCalledWith(1091500))
 
     await fireEvent.click(screen.getByText('Install DLL'))
@@ -156,10 +168,24 @@ describe('game DLL mutation adapter flow', () => {
     expect(adapter.unsubscribe).toHaveBeenCalledTimes(1)
   })
 
+  it('restores only after confirming, even with Confirm destructive actions off', async () => {
+    const adapter = dllDesktop({ GetConfig: vi.fn().mockResolvedValue({ confirmDestructive: false }) })
+    render(GameDLLPane, { props: { game, desktop: adapter.desktop } })
+    await fireEvent.click(await screen.findByText('Update all DLLs'))
+    await waitFor(() => expect(adapter.desktop.UpdateDLLs).toHaveBeenCalledWith(1091500))
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    await waitFor(() => expect(screen.getByText('Restore original DLLs').disabled).toBe(false))
+    await fireEvent.click(screen.getByText('Restore original DLLs'))
+    await screen.findByRole('dialog', { name: 'Restore original DLLs' })
+    expect(adapter.desktop.RestoreDLLs).not.toHaveBeenCalled()
+  })
+
   it('shows supported install errors and permits closing or backing up the wizard', async () => {
     const adapter = dllDesktop({
       ListDLLVersions: vi.fn().mockResolvedValue([]),
-      UpdateDLLs: vi.fn().mockRejectedValue('update failed')
+      UpdateDLLs: vi.fn().mockRejectedValue('update failed'),
+      GetConfig: vi.fn().mockResolvedValue({ confirmDestructive: false })
     })
     render(GameDLLPane, { props: { game, desktop: adapter.desktop } })
     await waitFor(() => expect(screen.getByText('Update all DLLs')).toBeTruthy())

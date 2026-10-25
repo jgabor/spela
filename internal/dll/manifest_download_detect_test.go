@@ -24,6 +24,7 @@ func isolateDLLCache(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("HOME", filepath.Join(root, "home"))
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(root, "cache"))
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(root, "config"))
 }
 
 func TestManifestFetchCacheAndLookupContract(t *testing.T) {

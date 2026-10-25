@@ -74,8 +74,7 @@ const fixtures = vi.hoisted(() => ({
     autoUpdateDLLs: false,
     checkUpdates: false,
     autoRefreshManifest: true,
-    manifestRefreshHours: 24,
-    preferredDLLSource: 'techpowerup'
+    manifestRefreshHours: 24
   }
 }))
 
@@ -118,6 +117,8 @@ vi.mock('../wailsjs/go/gui/App', () => ({
   PatchDefaultProfile: vi.fn().mockResolvedValue(undefined),
   PatchProfile: vi.fn().mockResolvedValue(undefined),
   PreviewApplyToGamesWithOwnValue: vi.fn().mockResolvedValue(undefined),
+  ReleaseNotice: vi.fn().mockResolvedValue(''),
+  AutoUpdateDLLs: vi.fn().mockResolvedValue(''),
   ScanGames: vi.fn().mockResolvedValue(undefined),
   UpdateDLLs: vi.fn().mockResolvedValue(undefined),
   VKD3DHeapCompatibilityNotice: vi.fn().mockResolvedValue('')
@@ -159,6 +160,8 @@ function makeDesktop(overrides = {}) {
     GetProfile: vi.fn().mockResolvedValue(fixtures.profile),
     GetSettingsCatalog: vi.fn().mockResolvedValue(fixtures.settingsCatalog),
     GetVersion: vi.fn().mockResolvedValue('0.6.0'),
+    ReleaseNotice: vi.fn().mockResolvedValue(''),
+    AutoUpdateDLLs: vi.fn().mockResolvedValue(''),
     HasDLLBackup: vi.fn().mockResolvedValue(false),
     InstallDLL: vi.fn().mockResolvedValue(undefined),
     LaunchGame: vi.fn().mockResolvedValue(undefined),
@@ -213,6 +216,9 @@ describe('App keyboard behavior', () => {
     await fireEvent.click(within(compactModeRow).getByRole('button'))
     await waitFor(() => expect(desktop.SaveConfigOption).toHaveBeenCalledWith('compactMode', 'true'))
     expect(screen.getByText('Options saved')).toBeTruthy()
+    expect(document.documentElement.getAttribute('data-density')).toBe('compact')
+    await fireEvent.click(within(compactModeRow).getByRole('button'))
+    await waitFor(() => expect(document.documentElement.getAttribute('data-density')).toBeNull())
 
     await fireEvent.keyDown(window, { key: '?' })
     const help = screen.getByRole('dialog', { name: 'Help' })
@@ -334,5 +340,70 @@ describe('App keyboard behavior', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Startup' })).toBeTruthy())
     await fireEvent.change(screen.getByRole('combobox'), { target: { value: '12' } })
     await waitFor(() => expect(desktop.SaveConfigOption).toHaveBeenCalledWith('manifestRefreshHours', '12'))
+  })
+
+  it('starts in compact density when Compact mode is saved on', async () => {
+    document.documentElement.removeAttribute('data-density')
+    const desktop = makeDesktop({ GetConfig: vi.fn().mockResolvedValue({ ...fixtures.config, compactMode: true }) })
+    render(App, { props: { desktop } })
+    await waitFor(() => expect(document.documentElement.getAttribute('data-density')).toBe('compact'))
+    document.documentElement.removeAttribute('data-density')
+  })
+
+  it('shows a dismissible release notice and the version once prefixed', async () => {
+    const desktop = makeDesktop({
+      ReleaseNotice: vi.fn().mockResolvedValue('Spela v0.7.0 is available (you have v0.6.0)')
+    })
+    render(App, { props: { desktop } })
+    const notice = await screen.findByRole('status')
+    expect(notice.textContent).toContain('Spela v0.7.0 is available (you have v0.6.0)')
+    expect(screen.getByText(/• v0\.6\.0$/)).toBeTruthy()
+    await fireEvent.click(within(notice).getByRole('button', { name: 'Dismiss' }))
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull())
+  })
+
+  it('shows no release notice when there is none or the lookup fails', async () => {
+    const desktop = makeDesktop({ ReleaseNotice: vi.fn().mockRejectedValue(new Error('offline')) })
+    render(App, { props: { desktop } })
+    await waitFor(() => expect(desktop.ReleaseNotice).toHaveBeenCalled())
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('shows the DLL auto-update notice and reloads the library', async () => {
+    const desktop = makeDesktop({
+      AutoUpdateDLLs: vi.fn().mockResolvedValue('DLL auto-update: updated 1 DLL')
+    })
+    render(App, { props: { desktop } })
+    const notice = await screen.findByRole('status')
+    expect(notice.textContent).toContain('DLL auto-update: updated 1 DLL')
+    await waitFor(() => expect(desktop.GetGames.mock.calls.length).toBeGreaterThan(1))
+    await fireEvent.click(within(notice).getByRole('button', { name: 'Dismiss' }))
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull())
+  })
+
+  it('stays quiet when the DLL auto-update has nothing to say', async () => {
+    const desktop = makeDesktop()
+    render(App, { props: { desktop } })
+    await waitFor(() => expect(desktop.AutoUpdateDLLs).toHaveBeenCalledTimes(1))
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('edits a list setting as colon-separated text', async () => {
+    const catalog = fixtures.settingsCatalog.map(section => section.id === 2
+      ? { ...section, options: [...section.options, { key: 'additionalLibraryPaths', label: 'Additional library paths', description: 'Folders.', type: 'path' }] }
+      : section)
+    const desktop = makeDesktop({
+      GetSettingsCatalog: vi.fn().mockResolvedValue(catalog),
+      GetConfig: vi.fn().mockResolvedValue({ ...fixtures.config, additionalLibraryPaths: ['/games/a', '/games/b'] })
+    })
+    render(App, { props: { desktop } })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy())
+    await fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    await fireEvent.click(await screen.findByRole('button', { name: 'Paths' }))
+    const input = await screen.findByLabelText('Additional library paths')
+    expect(input.value).toBe('/games/a:/games/b')
+
+    await fireEvent.change(input, { target: { value: '/games/a:/games/b:/games/c' } })
+    await waitFor(() => expect(desktop.SaveConfigOption).toHaveBeenCalledWith('additionalLibraryPaths', '/games/a:/games/b:/games/c'))
   })
 })

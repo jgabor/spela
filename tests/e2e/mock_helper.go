@@ -171,7 +171,6 @@ func setupTestEnvironment(t *testing.T, fixturePath string) (*TestEnvironment, f
 		"auto_update_dlls":       false,
 		"auto_refresh_manifest":  false,
 		"manifest_refresh_hours": 24,
-		"preferred_dll_source":   "techpowerup",
 		"compact_mode":           false,
 		"confirm_destructive":    true,
 	}

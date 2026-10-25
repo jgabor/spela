@@ -1,0 +1,38 @@
+id: hljrjhmlal
+artifact: todo
+record:
+  kind: task
+  target_version: null
+  title: "Settings wiring 5: auto-update DLLs"
+  requirements:
+    - When auto_update_dlls is on, update stale DLLs at TUI and GUI startup, skipping games whose process is running and deny-listed games, and show a result notice.
+    - Expose the option on both interfaces; default stays off.
+    - Part of the approved plan in docs/plans/valiant-herding-dolphin.md; resolves hpuwnhwspr together with the other parts.
+  acceptance:
+    - GIVEN a stale DLL and auto_update_dlls on WHEN Spela starts THEN the DLL is updated with a backup and a result notice shows.
+    - GIVEN a running or deny-listed game WHEN Spela starts THEN its files are not touched.
+  release_blocker: false
+  severity: normal
+  readiness:
+    capability: build
+    reason: Scoped by the approved plan; research is done.
+    dependencies:
+      - artifact: todo
+        id: pmefmuybso
+    blocked: null
+    gate: null
+    queue_rank: 5
+    order_reason: Phase order from the approved plan.
+  status: resolved
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[task] Settings wiring 5: auto-update DLLs"
+      status: resolved
+      order: 25
+      severity: normal
+  lifecycle:
+    operation: resolve
+    reason: "Auto-update DLLs works in TUI and GUI. dll.AutoUpdate updates only DLLs older than the manifest latest, skips deny-listed games, running games (game.RunningGames: /proc cwd, exe, args, Steam AppId) and unknown versions; swaps keep backup and checksum checks. TUI runs it after the startup scan, GUI once per process; notice only when something changed, failed or was skipped. Tests: dll, game, tui, gui, frontend; mage test, e2e pass; termctrl 120x40 and 80x24 with stub server."
+    date: 2026-10-25

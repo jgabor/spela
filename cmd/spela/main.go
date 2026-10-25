@@ -9,11 +9,13 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jgabor/spela/cmd/spela/commands"
+	"github.com/jgabor/spela/internal/config"
 	"github.com/jgabor/spela/internal/env"
 	"github.com/jgabor/spela/internal/game"
 	"github.com/jgabor/spela/internal/gpu"
 	"github.com/jgabor/spela/internal/launcher"
 	"github.com/jgabor/spela/internal/profile"
+	"github.com/jgabor/spela/internal/release"
 )
 
 var version = "dev"
@@ -111,6 +113,8 @@ func runWrapperMode(args []string) error {
 }
 
 func main() {
+	release.Version = version
+	config.ApplyLogLevel()
 	gpu.Init()
 	defer gpu.Shutdown()
 

@@ -14,7 +14,7 @@ func TestConfigYAMLContract(t *testing.T) {
 		RescanOnStartup: true, AutoUpdateDLLs: true, SteamPath: "/steam",
 		AdditionalLibraryPaths: []string{"/games"}, DLLCachePath: "/dlls", BackupPath: "/backups",
 		DLLManifestURL: "https://example.test/manifest.json", AutoRefreshManifest: true,
-		ManifestRefreshHours: 12, PreferredDLLSource: "github", Theme: "dark",
+		ManifestRefreshHours: 12, Theme: "dark",
 		CompactMode: true, ConfirmDestructive: true,
 	}
 	if err := configuration.Save(); err != nil {
@@ -37,7 +37,6 @@ backup_path: /backups
 dll_manifest_url: https://example.test/manifest.json
 auto_refresh_manifest: true
 manifest_refresh_hours: 12
-preferred_dll_source: github
 theme: dark
 compact_mode: true
 confirm_destructive: true
@@ -112,6 +111,29 @@ func TestConfigLoadIgnoresRetiredShowHintsKey(t *testing.T) {
 	}
 	data, _ := os.ReadFile(path)
 	if strings.Contains(string(data), "show_hints") {
+		t.Errorf("saving should drop the retired key:\n%s", data)
+	}
+}
+
+// The retired preferred_dll_source key may still sit in an existing
+// config.yaml. It must load without error, and saving drops it.
+func TestConfigLoadIgnoresRetiredPreferredDLLSourceKey(t *testing.T) {
+	setupTestEnv(t)
+	path := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "spela", "config.yaml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("manifest_refresh_hours: 6\npreferred_dll_source: github\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := Load()
+	if err != nil || loaded.ManifestRefreshHours != 6 {
+		t.Fatalf("Load() = %+v, %v", loaded, err)
+	}
+	if err := loaded.Save(); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(path); strings.Contains(string(data), "preferred_dll_source") {
 		t.Errorf("saving should drop the retired key:\n%s", data)
 	}
 }

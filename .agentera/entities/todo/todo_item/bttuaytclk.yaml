@@ -1,0 +1,46 @@
+id: bttuaytclk
+artifact: todo
+record:
+  kind: task
+  target_version: null
+  title: "Settings wiring 7: docs and close-out"
+  requirements:
+    - Update configuration docs and the navigation contract, and add a settings parity table with a reason for every option shown on only one interface.
+    - Resolve TODO hpuwnhwspr with the evidence.
+    - Part of the approved plan in docs/plans/valiant-herding-dolphin.md; resolves hpuwnhwspr together with the other parts.
+  acceptance:
+    - GIVEN every config option WHEN compared across TUI and GUI THEN each is on both or has a stated reason.
+    - GIVEN the TUI Settings WHEN every group is visited at 120x40 and 80x24 THEN none is empty.
+  release_blocker: false
+  severity: normal
+  readiness:
+    capability: build
+    reason: Scoped by the approved plan; research is done.
+    dependencies:
+      - artifact: todo
+        id: kvzvhplemd
+      - artifact: todo
+        id: pmefmuybso
+      - artifact: todo
+        id: mkkqideoqv
+      - artifact: todo
+        id: hljrjhmlal
+      - artifact: todo
+        id: vhhnfltntn
+    blocked: null
+    gate: null
+    queue_rank: 7
+    order_reason: Phase order from the approved plan.
+  status: resolved
+  reconciliation:
+    schema_version: agentera.todoReconciliation.v1
+    public:
+      present: true
+      description: "[task] Settings wiring 7: docs and close-out"
+      status: resolved
+      order: 28
+      severity: normal
+  lifecycle:
+    operation: resolve
+    reason: "configuration.md: Settings parity section (group table, Theme GUI-only reason, retired keys); tui-navigation.md: Settings opens on Display, hides empty groups, links the table. CHANGELOG adds log level, path and parity fixes. New docs_contract_test.go checks doc columns and parity table against the catalog (mutation-checked). All five TUI groups non-empty at 120x40 and 80x24 (termctrl). hpuwnhwspr resolved. mage test pass; lint only old launcher_test.go:240."
+    date: 2026-10-25

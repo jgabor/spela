@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The graphical interface asks before updating or restoring a game's DLLs. Confirm destructive actions, now also in the TUI Settings, turns off the question for updates in both interfaces; restore and install always ask.
+- Compact mode, now also in the TUI Settings, starts the TUI in the Compact layout and tightens the graphical interface.
+- With Auto-update DLLs on, the TUI and the graphical interface update outdated game DLLs at startup. Running and deny-listed games and DLLs of unknown version are skipped, and a notice says what changed. The option is now in the TUI Settings.
+- With Check for updates on, the TUI header and the graphical interface say when a newer Spela release is tagged on GitHub. Spela asks at most once a day, at startup, and never from a development build.
 - Configure `gpu.vrr` with explicit unset, inheritance, TUI/GUI editing, and restoration of the KDE primary display after tracked game launches.
 - `spela profile reset <game>` makes a game follow All games for every setting, and the TUI List has a Find row (Up from the first item, then type or press Enter) that opens Search.
 - On the All games page, **Apply to games with their own value** (the TUI Actions menu and a button in the graphical interface) makes the games that set their own value for the focused setting follow All games. It names the games and the value first, and a failed game is named while the rest still change.
@@ -34,12 +38,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- The DLL source option, which had only one working source. A `preferred_dll_source` key in an existing `config.yaml` is ignored.
 - The Show hints option, which changed nothing visible. A `show_hints` key in an existing `config.yaml` is ignored.
 - The TUI Overview view, Ctrl+S, the Save and Discard rows, and the unsaved-changes dialog. The install directory, Proton prefix, and launch option moved to the DLLs section.
 - The graphical interface Overview tab and the Save button on game and All games pages.
 
 ### Fixed
 
+- Log level takes effect: Spela applies it at startup and after a TUI or GUI Settings save. It is in the TUI Settings.
+- DLL cache path, Backup path, and Default shader cache path take effect, and they and Additional library paths can be edited in the TUI and GUI Settings. Folder settings reject a relative path, and backups made before a Backup path change stay restorable.
+- Every Settings option except Theme is in both the TUI and the graphical interface; Theme stays in the graphical interface because the TUI uses the terminal's colours.
+- The graphical interface shows the installed version instead of `dev`.
+- The graphical interface game list reloads after a game page changes the game, such as a DLL update, instead of keeping the old DLL versions.
+- The cached DLL manifest is refreshed by the time it was fetched, not by the date it was published, so Spela no longer fetches it on every use once the published manifest is a day old. Auto-refresh manifest, Refresh interval, and DLL manifest URL now take effect and are in the TUI and GUI Settings.
 - Keep game profiles inheriting after the last override is reset. Saved profiles now always carry an `overrides` key, so a profile reset to all-inherited no longer reloads as a legacy file that pins every field differing from the defaults. Profiles already saved without the key stay as they are, and a mutation that changes nothing no longer rewrites a profile.
 - DLL types in the graphical DLL catalog and the game DLL lists read the right field, so they are no longer blank.
 - Refresh AUR preview and submission versions from the GitHub source and remote tags in temporary storage, generating matching `.SRCINFO` without modifying local package files.
