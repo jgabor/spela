@@ -30,18 +30,29 @@ pub fn load(paths: &Paths) -> GameCache {
     }
 }
 
+/// Takes `games.lock`, for a caller that loads, changes and [`save`]s the
+/// cache itself, such as a DLL swap.
+pub fn lock(paths: &Paths) -> Result<StoreLock, crate::lock::LockError> {
+    StoreLock::acquire(&paths.games_lock())
+}
+
+/// Writes the cache atomically. The caller holds [`lock`].
+pub fn save(paths: &Paths, cache: &GameCache) -> io::Result<()> {
+    let text = cache.to_json().map_err(io::Error::other)?;
+    std::fs::create_dir_all(&paths.cache_dir)?;
+    write_atomic(&paths.game_cache(), text.as_bytes(), Durability::Cache)
+}
+
 /// Changes the cache under `games.lock`. `change` gets the cache as it is on
 /// disk now; the file is written only when the cache changed. Returns what
 /// `change` returns.
 pub fn update<T>(paths: &Paths, change: impl FnOnce(&mut GameCache) -> T) -> io::Result<T> {
-    let _lock = StoreLock::acquire(&paths.games_lock()).map_err(io::Error::other)?;
+    let _lock = lock(paths).map_err(io::Error::other)?;
     let before = load(paths);
     let mut cache = before.clone();
     let result = change(&mut cache);
     if cache != before {
-        let text = cache.to_json().map_err(io::Error::other)?;
-        std::fs::create_dir_all(&paths.cache_dir)?;
-        write_atomic(&paths.game_cache(), text.as_bytes(), Durability::Cache)?;
+        save(paths, &cache)?;
     }
     Ok(result)
 }

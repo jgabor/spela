@@ -31,6 +31,9 @@ pub struct CliError {
     pub hint: Option<String>,
     /// A stable snake_case id for the `--json` error object.
     pub kind: &'static str,
+    /// More about the failure for the `--json` error object, such as a DLL
+    /// batch's items. Text output leaves it out.
+    pub details: Option<serde_json::Value>,
 }
 
 impl CliError {
@@ -47,7 +50,14 @@ impl CliError {
             message: message.into(),
             hint: None,
             kind,
+            details: None,
         }
+    }
+
+    /// Adds the `--json` details.
+    pub fn with_details(mut self, details: serde_json::Value) -> Self {
+        self.details = Some(details);
+        self
     }
 
     /// Adds a one-line hint.

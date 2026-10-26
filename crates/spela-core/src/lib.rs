@@ -23,8 +23,9 @@
 //! | [`steam`] | Steam libraries, app manifests and VDF |
 //! | [`proton`] | The Proton resolver |
 //! | [`pe`] | PE version reading |
-//! | [`dll`] | DLL detection, manifest, versions, staleness and backups |
+//! | [`dll`] | DLL detection, the manifest and its fetch, versions, staleness, backups, and install, update and restore |
 //! | [`denylist`] | The anti-cheat deny list |
+//! | [`release`] | The release check against GitHub's tags |
 //! | [`migrate`] | Reading Go spela's YAML and migrating it |
 //! | [`metrics`] | CPU and memory metrics from procfs text |
 //! | [`alerts`] | The GPU alert evaluator |
@@ -49,6 +50,7 @@ pub mod paths;
 pub mod pe;
 pub mod profile;
 pub mod proton;
+pub mod release;
 pub mod steam;
 
 /// spela's version, the workspace version.
