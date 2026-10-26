@@ -1,21 +1,23 @@
 //! Picks the backends for a run: the fake for `--demo` and for
 //! `SPELA_BACKEND=fake`, otherwise the real ones.
 //!
-//! The real CPU reads are built: [`SysfsCpu`] over `/sys`. The real GPU,
-//! display and HTTP backends arrive in later phases (NVML in Phase 2,
-//! `kscreen-doctor` and polkit in Phase 6, ureq with the manifest in Phase
-//! 5). Until then they report that they are not built. They open
+//! The real CPU reads are built: [`SysfsCpu`] over `/sys`, and so is the
+//! KDE display, [`KscreenDisplay`]. The real GPU, privilege and HTTP
+//! backends arrive in later phases (NVML in Phase 2, polkit in Phase 6,
+//! ureq with the manifest in Phase 5). Until then they report that they
+//! are not built. They open
 //! nothing when built, so a command that never asks pays nothing; NVML in
 //! particular stays lazy (it costs 4 to 17 ms per process).
 
 use std::sync::Arc;
 
 use spela_core::backend::{
-    BackendKind, Backends, Display, DisplayError, Gpu, GpuError, GpuInfo, GpuMetrics, Http,
-    HttpError, HttpRequest, HttpResponse, Output, SysfsCpu, VrrPolicy,
+    BackendKind, Backends, Gpu, GpuError, GpuInfo, GpuMetrics, Http, HttpError, HttpRequest,
+    HttpResponse, SysfsCpu,
 };
 use spela_core::env::Env;
 
+use crate::display::KscreenDisplay;
 use crate::error::{CliError, exit};
 use crate::privilege::PolkitPrivilege;
 
@@ -51,7 +53,7 @@ pub fn real() -> Backends {
         kind: BackendKind::Real,
         gpu: Box::new(NvmlGpu),
         cpu: Box::new(SysfsCpu::system()),
-        display: Box::new(KscreenDisplay),
+        display: Box::new(KscreenDisplay::system()),
         privilege: Box::new(PolkitPrivilege),
         http: Arc::new(UreqHttp),
     }
@@ -74,22 +76,6 @@ impl Gpu for NvmlGpu {
 
     fn metrics(&mut self) -> Result<GpuMetrics, GpuError> {
         Err(Self::not_built())
-    }
-}
-
-/// KDE VRR through `kscreen-doctor`. Not built yet.
-#[derive(Debug)]
-pub struct KscreenDisplay;
-
-impl Display for KscreenDisplay {
-    fn outputs(&mut self) -> Result<Vec<Output>, DisplayError> {
-        Err(DisplayError::Unavailable(
-            "KDE VRR is not yet implemented in this build".into(),
-        ))
-    }
-
-    fn set_vrr(&mut self, _uuid: &str, _policy: VrrPolicy) -> Result<(), DisplayError> {
-        self.outputs().map(|_| ())
     }
 }
 
@@ -137,15 +123,12 @@ mod tests {
     }
 
     /// The stubs' read paths only. Remove each check when its backend is
-    /// built: a real `NvmlGpu` would open NVML here. `set_vrr` and
-    /// `UreqHttp::get` are never called from a test.
+    /// built: a real `NvmlGpu` would open NVML here. The real display
+    /// would run kscreen-doctor, so no test calls it, and `UreqHttp::get`
+    /// is never called from a test.
     #[test]
     fn unbuilt_stubs_report_unavailable() {
         assert!(matches!(NvmlGpu.info(), Err(GpuError::Unavailable(_))));
         assert!(matches!(NvmlGpu.metrics(), Err(GpuError::Unavailable(_))));
-        assert!(matches!(
-            KscreenDisplay.outputs(),
-            Err(DisplayError::Unavailable(_))
-        ));
     }
 }

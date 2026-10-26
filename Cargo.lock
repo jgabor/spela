@@ -2035,6 +2035,7 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "vt100",
+ "wait-timeout",
 ]
 
 [[package]]

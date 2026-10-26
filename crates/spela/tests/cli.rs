@@ -2,6 +2,8 @@
 
 mod common;
 
+use std::os::unix::fs::PermissionsExt;
+
 use common::Sandbox;
 use predicates::prelude::*;
 
@@ -168,10 +170,16 @@ fn reserved_names_never_launch_a_program_on_path() {
 #[test]
 fn wrapped_games_route_to_the_wrapper() {
     let s = Sandbox::new();
-    s.tripwire("mygame");
-    let script = s.tripwire("launch.sh");
+    // Stand-in games on PATH that say they ran, by their exit code.
+    let game = |name: &str| {
+        let path = s.bin().join(name);
+        std::fs::write(&path, "#!/bin/sh\nexit 42\n").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        path
+    };
+    game("mygame");
+    let script = game("launch.sh");
     let script = script.to_str().unwrap();
-    let wrapper = "error: running a game through spela is not yet implemented in this build\n";
     for args in [
         vec!["mygame", "--fullscreen"],
         vec!["--", "mygame"],
@@ -180,8 +188,14 @@ fn wrapped_games_route_to_the_wrapper() {
         vec![script, "-x"],
     ] {
         let run = s.run(&args);
-        run.expect_code(1);
-        assert_eq!(run.stderr(), wrapper, "{args:?}");
+        run.expect_code(42);
+        assert_eq!(run.stdout(), "Launching command...\n", "{args:?}");
+        assert!(
+            run.stderr()
+                .contains("Warning: could not detect game for wrapper invocation"),
+            "{args:?}: {}",
+            run.stderr()
+        );
     }
     // A wrapper run logs to the file, inside the sandbox.
     let log_dir = s.state_dir().join("log");
@@ -194,10 +208,8 @@ fn wrapped_games_route_to_the_wrapper() {
 
     // The extension check ignores case, as Go's does.
     for name in ["Game.EXE", "run.SH"] {
-        s.tripwire(name);
-        let run = s.run(&[name]);
-        run.expect_code(1);
-        assert_eq!(run.stderr(), wrapper, "{name}");
+        game(name);
+        s.run(&[name]).expect_code(42);
     }
 }
 
