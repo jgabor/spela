@@ -15,6 +15,8 @@ pub enum FakeRoute {
         status: u16,
         /// The body.
         body: Vec<u8>,
+        /// The `Link` header, if any.
+        link: Option<String>,
     },
     /// The request fails with this error.
     Fault(HttpError),
@@ -49,8 +51,30 @@ impl FakeHttp {
             FakeRoute::Body {
                 status: 200,
                 body: body.into(),
+                link: None,
             },
         )
+    }
+
+    /// Answers `url` with 200, `body` and a `Link` header.
+    pub fn serve_with_link(&self, url: &str, body: impl Into<Vec<u8>>, link: &str) -> &Self {
+        self.route(
+            url,
+            FakeRoute::Body {
+                status: 200,
+                body: body.into(),
+                link: Some(link.to_owned()),
+            },
+        )
+    }
+
+    /// The URLs requested so far, in order.
+    pub fn urls(&self) -> Vec<String> {
+        self.lock()
+            .requests
+            .iter()
+            .map(|r| r.uri.to_string())
+            .collect()
     }
 
     /// Sets the answer for `url`.
@@ -82,10 +106,10 @@ impl Http for FakeHttp {
             s.requests.push(request.clone());
             s.routes.get(&url).cloned()
         };
-        let (status, bytes) = match route {
+        let (status, bytes, link) = match route {
             None => return Err(HttpError::Network(format!("no fake route for {url}"))),
             Some(FakeRoute::Fault(e)) => return Err(e),
-            Some(FakeRoute::Body { status, body }) => (status, body),
+            Some(FakeRoute::Body { status, body, link }) => (status, body, link),
         };
         if !(200..300).contains(&status) {
             return Err(HttpError::Status(status));
@@ -106,6 +130,7 @@ impl Http for FakeHttp {
         Ok(HttpResponse {
             status,
             bytes: sent,
+            link,
         })
     }
 }
@@ -147,6 +172,7 @@ mod tests {
             FakeRoute::Body {
                 status: 404,
                 body: vec![],
+                link: None,
             },
         );
         http.route(
