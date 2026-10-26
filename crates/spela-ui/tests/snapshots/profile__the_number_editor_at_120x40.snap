@@ -40,5 +40,5 @@ expression: render_text(&mut s)
 │                                │     KDE VRR                automatic     from All games                             │
 │                                │     Memory offset          none          system default                             │
 └─ ▪ DLLs  ⚑ profile ────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
-                                                                                                      Scanning games...
+
  Type to edit  Tab control  Enter apply  Backspace delete  Esc cancel

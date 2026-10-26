@@ -211,3 +211,29 @@ fn a_click_on_another_field_closes_the_editor() {
     assert!(s.profile.editor.is_none());
     assert_eq!(s.profile.field, FieldKey::GpuVrr);
 }
+
+#[test]
+fn ascii_glyphs_reach_every_part_of_the_page() {
+    let ascii = |s: &mut AppState| {
+        let mut config = s.config.clone();
+        config.ui.ascii_glyphs = true;
+        s.set_config(config);
+    };
+    let mut s = on_field(80, 24, FieldKey::DlssSrMode);
+    ascii(&mut s);
+    let text = render_text(&mut s);
+    assert!(text.is_ascii(), "{text}");
+    update(&mut s, key("enter"));
+    let text = render_text(&mut s);
+    assert!(text.is_ascii(), "the picker: {text}");
+    let mut s = common::loaded(120, 40);
+    ascii(&mut s);
+    update(&mut s, key("space"));
+    let text = render_text(&mut s);
+    assert!(text.is_ascii(), "select mode: {text}");
+    update(&mut s, key("tab"));
+    s.profile.field = FieldKey::GpuClockOffset;
+    update(&mut s, key("enter"));
+    let text = render_text(&mut s);
+    assert!(text.is_ascii(), "the number editor: {text}");
+}

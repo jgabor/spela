@@ -40,5 +40,5 @@ expression: render_text(&mut s)
 │                                │     Threaded optimization  Off           system default                             │
 │                                │                                                                                     │
 └─ ▪ DLLs  ⚑ profile ────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
-                                                                                                      Scanning games...
+
  0 Actions  Up/Down Game  Enter Batch actions  Space Clear game  Tab Pane  ? Help

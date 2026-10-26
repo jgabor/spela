@@ -40,5 +40,5 @@ expression: render_text(&mut s)
 │                                │     Multi-frame            1             from All games                             │
 │                                │     SR indicator           Off           system default                             │
 └─ ▪ DLLs  ⚑ profile ────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
-                                                                                                      Scanning games...
+
  Type to jump  Up/Down choose  Tab control  Enter apply  Esc cancel

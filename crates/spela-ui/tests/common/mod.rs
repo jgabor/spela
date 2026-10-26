@@ -35,6 +35,8 @@ pub fn loaded(width: u16, height: u16) -> AppState {
             _ => None,
         })
         .expect("the start loads the profiles");
+    // The start also asked for a scan; the frames read as after it.
+    s.jobs.scan = None;
     let text = |t: &str| Value::Text(t.to_owned());
     let all = own(&[
         (FieldKey::ProtonEnableHdr, Value::Bool(true)),

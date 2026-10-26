@@ -258,6 +258,10 @@ pub struct State {
     pub governors: Option<Result<Vec<String>, String>>,
     /// The governor read on its way.
     pub governors_request: Option<u64>,
+    /// Saves answered so far. A load that a save overtook is read again.
+    pub saves_done: u64,
+    /// [`State::saves_done`] when the load on its way was asked for.
+    pub load_at: u64,
 }
 
 impl Default for State {
@@ -276,6 +280,8 @@ impl Default for State {
             notices: BTreeMap::new(),
             governors: None,
             governors_request: None,
+            saves_done: 0,
+            load_at: 0,
         }
     }
 }
@@ -794,6 +800,7 @@ pub fn start(state: &mut AppState) -> Vec<AnyCmd> {
 fn load(state: &mut AppState) -> Vec<AnyCmd> {
     let request = state.request();
     state.profile.load_request = Some(request);
+    state.profile.load_at = state.profile.saves_done;
     vec![AnyCmd::Profile(Cmd::Load { request })]
 }
 
@@ -1433,6 +1440,10 @@ pub fn on_msg(state: &mut AppState, msg: Msg) -> Vec<AnyCmd> {
                 return Vec::new();
             }
             state.profile.load_request = None;
+            // A save answered after the read began: the read may miss it.
+            if state.profile.saves_done != state.profile.load_at {
+                return load(state);
+            }
             match result {
                 Ok(loaded) => {
                     state.profile.load_error = None;
@@ -1520,6 +1531,7 @@ pub fn saved(state: &mut AppState, token: u64, result: Result<(), String>) -> Ve
         return Vec::new();
     };
     state.dirty = true;
+    state.profile.saves_done += 1;
     let shown = scope(state) == Some(p.scope);
     let prefix = if shown {
         String::new()
@@ -2524,6 +2536,43 @@ mod tests {
         // All games has no DLLs: Right from CPU is the end.
         s.library.cursor = 0;
         assert_eq!(can_next(&s), Err("last section".into()));
+    }
+
+    #[test]
+    fn a_load_that_a_save_overtook_is_read_again() {
+        let mut s = loaded_state();
+        s.focus = Pane::Detail;
+        let cmds = rescanned(&mut s);
+        let AnyCmd::Profile(Cmd::Load { request }) = cmds[0] else {
+            panic!("{cmds:?}")
+        };
+        s.profile.field = FieldKey::ProtonEnableHdr;
+        let token = save_token(&step(&mut s, key("space")));
+        step(
+            &mut s,
+            crate::event::Event::Msg(AnyMsg::Saved {
+                token,
+                result: Ok(()),
+            }),
+        );
+        // The stale read, from before the save.
+        let again = on_msg(
+            &mut s,
+            Msg::Loaded {
+                request,
+                result: Ok(Loaded::default()),
+            },
+        );
+        assert!(
+            matches!(again[0], AnyCmd::Profile(Cmd::Load { .. })),
+            "{again:?}"
+        );
+        let scope = scope(&s).unwrap();
+        assert_eq!(
+            resolved(&s, scope, FieldKey::ProtonEnableHdr).unwrap().own,
+            Some(Value::Bool(true)),
+            "the stale read is not shown"
+        );
     }
 
     #[test]
