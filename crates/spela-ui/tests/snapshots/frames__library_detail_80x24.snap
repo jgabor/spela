@@ -4,11 +4,11 @@ expression: render_text(&mut s)
 ---
  spela   ▸ 1 Library  2 DLL Catalog  3 Monitor  4 Settings
 ┌─ ▸ Detail ───────────────────────────────────────────────────────────────────┐
-│ Ashfall Courier · App ID 9100010                                             │
+│ Ashfall Courier · App ID 9100010 · DLLs: DLSS 310.4.0 · Saved at once        │
 │                                                                              │
-│ The profile page comes here: Proton, DLSS, GPU, CPU and DLLs.                │
+│ [Proton]  DLSS  GPU  CPU  DLLs                                               │
 │                                                                              │
-│                                                                              │
+│ Loading profiles...                                                          │
 │                                                                              │
 │                                                                              │
 │                                                                              │
@@ -25,4 +25,4 @@ expression: render_text(&mut s)
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 
- 0 Actions  Tab List  Esc List  ? Help
+ 0 Actions  Left/Right Section  Tab List  Esc List  ? Help

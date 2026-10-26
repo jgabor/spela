@@ -25,4 +25,4 @@ expression: render_text(&mut s)
 │                                                                              │
 └─ ▪ DLLs  ⚑ profile ──────────────────────────────────────────────────────────┘
 
- 0 Actions  Up/Down Game  Enter Open selection  Tab Detail  ? Help
+ 0 Actions  Up/Down Game  Enter Open selection  Space Select game  Tab Detail

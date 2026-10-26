@@ -1,0 +1,44 @@
+---
+source: crates/spela-ui/tests/profile.rs
+expression: render_text(&mut s)
+---
+ spela   ▸ Library  DLL Catalog  Monitor  Settings
+┌─ Scope ────────────────────────┬─ Ashfall Courier ───────────────────────────────────────────────────────────────────┐
+│ / Find games                   │ Ashfall Courier · App ID 9100010 · DLLs: DLSS 310.4.0 · Saved at once               │
+│   All games                    │ Own settings (4): Super resolution quality · Resolution override On · Ray override⋯ │
+│ ▸ Ashfall Courier          ▪ ⚑ │ Proton  [DLSS]  GPU  CPU  DLLs                                                      │
+│   Brightwater Keep             │                                                                                     │
+│   Cinder Valley Racing     ▪   │ Proton                                                                              ┃
+│   Deepline Salvage           ⚑ │     HDR                    On            from All games                             ┃
+│   Ember Tide               ▪   │     Wayland                Off           system default                             ┃
+│   Game 1 Remastered            │     NGX updater            Off           system default                             ┃
+│   Glasshouse Detective     ▪ ⚑ │     VKD3D heap             Off           system default                             ┃
+│   Hollow Crown Tactics: D⋯     │                                                                                     ┃
+│   Ironleaf Expedition      ▪   │ DLSS                                                                                ┃
+│   Lantern Drift              ⚑ │ ▸ ⚑ Super resolution       performance   this game · All games: balanced            ┃
+│   Moonwell Farmstead       ▪   │     ┌─ Edit Super resolution  jump: p ─────────────────────┐                        ┃
+│   Nightglass Protocol          │     │ Value before edit: quality                           │                        ┃
+│                                │     │                                                      │                        ┃
+│                                │     │   Follow All games (balanced)                        │                        ┃
+│                                │     │   none                                               │                        ┃
+│                                │     │   off                                                │                        ┃
+│                                │     │   ultra_performance                                  │                        ┃
+│                                │     │ ▸ performance                                        │                        ┃
+│                                │     │   balanced                                           │                        ┃
+│                                │     │   quality  ✓                                         │                        ┃
+│                                │     │   dlaa                                               │                        ┃
+│                                │     │                                                      │                        ┃
+│                                │     │   [ Apply ]  [ Cancel ]                              │                        │
+│                                │     └──────────────────────────────────────────────────────┘                        │
+│                                │     Resolution preset      K             from All games                             │
+│                                │   ⚑ Resolution override    On            this game · All games: Off                 │
+│                                │     Ray reconstruction     quality       from All games                             │
+│                                │     Ray preset             none          system default                             │
+│                                │   ⚑ Ray override           On            this game · All games: Off                 │
+│                                │     Frame generation       On            from All games                             │
+│                                │     Generation override    On            from All games                             │
+│                                │     Multi-frame            1             from All games                             │
+│                                │     SR indicator           Off           system default                             │
+└─ ▪ DLLs  ⚑ profile ────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
+
+ Type to jump  Up/Down choose  Tab control  Enter apply  Esc cancel

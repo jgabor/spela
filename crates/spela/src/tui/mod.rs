@@ -187,6 +187,8 @@ pub fn run(ctx: &mut Context, _lock: InstanceLock, err: &mut dyn Write) -> Resul
     };
     let metrics =
         MetricsThread::spawn(gpu, cpu, tx.clone()).map_err(|e| failure("metrics thread", e))?;
+    let driver = metrics.driver();
+    let cpu_reader = std::mem::replace(&mut ctx.backends.cpu, Box::new(exec::profile::NoCpu));
     let jobs = Pool::spawn(jobs::THREADS).map_err(|e| failure("job pool", e))?;
     let writes = WriteQueue::spawn(ctx.paths.clone(), broken.clone(), tx.clone())
         .map_err(|e| failure("write queue", e))?;
@@ -199,6 +201,8 @@ pub fn run(ctx: &mut Context, _lock: InstanceLock, err: &mut dyn Write) -> Resul
         writes: writes.sender(),
         clock: ctx.clock.clone(),
         steam,
+        cpu: exec::profile::CpuReader::new(cpu_reader),
+        driver,
     };
     drop(tx);
 
