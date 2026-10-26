@@ -935,3 +935,41 @@ fn yml_and_other_names_go_never_loaded_are_skipped() {
     }
     assert_eq!(case.go_files(), go, "the Go files stay byte-identical");
 }
+
+/// A stored governor sysfs does not list is kept and reported: `cpu show`,
+/// `profile show` and the dry run say so (architecture, Hardware > CPU). The
+/// fake lists performance and powersave.
+#[test]
+fn an_unlisted_governor_is_kept_and_reported() {
+    let case = Case::new("sandbox/main");
+    case.ok(&["profile", "list"]);
+    let file = case.profile(9100020);
+    let text = case.read(&file);
+    std::fs::write(
+        &file,
+        format!("{text}\n[cpu]\ngovernor = \"conservative\"\n"),
+    )
+    .unwrap();
+    let note = "conservative is not a governor this system lists (performance, powersave)";
+    let out = case.ok(&["cpu", "show", "9100020"]);
+    assert!(
+        out.contains(&format!(
+            "    {note}; a launch leaves the governor unchanged\n"
+        )),
+        "{out}"
+    );
+    let out = case.ok(&["profile", "show", "9100020"]);
+    assert!(out.contains(note), "{out}");
+    let out = case.ok(&["launch", "9100020", "--dry-run"]);
+    assert!(
+        out.contains(&format!("  CPU governor:  not applied: {note}\n")),
+        "{out}"
+    );
+    // A listed governor has no note.
+    std::fs::write(&file, format!("{text}\n[cpu]\ngovernor = \"powersave\"\n")).unwrap();
+    assert!(
+        !case
+            .ok(&["cpu", "show", "9100020"])
+            .contains("not a governor")
+    );
+}

@@ -24,6 +24,8 @@ pub struct SystemProbes<'a> {
     pub install: &'a mut dyn FnMut() -> SteamInstall,
     /// The driver version, as [`Probes::driver`] answers it.
     pub driver: &'a mut dyn FnMut() -> Option<String>,
+    /// The governors sysfs lists, as [`Probes::governors`] answers it.
+    pub governors: &'a mut dyn FnMut() -> Option<Vec<String>>,
 }
 
 impl Probes for SystemProbes<'_> {
@@ -34,6 +36,18 @@ impl Probes for SystemProbes<'_> {
     fn driver(&mut self) -> Option<String> {
         (self.driver)()
     }
+
+    fn governors(&mut self) -> Option<Vec<String>> {
+        (self.governors)()
+    }
+}
+
+/// The governors from the CPU backend, or `None` when sysfs cannot list
+/// them, which leaves the governor to the helper's own check.
+pub fn governors(cpu: &mut dyn spela_core::backend::Cpu) -> Option<Vec<String>> {
+    cpu.available_governors()
+        .inspect_err(|e| tracing::info!("cannot list the governors: {e}"))
+        .ok()
 }
 
 /// The driver version from the GPU backend: `Some("")` when NVML is

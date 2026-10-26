@@ -12,6 +12,7 @@ use spela_core::paths::Paths;
 use spela_core::profile::{Effective, store};
 use spela_ui::Msg;
 
+use super::profile::CpuReader;
 use super::{SteamSource, Workers};
 use crate::plan::SystemProbes;
 use crate::tui::metrics::DriverSlot;
@@ -21,11 +22,12 @@ pub fn run(w: &mut Workers, request: u64, app_id: u64) {
     let paths = w.paths.clone();
     let steam = w.steam.clone();
     let driver = w.driver.clone();
+    let cpu = w.cpu.clone();
     w.jobs.submit(
         &w.tx,
         move || Msg::PreviewReady {
             request,
-            result: preview(&paths, &steam, &driver, app_id),
+            result: preview(&paths, &steam, &driver, &cpu, app_id),
         },
         move |e| Msg::PreviewReady {
             request,
@@ -39,6 +41,7 @@ pub fn preview(
     paths: &Paths,
     steam: &SteamSource,
     driver: &DriverSlot,
+    cpu: &CpuReader,
     app_id: u64,
 ) -> Result<String, String> {
     let config = config::load(&paths.config_file())
@@ -61,9 +64,11 @@ pub fn preview(
     };
     let mut install = || steam.install(paths);
     let mut driver = || super::profile::wait_driver(driver);
+    let mut governors = || cpu.available_governors().ok();
     let mut probes = SystemProbes {
         install: &mut install,
         driver: &mut driver,
+        governors: &mut governors,
     };
     let plan = crate::plan::build(paths, &config, game, &profile, &mut probes);
     let text = summary::summary(&plan, &Mode::DryRun, crate::privilege::PKEXEC).plain();
@@ -75,6 +80,14 @@ mod tests {
     use super::*;
     use spela_core::games::{Game, GameCache};
     use spela_core::profile::{FieldKey, Scope, Value};
+
+    fn cpu() -> CpuReader {
+        CpuReader::new(Box::new(spela_core::fake::cpu::FakeCpu::new(
+            "powersave",
+            &["performance", "powersave"],
+            true,
+        )))
+    }
 
     fn setup() -> (tempfile::TempDir, Paths) {
         let dir = tempfile::tempdir().unwrap();
@@ -106,7 +119,7 @@ mod tests {
         )
         .unwrap();
         let steam = SteamSource::Demo(dir.path().join("none"));
-        let text = preview(&paths, &steam, &DriverSlot::default(), 9100010).unwrap();
+        let text = preview(&paths, &steam, &DriverSlot::default(), &cpu(), 9100010).unwrap();
         assert!(
             text.starts_with("Game: Glimmer Run (AppID 9100010)\n"),
             "{text}"
@@ -117,8 +130,29 @@ mod tests {
         );
         assert!(text.ends_with("restored on cleanup"), "{text}");
         assert_eq!(
-            preview(&paths, &steam, &DriverSlot::default(), 42),
+            preview(&paths, &steam, &DriverSlot::default(), &cpu(), 42),
             Err("game not found: 42".into())
+        );
+    }
+
+    #[test]
+    fn an_unlisted_governor_shows_as_not_applied() {
+        let (dir, paths) = setup();
+        store::edit(
+            &paths,
+            Scope::Game(9100010),
+            "Glimmer Run",
+            &[(FieldKey::CpuGovernor, Value::Text("conservative".into()))],
+            &[],
+        )
+        .unwrap();
+        let steam = SteamSource::Demo(dir.path().join("none"));
+        let text = preview(&paths, &steam, &DriverSlot::default(), &cpu(), 9100010).unwrap();
+        assert!(
+            text.contains(
+                "  CPU governor:  not applied: conservative is not a governor this system lists (performance, powersave)"
+            ),
+            "{text}"
         );
     }
 
@@ -128,7 +162,7 @@ mod tests {
         std::fs::create_dir_all(paths.profiles_dir()).unwrap();
         std::fs::write(paths.game_profile(9100010), "[gpu\n").unwrap();
         let steam = SteamSource::Demo(dir.path().join("none"));
-        let e = preview(&paths, &steam, &DriverSlot::default(), 9100010).unwrap_err();
+        let e = preview(&paths, &steam, &DriverSlot::default(), &cpu(), 9100010).unwrap_err();
         assert!(e.contains("9100010.toml"), "{e}");
     }
 }

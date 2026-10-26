@@ -106,6 +106,11 @@ pub fn show(
         for line in rows(&view, section, paint) {
             let _ = writeln!(text, "  {line}");
         }
+        if section == Section::Cpu
+            && let Some(note) = governor_note(ctx, &view)
+        {
+            let _ = writeln!(text, "      {}", paint.dim(&note));
+        }
         text.push('\n');
     }
     read::write_out(out, &text)
@@ -137,7 +142,31 @@ pub fn section_show(
     {
         let _ = writeln!(text, "    {}", paint.dim(&notice));
     }
+    if section == Section::Cpu
+        && let Some(note) = governor_note(ctx, &view)
+    {
+        let _ = writeln!(text, "    {}", paint.dim(&note));
+    }
     read::write_out(out, &text)
+}
+
+/// The note under the Governor row when the governor in effect is one
+/// sysfs does not list: it is kept, and a launch skips it (architecture,
+/// Hardware > CPU). Nothing when the list cannot be read.
+fn governor_note(ctx: &mut Context, view: &ProfileView) -> Option<String> {
+    let Value::Text(governor) = view.effective.value(FieldKey::CpuGovernor) else {
+        return None;
+    };
+    if governor.is_empty() {
+        return None;
+    }
+    let listed = crate::plan::governors(ctx.backends.cpu.as_mut())?;
+    (!listed.contains(governor)).then(|| {
+        format!(
+            "{}; a launch leaves the governor unchanged",
+            spela_core::launch::unlisted_governor(governor, &listed)
+        )
+    })
 }
 
 /// The heading of a section show, Go's words.

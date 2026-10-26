@@ -121,6 +121,11 @@ pub trait Probes {
     /// The NVIDIA driver version: `Some("")` with no NVIDIA driver, `None`
     /// when the driver could not be asked.
     fn driver(&mut self) -> Option<String>;
+    /// The CPU governors sysfs lists, or `None` when the list cannot be
+    /// read. Asked only when the plan sets a governor.
+    fn governors(&mut self) -> Option<Vec<String>> {
+        None
+    }
 }
 
 /// One line of the Profile impacts block.
@@ -255,6 +260,15 @@ impl LaunchPlan {
     }
 }
 
+/// Why a governor the system does not list is not applied. `cpu show`,
+/// `profile show`, the dry run and the TUI say the same.
+pub fn unlisted_governor(governor: &str, listed: &[String]) -> String {
+    format!(
+        "{governor} is not a governor this system lists ({})",
+        listed.join(", ")
+    )
+}
+
 /// Builds the plan for one game.
 pub fn plan(inputs: &PlanInputs<'_>, probes: &mut dyn Probes) -> LaunchPlan {
     let effective = &inputs.profile.effective;
@@ -277,7 +291,17 @@ pub fn plan(inputs: &PlanInputs<'_>, probes: &mut dyn Probes) -> LaunchPlan {
     } else {
         None
     };
-    let (hardware, refused) = hardware::hardware_request(effective);
+    let (mut hardware, mut refused) = hardware::hardware_request(effective);
+    // A stored governor the system does not list is kept and reported
+    // (architecture, Hardware > CPU): the plan leaves it out and says why,
+    // as the helper would skip it at launch.
+    if let Some(governor) = hardware.cpu_governor.clone()
+        && let Some(listed) = probes.governors()
+        && !listed.contains(&governor)
+    {
+        hardware.cpu_governor = None;
+        refused.push((FieldKey::CpuGovernor, unlisted_governor(&governor, &listed)));
+    }
     let vrr = hardware::vrr_policy(effective);
     let impacts: Vec<ImpactItem> = effective.iter().filter_map(impact).collect();
     let unchanged = unchanged(effective, &impacts, &hardware, vrr, &refused);
@@ -421,6 +445,7 @@ mod tests {
     struct NoProbes {
         proton: Option<Build>,
         driver: Option<String>,
+        governors: Option<Vec<String>>,
         calls: usize,
     }
 
@@ -433,12 +458,16 @@ mod tests {
             self.calls += 1;
             self.driver.clone()
         }
+        fn governors(&mut self) -> Option<Vec<String>> {
+            self.governors.clone()
+        }
     }
 
     fn unresolved() -> NoProbes {
         NoProbes {
             proton: None,
             driver: Some("590.48.01".into()),
+            governors: None,
             calls: 0,
         }
     }
@@ -487,6 +516,39 @@ mod tests {
     }
 
     #[test]
+    fn a_governor_the_system_does_not_list_is_reported_not_applied() {
+        let conservative = state(
+            &[(FieldKey::CpuGovernor, Value::Text("conservative".into()))],
+            &[],
+        );
+        let mut probes = unresolved();
+        let p = build(&conservative, &mut probes);
+        assert_eq!(
+            p.hardware.cpu_governor.as_deref(),
+            Some("conservative"),
+            "an unreadable list changes nothing"
+        );
+        probes.governors = Some(vec!["performance".into(), "powersave".into()]);
+        let p = build(&conservative, &mut probes);
+        assert_eq!(p.hardware.cpu_governor, None);
+        let u = p
+            .unchanged
+            .iter()
+            .find(|u| u.key == FieldKey::CpuGovernor)
+            .expect("reported");
+        assert_eq!(
+            u.why,
+            "not applied: conservative is not a governor this system lists (performance, powersave)"
+        );
+        let listed = state(
+            &[(FieldKey::CpuGovernor, Value::Text("powersave".into()))],
+            &[],
+        );
+        let p = build(&listed, &mut probes);
+        assert_eq!(p.hardware.cpu_governor.as_deref(), Some("powersave"));
+    }
+
+    #[test]
     fn the_heap_gate_runs_only_when_vkd3d_heap_is_on() {
         let mut probes = unresolved();
         let p = build(&state(&[], &[]), &mut probes);
@@ -520,6 +582,7 @@ mod tests {
                 path: dir.path().to_owned(),
             }),
             driver: Some("590.48.01".into()),
+            governors: None,
             calls: 0,
         };
         let on = state(&[(FieldKey::ProtonVkd3dHeap, Value::Bool(true))], &[]);

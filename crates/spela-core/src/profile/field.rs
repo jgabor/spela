@@ -511,7 +511,7 @@ pub static FIELDS: [Field; 25] = [
         section: Section::Proton,
         kind: Kind::Bool,
         label: "VKD3D heap",
-        description: "Enables the VKD3D descriptor heap path (VKD3D_CONFIG=descriptor_heap) when the game starts. Needs Proton-CachyOS 10.0-20260321+ or 11.0+ and NVIDIA driver 580.94.16+.",
+        description: "Enables the VKD3D descriptor heap path (VKD3D_CONFIG=descriptor_heap) when the game starts. Needs Proton-CachyOS 10.0-20260321+ with its PROTON_VKD3D_HEAP gate, or 11.0-20260520+, and NVIDIA driver 580.94.16+.",
         rule: Rule::Any,
         editor: Editor::Toggle,
         unit: None,
@@ -870,6 +870,21 @@ pub static FIELDS: [Field; 25] = [
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn the_vkd3d_heap_text_names_the_builds_the_gate_takes() {
+        let text = FieldKey::ProtonVkd3dHeap.field().description;
+        for needed in [
+            crate::proton::MIN_PROTON_CACHYOS_BUILD,
+            crate::proton::MIN_PROTON_CACHYOS_INTEGRATED_BUILD,
+            crate::proton::MIN_DRIVER_VERSION,
+            crate::proton::LEGACY_HEAP_MARKER,
+        ] {
+            assert!(text.contains(needed), "{needed}: {text}");
+        }
+        assert!(!text.contains("11.0+"), "{text}");
+    }
+
     use super::*;
 
     #[test]

@@ -1378,7 +1378,12 @@ fn begin_edit(state: &mut AppState) -> Vec<AnyCmd> {
         if let Some(own) = &r.own
             && !values.iter().any(|v| v.as_ref() == Some(own))
         {
-            let label = words::stored_value_text(field, own);
+            let mut label = words::stored_value_text(field, own);
+            // Kept, and marked once the governors are read (architecture,
+            // Hardware > CPU): a launch skips it.
+            if field.rule == Rule::SystemList && matches!(state.profile.governors, Some(Ok(_))) {
+                label.push_str(" (not listed by this system)");
+            }
             labels.push(Choice {
                 label,
                 current: true,
@@ -2417,6 +2422,47 @@ mod tests {
             }),
         );
         assert!(library::has_profile(&s, id));
+    }
+
+    #[test]
+    fn a_stored_governor_the_system_does_not_list_is_kept_and_marked() {
+        let mut s = loaded_state();
+        s.focus = Pane::Detail;
+        let Some(Scope::Game(id)) = scope(&s) else {
+            panic!("a game")
+        };
+        let conservative = Value::Text("conservative".into());
+        let layer = s
+            .profile
+            .profiles
+            .as_mut()
+            .unwrap()
+            .games
+            .get_mut(&id)
+            .unwrap();
+        layer
+            .shown
+            .set(FieldKey::CpuGovernor, conservative.clone())
+            .unwrap();
+        layer.stored = layer.shown.clone();
+        s.profile.governors = Some(Ok(vec!["performance".into(), "powersave".into()]));
+        s.profile.field = FieldKey::CpuGovernor;
+        update(&mut s, Action::Edit);
+        let Some(Editor::Pick(e)) = &s.profile.editor else {
+            panic!("the governor picker")
+        };
+        let labels: Vec<&str> = e.picker.choices.iter().map(|c| c.label.as_str()).collect();
+        assert!(
+            labels.contains(&"conservative (not listed by this system)"),
+            "{labels:?}"
+        );
+        assert!(labels.contains(&"powersave"), "{labels:?}");
+        let at = labels
+            .iter()
+            .position(|l| l.starts_with("conservative"))
+            .unwrap();
+        assert!(e.picker.choices[at].current);
+        assert_eq!(e.values[at], Some(conservative));
     }
 
     #[test]

@@ -545,11 +545,14 @@ fn build_plan(
     let profile = profile(l, migration, game.app_id);
     let env = l.env;
     let gpu = &mut l.backends.gpu;
+    let cpu = &mut l.backends.cpu;
     let mut install = || steam(env, config);
     let mut driver = || crate::plan::driver_version(gpu.as_mut());
+    let mut governors = || crate::plan::governors(cpu.as_mut());
     let mut probes = SystemProbes {
         install: &mut install,
         driver: &mut driver,
+        governors: &mut governors,
     };
     crate::plan::build(l.paths, config, game, &profile, &mut probes)
 }

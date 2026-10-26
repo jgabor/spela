@@ -90,11 +90,14 @@ fn dry_run_plan(args: &LaunchArgs, ctx: &mut Context) -> Result<LaunchPlan, CliE
     let demo_library = read::demo_library(ctx);
     let env = &ctx.env;
     let gpu = &mut ctx.backends.gpu;
+    let cpu = &mut ctx.backends.cpu;
     let mut install = || read::steam_install(env, demo_library.as_deref(), &config);
     let mut driver = || crate::plan::driver_version(gpu.as_mut());
+    let mut governors = || crate::plan::governors(cpu.as_mut());
     let mut probes = SystemProbes {
         install: &mut install,
         driver: &mut driver,
+        governors: &mut governors,
     };
     Ok(crate::plan::build(
         &ctx.paths,
