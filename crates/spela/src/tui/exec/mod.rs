@@ -99,6 +99,8 @@ pub struct Workers {
     pub driver: super::metrics::DriverSlot,
     /// The privilege backend, for the hardware jobs.
     pub privilege: monitor::SharedPrivilege,
+    /// Sets the log file's level after `log_level` was saved.
+    pub log: crate::logging::LevelHandle,
 }
 
 impl Exec for Workers {
@@ -117,6 +119,7 @@ impl Exec for Workers {
                     result: Err("Preview launch is not yet implemented in this build".into()),
                 });
             }
+            Cmd::SetLogLevel(level) => self.log.apply(level.name()),
             Cmd::Suspend | Cmd::Quit | Cmd::SetMouse(_) => {}
             Cmd::Library(c) => library::run(self, c),
             Cmd::Profile(c) => profile::run(self, c),

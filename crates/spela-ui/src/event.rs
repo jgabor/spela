@@ -281,6 +281,9 @@ pub enum Cmd {
     /// Turn the terminal's mouse modes on or off, after `ui.mouse`
     /// changed. Off gives the terminal's own text selection back.
     SetMouse(bool),
+    /// Set the log file's level after `log_level` was saved, as Go
+    /// applies it after each save (TUI 10).
+    SetLogLevel(spela_core::config::LogLevel),
     /// Leave the TUI.
     Quit,
     /// Work for the Library list.

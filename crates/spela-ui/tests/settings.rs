@@ -326,3 +326,33 @@ fn the_migration_notice_opens_over_the_first_frame_and_closes() {
     update(&mut s, key("enter"));
     assert!(s.popup.is_none());
 }
+
+#[test]
+fn a_saved_log_level_sets_the_log_file_level_at_once() {
+    let mut s = state_with_games(120, 40, 3);
+    update(&mut s, key("4"));
+    jump(&mut s, "log_level");
+    s.focus = Pane::Detail;
+    let cmds = update(&mut s, key("space"));
+    let token = last_token(&cmds);
+    let level = s.config.log_level;
+    let after = update(
+        &mut s,
+        Event::Msg(Msg::Saved {
+            token,
+            result: Ok(()),
+        }),
+    );
+    assert_eq!(after, vec![Cmd::SetLogLevel(level)]);
+    // A failed save leaves the level alone.
+    let cmds = update(&mut s, key("space"));
+    let token = last_token(&cmds);
+    let after = update(
+        &mut s,
+        Event::Msg(Msg::Saved {
+            token,
+            result: Err("disk full".into()),
+        }),
+    );
+    assert!(!after.iter().any(|c| matches!(c, Cmd::SetLogLevel(_))));
+}

@@ -129,6 +129,8 @@ pub fn run(ctx: &mut Context, _lock: InstanceLock, err: &mut dyn Write) -> Resul
         tracing::warn!("{w}");
     }
     let config = loaded.config;
+    // The config's level, unless a flag or SPELA_LOG chose one.
+    ctx.log.apply(config.log_level.name());
     let broken = broken_profiles(&ctx.migration);
 
     // The demo scans its own fictional library.
@@ -222,6 +224,7 @@ pub fn run(ctx: &mut Context, _lock: InstanceLock, err: &mut dyn Write) -> Resul
         cpu: cpu_reader,
         driver,
         privilege: exec::monitor::SharedPrivilege::new(privilege),
+        log: ctx.log.clone(),
     };
     drop(tx);
 

@@ -252,6 +252,8 @@ pub struct Context {
     pub migration: Report,
     /// Whether this run is `--demo`, which never reads the user's Steam.
     pub demo: bool,
+    /// Changes the log file's level, for the config's `log_level`.
+    pub log: logging::LevelHandle,
 }
 
 /// Every subcommand name and alias clap knows, hidden ones and `help`
@@ -523,7 +525,7 @@ fn setup_and_run(
             None
         };
     let paths = demo.as_ref().map_or(system, |d| d.paths().clone());
-    let _log = logging::init(
+    let log = logging::init(
         log_mode(inv),
         inv.cli.log_level.as_deref(),
         &env,
@@ -554,6 +556,7 @@ fn setup_and_run(
         clock,
         migration,
         demo: inv.cli.demo,
+        log: log.level.clone(),
     };
     let result = run(inv, &mut ctx, out, err);
     if let Err(e) = &result

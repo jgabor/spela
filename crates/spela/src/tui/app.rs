@@ -602,6 +602,7 @@ mod tests {
             cpu: reader,
             driver,
             privilege: monitor::SharedPrivilege::new(Box::new(monitor::NoPrivilege)),
+            log: crate::logging::LevelHandle::default(),
         };
         drop(tx);
         let terminal = Terminal::new(TestBackend::new(120, 40)).unwrap();

@@ -22,9 +22,8 @@
 //! failure puts the stored value back, unless a newer change of the same
 //! key is still on its way, and says "Not saved: <error>".
 //!
-//! Not here: Go applies `log_level` to the running TUI after a save. The
-//! Rust logger has no reload handle yet, so a new level takes effect at the
-//! next start.
+//! A saved `log_level` asks the shell to set the log file's level at once
+//! ([`AnyCmd::SetLogLevel`]), as Go applies it after each save (TUI 10).
 
 use std::collections::BTreeMap;
 
@@ -413,7 +412,11 @@ pub fn saved(state: &mut AppState, token: u64, result: Result<(), String>) -> Ve
                 Level::Ok,
                 format!("Saved: {} {}", option.label, shown(option, &value)),
             );
-            Vec::new()
+            if key == "log_level" {
+                vec![AnyCmd::SetLogLevel(stored.log_level)]
+            } else {
+                Vec::new()
+            }
         }
         Err(e) => {
             state.settings.errors.insert(key, e.clone());

@@ -13,19 +13,19 @@
 //!
 //! The level comes from `--log-level`, then `SPELA_LOG` (full
 //! `tracing_subscriber::EnvFilter` syntax, such as `spela=debug`), then the
-//! default: info for the file and warn for stderr. The config's `log_level`
-//! joins between `SPELA_LOG` and the default when the config loads (Phase
-//! 2). The filter is parsed from the [`Env`] snapshot, never read from the
-//! process environment.
+//! default: info for the file and warn for stderr. The TUI puts the
+//! config's `log_level` between `SPELA_LOG` and the default through
+//! [`LevelHandle`]: at start and after each save in Settings, as Go applies
+//! it after each save (parity-inventory.md, TUI 10). The filter is parsed
+//! from the [`Env`] snapshot, never read from the process environment.
 
 use std::io::Write;
 use std::path::Path;
 
 use spela_core::env::{Env, var};
 use spela_core::paths::create_private_dir;
-use tracing_subscriber::EnvFilter;
-use tracing_subscriber::Layer;
 use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::{EnvFilter, Layer, Registry, reload};
 
 /// The file level when nothing sets one.
 pub const DEFAULT_FILE_LEVEL: &str = "info";
@@ -76,6 +76,54 @@ pub enum LogError {
 #[derive(Debug)]
 pub struct LogGuard {
     _file: Option<tracing_appender::non_blocking::WorkerGuard>,
+    /// Changes the file's level while the process runs.
+    pub level: LevelHandle,
+}
+
+/// Sets the log file's level to the config's `log_level` while the process
+/// runs. It does nothing when `--log-level` or `SPELA_LOG` chose the level,
+/// because they come first, or when there is no file.
+#[derive(Debug, Clone, Default)]
+pub struct LevelHandle {
+    file: Option<reload::Handle<EnvFilter, Registry>>,
+    explicit: bool,
+}
+
+impl LevelHandle {
+    /// A reloadable filter for the file layer, starting at `filter`, and
+    /// its handle. `explicit` is whether a flag or `SPELA_LOG` chose it.
+    pub fn reloadable(
+        filter: EnvFilter,
+        explicit: bool,
+    ) -> (reload::Layer<EnvFilter, Registry>, LevelHandle) {
+        let (layer, handle) = reload::Layer::new(filter);
+        (
+            layer,
+            LevelHandle {
+                file: Some(handle),
+                explicit,
+            },
+        )
+    }
+
+    /// Sets the file's level, such as `debug`, unless a flag or
+    /// `SPELA_LOG` chose it.
+    pub fn apply(&self, level: &str) {
+        let Some(handle) = &self.file else {
+            return;
+        };
+        if self.explicit {
+            return;
+        }
+        match parse_filter(level) {
+            Ok(filter) => {
+                if let Err(e) = handle.reload(filter) {
+                    tracing::warn!("cannot change the log level: {e}");
+                }
+            }
+            Err(e) => tracing::warn!("{e}"),
+        }
+    }
 }
 
 /// The filter spec chosen by the precedence rules, or `None` for the
@@ -118,21 +166,23 @@ pub fn init(
         None => EnvFilter::new(default),
     };
 
-    let (file_layer, guard) = match mode {
-        LogMode::Stderr => (None, None),
+    let (file_layer, guard, level) = match mode {
+        LogMode::Stderr => (None, None, LevelHandle::default()),
         LogMode::File | LogMode::FileAndStderr => match file_writer(log_dir) {
             Ok((writer, guard)) => {
+                let (filter, level) =
+                    LevelHandle::reloadable(filter_for(DEFAULT_FILE_LEVEL, err), spec.is_some());
                 let layer = tracing_subscriber::fmt::layer()
                     .with_ansi(false)
                     .with_target(true)
                     .with_thread_names(true)
                     .with_writer(writer)
-                    .with_filter(filter_for(DEFAULT_FILE_LEVEL, err));
-                (Some(layer), Some(guard))
+                    .with_filter(filter);
+                (Some(layer), Some(guard), level)
             }
             Err(e) => {
                 let _ = writeln!(err, "warning: {e}; logging to a file is off");
-                (None, None)
+                (None, None, LevelHandle::default())
             }
         },
     };
@@ -155,7 +205,10 @@ pub fn init(
     // A second install fails and the first one stays, which is what tests
     // that call this twice want.
     let _ = tracing::subscriber::set_global_default(subscriber);
-    LogGuard { _file: guard }
+    LogGuard {
+        _file: guard,
+        level,
+    }
 }
 
 fn stderr_layer<S>(color: bool, filter: EnvFilter) -> impl Layer<S>
@@ -248,5 +301,44 @@ mod tests {
         assert!(!text.contains('\x1b'), "no ANSI in files: {text:?}");
         let mode = std::fs::metadata(&log_dir).unwrap().permissions().mode();
         assert_eq!(mode & 0o777, 0o700);
+    }
+
+    #[test]
+    fn the_level_handle_changes_the_file_level_unless_a_flag_chose_it() {
+        use std::sync::{Arc, Mutex};
+        let lines = Arc::new(Mutex::new(Vec::<u8>::new()));
+        let sink = lines.clone();
+        let make = move || Sink(sink.clone());
+        let (filter, level) = LevelHandle::reloadable(parse_filter("info").unwrap(), false);
+        let layer = tracing_subscriber::fmt::layer()
+            .with_ansi(false)
+            .with_writer(make)
+            .with_filter(filter);
+        let subscriber = tracing_subscriber::registry().with(layer);
+        tracing::subscriber::with_default(subscriber, || {
+            tracing::debug!("hidden at info");
+            level.apply("debug");
+            tracing::debug!("shown at debug");
+        });
+        let text = String::from_utf8(lines.lock().unwrap().clone()).unwrap();
+        assert!(!text.contains("hidden at info"), "{text}");
+        assert!(text.contains("shown at debug"), "{text}");
+        // A flag or SPELA_LOG wins over the config.
+        let (_, fixed) = LevelHandle::reloadable(parse_filter("trace").unwrap(), true);
+        fixed.apply("error");
+        LevelHandle::default().apply("debug");
+    }
+
+    struct Sink(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+
+    impl Write for Sink {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
     }
 }
