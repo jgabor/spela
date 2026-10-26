@@ -2,8 +2,8 @@
 //!
 //! The sequence is the architecture's ("Launch and privilege", Sequence):
 //!
-//! 1. Refuse to run as root (decision 35). Watch SIGINT, SIGTERM and SIGHUP
-//!    from here on.
+//! 1. Refuse to run as root (decision 35). Watch SIGINT, SIGTERM, SIGHUP
+//!    and SIGQUIT from here on.
 //! 2. Load the config, the game cache and the profiles, migrating Go files
 //!    first. Detect the game, build the plan and print it. Nothing here may
 //!    stop the game: bad data warns and falls back (decision 49).
@@ -11,9 +11,11 @@
 //!    launch holding it means an env-only launch with a warning
 //!    (decision 33).
 //! 4. Apply KDE VRR in the user session and register its restore, even
-//!    when the apply fails.
+//!    when the apply fails. Skipped when a stop signal already came.
 //! 5. Register the hardware restore, then start the root helper with the
-//!    batch. A dismissed prompt or a failed step only warns.
+//!    batch. A dismissed prompt or a failed step only warns. Skipped when
+//!    a stop signal already came, so no prompt shows for a launch that is
+//!    already stopping.
 //! 6. A stop signal before this point: run the restores and exit 128 plus
 //!    the signal, without starting the game.
 //! 7. Print the launch message and start the game with inherited streams.
@@ -30,7 +32,7 @@ use std::io::{self, Write};
 use std::os::unix::process::ExitStatusExt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use spela_core::backend::{Backends, PrivilegedSession, StepOutcome};
@@ -117,6 +119,28 @@ impl StopSlot {
     fn finished(&self) {
         self.lock().child = None;
     }
+
+    /// Waits for the game to exit. The exit is first seen without reaping
+    /// the game (`WNOWAIT`), then the slot forgets its PID, and only then
+    /// is the game reaped. So a signal that comes as the game exits never
+    /// reaches another process that got the freed PID.
+    fn wait(&self, child: &mut Child) -> io::Result<ExitStatus> {
+        let pid = child.id() as libc::id_t;
+        loop {
+            // SAFETY: an all-zero siginfo_t is a valid value for waitid to
+            // fill in.
+            let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+            // SAFETY: `info` is a valid out pointer, and WNOWAIT leaves
+            // the child to be reaped below.
+            let waited =
+                unsafe { libc::waitid(libc::P_PID, pid, &mut info, libc::WEXITED | libc::WNOWAIT) };
+            if waited == 0 || io::Error::last_os_error().kind() != io::ErrorKind::Interrupted {
+                break;
+            }
+        }
+        self.finished();
+        child.wait()
+    }
 }
 
 enum Started {
@@ -124,7 +148,9 @@ enum Started {
     Failed(io::Error),
 }
 
-/// Watches SIGINT, SIGTERM and SIGHUP and hands each to a [`StopSlot`].
+/// Watches SIGINT, SIGTERM, SIGHUP and SIGQUIT and hands each to a
+/// [`StopSlot`]. SIGQUIT (Ctrl-backslash in a terminal) is a stop like the
+/// others, so it no longer ends spela without its restores.
 pub struct SignalForwarder {
     handle: signal_hook::iterator::Handle,
     thread: Option<std::thread::JoinHandle<()>>,
@@ -133,8 +159,12 @@ pub struct SignalForwarder {
 impl SignalForwarder {
     /// Starts watching. From now on these signals no longer end spela.
     pub fn spawn(slot: Arc<StopSlot>) -> io::Result<SignalForwarder> {
-        let mut signals =
-            signal_hook::iterator::Signals::new([libc::SIGINT, libc::SIGTERM, libc::SIGHUP])?;
+        let mut signals = signal_hook::iterator::Signals::new([
+            libc::SIGINT,
+            libc::SIGTERM,
+            libc::SIGHUP,
+            libc::SIGQUIT,
+        ])?;
         let handle = signals.handle();
         let thread = std::thread::Builder::new()
             .name("spela-signals".into())
@@ -338,9 +368,15 @@ fn body(
         }
     }
 
+    // A stop signal that already came means the game never starts, so
+    // making changes, or showing a prompt, would be wasted.
     if let Some(p) = &plan {
-        apply_vrr(l, p, cleanup);
-        apply_hardware(l, p, cleanup);
+        if l.stop.pending().is_none() {
+            apply_vrr(l, p, cleanup);
+        }
+        if l.stop.pending().is_none() {
+            apply_hardware(l, p, cleanup);
+        }
     }
 
     let mut command = game_command(invocation, plan.as_ref());
@@ -367,9 +403,9 @@ fn body(
             ));
         }
     };
-    let status = child.wait();
-    l.stop.finished();
-    let status = status
+    let status = l
+        .stop
+        .wait(&mut child)
         .map_err(|e| CliError::new(exit::FAILURE, format!("cannot wait for the game: {e}")))?;
     let code = match (status.code(), status.signal()) {
         (Some(code), _) => u8::try_from(code).unwrap_or(exit::FAILURE),
@@ -469,7 +505,12 @@ fn profile(l: &mut Launch<'_>, migration: &Option<Report>, app_id: u64) -> Profi
     let game = match game {
         Ok(game) => game,
         Err(e) => {
-            warn(l.err, &format!("{e}; launching with All games settings"));
+            let fallback = if all_games.is_some() {
+                "launching with All games settings"
+            } else {
+                "launching with no profile"
+            };
+            warn(l.err, &format!("{e}; {fallback}"));
             None
         }
     };
@@ -851,9 +892,17 @@ mod tests {
         let ran = run(&w, &[], &stop);
         assert_eq!(ran.code.unwrap(), 143, "the first signal counts");
         assert!(game_env(&w).is_empty(), "the game never started");
-        assert_eq!(w.privilege.log().restores, 1);
-        assert_eq!(w.display.sets().len(), 2);
+        assert_eq!(
+            (w.privilege.log().prompts, w.privilege.log().restores),
+            (0, 0),
+            "no prompt for a launch that is already stopping"
+        );
+        assert!(w.display.sets().is_empty(), "VRR was never changed");
         assert!(!ran.out.contains("Launching"), "{}", ran.out);
+        assert!(
+            crate::locks::launch(&w.paths).is_ok(),
+            "the lock is released"
+        );
     }
 
     #[test]
@@ -934,6 +983,21 @@ mod tests {
             "{}",
             ran.out
         );
+
+        // A broken game profile and no All games file: the warning says
+        // what the launch really uses.
+        let w = world();
+        std::fs::remove_file(w.paths.all_games_profile()).unwrap();
+        std::fs::write(w.paths.game_profile(APP_ID), "[gpu\nbroken").unwrap();
+        let ran = run(&w, &[], &StopSlot::new());
+        assert_eq!(ran.code.unwrap(), 0, "{}", ran.err);
+        assert!(
+            ran.err.contains("; launching with no profile"),
+            "{}",
+            ran.err
+        );
+        assert!(!ran.err.contains("All games settings"), "{}", ran.err);
+        assert!(ran.out.contains("(no profile)"), "{}", ran.out);
     }
 
     #[test]
@@ -1005,8 +1069,7 @@ mod tests {
             .unwrap();
         let mut child = child;
         slot.signal(libc::SIGHUP);
-        let status = child.wait().unwrap();
-        slot.finished();
+        let status = slot.wait(&mut child).unwrap();
         assert_eq!(status.signal(), Some(libc::SIGHUP));
         assert_eq!(slot.pending(), None, "a forwarded signal is not pending");
         slot.signal(libc::SIGTERM);
