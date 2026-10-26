@@ -246,13 +246,26 @@ fn check(
 }
 
 /// The highest valid version of a family in the manifest file, `None` when
-/// it lists none.
+/// it lists none. One leading `v` is dropped first, as Go's updater and the
+/// shared compare do, so a `v310.5.3` entry still counts as 310.5.3.
 pub fn current_version(path: &Path, dll_type: DllType) -> Result<Option<String>, String> {
     let text = std::fs::read_to_string(path)
         .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
     let manifest = Manifest::from_json(&text)
         .map_err(|e| format!("{} does not parse: {e}", path.display()))?;
-    Ok(manifest.latest(dll_type).map(|e| e.version.clone()))
+    Ok(manifest
+        .entries(dll_type)
+        .iter()
+        .map(|e| e.version.strip_prefix('v').unwrap_or(&e.version))
+        .filter(|v| version::is_valid(v))
+        .reduce(|best, v| {
+            if version::compare(v, best).is_gt() {
+                v
+            } else {
+                best
+            }
+        })
+        .map(str::to_owned))
 }
 
 fn add_command(
@@ -416,6 +429,19 @@ mod tests {
         assert_eq!(
             (r.code, r.err.as_str()),
             (1, "Failed to fetch latest version: offline\n")
+        );
+    }
+
+    #[test]
+    fn a_v_prefixed_manifest_version_counts_as_its_number() {
+        // Go's getCurrentVersion trims one leading `v`.
+        let (_dir, path) = manifest(r#"{"dlls":{"dlss":[{"version":"v310.5.3"}]}}"#);
+        let r = run_with(&["-manifest", &path], &listing("310.5.3"));
+        assert_eq!(
+            (r.code, r.out.as_str()),
+            (2, "DLSS is up to date: 310.5.3\n"),
+            "{}",
+            r.err
         );
     }
 

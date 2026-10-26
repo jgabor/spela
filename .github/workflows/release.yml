@@ -11,8 +11,11 @@ on:
     tags:
       - 'v*'
 
+# Read only by default: only the build job, which publishes the release,
+# gets write, so validate-tag, which handles the untrusted tag text, never
+# holds a write token.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   validate-tag:
@@ -39,6 +42,8 @@ jobs:
   build:
     needs: [validate-tag, gate]
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     env:
       RELEASE_TAG: ${{ needs.validate-tag.outputs.release_tag }}
     steps:

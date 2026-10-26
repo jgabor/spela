@@ -146,7 +146,14 @@ fn the_release_publishes_one_binary_with_checksums_and_notes() {
     // tests/contracts/release_contract_test.go, TestReleaseWorkflowArtifactContract.
     let w = workflow("release.yml");
     assert_eq!(w["on"], serde_json::json!({"push": {"tags": ["v*"]}}));
-    assert_eq!(w["permissions"]["contents"], "write");
+    // Only the job that publishes gets write; validate-tag reads the
+    // untrusted tag with a read-only token.
+    assert_eq!(w["permissions"], serde_json::json!({"contents": "read"}));
+    assert_eq!(
+        w["jobs"]["build"]["permissions"],
+        serde_json::json!({"contents": "write"})
+    );
+    assert!(w["jobs"]["validate-tag"].get("permissions").is_none());
     let jobs: Vec<&String> = w["jobs"].as_object().unwrap().keys().collect();
     assert_eq!(jobs, ["build", "gate", "validate-tag"]);
 
@@ -414,12 +421,18 @@ fn the_cargo_version_must_be_the_tag_and_newer_than_v0_6_2() {
 #[test]
 fn release_notes_are_the_exact_changelog_section() {
     // tests/contracts/release_contract_test.go, TestReleaseNotesAreExactChangelogSection.
+    // The script reads CHANGELOG.md in its working folder. It runs on a
+    // copy whose 0.7.0 heading is dated, as it is at release time, so the
+    // test holds before and after the release step dates it.
     let home = tempfile::tempdir().unwrap();
+    let work = tempfile::tempdir().unwrap();
+    let script = root().join("scripts/release-notes.sh");
+    let changelog =
+        read("CHANGELOG.md").replace("## [0.7.0] - Unreleased", "## [0.7.0] - 2026-11-01");
+    std::fs::write(work.path().join("CHANGELOG.md"), &changelog).unwrap();
     let notes = |tag: &str| {
         let mut command = clean_command("sh", home.path(), None);
-        command
-            .args(["scripts/release-notes.sh", tag])
-            .current_dir(root());
+        command.arg(&script).arg(tag).current_dir(work.path());
         command.output().unwrap()
     };
 
@@ -471,6 +484,22 @@ fn release_notes_are_the_exact_changelog_section() {
         assert!(
             !notes(tag).status.success(),
             "malformed tag {tag:?} gave notes"
+        );
+    }
+
+    // A section that was never dated is refused (docs/releasing.md).
+    for heading in ["## [1.0.0] - Unreleased", "## [1.0.0]", "## [1.0.0] - soon"] {
+        std::fs::write(
+            work.path().join("CHANGELOG.md"),
+            format!("# Changelog\n\n{heading}\n\nNotes.\n"),
+        )
+        .unwrap();
+        let out = notes("v1.0.0");
+        assert!(!out.status.success(), "{heading:?} gave notes");
+        assert!(
+            String::from_utf8_lossy(&out.stderr).contains("YYYY-MM-DD"),
+            "{heading:?}: {}",
+            String::from_utf8_lossy(&out.stderr)
         );
     }
 }
