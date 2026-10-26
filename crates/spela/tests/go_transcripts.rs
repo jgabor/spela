@@ -103,6 +103,73 @@ fn drop_retired_rows(text: &str) -> String {
     out.concat()
 }
 
+/// The differences every `launch --dry-run` has, each with its reason:
+///
+/// - sources are the origin names: Go's `override` is `this_game` and
+///   `default` is `all_games`, because a default-sourced item shows only
+///   when All games sets a non-zero value (architecture, "One plan for dry
+///   run and launch");
+/// - the `overlay:` impacts group and the Overlay block are gone
+///   (decision 10);
+/// - `gpu.clock_offset` and `gpu.memory_offset` were a clock lock and a
+///   clock limit in Go, so the migration does not carry them over
+///   (decision 31): their impacts and Hardware lines are gone;
+/// - `__GL_THREADED_OPTIMIZATION` is exported only when a profile sets the
+///   field, which Go's impacts show (decision 47), and an Environment
+///   block left empty says so, as Go's did;
+/// - the test binary is never at `/usr/bin/spela`, so the Hardware block
+///   says pkexec asks with its generic action (architecture, "One plan for
+///   dry run and launch").
+fn launch_rules(text: &str) -> String {
+    if text.is_empty() {
+        return String::new();
+    }
+    let threaded_set = text.contains("    gpu.threaded_optimization=");
+    let mut out: Vec<String> = Vec::new();
+    let mut in_overlay_group = false;
+    for line in text.lines() {
+        if line == "  overlay: none" || line == "  overlay:" {
+            in_overlay_group = line == "  overlay:";
+            continue;
+        }
+        if in_overlay_group && line.starts_with("    overlay.") {
+            continue;
+        }
+        in_overlay_group = false;
+        if line.starts_with("    gpu.clock_offset=")
+            || line.starts_with("    gpu.memory_offset=")
+            || line.starts_with("  GPU clock offset:")
+            || line.starts_with("  GPU memory offset:")
+            || (line == "  __GL_THREADED_OPTIMIZATION=0" && !threaded_set)
+        {
+            continue;
+        }
+        let line = line
+            .replace(" source=override ", " source=this_game ")
+            .replace(" source=default ", " source=all_games ");
+        if line == "  privileged changes apply via pkexec and restore on cleanup" {
+            out.push(line);
+            out.push(
+                "  spela is not at /usr/bin/spela, so pkexec asks with its generic action".into(),
+            );
+            continue;
+        }
+        let environment_left_empty =
+            out.len() >= 2 && out[out.len() - 2] == "Environment" && out[out.len() - 1].is_empty();
+        if line == "DLL" && environment_left_empty {
+            out.insert(
+                out.len() - 1,
+                "  no launch environment variables planned".into(),
+            );
+        }
+        out.push(line);
+    }
+    while out.last().is_some_and(|l| l.is_empty()) {
+        out.pop();
+    }
+    out.join("\n") + "\n"
+}
+
 // The differences of single commands.
 
 /// How spela's output differs from Go's for one command.
@@ -132,6 +199,11 @@ enum Change {
     SortedBlocks,
     /// A clap usage error: exit 2 and clap's own text.
     ClapUsage,
+    /// These lines, joined by newlines, follow Go's line `after`.
+    Insert {
+        after: &'static str,
+        lines: &'static str,
+    },
 }
 
 /// One allowed difference: which commands, what changes, and why.
@@ -142,6 +214,84 @@ struct Allowed {
 }
 
 const ALLOWED: &[Allowed] = &[
+    Allowed {
+        cases: &[
+            "sandbox/main/launch-dry-run",
+            "sandbox/main/launch-dry-run-by-name",
+            "sandbox/errors/launch-dry-run-fine",
+        ],
+        change: Change::Line {
+            go: "Profile: 18 profile-specific override(s) planned",
+            spela: "Profile: 14 profile-specific override(s) planned",
+        },
+        why: "the count is the game's own keys (architecture, One plan for dry run and launch); the two overlay marks are dropped (decision 10) and the two offsets are not carried over (decision 31)",
+    },
+    Allowed {
+        cases: &[
+            "sandbox/main/launch-dry-run",
+            "sandbox/main/launch-dry-run-by-name",
+            "sandbox/errors/launch-dry-run-fine",
+        ],
+        change: Change::Insert {
+            after: "  PROTON_ENABLE_WAYLAND=1",
+            lines: "  PROTON_VKD3D_HEAP=1",
+        },
+        why: "the dry run shows every variable the launch sets; Go's Prepare added PROTON_VKD3D_HEAP for this legacy-gated build and its dry run left it out (bug: parity-inventory CLI 6.9)",
+    },
+    Allowed {
+        cases: &[
+            "sandbox/main/launch-dry-run",
+            "sandbox/main/launch-dry-run-by-name",
+            "sandbox/errors/launch-dry-run-fine",
+        ],
+        change: Change::Insert {
+            after: "  CPU SMT:  false",
+            lines: "  KDE VRR:  automatic in the desktop session, restored on cleanup",
+        },
+        why: "the Hardware block lists VRR (bug: parity-inventory CLI 6.9, TODO bdnaynbvan)",
+    },
+    Allowed {
+        cases: &["sandbox/main/launch-dry-run-denied"],
+        change: Change::Insert {
+            after: "  __GL_SHADER_DISK_CACHE_PATH=/var/cache/fixture-shaders/frostline",
+            lines: "\nPreflight\n  ⚠ descriptor_heap requires Proton-CachyOS 10.0-20260321+ (detected: GE-Proton11-7-x86_64)",
+        },
+        why: "the preflight notices go into the plan, so the dry run shows them (architecture, Preflight); the resolver finds GE-Proton11-7 through its compatibilitytool.vdf, as in proton show",
+    },
+    Allowed {
+        cases: &["sandbox/main/launch-dry-run-unknown-version"],
+        change: Change::Insert {
+            after: "  __GL_SHADER_DISK_CACHE_PATH=/fixture-root/cache/spela/nvidia",
+            lines: "\nPreflight\n  ⚠ descriptor_heap requires Proton-CachyOS 10.0-20260321+ (detected: GE-Proton10-34)",
+        },
+        why: "the preflight notices go into the plan, so the dry run shows them (architecture, Preflight)",
+    },
+    Allowed {
+        cases: &["e2e/library/launch-dry-run"],
+        change: Change::Line {
+            go: "    dlss.sr_preset=quality source=this_game restore=ephemeral_launch_environment",
+            spela: "    dlss.sr_preset=default source=this_game restore=ephemeral_launch_environment",
+        },
+        why: "as in profile show: the unknown preset is stored as default, which Go exported for it",
+    },
+    Allowed {
+        cases: &[
+            "sandbox/main/launch-dry-run-with-command",
+            "sandbox/main/launch-dry-run-dash-argument",
+        ],
+        change: Change::ClapUsage,
+        why: "architecture, Commands: launch takes one game, by name or --game-id, and the dry run only; the extra-argument form that executed the game query is removed (bug: parity-inventory CLI 3.4)",
+    },
+    Allowed {
+        cases: &["sandbox/main/launch-dry-run-missing"],
+        change: Change::Error("error: game not found: missing"),
+        why: "architecture, Commands: `game not found: <q>` replaces launch's bare `game not found` (parity-inventory CLI 4)",
+    },
+    Allowed {
+        cases: &["sandbox/empty/launch-dry-run"],
+        change: Change::Error("error: game not found: 9100010"),
+        why: "architecture, Commands: `game not found: <q>` replaces launch's bare `game not found` (parity-inventory CLI 4)",
+    },
     Allowed {
         cases: &["sandbox/main/profile-show"],
         change: Change::Line {
@@ -246,6 +396,7 @@ const ALLOWED: &[Allowed] = &[
         cases: &[
             "sandbox/errors/profile-show-broken-yaml",
             "sandbox/errors/proton-show-broken-yaml",
+            "sandbox/errors/launch-dry-run-broken-yaml",
         ],
         change: Change::Error(
             "error: cannot migrate Go spela's profile /fixture-root/config/spela/profiles/9100030.yaml: line 2 column 7: expected mapping start",
@@ -256,6 +407,7 @@ const ALLOWED: &[Allowed] = &[
         cases: &[
             "sandbox/errors/profile-show-invalid-vrr",
             "sandbox/errors/dlss-show-invalid-vrr",
+            "sandbox/errors/launch-dry-run-invalid-vrr",
         ],
         change: Change::Error(
             "error: cannot migrate Go spela's profile /fixture-root/config/spela/profiles/9100060.yaml: gpu.vrr: unsupported value \"sometimes\" (valid: , unset, automatic, always, never)",
@@ -269,6 +421,8 @@ const ALLOWED: &[Allowed] = &[
             "sandbox/errors/profile-show-invalid-vrr",
             "sandbox/errors/dlss-show-invalid-vrr",
             "sandbox/errors/profile-show-json-broken-yaml",
+            "sandbox/errors/launch-dry-run-broken-yaml",
+            "sandbox/errors/launch-dry-run-invalid-vrr",
         ],
         change: Change::Exit(3),
         why: "architecture, Output, errors and exit codes: a profile file that is invalid exits 3",
@@ -305,10 +459,6 @@ fn skipped(name: &str) -> Option<&'static str> {
         (
             "overlay-",
             "decisions 10 and 45: the overlay command is removed",
-        ),
-        (
-            "launch-",
-            "launch --dry-run is not one of the read commands built here",
         ),
     ];
     reasons
@@ -491,6 +641,10 @@ fn compare(case: &Case, out: &Output) -> Vec<String> {
     }
 
     let mut expected = drop_retired_rows(&case.stdout);
+    let is_launch = case.args.iter().any(|a| a == "launch");
+    if is_launch {
+        expected = launch_rules(&expected);
+    }
     for change in &changes {
         if let Change::Line { go, spela } = change {
             let go = format!("{go}\n");
@@ -501,6 +655,18 @@ fn compare(case: &Case, out: &Output) -> Vec<String> {
                 ));
             }
             expected = expected.replace(&go, &format!("{spela}\n"));
+        }
+    }
+    for change in &changes {
+        if let Change::Insert { after, lines } = change {
+            let after = format!("{after}\n");
+            match expected.find(&after) {
+                Some(at) => expected.insert_str(at + after.len(), &format!("{lines}\n")),
+                None => problems.push(format!(
+                    "{}: the line {after:?} to insert after is not in Go's output",
+                    case.id
+                )),
+            }
         }
     }
     if has(&|c| matches!(c, Change::SortedBlocks)) {

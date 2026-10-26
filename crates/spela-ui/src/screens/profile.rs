@@ -971,7 +971,7 @@ fn change(
 fn summary(state: &AppState, scope: Scope, key: FieldKey, value: Option<&Value>) -> String {
     let field = key.field();
     let mut text = match value {
-        Some(v) => format!("{} {}", field.label, words::display_value(field, v)),
+        Some(v) => format!("{} {}", field.label, words::stored_value_text(field, v)),
         None if all_games_scope(scope) => format!("{} uses the system default", field.label),
         None => format!("{} follows {}", field.label, words::ALL_GAMES),
     };
@@ -1147,29 +1147,48 @@ fn preview(state: &mut AppState) -> Vec<AnyCmd> {
     };
     let (app_id, name) = (game.app_id, game.name.clone());
     let request = state.request();
+    // A profile that did not load or migrate answers at once with the
+    // error the dry run gives, which names the file: All games first, as
+    // `spela launch --dry-run` checks it first.
+    let failed = broken(state, Scope::AllGames)
+        .or_else(|| broken(state, Scope::Game(app_id)))
+        .map(str::to_owned);
+    let ask = failed.is_none();
     state.open(Popup::Preview(preview::State {
         request,
         name,
-        summary: None,
+        summary: failed.map(Err),
         scroll: 0,
     }));
-    vec![AnyCmd::Preview { request, app_id }]
+    if ask {
+        vec![AnyCmd::Preview { request, app_id }]
+    } else {
+        Vec::new()
+    }
 }
 
 // Editors.
 
 /// The choices of a field that edits with a picker, with the value each
 /// saves; `None` for a field that edits as text.
-fn choices(state: &AppState, field: &Field) -> Option<Vec<(String, Value)>> {
-    let word = |v: &Value| words::display_value(field, v);
+fn choices(state: &AppState, field: &Field, scope: Scope) -> Option<Vec<(String, Value)>> {
+    // SMT's stored none reads unchanged (decision 65).
+    let word = |v: &Value| words::stored_value_text(field, v);
     let out: Vec<Value> = match (field.kind, field.rule) {
         (Kind::Bool, _) => vec![Value::Bool(true), Value::Bool(false)],
-        // SMT's stored none ("unchanged", decision 65) is offered only
-        // where a scope already stores it, as a stored value below.
-        (Kind::OptionalBool, _) => vec![
-            Value::OptionalBool(Some(true)),
-            Value::OptionalBool(Some(false)),
-        ],
+        // A game may leave SMT unchanged even when All games sets it
+        // (decision 65). On All games that is what following does, so it
+        // is offered there only where it is already stored, below.
+        (Kind::OptionalBool, _) => {
+            let mut v = vec![
+                Value::OptionalBool(Some(true)),
+                Value::OptionalBool(Some(false)),
+            ];
+            if !all_games_scope(scope) {
+                v.push(Value::OptionalBool(None));
+            }
+            v
+        }
         (Kind::Int, Rule::OneOf(list)) => list
             .iter()
             .filter_map(|s| s.parse().ok())
@@ -1210,7 +1229,7 @@ fn begin_edit(state: &mut AppState) -> Vec<AnyCmd> {
     library::stop_finding(state);
     let before = words::value_text(field, &r);
     let mut cmds = Vec::new();
-    if let Some(list) = choices(state, field) {
+    if let Some(list) = choices(state, field, scope) {
         let follow = format!(
             "{} ({})",
             words::reset_action(all_games_scope(scope)),
@@ -1233,10 +1252,7 @@ fn begin_edit(state: &mut AppState) -> Vec<AnyCmd> {
         if let Some(own) = &r.own
             && !values.iter().any(|v| v.as_ref() == Some(own))
         {
-            let label = match own {
-                Value::OptionalBool(None) => words::UNCHANGED.to_owned(),
-                other => words::display_value(field, other),
-            };
+            let label = words::stored_value_text(field, own);
             labels.push(Choice {
                 label,
                 current: true,
@@ -2110,7 +2126,7 @@ mod tests {
             }
         };
         let smt: Vec<String> = labels(&mut s, FieldKey::CpuSmt);
-        assert_eq!(smt, ["Follow All games (none)", "On", "Off"]);
+        assert_eq!(smt, ["Follow All games (none)", "On", "Off", "unchanged"]);
         let vrr: Vec<String> = labels(&mut s, FieldKey::GpuVrr);
         assert!(!vrr.contains(&"none".to_owned()), "{vrr:?}");
         let mf: Vec<String> = labels(&mut s, FieldKey::DlssMultiFrame);
@@ -2460,5 +2476,12 @@ mod tests {
             text.contains("Unavailable: profile 9100010.yaml: bad"),
             "{text}"
         );
+        // Preview launch says the same and asks the shell for nothing.
+        let cmds = update(&mut s, Action::Preview);
+        assert!(cmds.is_empty(), "{cmds:?}");
+        let Some(Popup::Preview(p)) = &s.popup else {
+            panic!("the preview popup")
+        };
+        assert_eq!(p.summary, Some(Err("profile 9100010.yaml: bad".to_owned())));
     }
 }

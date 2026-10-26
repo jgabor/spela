@@ -282,6 +282,9 @@ pub fn parse(args: &[OsString], env: &Env, colors: Colors) -> Parsed {
     if let Route::Wrapper(w) = route {
         return Parsed::Wrapper(w);
     }
+    if let Some(exit) = demo_launch(args, &known, path_var, colors) {
+        return exit;
+    }
     if let Some(inv) = raw_command(args) {
         return Parsed::Run(Box::new(inv));
     }
@@ -302,6 +305,50 @@ pub fn parse(args: &[OsString], env: &Env, colors: Colors) -> Parsed {
         })),
         Err(e) => clap_exit(&e, colors, json),
     }
+}
+
+/// `--demo` never runs a game (architecture, "Backends and fakes"): global
+/// flags followed by what would be a wrapped game is refused with exit 2,
+/// instead of clap's unknown-command error.
+fn demo_launch(
+    args: &[OsString],
+    known: &[String],
+    path_var: Option<&str>,
+    colors: Colors,
+) -> Option<Parsed> {
+    let hoisted = hoist_globals(args);
+    let mut rest = hoisted.as_slice();
+    let mut demo = false;
+    while let Some(first) = rest.first().and_then(|a| a.to_str()) {
+        match first {
+            "--demo" => demo = true,
+            "--json" => {}
+            "--log-level" => rest = rest.get(1..).unwrap_or_default(),
+            a if a.starts_with("--log-level=") => {}
+            _ => break,
+        }
+        rest = rest.get(1..).unwrap_or_default();
+    }
+    if !demo || rest.is_empty() {
+        return None;
+    }
+    let route = router::route(
+        rest,
+        |name| known.iter().any(|k| k == name),
+        |token| router::is_launchable(token, path_var),
+    );
+    if !matches!(route, Route::Wrapper(_)) {
+        return None;
+    }
+    let mut text = Vec::new();
+    let e = CliError::new(exit::USAGE, "--demo never runs a game")
+        .with_hint("run the game through Steam with `spela %command%`, without --demo");
+    let _ = output::write_error(&mut text, &e, colors.err);
+    Some(Parsed::Exit {
+        code: exit::USAGE,
+        text: String::from_utf8_lossy(&text).into_owned(),
+        to_stdout: false,
+    })
 }
 
 /// The hidden commands whose arguments clap never sees: `apply-profile`,
@@ -464,32 +511,10 @@ pub fn process(
             }
         }
         Parsed::Wrapper(wrapper) => {
-            let paths = match paths() {
-                Ok(p) => p,
-                Err(e) => {
-                    return report(
-                        Err(CliError::new(exit::FAILURE, e.to_string())),
-                        false,
-                        out,
-                        err,
-                        colors,
-                    );
-                }
-            };
-            let _log = logging::init(
-                LogMode::FileAndStderr,
-                None,
-                &env,
-                &paths.log_dir(),
-                colors.err,
-                err,
-            );
-            tracing::info!(
-                version = spela_core::VERSION,
-                command = ?wrapper.command,
-                "spela wrapping a game"
-            );
-            report(run_wrapper(&wrapper), false, out, err, colors)
+            match crate::wrapper::main(&wrapper, env, paths, colors.err, out, err) {
+                Ok(code) => code,
+                Err(e) => report(Err(e), false, out, err, colors),
+            }
         }
         Parsed::Run(inv) => {
             // The root helper runs as root with root's environment: no
@@ -674,16 +699,6 @@ fn write_help(out: &mut dyn Write, path: &[String], color: bool) -> Result<(), C
     };
     out.write_all(text.as_bytes())
         .map_err(CliError::from_stdout)
-}
-
-/// Wrapper mode lands in Phase 6. The message differs from a subcommand's,
-/// so tests can tell which path ran.
-fn run_wrapper(_wrapper: &WrapperInvocation) -> Result<(), CliError> {
-    Err(CliError::new(
-        exit::FAILURE,
-        "running a game through spela is not yet implemented in this build",
-    )
-    .with_kind("not_implemented"))
 }
 
 #[cfg(test)]

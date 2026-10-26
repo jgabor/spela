@@ -40,7 +40,7 @@ impl fmt::Display for VrrPolicy {
     }
 }
 
-/// One display output.
+/// One display output, as `kscreen-doctor -o` describes it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Output {
     /// KDE's stable id for the output.
@@ -49,8 +49,26 @@ pub struct Output {
     pub name: String,
     /// Whether the output is on.
     pub enabled: bool,
-    /// The current policy, when the output supports VRR.
-    pub vrr_policy: Option<VrrPolicy>,
+    /// Whether a display is plugged in.
+    pub connected: bool,
+    /// KDE's priority. 1 is the primary display.
+    pub priority: u32,
+    /// The VRR policy as KDE printed it, lower case: a policy word,
+    /// `incapable`, or whatever else KDE printed.
+    pub vrr: String,
+}
+
+impl Output {
+    /// The current policy, when the output supports VRR and its policy is
+    /// one spela knows.
+    pub fn vrr_policy(&self) -> Option<VrrPolicy> {
+        match self.vrr.as_str() {
+            "never" => Some(VrrPolicy::Never),
+            "always" => Some(VrrPolicy::Always),
+            "automatic" => Some(VrrPolicy::Automatic),
+            _ => None,
+        }
+    }
 }
 
 /// Why a display call failed.

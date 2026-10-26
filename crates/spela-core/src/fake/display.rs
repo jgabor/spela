@@ -41,20 +41,25 @@ impl FakeDisplay {
         }
     }
 
-    /// Two outputs: a VRR monitor on automatic and a TV without VRR.
+    /// Two outputs: the primary, a VRR monitor on automatic, and a TV
+    /// without VRR that is turned off.
     pub fn demo() -> Self {
         FakeDisplay::new(vec![
             Output {
                 uuid: "6a1c4e1e-0000-4000-8000-000000000001".into(),
                 name: "DP-1".into(),
                 enabled: true,
-                vrr_policy: Some(VrrPolicy::Automatic),
+                connected: true,
+                priority: 1,
+                vrr: "automatic".into(),
             },
             Output {
                 uuid: "6a1c4e1e-0000-4000-8000-000000000002".into(),
                 name: "HDMI-A-1".into(),
                 enabled: false,
-                vrr_policy: None,
+                connected: true,
+                priority: 2,
+                vrr: "incapable".into(),
             },
         ])
     }
@@ -62,6 +67,12 @@ impl FakeDisplay {
     /// Turns a fault on, or off with `None`.
     pub fn set_fault(&self, fault: Option<DisplayFault>) {
         self.lock().fault = fault;
+    }
+
+    /// Replaces the outputs, as a display that is plugged in, unplugged or
+    /// made primary while a game runs.
+    pub fn set_outputs(&self, outputs: Vec<Output>) {
+        self.lock().outputs = outputs;
     }
 
     /// Every successful `set_vrr` call, in order.
@@ -99,13 +110,13 @@ impl Display for FakeDisplay {
         let Some(output) = s.outputs.iter_mut().find(|o| o.uuid == uuid) else {
             return Err(DisplayError::Failed(format!("no output {uuid}")));
         };
-        if output.vrr_policy.is_none() {
+        if output.vrr_policy().is_none() {
             return Err(DisplayError::Failed(format!(
                 "{} does not support VRR",
                 output.name
             )));
         }
-        output.vrr_policy = Some(policy);
+        output.vrr = policy.as_str().to_owned();
         s.sets.push((uuid.to_owned(), policy));
         Ok(())
     }
@@ -121,7 +132,10 @@ mod tests {
         let watcher = d.clone();
         let uuid = d.outputs().unwrap()[0].uuid.clone();
         d.set_vrr(&uuid, VrrPolicy::Always).unwrap();
-        assert_eq!(d.outputs().unwrap()[0].vrr_policy, Some(VrrPolicy::Always));
+        assert_eq!(
+            d.outputs().unwrap()[0].vrr_policy(),
+            Some(VrrPolicy::Always)
+        );
         assert_eq!(watcher.sets(), [(uuid, VrrPolicy::Always)]);
     }
 

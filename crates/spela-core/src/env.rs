@@ -28,6 +28,11 @@ pub mod var {
     /// Steam game.
     pub const STEAM_GAME_ID: &str = "SteamGameId";
 
+    /// The session type, `wayland` or `x11`. KDE VRR needs Wayland.
+    pub const XDG_SESSION_TYPE: &str = "XDG_SESSION_TYPE";
+    /// The desktops, separated by `:`. KDE VRR needs `KDE` among them.
+    pub const XDG_CURRENT_DESKTOP: &str = "XDG_CURRENT_DESKTOP";
+
     /// The terminal type, for the TUI's capability probe and its quirks.
     pub const TERM: &str = "TERM";
     /// The terminal program, such as `kitty` or `vscode`.
@@ -67,6 +72,8 @@ pub mod var {
         HOME,
         STEAM_APP_ID,
         STEAM_GAME_ID,
+        XDG_SESSION_TYPE,
+        XDG_CURRENT_DESKTOP,
         TERM,
         TERM_PROGRAM,
         TERM_PROGRAM_VERSION,
@@ -151,6 +158,15 @@ impl Env {
         self.vars.insert(name.to_owned(), value.to_owned());
         self
     }
+}
+
+/// The path of the running executable, symlinks resolved, or `None` when
+/// the kernel cannot say. The launch summary uses it to tell whether pkexec
+/// will find spela where the polkit policy expects it.
+pub fn current_exe() -> Option<std::path::PathBuf> {
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| std::fs::canonicalize(&p).ok().or(Some(p)))
 }
 
 #[cfg(test)]

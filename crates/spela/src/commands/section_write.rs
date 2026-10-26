@@ -45,7 +45,7 @@ use clap::{Arg, ArgAction, ArgMatches, Args, Command, FromArgMatches};
 use spela_core::backend::Cpu;
 use spela_core::profile::field::Rule;
 use spela_core::profile::store;
-use spela_core::profile::{Field, FieldKey, Kind, Section, Value, parse_bool};
+use spela_core::profile::{Field, FieldKey, Kind, SMT_UNCHANGED, Section, Value, parse_bool};
 
 use crate::cli::Context;
 use crate::commands::target::{clear_all_message, follow_message, line, profile_error, target};
@@ -120,9 +120,16 @@ pub fn parse_setting(key: FieldKey, raw: &str) -> Result<Setting, String> {
         return Ok(Setting::Follow);
     }
     if key == FieldKey::CpuSmt {
+        // `unchanged` leaves SMT as it is at launch, even when All games
+        // sets it: the stored form of decision 65.
+        if raw.trim().eq_ignore_ascii_case(SMT_UNCHANGED) {
+            return Ok(Setting::Store(Value::OptionalBool(None)));
+        }
         return parse_bool(raw)
             .map(|b| Setting::Store(Value::OptionalBool(Some(b))))
-            .ok_or_else(|| format!("invalid SMT value: {raw} (use on, off, or default)"));
+            .ok_or_else(|| {
+                format!("invalid SMT value: {raw} (use on, off, unchanged, or default)")
+            });
     }
     key.field()
         .parse(raw)
@@ -161,6 +168,11 @@ fn flag_help(field: &Field) -> String {
         .collect();
     if field.kind != Kind::OptionalBool && !choices.is_empty() {
         help.push_str(&format!(" Values: {}.", choices.join(", ")));
+    }
+    if field.kind == Kind::OptionalBool {
+        help.push_str(
+            " Values: on, off, unchanged (leave SMT as it is, even when All games sets it).",
+        );
     }
     help
 }
@@ -571,7 +583,7 @@ mod tests {
         let e = parse::<CpuSetArgs>(&["x", "--smt", "sometimes"]).unwrap_err();
         assert!(
             e.to_string()
-                .contains("invalid SMT value: sometimes (use on, off, or default)"),
+                .contains("invalid SMT value: sometimes (use on, off, unchanged, or default)"),
             "{e}"
         );
         let a: CpuSetArgs = parse(&["x", "--smt", "yes", "--governor", "default"]).unwrap();
@@ -582,6 +594,14 @@ mod tests {
                 (FieldKey::CpuSmt, store(Value::OptionalBool(Some(true)))),
             ]
         );
+        // Decision 65: SMT left unchanged even when All games sets it.
+        for word in ["unchanged", "Unchanged"] {
+            let a: CpuSetArgs = parse(&["x", "--smt", word]).unwrap();
+            assert_eq!(
+                a.settings,
+                [(FieldKey::CpuSmt, store(Value::OptionalBool(None)))]
+            );
+        }
         let e = parse::<GpuSetArgs>(&["x", "--shader-cache-path", "rel"]).unwrap_err();
         assert!(e.to_string().contains("must be an absolute path"), "{e}");
         let a: GpuSetArgs = parse(&["x", "--shader-cache-path", "default"]).unwrap();

@@ -67,6 +67,39 @@ fn text(popup: &State) -> (String, Role) {
     }
 }
 
+/// The body lines wrapped to `cols` cells. A long line, such as an
+/// environment variable or an impacts item, continues on the next row,
+/// indented two cells past its own indent, so no part of the plan is cut.
+fn wrapped(popup: &State, cols: usize) -> (Vec<String>, Role) {
+    let (text, role) = text(popup);
+    let mut out = Vec::new();
+    for line in text.lines() {
+        let body = line.trim_start();
+        if body.is_empty() {
+            out.push(String::new());
+            continue;
+        }
+        let indent = line.len() - body.len();
+        if crate::text::width(line) <= cols {
+            out.push(line.to_owned());
+            continue;
+        }
+        let pieces = crate::text::wrap(body, cols.saturating_sub(indent + 2).max(1));
+        for (n, piece) in pieces.into_iter().enumerate() {
+            let pad = if n == 0 { indent } else { indent + 2 };
+            out.push(format!("{}{piece}", " ".repeat(pad)));
+        }
+    }
+    (out, role)
+}
+
+/// The cells a body line may take: the popup less its borders and margins.
+fn body_cols(state: &AppState) -> usize {
+    let ws = state.layout().workspace();
+    let area = state.layout().centered(ws.width, ws.height);
+    usize::from(area.width.saturating_sub(6))
+}
+
 /// The body rows the popup shows: it fills the workspace.
 fn visible_rows(state: &AppState) -> usize {
     let ws = state.layout().workspace();
@@ -76,10 +109,9 @@ fn visible_rows(state: &AppState) -> usize {
 
 /// How far the body can scroll: zero when it all fits.
 fn max_scroll(state: &AppState, popup: &State) -> usize {
-    text(popup)
+    wrapped(popup, body_cols(state))
         .0
-        .lines()
-        .count()
+        .len()
         .saturating_sub(visible_rows(state))
 }
 
@@ -109,6 +141,8 @@ pub fn update(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
         return Vec::new();
     };
     state.dirty = true;
+    // A resize can shrink the range under the old position.
+    popup.scroll = popup.scroll.min(max);
     match action {
         Action::Up => popup.scroll = popup.scroll.saturating_sub(1),
         Action::Down => popup.scroll = (popup.scroll + 1).min(max),
@@ -133,15 +167,50 @@ pub fn render(
     if inner.height < 3 || inner.width < 10 {
         return;
     }
-    let (text, role) = text(popup);
-    let lines: Vec<&str> = text.lines().collect();
+    let (lines, role) = wrapped(popup, usize::from(inner.width.saturating_sub(4)));
+    // After a resize the old position may be past the end: show the end.
+    let scroll = popup.scroll.min(max_scroll(state, popup));
     for (n, line) in lines
         .iter()
-        .skip(popup.scroll)
+        .skip(scroll)
         .take(visible_rows(state))
         .enumerate()
     {
         let y = inner.y + 1 + u16::try_from(n).unwrap_or(0);
         p.text(inner.x + 2, y, inner.width - 4, line, role);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn long_lines_wrap_under_their_indent_and_nothing_is_cut() {
+        let popup = State {
+            request: 1,
+            name: "Glimmer Run".into(),
+            summary: Some(Ok(
+                "Environment\n  DXVK_NVAPI_DRS_NGX_DLSS_SR_OVERRIDE_RENDER_PRESET_SELECTION=render_preset_k\n  short".into(),
+            )),
+            scroll: 0,
+        };
+        let (lines, role) = wrapped(&popup, 40);
+        assert_eq!(role, Role::Text);
+        assert_eq!(lines[0], "Environment");
+        let short = lines.iter().position(|l| l == "  short").unwrap();
+        let var = &lines[1..short];
+        assert!(var.len() > 1, "{lines:?}");
+        assert!(var[0].starts_with("  DXVK_"), "{var:?}");
+        assert!(var[1..].iter().all(|l| l.starts_with("    ")), "{var:?}");
+        assert!(
+            lines.iter().all(|l| crate::text::width(l) <= 40),
+            "{lines:?}"
+        );
+        let joined: String = var.iter().map(|l| l.trim()).collect();
+        assert_eq!(
+            joined,
+            "DXVK_NVAPI_DRS_NGX_DLSS_SR_OVERRIDE_RENDER_PRESET_SELECTION=render_preset_k"
+        );
     }
 }

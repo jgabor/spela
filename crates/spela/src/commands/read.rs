@@ -13,7 +13,7 @@
 use std::path::Path;
 
 use spela_core::config::{self, Config};
-use spela_core::env::var;
+use spela_core::env::{Env, var};
 use spela_core::games::scan::{self, RescanError};
 use spela_core::games::{Game, GameCache, cache};
 use spela_core::profile::store;
@@ -58,10 +58,16 @@ pub fn config(ctx: &Context) -> Result<Config, CliError> {
 /// The Steam install the config and `HOME` point at. `--demo` never looks
 /// at the user's Steam, so it gets no install.
 pub fn steam(ctx: &Context, config: &Config) -> SteamInstall {
-    if ctx.demo {
+    steam_install(&ctx.env, ctx.demo, config)
+}
+
+/// [`steam`] from its parts, for a caller that lends the rest of the
+/// context elsewhere.
+pub fn steam_install(env: &Env, demo: bool, config: &Config) -> SteamInstall {
+    if demo {
         return SteamInstall::default();
     }
-    let home = ctx.env.non_empty(var::HOME).map(Path::new);
+    let home = env.non_empty(var::HOME).map(Path::new);
     let install =
         SteamInstall::discover(&config.steam_path, &config.additional_library_paths, home);
     for problem in &install.problems {
@@ -162,6 +168,8 @@ pub struct ProfileView {
     pub name: String,
     /// Whether the scope has its own profile file.
     pub has_profile: bool,
+    /// Whether the All games file exists.
+    pub all_games_file: bool,
     /// Every field, resolved.
     pub effective: Effective,
 }
@@ -181,6 +189,7 @@ pub fn profile(ctx: &Context, scope: Scope, name: &str) -> Result<ProfileView, C
         Scope::AllGames => Ok(ProfileView {
             name: spela_core::profile::words::ALL_GAMES.to_owned(),
             has_profile: all_games.is_some(),
+            all_games_file: all_games.is_some(),
             effective: Effective::of_all_games(all_values),
         }),
         Scope::Game(app_id) => {
@@ -194,6 +203,7 @@ pub fn profile(ctx: &Context, scope: Scope, name: &str) -> Result<ProfileView, C
             Ok(ProfileView {
                 name: name.to_owned(),
                 has_profile: game.is_some(),
+                all_games_file: all_games.is_some(),
                 effective: Effective::of_game(
                     app_id,
                     game.as_ref().map(|l| &l.profile.values),

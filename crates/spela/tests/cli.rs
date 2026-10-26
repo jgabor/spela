@@ -2,6 +2,8 @@
 
 mod common;
 
+use common::write_script;
+
 use common::Sandbox;
 use predicates::prelude::*;
 
@@ -61,19 +63,13 @@ fn unknown_commands_are_usage_errors() {
 #[test]
 fn unbuilt_commands_say_so_and_exit_1() {
     let s = Sandbox::new();
-    for (args, name) in [
-        (&["gpu", "info"][..], "gpu info"),
-        (&["launch", "x", "--dry-run"][..], "launch --dry-run"),
-    ] {
-        let run = s.run(args);
-        run.expect_code(1);
-        assert_eq!(
-            run.stderr(),
-            format!("error: 'spela {name}' is not yet implemented in this build\n"),
-            "{args:?}"
-        );
-        assert!(run.stdout().is_empty());
-    }
+    let run = s.run(&["gpu", "info"]);
+    run.expect_code(1);
+    assert_eq!(
+        run.stderr(),
+        "error: 'spela gpu info' is not yet implemented in this build\n"
+    );
+    assert!(run.stdout().is_empty());
     assert!(!s.state_dir().exists(), "CLI commands write no log file");
 }
 
@@ -167,10 +163,15 @@ fn reserved_names_never_launch_a_program_on_path() {
 #[test]
 fn wrapped_games_route_to_the_wrapper() {
     let s = Sandbox::new();
-    s.tripwire("mygame");
-    let script = s.tripwire("launch.sh");
+    // Stand-in games on PATH that say they ran, by their exit code.
+    let game = |name: &str| {
+        let path = s.bin().join(name);
+        write_script(&path, "#!/bin/sh\nexit 42\n");
+        path
+    };
+    game("mygame");
+    let script = game("launch.sh");
     let script = script.to_str().unwrap();
-    let wrapper = "error: running a game through spela is not yet implemented in this build\n";
     for args in [
         vec!["mygame", "--fullscreen"],
         vec!["--", "mygame"],
@@ -179,8 +180,14 @@ fn wrapped_games_route_to_the_wrapper() {
         vec![script, "-x"],
     ] {
         let run = s.run(&args);
-        run.expect_code(1);
-        assert_eq!(run.stderr(), wrapper, "{args:?}");
+        run.expect_code(42);
+        assert_eq!(run.stdout(), "Launching command...\n", "{args:?}");
+        assert!(
+            run.stderr()
+                .contains("Warning: could not detect game for wrapper invocation"),
+            "{args:?}: {}",
+            run.stderr()
+        );
     }
     // A wrapper run logs to the file, inside the sandbox.
     let log_dir = s.state_dir().join("log");
@@ -193,10 +200,8 @@ fn wrapped_games_route_to_the_wrapper() {
 
     // The extension check ignores case, as Go's does.
     for name in ["Game.EXE", "run.SH"] {
-        s.tripwire(name);
-        let run = s.run(&[name]);
-        run.expect_code(1);
-        assert_eq!(run.stderr(), wrapper, "{name}");
+        game(name);
+        s.run(&[name]).expect_code(42);
     }
 }
 

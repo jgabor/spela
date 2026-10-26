@@ -86,7 +86,7 @@ pub fn value_text(field: &Field, resolved: &Resolved) -> String {
 
 /// A value a scope stores: as [`display_value`], except that SMT's none
 /// reads unchanged.
-fn stored_value_text(field: &Field, value: &Value) -> String {
+pub fn stored_value_text(field: &Field, value: &Value) -> String {
     match value {
         Value::OptionalBool(None) => UNCHANGED.to_owned(),
         other => display_value(field, other),

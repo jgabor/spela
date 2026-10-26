@@ -2312,6 +2312,7 @@ dependencies = [
  "tracing-subscriber",
  "ureq",
  "vt100",
+ "wait-timeout",
 ]
 
 [[package]]

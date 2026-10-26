@@ -1625,6 +1625,12 @@ Go code is deleted by decision 62, which replaces the per-phase deletions this r
 - Go deleted: nothing (decision 62).
 - Proves, in tests against fakes: every applied change has a restore registered before spawn, and restore runs on exit, SIGINT, SIGTERM, SIGHUP, a failed apply and the wrapper's death (stdin EOF). The TUI hardware jobs take the launch lock and never let pkexec reach the tty.
 - Proves, live and by the user only: one launch of Cyberpunk 2077 each under Steam, gamescope and Big Picture. Each shows one prompt at most, and the hardware reads back at its prior values after a normal exit, Steam's Stop button and a killed wrapper (decision 30). This is the live launch check that gates the final step.
+- As built, the launch track (the privileged backend is a separate track):
+  - `spela-core/src/launch/` holds the plan: `env.rs` (Go's variables, last value wins), `hardware.rs` (the `HardwareRequest` and the VRR policy from the profile; SMT left unchanged adds no step), `summary.rs` (the dry-run text as tagged spans, which the CLI paints and the wrapper and Preview print plain), `detect.rs` (game detection with and without the cache) and `vrr.rs` (KDE VRR over the `Display` trait). `spela-core/src/kscreen.rs` parses `kscreen-doctor -o`. The `Display` trait's `Output` gained `connected`, `priority` and the policy text, which the selection needs.
+  - The binary has `wrapper.rs` (the sequence above, with the restores in a stack run under `catch_unwind`), `display.rs` (the real `kscreen-doctor` backend), `plan.rs` (what the dry run, the wrapper and Preview share) and `tui/exec/preview.rs`.
+  - The summary names pkexec through the binary's privilege module, so `spela-core` never names it. A plan built outside `/usr/bin/spela` says pkexec asks with its generic action, which every test run shows.
+  - Wrapper warnings that Go printed with `Warning:` keep that form on stderr and go to the log at info. Go's slog warnings, such as `failed to apply KDE VRR policy` and `restore failed area=<a>`, are tracing warnings, which the wrapper's stderr layer shows. Restore areas print as Go's slog did: `area=hardware`, `area="KDE VRR"`.
+  - `launch --dry-run` is compared with every Go transcript in `crates/spela/tests/go_transcripts.rs`, with each difference listed with its reason. `cpu set --smt unchanged` and the profile picker's `unchanged` choice set decision 65's stored form.
 
 ### Phase 7: the dlss-updater port and release
 
