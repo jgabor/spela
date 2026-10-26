@@ -295,9 +295,12 @@ impl Config {
     }
 }
 
+/// A configured folder, cleaned lexically as Go's `filepath.Clean` does, so
+/// `..` parts are taken back before Linux would resolve them through a
+/// folder that may not exist. `None` for an empty or relative value.
 fn configured_dir(value: &str) -> Option<PathBuf> {
     let path = Path::new(value);
-    (!value.is_empty() && path.is_absolute()).then(|| path.components().collect())
+    (!value.is_empty() && path.is_absolute()).then(|| crate::dll::backup::clean(path))
 }
 
 /// The separator of a list's one-line text form.
@@ -1174,6 +1177,14 @@ mod tests {
         c.shader_cache = "relative".into();
         assert_eq!(c.dll_cache_dir(&paths), PathBuf::from("/fast/dlls"));
         assert_eq!(c.shader_cache_dir(&paths), PathBuf::from("/b/cache/nvidia"));
+        // `..` and `.` are taken back lexically, as Go's filepath.Clean.
+        c.shader_cache = "/r/cache/x/../spela/./nvidia/".into();
+        c.backup_path = "/r//backups/../kept".into();
+        assert_eq!(
+            c.shader_cache_dir(&paths),
+            PathBuf::from("/r/cache/spela/nvidia")
+        );
+        assert_eq!(c.backup_files_dir(&paths), PathBuf::from("/r/kept"));
     }
 
     #[test]

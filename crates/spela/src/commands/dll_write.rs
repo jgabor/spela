@@ -359,10 +359,18 @@ pub fn restore(
                 name: &game.name,
                 restored: &done.restored,
                 deleted: &done.deleted,
+                kept: &done.kept,
             },
         );
     }
-    read::write_out(out, &format!("Restored original DLLs for {}\n", game.name))
+    let mut text = format!("Restored original DLLs for {}\n", game.name);
+    for path in &done.kept {
+        text.push_str(&format!(
+            "Kept {}: Steam replaced the DLL spela installed there\n",
+            path.display()
+        ));
+    }
+    read::write_out(out, &text)
 }
 
 /// An operation's error for the CLI, with a `--json` code.
@@ -603,6 +611,7 @@ struct RestoreJson<'a> {
     name: &'a str,
     restored: &'a [PathBuf],
     deleted: &'a [PathBuf],
+    kept: &'a [PathBuf],
 }
 
 #[cfg(test)]

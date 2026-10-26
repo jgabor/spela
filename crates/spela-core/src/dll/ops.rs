@@ -858,6 +858,9 @@ pub struct Restored {
     pub restored: Vec<PathBuf>,
     /// Files an install created, deleted.
     pub deleted: Vec<PathBuf>,
+    /// Files an install created that Steam has since replaced with its own:
+    /// kept, and no longer counted as spela's.
+    pub kept: Vec<PathBuf>,
 }
 
 /// Puts a game's original DLLs back from its backup and deletes the DLLs
@@ -943,8 +946,17 @@ pub fn restore(
         }
         deleted.push(path.clone());
     }
+    for path in &plan.kept {
+        tracing::info!(
+            path = %path.display(),
+            "Steam ships this file now, so restore keeps it"
+        );
+    }
     let mut index = plan.index;
-    if swap::record_restore(&mut index, &restored, &deleted) {
+    // A kept file leaves the index as a deleted one does: it is the game's
+    // own file now.
+    let forgotten: Vec<PathBuf> = deleted.iter().chain(&plan.kept).cloned().collect();
+    if swap::record_restore(&mut index, &restored, &forgotten) {
         let written = if index.files.is_empty() && index.created_files.is_empty() {
             swap::remove_index(cx.paths, app_id)
         } else {
@@ -963,5 +975,6 @@ pub fn restore(
         result,
         restored,
         deleted,
+        kept: plan.kept,
     })
 }

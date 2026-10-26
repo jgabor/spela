@@ -415,6 +415,7 @@ fn restore_asks_and_a_moved_backup_asks_again() {
         result: changed(),
         restored: vec![backed_up()[0].path.clone()],
         deleted: Vec::new(),
+        kept: Vec::new(),
     };
     finish(&mut s, token, DllResult::Restored(Ok(restored)), None);
     assert_eq!(status(&s), "Original DLLs restored!");

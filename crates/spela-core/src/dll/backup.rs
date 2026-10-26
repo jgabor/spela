@@ -365,8 +365,13 @@ pub struct RestorePlan {
     pub index: BackupIndex,
     /// Backup files to copy back over their originals, in index order.
     pub copies: Vec<BackedUpFile>,
-    /// Files an install created, to delete. Only those that exist now.
+    /// Files an install created, to delete. Only those that exist now and
+    /// still hold what spela installed there.
     pub deletes: Vec<PathBuf>,
+    /// Files an install created that now hold something else: Steam shipped
+    /// its own file at that path since, so it is the game's file now. The
+    /// restore keeps them and forgets that spela created them.
+    pub kept: Vec<PathBuf>,
 }
 
 /// Why a restore cannot start. The texts are Go's.
@@ -393,7 +398,10 @@ pub enum RestoreError {
 /// folder exists, and no target is a folder. Files an install created are
 /// deleted rather than restored, even when a later backup lists them too,
 /// because before spela there was no file there. A created file that is
-/// already gone is left out; one that is a folder fails the preflight.
+/// already gone is left out; one that is a folder fails the preflight. A
+/// created file whose SHA-256 no longer matches what spela recorded
+/// installing there is kept: Steam put the game's own file at that path
+/// since. With no record of the install, the file is taken to be spela's.
 pub fn plan_restore(paths: &Paths, app_id: u64) -> Result<RestorePlan, RestoreError> {
     let index = load(paths, app_id)?.ok_or(RestoreError::NoBackup(app_id))?;
     let mut copies = Vec::new();
@@ -423,6 +431,7 @@ pub fn plan_restore(paths: &Paths, app_id: u64) -> Result<RestorePlan, RestoreEr
         copies.push(file.clone());
     }
     let mut deletes = Vec::new();
+    let mut kept = Vec::new();
     for path in &index.created_files {
         match std::fs::symlink_metadata(path) {
             Ok(m) if m.is_dir() => {
@@ -431,7 +440,16 @@ pub fn plan_restore(paths: &Paths, app_id: u64) -> Result<RestorePlan, RestoreEr
                     reason: "an installed file is now a directory".to_owned(),
                 });
             }
-            Ok(_) => deletes.push(path.clone()),
+            Ok(_) => match replaced_since_install(&index, path) {
+                Ok(true) => kept.push(path.clone()),
+                Ok(false) => deletes.push(path.clone()),
+                Err(reason) => {
+                    return Err(RestoreError::Preflight {
+                        name: path.display().to_string(),
+                        reason,
+                    });
+                }
+            },
             Err(e) if e.kind() == io::ErrorKind::NotFound => {}
             Err(e) => {
                 return Err(RestoreError::Preflight {
@@ -445,7 +463,21 @@ pub fn plan_restore(paths: &Paths, app_id: u64) -> Result<RestorePlan, RestoreEr
         index,
         copies,
         deletes,
+        kept,
     })
+}
+
+/// Whether a file an install created now holds something other than what
+/// spela recorded installing there. `false` when there is no record.
+fn replaced_since_install(index: &BackupIndex, path: &Path) -> Result<bool, String> {
+    let Some(installed) = index.installed_sha256(path) else {
+        return Ok(false);
+    };
+    let current = std::fs::File::open(path)
+        .and_then(hex::sha256_reader)
+        .map_err(|e| format!("read {}: {e}", path.display()))?;
+    let same = hex::parse_sha256(&current).is_some_and(|a| hex::parse_sha256(installed) == Some(a));
+    Ok(!same)
 }
 
 /// Go's `preflightRegularFile`: the file opens and is a regular file.

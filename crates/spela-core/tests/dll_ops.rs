@@ -368,6 +368,33 @@ fn install_into_a_game_without_dlls_is_undone_by_restore() {
 }
 
 #[test]
+fn restore_keeps_a_created_file_that_steam_has_replaced() {
+    let mut lab = Lab::new();
+    let dir = lab.game(9100503, "Quiet Orchard", &[("readme.txt", b"hello")]);
+    lab.offer(DllType::Xess, "1.3.1", "libxess.dll", b"xess payload");
+    ops::install(
+        &lab.cx(),
+        &lab.manifest,
+        9100503,
+        DllType::Xess,
+        None,
+        &mut |_| {},
+    )
+    .unwrap();
+    // A Steam update now ships its own file at the path spela created.
+    std::fs::write(dir.join("libxess.dll"), b"steam's own xess").unwrap();
+
+    let restored = ops::restore(&lab.cx(), 9100503, &mut |_| {}).unwrap();
+    assert!(restored.deleted.is_empty(), "{:?}", restored.deleted);
+    assert_eq!(restored.kept, [dir.join("libxess.dll")]);
+    assert_eq!(read(&dir.join("libxess.dll")), b"steam's own xess");
+    assert!(
+        !lab.paths.backup_index(9100503).exists(),
+        "the file is the game's own now, so nothing is left to restore"
+    );
+}
+
+#[test]
 fn install_writes_over_a_detected_file_in_any_case_and_pins_versions() {
     let mut lab = Lab::new();
     let dir = lab.game(
