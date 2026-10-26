@@ -8,6 +8,7 @@ use std::io::Write;
 use clap::Subcommand;
 
 use crate::cli::{Context, Invocation, Rest};
+use crate::commands::section_write;
 use crate::error::CliError;
 
 /// `gpu` subcommands.
@@ -18,26 +19,26 @@ pub enum GpuCommand {
     /// Reset GPU 0's locked clocks and clock offsets to the driver defaults now.
     Reset(Rest),
     /// Change GPU settings in a profile.
-    Set(Rest),
+    Set(section_write::GpuSetArgs),
     /// Show GPU settings in a profile.
     Show(Rest),
     /// Make GPU settings follow All games.
-    ProfileReset(Rest),
+    ProfileReset(section_write::GpuResetArgs),
 }
 
 /// Runs one `gpu` subcommand.
 pub fn run(
     command: &GpuCommand,
     inv: &Invocation,
-    _ctx: &mut Context,
-    _out: &mut dyn Write,
+    ctx: &mut Context,
+    out: &mut dyn Write,
     _err: &mut dyn Write,
 ) -> Result<(), CliError> {
     match command {
         GpuCommand::Info(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
         GpuCommand::Reset(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
-        GpuCommand::Set(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
+        GpuCommand::Set(a) => section_write::set(a, ctx, out),
         GpuCommand::Show(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
-        GpuCommand::ProfileReset(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
+        GpuCommand::ProfileReset(a) => section_write::reset(a, ctx, out),
     }
 }

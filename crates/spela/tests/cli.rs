@@ -65,10 +65,6 @@ fn unbuilt_commands_say_so_and_exit_1() {
         (&["scan"][..], "scan"),
         (&["profile", "show", "Some Game"][..], "profile show"),
         (&["dll", "update", "--all"][..], "dll update"),
-        (
-            &["gpu", "set", "x", "--clock-offset", "-100"][..],
-            "gpu set",
-        ),
         (&["launch", "x", "--dry-run"][..], "launch --dry-run"),
     ] {
         let run = s.run(args);

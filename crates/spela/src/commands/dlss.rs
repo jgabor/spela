@@ -8,6 +8,7 @@ use std::io::Write;
 use clap::Subcommand;
 
 use crate::cli::{Context, Invocation, Rest};
+use crate::commands::section_write;
 use crate::error::CliError;
 
 /// `dlss` subcommands.
@@ -16,22 +17,22 @@ pub enum DlssCommand {
     /// Show DLSS settings.
     Show(Rest),
     /// Change DLSS settings.
-    Set(Rest),
+    Set(section_write::DlssSetArgs),
     /// Make DLSS settings follow All games.
-    Reset(Rest),
+    Reset(section_write::DlssResetArgs),
 }
 
 /// Runs one `dlss` subcommand.
 pub fn run(
     command: &DlssCommand,
     inv: &Invocation,
-    _ctx: &mut Context,
-    _out: &mut dyn Write,
+    ctx: &mut Context,
+    out: &mut dyn Write,
     _err: &mut dyn Write,
 ) -> Result<(), CliError> {
     match command {
         DlssCommand::Show(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
-        DlssCommand::Set(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
-        DlssCommand::Reset(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
+        DlssCommand::Set(a) => section_write::set(a, ctx, out),
+        DlssCommand::Reset(a) => section_write::reset(a, ctx, out),
     }
 }

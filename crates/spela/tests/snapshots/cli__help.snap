@@ -32,6 +32,9 @@ Options:
   -v, --version
           Print the version
 
+  -h, --help
+          Print help (see a summary with '-h')
+
       --json
           Print results as JSON (schema version 1)
 
@@ -42,9 +45,6 @@ Options:
           Log level. Overrides SPELA_LOG
           
           [possible values: off, error, warn, info, debug, trace]
-
-  -h, --help
-          Print help (see a summary with '-h')
 
 Exit codes:
   0  success

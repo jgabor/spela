@@ -29,7 +29,9 @@ use std::process::ExitCode;
 use clap::{ArgAction, ArgMatches, Args, CommandFactory, FromArgMatches, Parser, Subcommand};
 use clap_complete::Shell;
 use spela_core::backend::Backends;
+use spela_core::clock::SystemClock;
 use spela_core::env::{Env, var};
+use spela_core::migrate::Report;
 use spela_core::paths::{Paths, PathsError};
 
 use crate::commands::config::ConfigCommand;
@@ -48,7 +50,7 @@ use crate::helper::{self, HelperArgs};
 use crate::logging::{self, LogMode};
 use crate::output::{self, Colors};
 use crate::router::{self, Route, WrapperInvocation};
-use crate::{backends, locks};
+use crate::{backends, locks, migration};
 
 const ABOUT: &str = "Linux gaming optimization tool";
 
@@ -73,6 +75,10 @@ Environment:
   SPELA_LOG  log filter, such as debug or spela=trace
   NO_COLOR   turn colour off";
 
+/// Where the global flags go in each command's help: after the command's
+/// own flags, so they never interleave with them.
+const GLOBAL_ORDER: usize = 1000;
+
 /// spela's arguments.
 #[derive(Debug, Clone, Parser)]
 #[command(
@@ -89,17 +95,18 @@ pub struct Cli {
     version: Option<bool>,
 
     /// Print results as JSON (schema version 1).
-    #[arg(long, global = true)]
+    #[arg(long, global = true, display_order = GLOBAL_ORDER)]
     pub json: bool,
 
     /// Run on built-in fictional data. Your files are never written.
-    #[arg(long, global = true)]
+    #[arg(long, global = true, display_order = GLOBAL_ORDER + 1)]
     pub demo: bool,
 
     /// Log level. Overrides SPELA_LOG.
     #[arg(
         long,
         global = true,
+        display_order = GLOBAL_ORDER + 2,
         value_name = "LEVEL",
         value_parser = ["off", "error", "warn", "info", "debug", "trace"]
     )]
@@ -240,6 +247,9 @@ pub struct Context {
     pub backends: Backends,
     /// Colour for stdout and stderr.
     pub colors: Colors,
+    /// What this run's migration from Go spela did. Empty when the command
+    /// reads no store or there was nothing to migrate.
+    pub migration: Report,
 }
 
 /// Every subcommand name and alias clap knows, hidden ones and `help`
@@ -506,11 +516,18 @@ fn setup_and_run(
         backend = ?backends.kind,
         "spela starting"
     );
+    let migration = if migration::needs_store(inv.cli.command.as_ref(), inv.cli.demo) {
+        let notice = log_mode(inv) == LogMode::Stderr;
+        migration::run(&paths, &SystemClock, err, notice)?
+    } else {
+        Report::default()
+    };
     let mut ctx = Context {
         env,
         paths,
         backends,
         colors,
+        migration,
     };
     let result = run(inv, &mut ctx, out, err);
     if let Err(e) = &result

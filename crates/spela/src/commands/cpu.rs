@@ -8,6 +8,7 @@ use std::io::Write;
 use clap::Subcommand;
 
 use crate::cli::{Context, Invocation, Rest};
+use crate::commands::section_write;
 use crate::error::CliError;
 
 /// `cpu` subcommands.
@@ -20,27 +21,27 @@ pub enum CpuCommand {
     /// Show or set SMT now.
     Smt(Rest),
     /// Change CPU settings in a profile.
-    Set(Rest),
+    Set(section_write::CpuSetArgs),
     /// Show CPU settings in a profile.
     Show(Rest),
     /// Make CPU settings follow All games.
-    ProfileReset(Rest),
+    ProfileReset(section_write::CpuResetArgs),
 }
 
 /// Runs one `cpu` subcommand.
 pub fn run(
     command: &CpuCommand,
     inv: &Invocation,
-    _ctx: &mut Context,
-    _out: &mut dyn Write,
+    ctx: &mut Context,
+    out: &mut dyn Write,
     _err: &mut dyn Write,
 ) -> Result<(), CliError> {
     match command {
         CpuCommand::Info(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
         CpuCommand::Governor(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
         CpuCommand::Smt(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
-        CpuCommand::Set(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
+        CpuCommand::Set(a) => section_write::set(a, ctx, out),
         CpuCommand::Show(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
-        CpuCommand::ProfileReset(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
+        CpuCommand::ProfileReset(a) => section_write::reset(a, ctx, out),
     }
 }

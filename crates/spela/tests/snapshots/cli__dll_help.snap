@@ -16,6 +16,9 @@ Commands:
   help           Print this message or the help of the given subcommand(s)
 
 Options:
+  -h, --help
+          Print help
+
       --json
           Print results as JSON (schema version 1)
 
@@ -26,6 +29,3 @@ Options:
           Log level. Overrides SPELA_LOG
           
           [possible values: off, error, warn, info, debug, trace]
-
-  -h, --help
-          Print help

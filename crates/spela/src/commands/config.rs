@@ -8,6 +8,7 @@ use std::io::Write;
 use clap::Subcommand;
 
 use crate::cli::{Context, Invocation, Rest};
+use crate::commands::config_write;
 use crate::error::CliError;
 
 /// `config` subcommands.
@@ -16,19 +17,19 @@ pub enum ConfigCommand {
     /// Print the config.
     Show(Rest),
     /// Change one setting.
-    Set(Rest),
+    Set(config_write::SetArgs),
 }
 
 /// Runs one `config` subcommand.
 pub fn run(
     command: &ConfigCommand,
     inv: &Invocation,
-    _ctx: &mut Context,
-    _out: &mut dyn Write,
+    ctx: &mut Context,
+    out: &mut dyn Write,
     _err: &mut dyn Write,
 ) -> Result<(), CliError> {
     match command {
         ConfigCommand::Show(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
-        ConfigCommand::Set(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
+        ConfigCommand::Set(a) => config_write::set(a, ctx, out),
     }
 }

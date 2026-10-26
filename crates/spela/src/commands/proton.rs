@@ -8,30 +8,31 @@ use std::io::Write;
 use clap::Subcommand;
 
 use crate::cli::{Context, Invocation, Rest};
+use crate::commands::section_write;
 use crate::error::CliError;
 
 /// `proton` subcommands.
 #[derive(Debug, Clone, Subcommand)]
 pub enum ProtonCommand {
     /// Change Proton settings in a profile.
-    Set(Rest),
+    Set(section_write::ProtonSetArgs),
     /// Show Proton settings in a profile.
     Show(Rest),
     /// Make Proton settings follow All games.
-    Reset(Rest),
+    Reset(section_write::ProtonResetArgs),
 }
 
 /// Runs one `proton` subcommand.
 pub fn run(
     command: &ProtonCommand,
     inv: &Invocation,
-    _ctx: &mut Context,
-    _out: &mut dyn Write,
+    ctx: &mut Context,
+    out: &mut dyn Write,
     _err: &mut dyn Write,
 ) -> Result<(), CliError> {
     match command {
-        ProtonCommand::Set(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
+        ProtonCommand::Set(a) => section_write::set(a, ctx, out),
         ProtonCommand::Show(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
-        ProtonCommand::Reset(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
+        ProtonCommand::Reset(a) => section_write::reset(a, ctx, out),
     }
 }

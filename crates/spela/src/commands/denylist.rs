@@ -8,6 +8,7 @@ use std::io::Write;
 use clap::Subcommand;
 
 use crate::cli::{Context, Invocation, Rest};
+use crate::commands::denylist_write;
 use crate::error::CliError;
 
 /// `denylist` subcommands.
@@ -18,26 +19,26 @@ pub enum DenylistCommand {
     /// Check whether a game's DLLs may be swapped.
     Check(Rest),
     /// Allow DLL swaps for a game.
-    Allow(Rest),
+    Allow(denylist_write::GameArgs),
     /// Deny DLL swaps for a game.
-    Deny(Rest),
+    Deny(denylist_write::DenyArgs),
     /// Remove your allow or deny for a game.
-    Clear(Rest),
+    Clear(denylist_write::GameArgs),
 }
 
 /// Runs one `denylist` subcommand.
 pub fn run(
     command: &DenylistCommand,
     inv: &Invocation,
-    _ctx: &mut Context,
-    _out: &mut dyn Write,
+    ctx: &mut Context,
+    out: &mut dyn Write,
     _err: &mut dyn Write,
 ) -> Result<(), CliError> {
     match command {
         DenylistCommand::Show(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
         DenylistCommand::Check(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
-        DenylistCommand::Allow(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
-        DenylistCommand::Deny(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
-        DenylistCommand::Clear(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
+        DenylistCommand::Allow(a) => denylist_write::allow(a, ctx, out),
+        DenylistCommand::Deny(a) => denylist_write::deny(a, ctx, out),
+        DenylistCommand::Clear(a) => denylist_write::clear(a, ctx, out),
     }
 }
