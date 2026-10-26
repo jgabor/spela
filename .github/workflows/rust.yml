@@ -53,6 +53,13 @@ jobs:
       - name: Test
         run: cargo test --workspace --locked
 
+      # The wall-clock budgets in release builds. They report their numbers
+      # and never fail on time (decision 55).
+      - name: Performance budgets (release, report only)
+        run: |
+          cargo test --release --locked -p spela --test perf -- --ignored --nocapture
+          cargo test --release --locked -p spela --test terminal_pty the_tui_enters_and_restores_every_mode -- --nocapture
+
   msrv:
     name: MSRV 1.89
     runs-on: ubuntu-24.04

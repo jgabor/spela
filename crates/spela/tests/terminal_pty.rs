@@ -427,7 +427,9 @@ fn the_tui_enters_and_restores_every_mode() {
     live.wait_screen("Rescan complete: 12 games found");
     let screen = live.screen();
     assert!(screen.contains("Ashfall Courier"), "{screen}");
-    eprintln!("first frame after {first:?} (debug build, report only)");
+    eprintln!(
+        "perf: first frame after {first:?}, budget p95 50ms, one run (report only; release in CI)"
+    );
     live.type_bytes(b"\x03");
     let (code, out) = live.finish();
     assert_eq!(code, Some(0), "{out:?}");

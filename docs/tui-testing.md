@@ -17,24 +17,28 @@ Right jump between the sections of the page and reach the DLLs section; a game
 opens on its Profile, and the section and the field under the cursor stay when
 the game changes.
 
-For game DLLs, use the visible Install DLL, Update DLLs, and Restore originals
-rows directly with Up/Down and Enter. Verify disabled reasons and that Enter is
-absent for an unavailable selection. Review both pane focus states, both terminal
-sizes. Confirm fixture file contents after Update and
-Restore originals; merely opening a dialog does not verify the mutation.
+The game's DLLs section lists the DLL versions with the Catalog's stale marks,
+the deny list line when a list names the game, and in Actions the Allow, Deny
+and Clear deny list rows. From Phase 5 it also has the Install DLL, Update DLLs
+and Restore originals rows: use them directly with Up/Down and Enter, verify
+disabled reasons and that Enter is absent for an unavailable selection, review
+both pane focus states and both sizes, and confirm fixture file contents after
+Update and Restore originals. Merely opening a dialog does not verify the
+mutation.
 
 ## Terminal Control version
 
-Use Terminal Control 1.2.1 or a newer version that passes the compatibility test:
+Use Terminal Control 1.2.1 or a newer version that passes this compatibility
+check. Version 0.3.1 ignores the cursor backward tab sequence (`CSI Z`), so it
+can show a corrupt screen even when the application's output is valid:
 
 ```bash
 termctrl --version
-go test -tags=e2e ./tests/e2e -run '^TestTerminalControlCursorBackwardTabCompatibility$' -count=1
+termctrl start tc-check --cols 20 --rows 3 -- sh -c 'printf "abcdefghij\033[Zx"; sleep 3'
+termctrl wait tc-check "x" --timeout 5000
+termctrl show tc-check    # passes when it reads abcdefghxj, fails on abcdefghijx
+termctrl stop tc-check
 ```
-
-Version 0.3.1 ignores the cursor backward tab sequence (`CSI Z`) used by Bubble
-Tea. It can show corrupt metrics even when the application emits valid terminal
-output. The compatibility test checks this behavior directly.
 
 The 2026-09-13 acceptance review used the unmodified upstream 1.2.1 commit
 `c1d4f95e4f1b7638f6229e9bfc9599a955f95ce2`, built under the local cache. To use
@@ -46,11 +50,7 @@ termctrl --version
 ```
 
 This path is a local verification tool, not an application dependency or a
-portable installation instruction. The installed user tool was left unchanged.
-Spela also includes the separate upstream
-[Ultraviolet resize correction](https://github.com/charmbracelet/ultraviolet/commit/d38ea0f8aa5cefbde40e02dc7da8c834504bd76e),
-which fixes stale comparison cells after terminal growth. Both corrections are
-needed to reproduce and verify live resize reliably.
+portable installation instruction.
 
 ## Start
 
@@ -111,12 +111,19 @@ GPU, polkit and display backends, under a temp dir it removes on quit, so no
 real file or setting can change:
 
 ```bash
-termctrl start spela-tui-demo --cols 120 --rows 40 -- ./target/debug/spela --demo
+termctrl start spela-tui-demo --cols 120 --rows 40 -- ./target/debug/spela --demo tui
 ```
 
-The Go E2E suite (`go test -tags=e2e ./tests/e2e`) checks the Go TUI only and
-is not kept for the rewrite (decision 54). Its journeys become pty scenarios on
-the Rust binary.
+To review a migration or a store written by Go spela, copy the fixture sandbox
+`tests/fixtures/go/sandbox/main` to a temp dir, point `HOME` and every `XDG_*`
+variable into it, and set `SPELA_BACKEND=fake` so no real GPU, CPU, polkit or
+display backend is built.
+
+The Go E2E suite checks the Go TUI only and is not kept for the rewrite
+(decision 54). Its journeys are pty scenarios on the Rust binary in
+`crates/spela/tests/terminal_pty.rs`: mode bytes, restore on quit, on SIGTERM
+and on a panic, bracketed paste into Find, the resize prompt, Ctrl-Z and resume,
+and the first frame's time.
 
 An empty game database must remain interactive and show `No games found` with
 Actions and Settings recovery guidance. For manual review, use an isolated empty
@@ -129,11 +136,14 @@ running.
 
 ## Use displayed controls
 
-Navigation and commands need only numbers, arrows, Tab, Enter, and Space; Esc
-cancels an editor or picker. Send a command only when its key is visible in the
-current frame.
+The keys are option B (decision 1): digits 0 to 4, arrows, Tab and Shift-Tab,
+Enter and Space, plus `?` Help, `:` or Ctrl-K the palette, `/` Find, `q` back
+then quit, and `Q` quit now. Esc backs out one level: it closes a popup, an
+editor or a search, then moves Detail to List, and it never quits (decision 2).
+Ctrl-C quits at once and Ctrl-Z suspends, anywhere. Send a command only when
+its key is visible in the current frame or listed in Help.
 Text entry is distinct: a focused input accepts ordinary text, including digits,
-spaces, non-ASCII characters, and punctuation.
+letters such as `q`, spaces, non-ASCII characters, and punctuation.
 
 Open Actions from Browse, inspect the selected row, then close it through its
 visible control:
@@ -152,10 +162,11 @@ termctrl show spela-tui-review
 To run an action, use the displayed Up or Down key and inspect each selected row
 until the requested label is selected, then press Enter. Do not derive a key or
 row count from the source code. Unavailable actions explain why and omit the
-Enter hint; use Tab to reach Close. Help and Quit are Actions rows.
+Enter hint; use Tab to reach Close. Help and Quit are Actions rows too, besides
+`?` and `Q`.
 
-For search, focus the Library List and choose `Search games`. After the Input
-control appears, send text separately from the key that applies it:
+For search, focus the Library List and press `/` or choose `Search games`. After
+the `/` input appears, send text separately from the key that applies it:
 
 ```bash
 termctrl send spela-tui-isolated 'text:Cyber'
@@ -165,11 +176,12 @@ termctrl wait spela-tui-isolated "Cyberpunk 2077" --timeout 20000
 termctrl show spela-tui-isolated
 ```
 
-Search also has selectable Apply, Clear search, and Cancel controls. Field
-editors have Input, Apply, and Cancel controls. Tab moves between local controls;
-Enter activates the focused one. Enter on Input or Apply validates the input and
-saves it at once. Check the persisted YAML and restart through the displayed
-Quit action before opening another process on that state.
+Search also has selectable Apply, Clear search, and Cancel controls. Every editor
+box has the input and `[ Apply ]  [ Cancel ]`. Tab moves between local controls;
+Enter activates the focused one. Enter on the input or Apply validates the input
+and saves it at once. Check the persisted TOML (`config.toml`,
+`profiles/*.toml`, decision 6) and quit through a displayed control before
+opening another process on that state.
 
 While an editor, search input, Help, Actions, chooser, or confirmation owns
 input, destination numbers must not be shown as active commands. Typing `01234`
@@ -203,23 +215,16 @@ termctrl show spela-tui-review
 
 Wait for a new visible metrics sample after each supported resize and inspect
 that frame. A fresh process at each size does not test resize recovery.
-At 80x24 the compact header and active pane must fit; Tab reveals the other
-pane. At 120x40 Standard shows both panes. Below 80x24 a bounded resize prompt
-replaces the workspace. Confirm that recovery restores one destination bar,
-closed borders, complete metrics units, and current alerts without stale cells.
+The top bar holds the brand, the destinations and the live metrics (decision 3).
+At 100 columns and 30 rows or more both panes show. Below that, down to 80x24,
+one pane shows, titled `▸ List` or `▸ Detail`, and Tab reveals the other. Below
+80x24 a bounded resize prompt replaces the workspace and only Ctrl-C and Ctrl-Z
+work. Confirm that recovery restores the top bar, closed borders, complete
+metrics units, and current alerts without stale cells.
 
-The resize regression uses deterministic changing metrics and one session through
-120x40, 80x24, 100x32, and 72x20. To retain diagnostic artifacts:
-
-```bash
-resize_evidence="$(mktemp -d /tmp/spela-resize-evidence-XXXXXX)"
-SPELA_E2E_RESIZE_ARTIFACTS="$resize_evidence" \
-  go test -tags=e2e ./tests/e2e \
-  -run '^TestTUIRepeatedLiveResizePreservesFrames$' -count=1 -v
-```
-
-Read the rendered `last-screen.txt` and the visible phase captures in test output.
-`terminal.ansi` is diagnostic evidence, not a substitute for rendered review.
+The pty scenario `below_80x24_only_the_resize_prompt_shows` in
+`crates/spela/tests/terminal_pty.rs` covers the prompt on the real binary; the
+snapshots in `crates/spela-ui/tests` pin the frames at 120x40 and 80x24.
 
 ## Record results and clean up
 
