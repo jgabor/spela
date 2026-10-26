@@ -286,6 +286,15 @@ pub fn check_inside(install_dir: &Path, target: &Path) -> Result<(), String> {
     if path == root || !path.starts_with(&root) {
         return Err(escapes());
     }
+    check_real_folder(install_dir, target)
+}
+
+/// Refuses a target whose real folder is outside the game's real install
+/// folder. Restore uses only this check: Go recorded each original path as
+/// it reached the game, which may be another route to the same folder, such
+/// as `~/.steam/steam` against `~/.local/share/Steam`.
+pub fn check_real_folder(install_dir: &Path, target: &Path) -> Result<(), String> {
+    let escapes = || format!("DLL target escapes install directory: {}", target.display());
     let real_root = install_dir.canonicalize().map_err(|e| {
         format!(
             "install directory {} is unavailable: {e}",
@@ -323,6 +332,13 @@ pub fn check_target(target: &Path) -> Result<(), String> {
 pub fn replace_file(source: &Path, target: &Path) -> io::Result<()> {
     check_target(target).map_err(io::Error::other)?;
     copy_durable(source, target)
+}
+
+/// Puts a backup back at `target`, atomically and durably. A symlink at the
+/// target is replaced by the file, as Go's rename replaced it; the link's
+/// own target is never written.
+pub fn restore_file(backup: &Path, target: &Path) -> io::Result<()> {
+    copy_durable(backup, target)
 }
 
 /// Copies `source` to `target` through a synced temp file in the target's

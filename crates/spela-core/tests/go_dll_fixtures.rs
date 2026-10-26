@@ -431,3 +431,30 @@ fn go_manifest_caches_seed_the_v1_cache() {
     assert_eq!(cached.source_url, "");
     assert_eq!(cached.source(), DEFAULT_MANIFEST_URL);
 }
+
+/// Go's `update-check.json` seeds `release-check.json`, and the release
+/// check reads it as Go wrote it: checked an hour ago, so no request.
+#[test]
+fn go_s_update_check_seeds_the_release_check() {
+    let c = case("caches/update-check");
+    let cache = c.paths.cache_dir.clone();
+    std::fs::rename(
+        cache.join("update-check.ok.json"),
+        cache.join("update-check.json"),
+    )
+    .unwrap();
+    seed(&c);
+    let http = spela_core::fake::FakeHttp::new();
+    // 2026-10-26T17:02:10+02:00 plus an hour.
+    let clock = ManualClock::new("2026-10-26T16:02:10Z".parse().unwrap());
+    let got = spela_core::release::check(
+        &c.paths,
+        &http,
+        &clock,
+        "0.6.2",
+        spela_core::release::TAGS_URL,
+    );
+    assert!(!got.asked, "{got:?}");
+    assert_eq!(got.notice.unwrap().latest, "v0.7.0");
+    assert!(http.requests().is_empty());
+}

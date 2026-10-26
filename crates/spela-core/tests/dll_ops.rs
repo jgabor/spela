@@ -758,6 +758,14 @@ fn go_era_backups_restore_byte_exact() {
         cache::update(&paths, |c| c.upsert(game)).unwrap();
         let index_bytes = read(&paths.backup_index(app_id));
         let index = backup::load(&paths, app_id).unwrap().unwrap();
+        // Every game file differs from its backup before the restore, so
+        // the restore has to bring each one back.
+        for file in &index.files {
+            if read(&file.original_path) == read(&file.backup_path) {
+                std::fs::write(&file.original_path, b"swapped by the test").unwrap();
+            }
+            assert_ne!(read(&file.original_path), read(&file.backup_path), "{name}");
+        }
         let mut before = BTreeMap::new();
         walk(&lab.root, &mut before);
 
@@ -860,4 +868,72 @@ fn a_rust_update_over_a_go_backup_restores_go_s_original() {
         String::from_utf8(go_index).unwrap(),
         "after the restore, backup.json is byte for byte Go's again"
     );
+}
+
+/// Go recorded the original paths by one route to the game; the game cache
+/// may reach it by another, such as a symlinked library. Restore still puts
+/// the originals back, byte-exact.
+#[test]
+fn a_go_backup_restores_through_another_route_to_the_library() {
+    let lab = Lab::new();
+    let case = lab.root.join("case");
+    copy_fixture(
+        &fixtures().join("backups/sha256-names"),
+        &case,
+        case.to_str().unwrap(),
+    );
+    let alias = lab.root.join("alias");
+    std::os::unix::fs::symlink(case.join("library"), &alias).unwrap();
+    let paths = Paths {
+        config_dir: case.join("config/spela"),
+        data_dir: case.join("data/spela"),
+        cache_dir: lab.root.join("cache"),
+        state_dir: lab.root.join("state"),
+    };
+    let dir = alias.join("steamapps/common/Glimmer Run");
+    let game = Game {
+        app_id: 9100401,
+        name: "Glimmer Run".into(),
+        install_dir: dir.clone(),
+        library_path: alias.clone(),
+        prefix_path: None,
+        scanned_at: lab.clock.now(),
+        dlls: detect::scan_directory(&dir, pe::version_string).unwrap(),
+    };
+    cache::update(&paths, |c| c.upsert(game)).unwrap();
+    let index = backup::load(&paths, 9100401).unwrap().unwrap();
+    for file in &index.files {
+        assert!(file.original_path.starts_with(case.join("library")));
+        std::fs::write(&file.original_path, b"swapped by the test").unwrap();
+    }
+    let cx = DllContext {
+        paths: &paths,
+        config: &lab.config,
+        http: &lab.http,
+        clock: &lab.clock,
+    };
+    let restored = ops::restore(&cx, 9100401, &mut |_| {}).unwrap();
+    assert_eq!(restored.restored.len(), 3);
+    for file in &index.files {
+        assert_eq!(
+            read(&file.original_path),
+            read(&file.backup_path),
+            "{}",
+            file.dll_name
+        );
+    }
+
+    // A game that moved to another library is still refused.
+    let elsewhere = lab.root.join("moved/steamapps/common/Glimmer Run");
+    std::fs::create_dir_all(&elsewhere).unwrap();
+    cache::update(&paths, |c| {
+        let mut g = c.get(9100401).unwrap().clone();
+        g.install_dir = elsewhere.clone();
+        c.upsert(g);
+    })
+    .unwrap();
+    let err = ops::restore(&cx, 9100401, &mut |_| {})
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("escapes install directory"), "{err}");
 }

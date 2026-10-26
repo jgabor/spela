@@ -21,6 +21,9 @@
 //!   making a second file.
 //! - Every write is checked to stay inside the game's install folder, by
 //!   path and by real folder, and a DLL that is a symlink is refused.
+//!   Restore checks only the real folder, because Go recorded each original
+//!   path by whatever route reached the game, and replaces a symlink at the
+//!   target with the file, as Go's rename did.
 //! - Install records what it wrote and what it created in the backup index
 //!   (decision 37). Restore deletes the created files and forgets both.
 //!
@@ -853,8 +856,15 @@ pub fn restore(
         .map(|c| &c.original_path)
         .chain(&plan.deletes)
     {
-        swap::check_inside(&game.install_dir, target)
-            .and_then(|()| swap::check_target(target))
+        let is_dir = std::fs::symlink_metadata(target).is_ok_and(|m| m.is_dir());
+        swap::check_real_folder(&game.install_dir, target)
+            .and_then(|()| {
+                if is_dir {
+                    Err(format!("{} is a directory", target.display()))
+                } else {
+                    Ok(())
+                }
+            })
             .map_err(|m| {
                 OpError::failed(
                     FailKind::Invalid,
@@ -877,7 +887,7 @@ pub fn restore(
         }
     };
     for copy in &plan.copies {
-        if let Err(e) = swap::replace_file(&copy.backup_path, &copy.original_path) {
+        if let Err(e) = swap::restore_file(&copy.backup_path, &copy.original_path) {
             return Err(partial_or_failed(
                 restored.len(),
                 format!("failed to restore {}: {e}", copy.dll_name),
