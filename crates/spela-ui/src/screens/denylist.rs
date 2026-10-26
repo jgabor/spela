@@ -687,4 +687,27 @@ mod tests {
         );
         assert!(s.denylist.editor.is_none());
     }
+
+    #[test]
+    fn the_reason_editor_keeps_its_keys_after_a_click_on_the_list() {
+        let mut s = state_with_games(120, 40, 2);
+        loaded(&mut s, Overrides::default());
+        let game = library::selected_game(&s).unwrap().clone();
+        update(
+            &mut s,
+            Action::Deny {
+                app_id: game.app_id,
+                name: game.name,
+            },
+        );
+        s.focus = Pane::List;
+        step(&mut s, key("q"));
+        step(&mut s, key("2"));
+        assert!(!s.quit);
+        assert_eq!(s.dest, Dest::Library);
+        assert_eq!(
+            s.denylist.editor.as_ref().unwrap().editor.input.text(),
+            format!("{DEFAULT_REASON}q2")
+        );
+    }
 }

@@ -316,11 +316,12 @@ pub fn editing(state: &AppState, pane: Pane) -> bool {
     deny_editing(state, pane) || by_owner!(owner(state.dest, pane), editing(state, pane))
 }
 
-/// The deny list's reason editor is open over Library's Detail. It lives
-/// in the game's DLLs section, so it takes that pane's keys and draws
-/// there.
+/// The deny list's reason editor is open on Library. It lives in the
+/// game's DLLs section and draws in Detail, and it keeps the keys in
+/// either pane, so a click on the List cannot bring Browse keys back while
+/// it is open.
 fn deny_editing(state: &AppState, pane: Pane) -> bool {
-    owner(state.dest, pane) == PaneOwner::Profile && denylist::editing(state, pane)
+    state.dest == Dest::Library && denylist::editing(state, pane)
 }
 
 /// Whether the UI is in Browse: no popup and no editor. Digits show in the
