@@ -641,7 +641,7 @@ fn update_selected_row(state: &AppState, visible: usize) -> Row {
     } else if visible == 0 {
         "no updates for selected filtered games"
     } else {
-        BATCH_NOT_BUILT
+        "not yet implemented in this build"
     };
     Row::new(
         format!("Update selected games ({visible} visible)"),
@@ -673,7 +673,14 @@ fn page(state: &AppState) -> usize {
 /// Rows the game list has below the Find row (and its controls).
 fn rows_height(state: &AppState) -> u16 {
     let h = state.layout().list.inner.height;
-    let top = if state.library.finding { 2 } else { 1 };
+    let lib = &state.library;
+    let top = if lib.selecting() {
+        0
+    } else if lib.finding {
+        2
+    } else {
+        1
+    };
     h.saturating_sub(top)
 }
 

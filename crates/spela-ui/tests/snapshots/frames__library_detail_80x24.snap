@@ -25,4 +25,4 @@ expression: render_text(&mut s)
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 
- 0 Actions  Left/Right Next section  Tab List  Esc List  ? Help
+ 0 Actions  Left/Right Section  Tab List  Esc List  ? Help

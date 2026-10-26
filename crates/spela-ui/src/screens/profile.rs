@@ -646,7 +646,8 @@ pub fn bindings(state: &AppState, _pane: Pane) -> Vec<Binding> {
     if l.is_ok() {
         left = left.hint_as("Left/Right", 40);
     } else if r.is_ok() {
-        right = right.hint_as("Left/Right", 40);
+        right =
+            Binding::new(Key::RIGHT, act(Action::NextSection), "Section").hint_as("Left/Right", 40);
     }
     let left = left.when(l);
     let right = right.when(r);
@@ -765,13 +766,20 @@ fn apply_available(state: &AppState) -> Result<(), String> {
     Ok(())
 }
 
-/// The palette rows: the page's Actions rows, so the palette reaches
-/// Preview launch and the resets from either pane.
+/// The palette rows: Preview launch, and the whole-page reset of the page
+/// Library shows. The one-field rows stay in Actions, where the focused
+/// field is in view.
 pub fn palette(state: &AppState) -> Vec<Row> {
-    if state.dest != super::Dest::Library {
-        return vec![preview_row(state)];
+    let mut rows = vec![preview_row(state)];
+    if let Some(scope) = scope(state) {
+        let label = format!(
+            "{}: {}",
+            words::clear_all_action(all_games_scope(scope)),
+            game_name(state, scope)
+        );
+        rows.push(Row::new(label, act(Action::ResetAll)).when(editable(state, scope)));
     }
-    page_rows(state)
+    rows
 }
 
 // Changing the page.
@@ -841,6 +849,15 @@ fn want_notice(state: &mut AppState) -> Vec<AnyCmd> {
 }
 
 fn move_to(state: &mut AppState, key: FieldKey) {
+    // A click on another row closes the editor of this one.
+    if state
+        .profile
+        .editor
+        .as_ref()
+        .is_some_and(|e| e.key() != key)
+    {
+        state.profile.editor = None;
+    }
     state.profile.field = key;
     state.profile.aspect = Aspect::Profile;
     state.dirty = true;
@@ -855,6 +872,23 @@ pub fn update(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
 }
 
 fn run(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
+    // A page action that arrives while an editor is open, from a click or
+    // a right-click Actions row, closes the editor first.
+    let editor_action = matches!(
+        action,
+        Action::Pick(_)
+            | Action::TextType(_)
+            | Action::TextEdit(_)
+            | Action::TextNext
+            | Action::TextPrev
+            | Action::TextSwitch
+            | Action::TextEnter
+            | Action::TextCancel
+            | Action::SelectField(_)
+    );
+    if !editor_action {
+        state.profile.editor = None;
+    }
     let i = index_of(state.profile.field);
     let last = FIELDS.len() - 1;
     match action {

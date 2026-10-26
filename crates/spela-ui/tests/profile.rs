@@ -187,3 +187,27 @@ fn the_detail_actions_follow_go_s_order() {
     };
     assert_eq!(a.rows[0].unavailable.as_deref(), Some("nothing to clear"));
 }
+
+#[test]
+fn the_section_hint_reads_the_same_on_the_first_section() {
+    let mut s = on_field(120, 40, FieldKey::ProtonEnableHdr);
+    let text = render_text(&mut s);
+    let bar = text.lines().nth(39).unwrap();
+    assert!(bar.contains("Left/Right Section"), "{bar}");
+    assert!(bar.contains("Esc List"), "{bar}");
+}
+
+#[test]
+fn a_click_on_another_field_closes_the_editor() {
+    let mut s = on_field(120, 40, FieldKey::DlssSrMode);
+    update(&mut s, key("enter"));
+    assert!(s.profile.editor.is_some());
+    spela_ui::update::run(
+        &mut s,
+        spela_ui::screens::Action::Screen(spela_ui::screens::ScreenAction::Profile(
+            profile::Action::SelectField(FieldKey::GpuVrr),
+        )),
+    );
+    assert!(s.profile.editor.is_none());
+    assert_eq!(s.profile.field, FieldKey::GpuVrr);
+}
