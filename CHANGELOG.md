@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.0] - Unreleased
 
-spela is rewritten in Rust. One binary keeps the command line and the terminal UI, with the same commands and flags except those listed under Removed. The graphical interface is gone. The Go changes made after 0.6.2 were never released; this release replaces them.
+spela is rewritten in Rust. One binary keeps the command line and the terminal UI, and the graphical interface is gone. The Go changes made after 0.6.2 were never released; this release replaces them.
 
 ### Before you upgrade
 

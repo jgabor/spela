@@ -78,8 +78,13 @@ jobs:
           download_url=$(jq -r .download_url check.json)
           filename=$(jq -r .filename check.json)
           source=$(jq -r .source check.json)
-          if ! [[ $version =~ ^[0-9]+(\.[0-9]+){0,3}$ && $download_url =~ ^https://[^[:space:]]+$ && $filename =~ ^[a-z_]+\.dll$ && $source =~ ^[a-z.]+$ ]]; then
+          if ! [[ $version =~ ^[0-9]+(\.[0-9]+){0,3}$ && $filename =~ ^[a-z_]+\.dll$ && $source =~ ^[a-z.]+$ ]]; then
             echo "dlss-updater printed unexpected values" >&2
+            exit 1
+          fi
+          # The URL is TechPowerUp's redirect, used only for a download.
+          if [[ $has_update == true && ! $download_url =~ ^https://[^[:space:]]+$ ]]; then
+            echo "The download URL is not https: $download_url" >&2
             exit 1
           fi
           {
