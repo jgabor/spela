@@ -1,0 +1,15 @@
+dlss:
+    sr_mode: quality
+    rr_mode: dlaa
+    multi_frame: 6
+gpu:
+    shader_cache: true
+    shader_cache_path: cache/all-games
+    power_limit: 250
+overrides:
+    dlss.multi_frame: true
+    dlss.rr_mode: true
+    dlss.sr_mode: true
+    gpu.power_limit: true
+    gpu.shader_cache: true
+    gpu.shader_cache_path: true

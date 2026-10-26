@@ -113,10 +113,13 @@ pub struct FieldJson<'a> {
     pub unit: Option<&'static str>,
     /// The effective value. `null` only for an `optional_bool` at none.
     pub value: &'a Value,
-    /// The scope's own value, `null` when it follows.
+    /// The scope's own value, `null` when it follows. SMT left unchanged on
+    /// purpose (decision 65) is `null` too, because none is `null` in
+    /// every value: `origin` then names the scope, not a default.
     pub own_value: Option<&'a Value>,
     /// The All games value, `null` when All games does not set it, and
-    /// always `null` on the All games scope.
+    /// always `null` on the All games scope. All games' SMT left unchanged
+    /// is `null` as well; the game's `origin` tells the two apart.
     pub all_games_value: Option<&'a Value>,
     /// Where the value comes from: Go's origin name.
     pub origin: Origin,

@@ -24,7 +24,7 @@ use toml::de::{DeTable, DeValue};
 use toml_edit::{DocumentMut, Item, Key, Table, TableLike};
 
 use super::field::{FieldError, FieldKey, Section};
-use super::value::{Kind, Value};
+use super::value::{Kind, SMT_UNCHANGED, Value};
 use super::{AllGamesProfile, FollowOutcome, GameProfile, OwnValues, Scope};
 use crate::config::{Diagnostic, closest, line_col};
 use crate::fs::{Durability, write_atomic};
@@ -230,6 +230,17 @@ fn read_section(
         let typed = match (field.kind, value.get_ref()) {
             (Kind::Bool, DeValue::Boolean(b)) => Some(Value::Bool(*b)),
             (Kind::OptionalBool, DeValue::Boolean(b)) => Some(Value::OptionalBool(Some(*b))),
+            (Kind::OptionalBool, DeValue::String(s)) if s.as_ref() == SMT_UNCHANGED => {
+                Some(Value::OptionalBool(None))
+            }
+            (Kind::OptionalBool, _) => {
+                errors.push(at(
+                    text,
+                    value.span(),
+                    format!("{}: expected true, false or \"{SMT_UNCHANGED}\"", field.key),
+                ));
+                continue;
+            }
             (Kind::Int, DeValue::Integer(n)) => i64::from_str_radix(n.as_str(), n.radix())
                 .ok()
                 .map(Value::Int),
@@ -397,8 +408,8 @@ fn toml_value(value: &Value) -> toml_edit::Value {
         Value::Bool(b) | Value::OptionalBool(Some(b)) => (*b).into(),
         Value::Int(n) => (*n).into(),
         Value::Text(t) => t.as_str().into(),
-        // OwnValues never holds none; an empty string keeps TOML valid.
-        Value::OptionalBool(None) => "".into(),
+        // TOML has no null, so SMT's own none is a word (decision 65).
+        Value::OptionalBool(None) => SMT_UNCHANGED.into(),
     }
 }
 
@@ -971,6 +982,30 @@ mod tests {
         let loaded = parse_game(9100010, &text).unwrap();
         assert_eq!(loaded.profile.values, own);
         assert_eq!(loaded.profile.name, "Chrome Avenue 2081");
+    }
+
+    #[test]
+    fn smt_left_unchanged_is_a_stored_word() {
+        let mut own = OwnValues::new();
+        own.set(FieldKey::CpuSmt, Value::OptionalBool(None))
+            .unwrap();
+        let text = render(Some("Harbor Lights"), &own, &[]);
+        assert!(text.ends_with("[cpu]\nsmt = \"unchanged\"\n"), "{text}");
+        let loaded = parse_game(9100102, &text).unwrap();
+        assert_eq!(loaded.profile.values, own);
+        let all = parse_all_games("[cpu]\nsmt = \"unchanged\"\n").unwrap();
+        assert_eq!(
+            all.profile.values.get(FieldKey::CpuSmt),
+            Some(&Value::OptionalBool(None))
+        );
+        for bad in ["\"\"", "\"none\"", "\"Unchanged\"", "1"] {
+            let errors = parse_game(1, &format!("[cpu]\nsmt = {bad}\n")).unwrap_err();
+            assert_eq!(
+                errors[0].to_string(),
+                "line 2, column 7: cpu.smt: expected true, false or \"unchanged\"",
+                "{bad}"
+            );
+        }
     }
 
     #[test]

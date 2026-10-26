@@ -16,8 +16,10 @@ pub enum Kind {
     /// Text.
     #[serde(rename = "string")]
     Text,
-    /// `true`, `false` or none. Only SMT has this kind. A stored value is
-    /// always `true` or `false`; none is the system default.
+    /// `true`, `false` or none. Only SMT has this kind. None leaves SMT
+    /// unchanged at launch. It is the system default, and a scope may also
+    /// store it as its own value, `smt = "unchanged"` (decision 65), so a
+    /// game can leave SMT alone even when All games sets it.
     OptionalBool,
 }
 
@@ -65,9 +67,14 @@ pub enum Value {
     Int(i64),
     /// A [`Kind::Text`] value. Empty is a value, not "follows".
     Text(String),
-    /// A [`Kind::OptionalBool`] value. `None` is the system default.
+    /// A [`Kind::OptionalBool`] value. `None` leaves SMT unchanged: the
+    /// system default, or an own value stored as [`SMT_UNCHANGED`].
     OptionalBool(Option<bool>),
 }
+
+/// How a profile file stores SMT's none as an own value: `smt =
+/// "unchanged"`. TOML has no null (decision 65).
+pub const SMT_UNCHANGED: &str = "unchanged";
 
 impl Value {
     /// The value's kind.

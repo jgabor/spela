@@ -1,0 +1,9 @@
+name: Glass Orchard
+dlss:
+    fg_enabled: true
+    fg_override: true
+    multi_frame: 8
+overrides:
+    dlss.fg_enabled: true
+    dlss.fg_override: true
+    dlss.multi_frame: true

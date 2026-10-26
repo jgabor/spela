@@ -155,6 +155,7 @@ func (w *fixtureWriter) writeProfileCases() error {
 		w.profileMarkers,
 		w.profileDroppedFields,
 		w.profileInvalidVRR,
+		w.profileInvalidInGo,
 		w.profileBroken,
 		w.profileBrokenDefault,
 		w.profileFileNames,
@@ -572,6 +573,55 @@ func (w *fixtureWriter) profileInvalidVRR() error {
 	}
 	w.note("profiles/invalid-vrr/", "An invalid `gpu.vrr` in a game and a wrongly cased one in `default.yaml`: Go fails to load both", "literal YAML; valid sibling by `profile.Mutate`")
 	return w.profileOracle(c, "gpu.vrr is the only value Go validates on load", 9100119, 9100120)
+}
+
+// profileInvalidInGo writes values Go's own setters refuse (an sr_mode,
+// rr_mode or multi_frame outside the field's list) and relative shader cache
+// paths. Go's loader checks only gpu.vrr, so Go loads them and exports them
+// at launch as they are. profile.Save and profile.SaveDefault write them as
+// given, because only (*Profile).Set checks the lists.
+func (w *fixtureWriter) profileInvalidInGo() error {
+	c, err := w.enterCase("profiles/invalid-in-go")
+	if err != nil {
+		return err
+	}
+	if err := profile.SaveDefault(&profile.Profile{
+		DLSS: profile.DLSSSettings{SRMode: "quality", RRMode: "dlaa", MultiFrame: 6},
+		GPU:  profile.GPUSettings{ShaderCache: true, ShaderCachePath: "cache/all-games", PowerLimit: 250},
+		Overrides: map[string]bool{
+			profile.FieldDLSSSRMode:         true,
+			profile.FieldDLSSRRMode:         true,
+			profile.FieldDLSSMultiFrame:     true,
+			profile.FieldGPUShaderCache:     true,
+			profile.FieldGPUShaderCachePath: true,
+			profile.FieldGPUPowerLimit:      true,
+		},
+	}); err != nil {
+		return err
+	}
+	if err := profile.Save(9100133, &profile.Profile{
+		Name: "Lamp Circuit",
+		DLSS: profile.DLSSSettings{SRMode: "ultra", SROverride: true, RRMode: "Quality", MultiFrame: 3},
+		GPU:  profile.GPUSettings{ShaderCachePath: "shaders"},
+		Overrides: map[string]bool{
+			profile.FieldDLSSSRMode:         true,
+			profile.FieldDLSSSROverride:     true,
+			profile.FieldDLSSRRMode:         true,
+			profile.FieldDLSSMultiFrame:     true,
+			profile.FieldGPUShaderCachePath: true,
+		},
+	}); err != nil {
+		return err
+	}
+	if err := profile.Save(9100134, &profile.Profile{
+		Name:      "Glass Orchard",
+		DLSS:      profile.DLSSSettings{MultiFrame: 8, FGEnabled: true, FGOverride: true},
+		Overrides: map[string]bool{profile.FieldDLSSMultiFrame: true, profile.FieldDLSSFGEnabled: true, profile.FieldDLSSFGOverride: true},
+	}); err != nil {
+		return err
+	}
+	w.note("profiles/invalid-in-go/", "Values Go's setters refuse and Go loads anyway: `sr_mode: ultra`, `rr_mode: Quality` and `multi_frame` 6 and 8, plus relative `shader_cache_path` values, in All games and two games (decision 65)", "`profile.Save`, `profile.SaveDefault` (only `(*Profile).Set` checks the lists)")
+	return w.profileOracle(c, "Go loads and exports values outside its own field lists, and relative shader cache paths", 9100133, 9100134, noProfile)
 }
 
 func (w *fixtureWriter) profileBroken() error {

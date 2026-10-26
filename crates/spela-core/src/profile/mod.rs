@@ -25,7 +25,7 @@ use std::collections::BTreeMap;
 
 pub use field::{FIELDS, Field, FieldError, FieldKey, Section};
 pub use resolve::{Effective, Origin, Resolved, Source};
-pub use value::{Kind, Value, parse_bool};
+pub use value::{Kind, SMT_UNCHANGED, Value, parse_bool};
 
 /// Which profile a value belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -60,14 +60,11 @@ impl OwnValues {
     }
 
     /// Sets an own value after checking it, and returns the one it
-    /// replaced. SMT's none cannot be stored; [`OwnValues::follow`] removes
+    /// replaced. SMT's none is a value too: it leaves SMT unchanged even
+    /// when All games sets it (decision 65). [`OwnValues::follow`] removes
     /// the key instead.
     pub fn set(&mut self, key: FieldKey, value: Value) -> Result<Option<Value>, FieldError> {
-        let field = key.field();
-        field.check(&value)?;
-        if value == Value::OptionalBool(None) {
-            return Err(FieldError::NoneStored { key: field.key });
-        }
+        key.field().check(&value)?;
         Ok(self.values.insert(key, value))
     }
 
@@ -185,10 +182,13 @@ mod tests {
         );
         assert_eq!(
             own.set(FieldKey::CpuSmt, Value::OptionalBool(None)),
-            Err(FieldError::NoneStored { key: "cpu.smt" })
+            Ok(None),
+            "a game may leave SMT unchanged (decision 65)"
         );
-        own.set(FieldKey::CpuSmt, Value::OptionalBool(Some(false)))
-            .unwrap();
+        assert_eq!(
+            own.set(FieldKey::CpuSmt, Value::OptionalBool(Some(false))),
+            Ok(Some(Value::OptionalBool(None)))
+        );
         own.set(FieldKey::ProtonEnableHdr, Value::Bool(true))
             .unwrap();
         let keys: Vec<FieldKey> = own.iter().map(|(k, _)| k).collect();

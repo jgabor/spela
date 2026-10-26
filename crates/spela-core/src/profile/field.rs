@@ -346,13 +346,6 @@ pub enum FieldError {
         /// What was typed.
         raw: String,
     },
-    /// SMT's none cannot be stored: TOML has no null. Removing the key
-    /// follows instead.
-    #[error("{key}: none cannot be stored; remove the value to follow")]
-    NoneStored {
-        /// The field.
-        key: &'static str,
-    },
 }
 
 /// The typed key of each field. The order is the table order, so a
