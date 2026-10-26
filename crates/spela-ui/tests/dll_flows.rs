@@ -422,6 +422,29 @@ fn restore_asks_and_a_moved_backup_asks_again() {
 }
 
 #[test]
+fn a_restore_that_keeps_steam_s_file_says_so() {
+    let mut s = section(120, 40, &backed_up());
+    let token = 7;
+    s.dll_jobs.running = Some(spela_ui::dll_jobs::Running {
+        token,
+        origin: spela_ui::dll_jobs::Origin::Game(s.games.games[0].app_id),
+        label: "Restoring DLLs...",
+        progress: None,
+    });
+    let restored = Restored {
+        result: changed(),
+        restored: Vec::new(),
+        deleted: Vec::new(),
+        kept: vec![PathBuf::from("/fixture/new.dll")],
+    };
+    finish(&mut s, token, DllResult::Restored(Ok(restored)), None);
+    assert_eq!(
+        status(&s),
+        "Original DLLs restored! kept 1 file(s) Steam replaced"
+    );
+}
+
+#[test]
 fn confirm_destructive_off_skips_only_the_update_question() {
     let mut s = section(120, 40, &backed_up());
     let mut config = s.config.clone();

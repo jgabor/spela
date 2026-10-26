@@ -500,6 +500,14 @@ fn result_words(origin: &Origin, result: &DllResult) -> Option<((Level, String),
                 Some(format!("DLL install failed: {e}")),
             ));
         }
+        (_, DllResult::Restored(Ok(r))) if !r.kept.is_empty() => {
+            // A file spela created that Steam now ships stays, as the game's.
+            let kept = format!("kept {} file(s) Steam replaced", r.kept.len());
+            return Some((
+                (Level::Ok, format!("Original DLLs restored! {kept}")),
+                Some(format!("DLL restore completed; {kept}")),
+            ));
+        }
         (_, DllResult::Restored(Ok(_))) => {
             return Some((
                 (Level::Ok, "Original DLLs restored!".into()),

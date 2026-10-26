@@ -15,11 +15,13 @@
 //! `cpu governor` and `cpu smt` commands. Their change is meant to last, so
 //! it never restores.
 //!
-//! A setting whose prior value cannot be read is skipped, never applied:
-//! spela never restores a guess. A failed step does not stop the steps
-//! after it. The one exception is [`Step::LockedClocks`], the reset that
-//! `gpu reset` sends. It reads no prior and is never restored, so it is
-//! applied without one and reported as [`StepOutcome::AppliedNoRestore`].
+//! In a launch, a setting whose prior value cannot be read is skipped,
+//! never applied: spela never restores a guess. A failed step does not stop
+//! the steps after it. A one-shot change is never restored, so there a
+//! prior that cannot be read does not stop the change: the step is applied
+//! and reported as [`StepOutcome::AppliedNoRestore`]. [`Step::LockedClocks`],
+//! the reset that `gpu reset` sends, reads no prior at all and is always
+//! reported that way.
 
 use std::fmt;
 

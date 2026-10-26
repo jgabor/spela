@@ -8,10 +8,11 @@
 //!
 //! - Every target is checked before it is applied. A target that does not
 //!   suit the machine skips its step only.
-//! - The prior value is read as root right before the change. A step whose
-//!   prior cannot be read is skipped, because spela never restores a guess.
-//!   The fan is the one exception: a fan whose mode cannot be read goes back
-//!   to automatic.
+//! - The prior value is read as root right before the change. In `--serve`
+//!   a step whose prior cannot be read is skipped, because spela never
+//!   restores a guess. The fan is the one exception: a fan whose mode cannot
+//!   be read goes back to automatic. `--once` never restores, so there the
+//!   prior is only shown in the report (see [`super::serve::once`]).
 //! - A step that writes several things, the per-CPU governor and the
 //!   per-fan setting, puts back the ones it wrote when a later one fails,
 //!   so a failed step changed nothing.

@@ -214,10 +214,13 @@ impl BackupIndex {
         self.files.iter().find(|f| clean(&f.original_path) == want)
     }
 
-    /// What a restore would do to each path, from the index alone, in
-    /// [`plan_restore`]'s order: the backed up originals first, then the
-    /// files an install created. The TUI shows these before it asks, and
-    /// checks them again before the restore runs.
+    /// What a restore would do to each path, in [`plan_restore`]'s order:
+    /// the backed up originals first, then the files an install created
+    /// that the restore deletes. A created file that Steam has since
+    /// replaced is left out, because the restore keeps it; that check
+    /// hashes the file, so this reads the disk and runs on a worker. The
+    /// TUI shows these before it asks, and checks them again before the
+    /// restore runs.
     pub fn restore_targets(&self) -> Vec<RestoreTarget> {
         let copies = self
             .files
@@ -229,15 +232,19 @@ impl BackupIndex {
                 version: f.version.clone(),
                 deletes: false,
             });
-        let deletes = self.created_files.iter().map(|p| RestoreTarget {
-            path: p.clone(),
-            dll_name: p
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default(),
-            version: String::new(),
-            deletes: true,
-        });
+        let deletes = self
+            .created_files
+            .iter()
+            .filter(|p| !replaced_since_install(self, p).unwrap_or(false))
+            .map(|p| RestoreTarget {
+                path: p.clone(),
+                dll_name: p
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default(),
+                version: String::new(),
+                deletes: true,
+            });
         copies.chain(deletes).collect()
     }
 
@@ -906,5 +913,24 @@ mod tests {
             (targets[1].dll_name.as_str(), targets[1].deletes),
             ("new.dll", true)
         );
+    }
+
+    #[test]
+    fn a_created_file_steam_replaced_is_not_a_restore_target() {
+        let dir = tempfile::tempdir().unwrap();
+        let mine = dir.path().join("mine.dll");
+        let steams = dir.path().join("steams.dll");
+        // SHA_A is the SHA-256 of "abc".
+        std::fs::write(&mine, b"abc").unwrap();
+        std::fs::write(&steams, b"steam's own file").unwrap();
+        let index = BackupIndex {
+            app_id: 5,
+            created_files: vec![mine.clone(), steams.clone()],
+            installed: [(mine.clone(), SHA_A.into()), (steams, SHA_A.into())].into(),
+            ..BackupIndex::default()
+        };
+        let targets = index.restore_targets();
+        let paths: Vec<&Path> = targets.iter().map(|t| t.path.as_path()).collect();
+        assert_eq!(paths, [mine.as_path()]);
     }
 }
