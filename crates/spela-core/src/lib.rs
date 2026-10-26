@@ -1,28 +1,53 @@
 //! spela's domain and its seams.
 //!
-//! Phase 1 holds the foundations every later part builds on:
+//! The foundations:
 //!
 //! | Module | Role |
 //! |---|---|
 //! | [`env`] | The environment, read once. Nothing else reads `std::env` |
-//! | [`paths`] | Config, data, cache and state directories, spec-strict XDG |
+//! | [`paths`] | Config, data, cache and state directories, spec-strict XDG, and every file in them |
 //! | [`clock`] | The injected clock |
 //! | [`fs`] | Writing a file atomically, with fsync for user intent |
 //! | [`lock`] | flock instance locks and store locks |
 //! | [`hex`] | SHA-256 and hex helpers |
 //! | [`backend`] | The traits for GPU, display, privilege and HTTP |
 //! | [`fake`] | The fake behind every trait, shared by tests and `--demo` |
+//!
+//! The domain:
+//!
+//! | Module | Role |
+//! |---|---|
+//! | [`profile`] | The field table, profiles, All games inheritance and its words |
+//! | [`config`] | `config.toml`: schema, defaults, validation and settings |
+//! | [`games`] | The game cache and finding a game |
+//! | [`steam`] | Steam libraries, app manifests and VDF |
+//! | [`proton`] | The Proton resolver |
+//! | [`pe`] | PE version reading |
+//! | [`dll`] | DLL detection, manifest, versions, staleness and backups |
+//! | [`denylist`] | The anti-cheat deny list |
+//! | [`migrate`] | Reading Go spela's YAML and migrating it |
+//! | [`json`] | `--json` output, schema version 1 |
 
 #![warn(missing_docs)]
 
 pub mod backend;
 pub mod clock;
+pub mod config;
+pub mod denylist;
+pub mod dll;
 pub mod env;
 pub mod fake;
 pub mod fs;
+pub mod games;
 pub mod hex;
+pub mod json;
 pub mod lock;
+pub mod migrate;
 pub mod paths;
+pub mod pe;
+pub mod profile;
+pub mod proton;
+pub mod steam;
 
 /// spela's version, the workspace version.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

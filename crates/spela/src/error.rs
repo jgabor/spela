@@ -2,6 +2,8 @@
 
 use std::io;
 
+use spela_core::config::ConfigError;
+use spela_core::games::GameNotFound;
 use spela_core::lock::LockError;
 
 /// Exit codes, after mejl's. 4 stays free so the two tools agree.
@@ -110,6 +112,19 @@ impl From<LockError> for CliError {
     }
 }
 
+impl From<GameNotFound> for CliError {
+    fn from(e: GameNotFound) -> Self {
+        CliError::new(exit::FAILURE, e.to_string()).with_kind("game_not_found")
+    }
+}
+
+/// A config that does not load exits 3, in the CLI and the TUI.
+impl From<ConfigError> for CliError {
+    fn from(e: ConfigError) -> Self {
+        CliError::new(exit::CONFIG, e.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -152,5 +167,20 @@ mod tests {
         let e = CliError::from(held);
         assert_eq!(e.code, exit::LOCKED);
         assert_eq!(e.message, "spela is already running (PID: 42)");
+    }
+
+    #[test]
+    fn game_not_found_and_bad_config_map_to_their_codes() {
+        let e = CliError::from(GameNotFound("missing".into()));
+        assert_eq!((e.code, e.kind), (exit::FAILURE, "game_not_found"));
+        assert_eq!(e.message, "game not found: missing");
+        let bad = spela_core::config::parse("log_level = \"loud\"\n").unwrap_err();
+        let e = CliError::from(bad);
+        assert_eq!((e.code, e.kind), (exit::CONFIG, "config_invalid"));
+        assert!(
+            e.message.contains("unsupported log level: loud"),
+            "{}",
+            e.message
+        );
     }
 }

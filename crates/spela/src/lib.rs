@@ -7,6 +7,7 @@
 //! | Module | Role |
 //! |---|---|
 //! | [`cli`] | Arguments, commands, the process entry point and the [`cli::run`] seam |
+//! | [`commands`] | One file per command group, with its arguments and its `run` |
 //! | [`router`] | Subcommand or wrapped game, decided before clap runs |
 //! | [`error`] | [`error::CliError`] and the exit codes |
 //! | [`output`] | `error:` and `hint:` lines, colour, the `--json` error object |
@@ -21,6 +22,7 @@
 
 pub mod backends;
 pub mod cli;
+pub mod commands;
 pub mod demo;
 pub mod error;
 pub mod helper;

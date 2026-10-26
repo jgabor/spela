@@ -5,9 +5,10 @@
 //! backends, and maps the result to an exit code. [`run`] is the seam that
 //! runs one parsed command with injected paths, backends and streams.
 //!
-//! Every command in the architecture's Commands table is registered here.
-//! The ones a later phase fills return a "not yet implemented in this
-//! build" error (exit 1). `overlay` and `gui` are reserved: they say the
+//! Every command in the architecture's Commands table is registered here,
+//! and each group's arguments and code live in its own file under
+//! [`crate::commands`]. The ones a later phase fills return a "not yet
+//! implemented in this build" error (exit 1). `overlay` and `gui` are reserved: they say the
 //! command was removed in 0.7.0 and exit 2, and a program on PATH with
 //! either name is never launched for them (decision 45). Their arguments,
 //! like the hidden `apply-profile` helper's, never reach clap, so no form
@@ -25,14 +26,22 @@ use std::ffi::OsString;
 use std::io::{self, IsTerminal, Write};
 use std::process::ExitCode;
 
-use clap::{
-    ArgAction, ArgGroup, ArgMatches, Args, CommandFactory, FromArgMatches, Parser, Subcommand,
-};
+use clap::{ArgAction, ArgMatches, Args, CommandFactory, FromArgMatches, Parser, Subcommand};
 use clap_complete::Shell;
 use spela_core::backend::Backends;
 use spela_core::env::{Env, var};
 use spela_core::paths::{Paths, PathsError};
 
+use crate::commands::config::ConfigCommand;
+use crate::commands::cpu::CpuCommand;
+use crate::commands::denylist::DenylistCommand;
+use crate::commands::dll::DllCommand;
+use crate::commands::dlss::DlssCommand;
+use crate::commands::gpu::GpuCommand;
+use crate::commands::launch::LaunchArgs;
+use crate::commands::profile::ProfileCommand;
+use crate::commands::proton::ProtonCommand;
+use crate::commands::{self, removed};
 use crate::demo::DemoSession;
 use crate::error::{CliError, exit};
 use crate::helper::{self, HelperArgs};
@@ -115,29 +124,15 @@ pub struct Rest {
     pub args: Vec<String>,
 }
 
-/// `launch` arguments.
-#[derive(Debug, Clone, PartialEq, Eq, Args)]
-#[command(group(ArgGroup::new("target").required(true).args(["game", "game_id"])))]
-pub struct LaunchArgs {
-    /// The game: a Steam AppID or its exact name.
-    pub game: Option<String>,
-    /// The game by Steam AppID.
-    #[arg(long, value_name = "N")]
-    pub game_id: Option<u64>,
-    /// Print what a launch would do, and change nothing.
-    #[arg(long)]
-    pub dry_run: bool,
-}
-
 /// Subcommands.
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
     /// Scan Steam libraries for games and their DLLs.
-    Scan(Rest),
+    Scan(commands::scan::ScanArgs),
     /// List the games found in Steam libraries.
-    List(Rest),
+    List(commands::list::ListArgs),
     /// Show one game and its DLLs.
-    Show(Rest),
+    Show(commands::show::ShowArgs),
     /// Show what launching a game would do (dry run only).
     Launch(LaunchArgs),
     /// Manage per-game profiles and All games.
@@ -204,118 +199,6 @@ pub enum Command {
     /// Removed in 0.7.0.
     #[command(hide = true, disable_help_flag = true)]
     Gui(Rest),
-}
-
-/// `profile` subcommands.
-#[derive(Debug, Clone, Subcommand)]
-pub enum ProfileCommand {
-    /// List games with their own profile.
-    List(Rest),
-    /// Create a profile for a game.
-    Create(Rest),
-    /// Show a game's or All games' settings.
-    Show(Rest),
-    /// Make every setting follow All games, or reset All games.
-    Reset(Rest),
-    /// Delete a game's profile.
-    Delete(Rest),
-    /// Make games that set a field follow All games for it.
-    Follow(Rest),
-}
-
-/// `config` subcommands.
-#[derive(Debug, Clone, Subcommand)]
-pub enum ConfigCommand {
-    /// Print the config.
-    Show(Rest),
-    /// Change one setting.
-    Set(Rest),
-}
-
-/// `dll` subcommands.
-#[derive(Debug, Clone, Subcommand)]
-pub enum DllCommand {
-    /// List a game's DLLs, or every game with DLSS, XeSS or FSR.
-    List(Rest),
-    /// Check for newer DLL versions.
-    CheckUpdates(Rest),
-    /// Update a game's DLL, or every game's.
-    Update(Rest),
-    /// Install a DLL into a game.
-    Install(Rest),
-    /// List cached DLL versions.
-    Cache(Rest),
-    /// Put a game's original DLLs back.
-    Restore(Rest),
-}
-
-/// `dlss` subcommands.
-#[derive(Debug, Clone, Subcommand)]
-pub enum DlssCommand {
-    /// Show DLSS settings.
-    Show(Rest),
-    /// Change DLSS settings.
-    Set(Rest),
-    /// Make DLSS settings follow All games.
-    Reset(Rest),
-}
-
-/// `gpu` subcommands.
-#[derive(Debug, Clone, Subcommand)]
-pub enum GpuCommand {
-    /// Show the GPU, driver and limits.
-    Info(Rest),
-    /// Reset GPU 0's locked clocks and clock offsets to the driver defaults now.
-    Reset(Rest),
-    /// Change GPU settings in a profile.
-    Set(Rest),
-    /// Show GPU settings in a profile.
-    Show(Rest),
-    /// Make GPU settings follow All games.
-    ProfileReset(Rest),
-}
-
-/// `cpu` subcommands.
-#[derive(Debug, Clone, Subcommand)]
-pub enum CpuCommand {
-    /// Show the CPU, governor and SMT state.
-    Info(Rest),
-    /// Show or set the CPU governor now.
-    Governor(Rest),
-    /// Show or set SMT now.
-    Smt(Rest),
-    /// Change CPU settings in a profile.
-    Set(Rest),
-    /// Show CPU settings in a profile.
-    Show(Rest),
-    /// Make CPU settings follow All games.
-    ProfileReset(Rest),
-}
-
-/// `proton` subcommands.
-#[derive(Debug, Clone, Subcommand)]
-pub enum ProtonCommand {
-    /// Change Proton settings in a profile.
-    Set(Rest),
-    /// Show Proton settings in a profile.
-    Show(Rest),
-    /// Make Proton settings follow All games.
-    Reset(Rest),
-}
-
-/// `denylist` subcommands.
-#[derive(Debug, Clone, Subcommand)]
-pub enum DenylistCommand {
-    /// Show the built-in and user lists.
-    Show(Rest),
-    /// Check whether a game's DLLs may be swapped.
-    Check(Rest),
-    /// Allow DLL swaps for a game.
-    Allow(Rest),
-    /// Deny DLL swaps for a game.
-    Deny(Rest),
-    /// Remove your allow or deny for a game.
-    Clear(Rest),
 }
 
 /// A parsed command and the names that led to it, such as
@@ -676,7 +559,7 @@ pub fn run(
     inv: &Invocation,
     ctx: &mut Context,
     out: &mut dyn Write,
-    _err: &mut dyn Write,
+    err: &mut dyn Write,
 ) -> Result<(), CliError> {
     let Some(command) = &inv.cli.command else {
         if inv.cli.demo {
@@ -686,81 +569,41 @@ pub fn run(
     };
     match command {
         Command::Tui => run_tui(ctx),
-        Command::Launch(args) => launch(args),
-        Command::Completion { shell } => completion(*shell, out),
-        Command::Overlay(_) => Err(removed(
-            "overlay",
-            "the overlay had no reader, so its settings were dropped",
-        )),
-        Command::Gui(_) => Err(removed(
-            "gui",
-            "use 'spela tui' for the interactive interface",
-        )),
+        Command::Scan(args) => commands::scan::run(args, inv, ctx, out, err),
+        Command::List(args) => commands::list::run(args, inv, ctx, out, err),
+        Command::Show(args) => commands::show::run(args, inv, ctx, out, err),
+        Command::Launch(args) => commands::launch::run(args, inv, ctx, out, err),
+        Command::Profile { command: Some(c) } => commands::profile::run(c, inv, ctx, out, err),
+        Command::Config { command: Some(c) } => commands::config::run(c, inv, ctx, out, err),
+        Command::Dll { command: Some(c) } => commands::dll::run(c, inv, ctx, out, err),
+        Command::Dlss { command: Some(c) } => commands::dlss::run(c, inv, ctx, out, err),
+        Command::Gpu { command: Some(c) } => commands::gpu::run(c, inv, ctx, out, err),
+        Command::Cpu { command: Some(c) } => commands::cpu::run(c, inv, ctx, out, err),
+        Command::Proton { command: Some(c) } => commands::proton::run(c, inv, ctx, out, err),
+        Command::Denylist { command: Some(c) } => commands::denylist::run(c, inv, ctx, out, err),
+        // A parent with no subcommand, such as `spela dll`, prints its
+        // help and exits 0, as in Go.
+        Command::Profile { command: None }
+        | Command::Config { command: None }
+        | Command::Dll { command: None }
+        | Command::Dlss { command: None }
+        | Command::Gpu { command: None }
+        | Command::Cpu { command: None }
+        | Command::Proton { command: None }
+        | Command::Denylist { command: None } => write_help(out, &inv.path, ctx.colors.out),
+        Command::Completion { shell } => commands::completion::run(*shell, out),
+        Command::Overlay(_) => Err(removed::overlay()),
+        Command::Gui(_) => Err(removed::gui()),
         Command::ApplyProfile(a) => Err(helper::check(a)),
-        _ if is_parent(&inv.path) => write_help(out, &inv.path, ctx.colors.out),
-        _ => Err(CliError::not_implemented(&inv.path.join(" "))),
     }
 }
 
-/// Startup order: logging (done), the TUI lock, then the config and the
-/// terminal (Phase 4).
+/// Startup order: logging (done), the TUI lock, then the TUI itself. The
+/// lock is taken here so its log line keeps the `spela::cli` target.
 fn run_tui(ctx: &mut Context) -> Result<(), CliError> {
     let lock = locks::tui(&ctx.paths)?;
     tracing::info!(lock = %lock.path().display(), "took the TUI lock");
-    Err(CliError::not_implemented("tui"))
-}
-
-/// A launch without `--dry-run` cannot track the game (decision 40).
-fn launch(args: &LaunchArgs) -> Result<(), CliError> {
-    if !args.dry_run {
-        return Err(CliError::new(
-            exit::USAGE,
-            "direct Steam URI launch cannot track the game lifetime or cleanup coverage",
-        )
-        .with_hint("set the game's Steam launch options to `spela %command%` instead")
-        .with_kind("launch_needs_wrapper"));
-    }
-    Err(CliError::not_implemented("launch --dry-run"))
-}
-
-fn completion(shell: Shell, out: &mut dyn Write) -> Result<(), CliError> {
-    // clap_complete panics on a write error, so it writes to memory and the
-    // copy to stdout handles a closed pipe.
-    let mut buf = Vec::new();
-    clap_complete::generate(shell, &mut visible_command(), "spela", &mut buf);
-    out.write_all(&buf).map_err(CliError::from_stdout)
-}
-
-/// The command tree without hidden subcommands. clap_complete offers hidden
-/// ones too, and `apply-profile`, `overlay` and `gui` are not for tab
-/// completion.
-fn visible_command() -> clap::Command {
-    let root = Cli::command();
-    clap::Command::new("spela")
-        .version(spela_core::VERSION)
-        .disable_version_flag(true)
-        .args(root.get_arguments().cloned())
-        .subcommands(root.get_subcommands().filter(|c| !c.is_hide_set()).cloned())
-}
-
-fn removed(name: &str, hint: &str) -> CliError {
-    CliError::new(
-        exit::USAGE,
-        format!("the {name} command was removed in 0.7.0"),
-    )
-    .with_hint(hint)
-    .with_kind("removed")
-}
-
-/// Whether `path` is one parent command with no subcommand, such as
-/// `spela dll`, which prints its help and exits 0 as in Go.
-fn is_parent(path: &[String]) -> bool {
-    match path {
-        [name] => Cli::command()
-            .find_subcommand(name)
-            .is_some_and(clap::Command::has_subcommands),
-        _ => false,
-    }
+    commands::tui::run(ctx, lock)
 }
 
 fn write_help(out: &mut dyn Write, path: &[String], color: bool) -> Result<(), CliError> {
@@ -1022,29 +865,20 @@ mod tests {
 
     #[test]
     fn parents_without_a_subcommand_show_help() {
-        assert!(is_parent(&["dll".to_owned()]));
-        assert!(!is_parent(&["scan".to_owned()]));
-        assert!(!is_parent(&["dll".to_owned(), "list".to_owned()]));
+        match parse_args(&["dll"]) {
+            Parsed::Run(inv) => {
+                assert!(matches!(
+                    inv.cli.command,
+                    Some(Command::Dll { command: None })
+                ));
+                assert_eq!(inv.path, ["dll"]);
+            }
+            other => panic!("{other:?}"),
+        }
         let mut out = Vec::new();
         write_help(&mut out, &["dll".to_owned()], false).unwrap();
         let text = String::from_utf8(out).unwrap();
         assert!(text.contains("Usage: spela dll"), "{text}");
         assert!(text.contains("check-updates"), "{text}");
-    }
-
-    #[test]
-    fn launch_without_dry_run_points_at_steam() {
-        let e = launch(&LaunchArgs {
-            game: Some("x".into()),
-            game_id: None,
-            dry_run: false,
-        })
-        .unwrap_err();
-        assert_eq!(e.code, exit::USAGE);
-        assert!(
-            e.message
-                .contains("cannot track the game lifetime or cleanup coverage")
-        );
-        assert!(e.hint.unwrap().contains("spela %command%"));
     }
 }

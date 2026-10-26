@@ -1,0 +1,40 @@
+//! One file per command group, so each can be owned and filled on its own.
+//!
+//! [`crate::cli`] parses the arguments and dispatches to the `run` function
+//! here. A command a later phase fills returns
+//! [`crate::error::CliError::not_implemented`] until then. Each file owns
+//! its own argument types: replacing a placeholder [`crate::cli::Rest`]
+//! touches only that file.
+//!
+//! | File | Commands |
+//! |---|---|
+//! | [`scan`], [`list`], [`show`] | `scan`, `list`, `show <game>` |
+//! | [`launch`] | `launch <game> --dry-run` |
+//! | [`profile`] | `profile list`, `create`, `show`, `reset`, `delete`, `follow` |
+//! | [`config`] | `config show`, `set` |
+//! | [`dll`] | `dll list`, `check-updates`, `update`, `install`, `cache`, `restore` |
+//! | [`dlss`], [`proton`] | `show`, `set`, `reset` |
+//! | [`gpu`] | `gpu info`, `reset`, `set`, `show`, `profile-reset` |
+//! | [`cpu`] | `cpu info`, `governor`, `smt`, `set`, `show`, `profile-reset` |
+//! | [`denylist`] | `denylist show`, `check`, `allow`, `deny`, `clear` |
+//! | [`tui`] | `tui`, and `--demo` with no command |
+//! | [`completion`] | `completion <shell>` |
+//! | [`removed`] | the reserved `overlay` and `gui` (decision 45) |
+//!
+//! The hidden `apply-profile` root helper is [`crate::helper`].
+
+pub mod completion;
+pub mod config;
+pub mod cpu;
+pub mod denylist;
+pub mod dll;
+pub mod dlss;
+pub mod gpu;
+pub mod launch;
+pub mod list;
+pub mod profile;
+pub mod proton;
+pub mod removed;
+pub mod scan;
+pub mod show;
+pub mod tui;
