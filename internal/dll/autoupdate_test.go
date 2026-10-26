@@ -95,6 +95,28 @@ func TestAutoUpdateReportsAFailedSwapAndAMissingManifest(t *testing.T) {
 	}
 }
 
+func TestAutoUpdateStopsWhenTheDenyListCannotBeRead(t *testing.T) {
+	setupDLLTestDirs(t)
+	replacement := []byte("replacement")
+	server := payloadServer(t, map[string][]byte{"/dll": replacement})
+	saveOperationManifest(t, server.URL, map[string][]DLL{"dlss": {{Version: "2.0.0", Filename: "nvngx_dlss.dll", URL: server.URL + "/dll", SHA256: checksum(replacement)}}})
+	installDirectory := t.TempDir()
+	path := filepath.Join(installDirectory, "nvngx_dlss.dll")
+	assertWriteFile(t, path, []byte("original"))
+	saveOperationDatabase(t, &game.Database{Games: map[uint64]*game.Game{1091500: operationGame(1091500, installDirectory, path, "1.0.0")}})
+	lists := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "spela", "lists")
+	if err := os.MkdirAll(lists, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	assertWriteFile(t, filepath.Join(lists, "denylist.yaml"), []byte("entries: [unclosed"))
+
+	result := AutoUpdate(func([]*game.Game) map[uint64]bool { t.Fatal("no game is checked without a deny list"); return nil })
+	if result.Err == nil || !strings.HasPrefix(result.Notice(), "DLL auto-update skipped: check deny list: read ") {
+		t.Fatalf("broken deny list = %+v, notice %q", result, result.Notice())
+	}
+	assertFileBytes(t, path, []byte("original"))
+}
+
 func TestAutoUpdateNoticeCountsAndNames(t *testing.T) {
 	result := AutoUpdateResult{
 		Batch:   BatchResult{Updated: 3, Failed: 2, Items: []BatchItem{{}, {Err: errors.New("disk full")}, {Err: errors.New("later")}}},

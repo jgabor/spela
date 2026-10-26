@@ -2,6 +2,7 @@ package denylist
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"slices"
@@ -106,29 +107,45 @@ func SaveOverrides(o *Overrides) error {
 	return os.WriteFile(overridesPath(), data, 0o644)
 }
 
+// IsDenied reports whether appID is denied. A list that cannot be read counts
+// as no entries; unattended callers use Check, which reports that error.
 func IsDenied(appID uint64) (bool, string) {
-	overrides, _ := LoadOverrides()
+	denied, reason, _ := Check(appID)
+	return denied, reason
+}
+
+// Check reports whether appID is denied, and an error when the overrides or the
+// deny list exist but cannot be read. A missing file is not an error. On an
+// error the answer covers only the lists that were read.
+func Check(appID uint64) (bool, string, error) {
+	overrides, overridesErr := LoadOverrides()
 	if overrides != nil {
 		if slices.Contains(overrides.Allowed, appID) {
-			return false, ""
+			return false, "", nil
 		}
 		for _, e := range overrides.Denied {
 			if e.AppID == appID {
-				return true, e.Reason
+				return true, e.Reason, nil
 			}
 		}
 	}
 
-	list, _ := LoadDenyList()
+	list, listErr := LoadDenyList()
 	if list != nil {
 		for _, e := range list.Entries {
 			if e.AppID == appID {
-				return true, e.Reason
+				return true, e.Reason, nil
 			}
 		}
 	}
 
-	return false, ""
+	if overridesErr != nil {
+		return false, "", fmt.Errorf("read %s: %w", overridesPath(), overridesErr)
+	}
+	if listErr != nil {
+		return false, "", fmt.Errorf("read %s: %w", denyListPath(), listErr)
+	}
+	return false, "", nil
 }
 
 func Allow(appID uint64) error {

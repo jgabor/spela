@@ -19,8 +19,9 @@ type AutoUpdateResult struct {
 // AutoUpdate brings every game's DLLs to the manifest's latest version without
 // asking. Because nobody confirms it, it is stricter than a manual update: it
 // leaves deny-listed games, running games, and DLLs of unknown version alone,
-// and it only touches DLLs that are older than the manifest's latest. Each
-// swap keeps the manual path's backup and checksum checks.
+// it updates nothing when the deny list cannot be read, and it only touches
+// DLLs that are older than the manifest's latest. Each swap keeps the manual
+// path's backup and checksum checks.
 func AutoUpdate(running func([]*game.Game) map[uint64]bool) AutoUpdateResult {
 	manifest, err := GetManifest(false, "")
 	if err != nil {
@@ -35,7 +36,13 @@ func AutoUpdate(running func([]*game.Game) map[uint64]bool) AutoUpdateResult {
 	var candidates []*game.Game
 	pending := make(map[uint64][]UpdateRequest)
 	for _, entry := range games {
-		if denied, _ := denylist.IsDenied(entry.AppID); denied {
+		// Nobody confirms this update, so a deny list that cannot be read
+		// stops it rather than letting an anti-cheat game through.
+		denied, _, err := denylist.Check(entry.AppID)
+		if err != nil {
+			return AutoUpdateResult{Err: fmt.Errorf("check deny list: %w", err)}
+		}
+		if denied {
 			continue
 		}
 		if requests := autoUpdateRequests(entry, manifest); len(requests) > 0 {

@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Auto-update DLLs no longer treats a deny list or overrides file that cannot be read as empty. It updates nothing and the startup notice names the file, so an anti-cheat game is never updated unattended.
 - Log level takes effect: Spela applies it at startup and after a TUI or GUI Settings save. It is in the TUI Settings.
 - DLL cache path, Backup path, and Default shader cache path take effect, and they and Additional library paths can be edited in the TUI and GUI Settings. Folder settings reject a relative path, and backups made before a Backup path change stay restorable.
 - Every Settings option except Theme is in both the TUI and the graphical interface; Theme stays in the graphical interface because the TUI uses the terminal's colours.
