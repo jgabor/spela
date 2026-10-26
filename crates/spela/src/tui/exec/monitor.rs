@@ -20,6 +20,7 @@ use spela_core::backend::{
     ApplyReport, Cpu, HardwareRequest, Privilege, PrivilegeError, PrivilegedSession, SysfsCpu,
 };
 use spela_core::fake::{FakeGpuControl, FakePrivilege};
+use spela_core::paths::Paths;
 use spela_ui::Msg;
 use spela_ui::event::HardwareOp;
 use spela_ui::screens::monitor::Cmd;
@@ -95,26 +96,35 @@ pub fn hardware(w: &mut Workers, token: u64, op: HardwareOp) {
     let privilege = w.privilege.clone();
     w.jobs.submit(
         &w.tx,
-        move || {
-            let result = crate::locks::launch(&paths)
-                .map_err(|e| PrivilegeError::Unavailable(e.to_string()))
-                .and_then(|_lock| {
-                    let report = privilege.apply_once(&request(&op));
-                    tracing::info!(?op, ok = report.is_ok(), "hardware command");
-                    if let Ok(r) = &report {
-                        for s in &r.steps {
-                            tracing::info!(step = %s.step, target = %s.target, outcome = ?s.outcome, "hardware step");
-                        }
-                    }
-                    report
-                });
-            Msg::HardwareDone { token, result }
+        move || Msg::HardwareDone {
+            token,
+            result: apply(&paths, &privilege, &op),
         },
         move |e| Msg::HardwareDone {
             token,
             result: Err(PrivilegeError::Helper(e)),
         },
     );
+}
+
+/// One hardware command: the launch lock without waiting, then one
+/// one-shot apply. A held lock answers with the lock's own message and
+/// asks the backend for nothing. Blocking: it runs on the job pool.
+pub fn apply(
+    paths: &Paths,
+    privilege: &SharedPrivilege,
+    op: &HardwareOp,
+) -> Result<ApplyReport, PrivilegeError> {
+    let _lock =
+        crate::locks::launch(paths).map_err(|e| PrivilegeError::Unavailable(e.to_string()))?;
+    let report = privilege.apply_once(&request(op));
+    tracing::info!(?op, ok = report.is_ok(), "hardware command");
+    if let Ok(r) = &report {
+        for s in &r.steps {
+            tracing::info!(step = %s.step, target = %s.target, outcome = ?s.outcome, "hardware step");
+        }
+    }
+    report
 }
 
 /// The CPU reader and privilege runner for `spela --demo`: a fictional
@@ -153,6 +163,30 @@ mod tests {
         assert_eq!(smt.smt, Some(false));
         assert_eq!(smt.steps().len(), 1);
         assert!(NoPrivilege.apply_once(&smt).is_err());
+    }
+
+    #[test]
+    fn a_held_launch_lock_changes_nothing() {
+        let base = tempfile::tempdir().unwrap();
+        let paths = Paths::under(base.path());
+        let fake = FakePrivilege::new(FakeGpuControl::new(), None);
+        let shared = SharedPrivilege::new(Box::new(fake.clone()));
+        let held = crate::locks::launch(&paths).unwrap();
+        let err = apply(&paths, &shared, &HardwareOp::GpuReset).unwrap_err();
+        let PrivilegeError::Unavailable(text) = &err else {
+            panic!("{err:?}")
+        };
+        assert!(
+            text.starts_with("spela is already running (PID: "),
+            "{text}"
+        );
+        assert_eq!(fake.log().prompts, 0, "nothing was asked");
+        drop(held);
+        let report = apply(&paths, &shared, &HardwareOp::GpuReset).unwrap();
+        assert!(report.all_applied(), "{report:?}");
+        assert_eq!(fake.log().prompts, 1);
+        // The job let the lock go.
+        assert!(crate::locks::launch(&paths).is_ok());
     }
 
     #[test]

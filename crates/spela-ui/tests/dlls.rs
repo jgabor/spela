@@ -194,3 +194,56 @@ fn the_list_scrolls_with_the_cursor_and_the_detail_follows() {
     assert!(text.contains(&selected), "{text}");
     assert!(s.dlls.list_scroll > 0);
 }
+
+#[test]
+fn an_overflowing_detail_scrolls_and_keeps_the_key_contract() {
+    use spela_ui::keymap::{self, Resolution};
+    let mut s = state_with_games(80, 24, 40);
+    update(&mut s, key("2"));
+    update(&mut s, key("enter"));
+    assert_eq!(s.focus, Pane::Detail);
+    let table = spela_ui::screens::screen_bindings(&s, s.focus);
+    assert!(!table.is_empty(), "20 deployments overflow 80x24");
+    assert!(keymap::check(&table).is_empty());
+    let bindings = spela_ui::screens::bindings(&s);
+    for hint in spela_ui::view::fitted_hints(&bindings, 78) {
+        let k = hint.keys.first().unwrap();
+        assert_eq!(
+            keymap::resolve(&bindings, k),
+            Resolution::Run(hint.action.clone()),
+            "{}",
+            hint.label
+        );
+    }
+    let before = render_text(&mut s);
+    update(&mut s, key("down"));
+    assert_eq!(s.dlls.scroll, 1);
+    assert_ne!(render_text(&mut s), before);
+}
+
+#[test]
+fn ascii_glyphs_reach_both_groups() {
+    let mut s = state(80, 24, Some(catalog()));
+    let mut config = s.config.clone();
+    config.ui.ascii_glyphs = true;
+    s.set_config(config);
+    for (group, pane) in [
+        ("left", Pane::List),
+        ("left", Pane::Detail),
+        ("right", Pane::List),
+        ("right", Pane::Detail),
+    ] {
+        s.focus = Pane::List;
+        update(&mut s, key(group));
+        s.focus = pane;
+        let text = render_text(&mut s);
+        assert!(text.is_ascii(), "{group} {pane:?}:\n{text}");
+    }
+}
+
+#[test]
+fn library_detail_lists_every_manifest_version() {
+    let mut s = state(120, 40, Some(catalog()));
+    let text = render_text(&mut s);
+    assert!(text.contains("Manifest: 310.5.3, 310.4.0"), "{text}");
+}

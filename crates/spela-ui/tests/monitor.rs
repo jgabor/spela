@@ -488,3 +488,66 @@ fn clicks_and_the_wheel_move_between_sections() {
     spela_ui::update::run(&mut s, open);
     assert_eq!(s.focus, Pane::Detail);
 }
+
+/// The shared keymap contract (tests/keys.rs) on a context those tests do
+/// not open: no key bound twice, and every hinted key runs its hint.
+fn assert_key_contract(name: &str, s: &AppState) {
+    use spela_ui::keymap::{self, Resolution};
+    let bindings = spela_ui::screens::bindings(s);
+    let table = bindings.clone().split_off(1);
+    let problems = keymap::check(&table);
+    assert!(problems.is_empty(), "{name}: {problems:?}");
+    for hint in spela_ui::view::fitted_hints(&bindings, usize::from(s.size.0 - 2)) {
+        let Some(k) = hint.keys.first() else {
+            assert!(hint.typed.is_some(), "{name}: a hint with no key");
+            continue;
+        };
+        assert_eq!(
+            keymap::resolve(&bindings, k),
+            Resolution::Run(hint.action.clone()),
+            "{name}: {} {}",
+            hint.key_text(),
+            hint.label
+        );
+    }
+}
+
+#[test]
+fn the_governor_picker_keeps_the_key_contract() {
+    for (w, h) in [(120, 40), (80, 24)] {
+        let mut s = hot(w, h);
+        run_row(&mut s, "Set CPU governor");
+        assert!(matches!(s.popup, Some(Popup::Governor(_))));
+        assert_key_contract(&format!("governor {w}x{h}"), &s);
+        update(&mut s, key("tab"));
+        assert_key_contract(&format!("governor buttons {w}x{h}"), &s);
+    }
+}
+
+#[test]
+fn ascii_glyphs_reach_every_monitor_surface() {
+    let mut s = hot(80, 24);
+    let mut config = s.config.clone();
+    config.ui.ascii_glyphs = true;
+    s.set_config(config);
+    // A critical alert whose message carries °C, and the fan alert.
+    let hot_fans = GpuMetrics {
+        fan_percent: Some(100),
+        ..gpu(86, 99, 318)
+    };
+    update(&mut s, sample(hot_fans, cpu(40, Some(true))));
+    update(&mut s, key("tab"));
+    for section in Section::ALL {
+        s.monitor.section = section;
+        let text = render_text(&mut s);
+        assert!(text.is_ascii(), "{section:?}:\n{text}");
+    }
+    s.monitor.section = Section::Alerts;
+    let text = render_text(&mut s);
+    assert!(text.contains("! GPU temperature high at 86C"), "{text}");
+    update(&mut s, key("tab"));
+    run_row(&mut s, "Set CPU governor");
+    let text = render_text(&mut s);
+    assert!(text.is_ascii(), "{text}");
+    assert!(text.contains("powersave  x"), "{text}");
+}

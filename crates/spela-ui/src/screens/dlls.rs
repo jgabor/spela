@@ -5,9 +5,9 @@
 //! Right as in Go (TUI 3):
 //!
 //! - **Library**: the five DLL families in catalogue order. Detail shows
-//!   the family's file name, the manifest's latest version, the versions
-//!   in the DLL cache, and every deployment of it, marked current, stale
-//!   or unknown.
+//!   the family's file name, the manifest's latest version and every
+//!   version it lists, the versions in the DLL cache, and every deployment
+//!   of the family, marked current, stale or unknown.
 //! - **Deployment**: the games with detected DLLs. Detail shows each DLL
 //!   with its version and mark.
 //!
@@ -519,6 +519,25 @@ fn library_lines(state: &AppState, width: usize) -> Vec<Line> {
         Some(_) => "unavailable".to_owned(),
     };
     lines.push(plain(format!("Latest: {latest}"), Role::Text));
+    let listed = match catalog.map(|c| &c.manifest) {
+        None => "loading...".to_owned(),
+        Some(Ok(Some(m))) => {
+            let mut versions: Vec<&str> = m
+                .manifest
+                .valid_entries(fam.dll_type)
+                .map(|e| e.version.as_str())
+                .collect();
+            versions.sort_by(|a, b| spela_core::dll::version::compare(b, a));
+            versions.dedup();
+            if versions.is_empty() {
+                "unavailable".to_owned()
+            } else {
+                versions.join(", ")
+            }
+        }
+        Some(_) => "unavailable".to_owned(),
+    };
+    lines.push(plain(format!("Manifest: {listed}"), Role::Text));
     let cached = match catalog.and_then(|c| c.cached.get(&fam.dll_type)) {
         None if catalog.is_none() => "loading...".to_owned(),
         Some(Ok(v)) if !v.is_empty() => v.join(", "),
@@ -628,14 +647,15 @@ pub fn render(state: &AppState, frame: &mut Frame, area: PaneArea, hits: &mut Hi
     }
 }
 
-/// The right-hand text of a List row and its role.
-fn list_tag(state: &AppState, row: usize) -> Option<(String, Role)> {
+/// The right-hand text of a List row and its role. `deps` is
+/// [`deployments`], computed once per frame.
+fn list_tag(state: &AppState, deps: &[usize], row: usize) -> Option<(String, Role)> {
     match state.dlls.group {
         Group::Library => {
             let t = CATALOGUE[row].dll_type;
-            let games: Vec<&Game> = deployments(state)
-                .into_iter()
-                .map(|i| &state.games.games[i])
+            let games: Vec<&Game> = deps
+                .iter()
+                .map(|i| &state.games.games[*i])
                 .filter(|g| g.has(t))
                 .collect();
             let stale = games
@@ -651,7 +671,7 @@ fn list_tag(state: &AppState, row: usize) -> Option<(String, Role)> {
             }
         }
         Group::Deployment => {
-            let i = *deployments(state).get(row)?;
+            let i = *deps.get(row)?;
             let m = game_mark(state, &state.games.games[i]);
             Some((m.word().to_owned(), m.role()))
         }
@@ -669,6 +689,7 @@ fn render_list(state: &AppState, frame: &mut Frame, area: PaneArea, hits: &mut H
     let x = inner.x + 1;
     let w = inner.width - 2;
     let d = &state.dlls;
+    let deps = deployments(state);
     // In one pane the title reads `▸ List`, so the first row names the
     // groups, the current one in brackets, as the section strip does.
     let mut top = inner.y;
@@ -706,9 +727,8 @@ fn render_list(state: &AppState, frame: &mut Frame, area: PaneArea, hits: &mut H
             0,
         ),
         Group::Deployment => (
-            deployments(state)
-                .into_iter()
-                .map(|i| state.games.games[i].name.clone())
+            deps.iter()
+                .map(|i| state.games.games[*i].name.clone())
                 .collect(),
             d.game,
             d.list_scroll,
@@ -734,7 +754,7 @@ fn render_list(state: &AppState, frame: &mut Frame, area: PaneArea, hits: &mut H
             let role = if focused { Role::Key } else { Role::Muted };
             p.text(x, y, 1, g.cursor, role);
         }
-        let tag = list_tag(state, i);
+        let tag = list_tag(state, &deps, i);
         let tag_w = tag.as_ref().map_or(0, |(t, _)| {
             u16::try_from(crate::text::width(t)).unwrap_or(0)
         });
