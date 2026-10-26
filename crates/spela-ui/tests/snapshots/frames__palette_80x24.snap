@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/frames.rs
+expression: render_text(&mut s)
+---
+ spela   ▸ Library  DLL Catalog  Monitor  Settings
+┌─ ▸ List ─────────────────────────────────────────────────────────────────────┐
+│ / Find games                                                                 │
+│   All games                                                                  │
+│ ┌─ Commands ───────────────────────────────────────────────── : or Ctrl-K ─┐ │
+│ │ > dl                                                                     │ │
+│ ├──────────────────────────────────────────────────────────────────────────┤ │
+│ │ ▸ DLL cache path                                    setting              │ │
+│ │   DLL manifest URL                                  setting              │ │
+│ │   Deny DLL swaps: Ashfall Courier · wait⋯           action               │ │
+│ │   Go to DLL Catalog                       2         destination          │ │
+│ │   Sort: DLLs first                                  action               │ │
+│ │   Allow DLL swaps: Ashfall Courier · wai⋯           action               │ │
+│ │   Toggle DLL filter                                 action               │ │
+│ │   Auto-update DLLs                                  setting              │ │
+│ │   Update all stale deployments (0 DLLs) ⋯           action               │ │
+│ ├──────────────────────────────────────────────────────────────────────────┤ │
+│ │ Type to filter. Enter runs, Esc closes.                                  │ │
+│ │ A row shows its key when it has one. Actions rows are reached with 0.    │ │
+│ │                                                                          │ │
+│ └──────────────────────────────────────────────────────────────────────────┘ │
+└─ ▪ DLLs  ⚑ profile ──────────────────────────────────────────────────────────┘
+ 9 best matches for "dl"
+ Up/Down Move  Enter Run  Esc Close

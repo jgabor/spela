@@ -62,6 +62,96 @@ fn library_80x24_with_an_alert() {
     insta::assert_snapshot!(render_text(&mut s));
 }
 
+/// Each alert at 80x24: the top bar keeps the temperature and the alert
+/// word (terminal-ux.md, settled questions). Fan max is info, which shows
+/// on Monitor only.
+#[test]
+fn library_80x24_with_each_alert() {
+    let alert = |kind, severity, message: &str| Alert {
+        kind,
+        severity,
+        message: message.into(),
+        suggestion: String::new(),
+    };
+    for (name, temp, a) in [
+        (
+            "high_temp",
+            86,
+            alert(
+                AlertKind::HighTemp,
+                Severity::Critical,
+                "GPU temperature 86°C",
+            ),
+        ),
+        (
+            "throttling",
+            88,
+            alert(
+                AlertKind::ThermalThrottle,
+                Severity::Critical,
+                "GPU thermal throttling at 88°C",
+            ),
+        ),
+        ("power_limited", 71, power_alert()),
+        (
+            "fan_max",
+            64,
+            alert(
+                AlertKind::FanMaximum,
+                Severity::Info,
+                "Fan at maximum (100%)",
+            ),
+        ),
+    ] {
+        let mut s = state_with_games(80, 24, 12);
+        update(&mut s, sample(temp, vec![a.clone()]));
+        let text = render_text(&mut s);
+        let top = text.lines().next().unwrap();
+        assert!(top.contains(&format!("{temp}°")), "{name}: {top}");
+        if a.severity > Severity::Info {
+            assert!(top.contains(a.label()), "{name}: {top}");
+        }
+        insta::assert_snapshot!(format!("library_80x24_alert_{name}"), text);
+    }
+}
+
+#[test]
+fn help_80x24() {
+    let mut s = state_with_games(80, 24, 12);
+    update(&mut s, key("?"));
+    insta::assert_snapshot!(render_text(&mut s));
+}
+
+#[test]
+fn palette_80x24() {
+    let mut s = state_with_games(80, 24, 12);
+    update(&mut s, key(":"));
+    for c in ["d", "l"] {
+        update(&mut s, key(c));
+    }
+    insta::assert_snapshot!(render_text(&mut s));
+}
+
+#[test]
+fn confirmation_80x24() {
+    let mut s = state_with_games(80, 24, 12);
+    s.confirm(spela_ui::screens::confirm::State::new(
+        "Confirm DLL update",
+        spela_ui::screens::confirm::lines(
+            &[
+                "1 DLL target(s)",
+                "",
+                "Ashfall Courier · DLSS · 310.4.0 -> 310.5.3",
+                "",
+                "Backup: current DLL is backed up before replacement",
+            ],
+            spela_ui::theme::Role::Text,
+        ),
+        spela_ui::screens::Action::Help,
+    ));
+    insta::assert_snapshot!(render_text(&mut s));
+}
+
 #[test]
 fn library_detail_80x24() {
     let mut s = state_with_games(80, 24, 12);
@@ -117,7 +207,7 @@ fn empty_library_120x40() {
 }
 
 #[test]
-fn settings_placeholder_120x40() {
+fn settings_120x40() {
     let mut s = state_with_games(120, 40, 3);
     update(&mut s, key("4"));
     insta::assert_snapshot!(render_text(&mut s));

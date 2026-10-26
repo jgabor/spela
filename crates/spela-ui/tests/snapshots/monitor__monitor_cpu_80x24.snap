@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/monitor.rs
+expression: render_text(&mut s)
+---
+ spela   1 Library  2 DLL Catalog  ▸ 3 Monitor  4 Settings  71° ⚠ Power limited
+┌─ ▸ Detail ───────────────────────────────────────────────────────────────────┐
+│ CPU                                                                          │
+│                                                                              │
+│ Util     34%             ▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃                                │
+│ Freq     3910 MHz                                                            │
+│ RAM      ███████░░░░░░░░░░░░░  10.2 / 31.2 GB                                │
+│ Governor powersave                                                           │
+│ SMT      on                                                                  │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+ 0 Actions  Tab List  Esc List  ? Help

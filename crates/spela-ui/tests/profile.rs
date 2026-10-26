@@ -163,6 +163,24 @@ fn the_number_editor_at_120x40() {
 }
 
 #[test]
+fn the_picker_at_80x24() {
+    let mut s = on_field(80, 24, FieldKey::DlssSrMode);
+    update(&mut s, key("enter"));
+    insta::assert_snapshot!(render_text(&mut s));
+}
+
+#[test]
+fn the_number_editor_at_80x24() {
+    let mut s = on_field(80, 24, FieldKey::GpuClockOffset);
+    update(&mut s, key("enter"));
+    update(&mut s, key("x"));
+    update(&mut s, key("enter"));
+    let text = render_text(&mut s);
+    assert!(text.contains("Invalid value: invalid integer: x"), "{text}");
+    insta::assert_snapshot!(text);
+}
+
+#[test]
 fn the_page_at_80x24() {
     let mut s = on_field(80, 24, FieldKey::DlssRrOverride);
     insta::assert_snapshot!(render_text(&mut s));

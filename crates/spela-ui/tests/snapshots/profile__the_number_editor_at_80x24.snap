@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/profile.rs
+expression: text
+---
+ spela   ▸ Library  DLL Catalog  Monitor  Settings
+┌─ ▸ Detail ───────────────────────────────────────────────────────────────────┐
+│ Ashfall Courier · App ID 9100010 · DLLs: DLSS 310.4.0 · Saved at once        │
+│ Own settings (4): Super resolution quality · Resolution override On · Ray o⋯ │
+│ Proton  DLSS  [GPU]  CPU  DLLs                                               │
+│                                                                              │
+│     Multi-frame            1             from All games                      │
+│     SR indicator           Off           system default                      │
+│     FG indicator           Off           system default                      │
+│                                                                              │
+│ GPU                                                                          │
+│ ▸ ⚑ Clock offset           x             this game · All games: none         ┃
+│     ┌─ Edit Clock offset ──────────────────────────────────┐                 ┃
+│     │ Value before edit: 150 MHz                           │                 ┃
+│     │                                                      │                 ┃
+│     │ x                                                    │                 ┃
+│     │ Whole number in MHz. Typing replaces the value.      │                 │
+│     │ Invalid value: invalid integer: x                    │                 │
+│     │                                                      │                 │
+│     │ [ Apply ]  [ Cancel ]                                │                 │
+│     └──────────────────────────────────────────────────────┘                 │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+ Type to edit  Tab control  Enter apply  Backspace delete  Esc cancel

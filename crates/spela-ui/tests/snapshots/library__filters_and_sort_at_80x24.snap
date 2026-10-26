@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/library.rs
+expression: text
+---
+ spela   ▸ 1 Library  2 DLL Catalog  3 Monitor  4 Settings
+┌─ ▸ List ─────────────────────────────────────────────────────────────────────┐
+│ / Find games                                                                 │
+│   Moonwell Farmstead                                                     ▪   │
+│   Ironleaf Expedition                                                    ▪   │
+│   Glasshouse Detective                                                   ▪ ⚑ │
+│   Ember Tide                                                             ▪   │
+│   Cinder Valley Racing                                                   ▪   │
+│ ▸ Ashfall Courier                                                        ▪ ⚑ │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└─ Scope [Z-A] ▪DLLs  ▪ DLLs  ⚑ profile ───────────────────────────────────────┘
+
+ 0 Actions  Up/Down Game  Enter Open selection  Space Select game  Tab Detail

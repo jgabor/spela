@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/frames.rs
+expression: render_text(&mut s)
+---
+ spela   ▸ Library  DLL Catalog  Monitor  Settings
+┌─ ▸ List ─────────────────────────────────────────────────────────────────────┐
+│ ┌─ Keyboard shortcuts ─────────────────────────────────────────────────────┐ │
+│ │  Reference only. Close Help before using these controls.                 │ │
+│ │                                                                          │ │
+│ │  Keys here: Library · list                                               ┃ │
+│ │  Ctrl-C         Quit at once                                             ┃ │
+│ │  Ctrl-Z         Suspend to the shell                                     │ │
+│ │  0              Actions                                                  │ │
+│ │  Up/Down        Game                                                     │ │
+│ │  Down           Next game                                                │ │
+│ │  Enter          Open selection                                           │ │
+│ │  Space          Select game                                              │ │
+│ │  PgUp           Page up                                                  │ │
+│ │  PgDn           Page down                                                │ │
+│ │  Home           First game                                               │ │
+│ │  End            Last game                                                │ │
+│ │  1              Library                                                  │ │
+│ │                                                                          │ │
+│ │   Close                                                                  │ │
+│ └──────────────────────────────────────────────────────────────────────────┘ │
+└─ ▪ DLLs  ⚑ profile ──────────────────────────────────────────────────────────┘
+
+ Up/Down Scroll  Tab Close button  Esc Close

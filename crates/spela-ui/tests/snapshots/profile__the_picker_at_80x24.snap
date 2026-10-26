@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/profile.rs
+expression: render_text(&mut s)
+---
+ spela   ▸ Library  DLL Catalog  Monitor  Settings
+┌─ ▸ Detail ───────────────────────────────────────────────────────────────────┐
+│ Ashfall Courier · App ID 9100010 · DLLs: DLSS 310.4.0 · Saved at once        │
+│ Own settings (4): Super resolution quality · Resolution override On · Ray o⋯ │
+│ Proton  [DLSS]  GPU  CPU  DLLs                                               │
+│                                                                              │
+│ ▸ ⚑ Super resolution       quality       this game · All games: balanced     │
+│     ┌─ Edit Super resolution ──────────────────────────────┐                 │
+│     │ Value before edit: quality                           │                 ┃
+│     │                                                      │                 ┃
+│     │   Follow All games (balanced)                        │                 ┃
+│     │   none                                               │                 ┃
+│     │   off                                                │                 ┃
+│     │   ultra_performance                                  │                 │
+│     │   performance                                        │                 │
+│     │   balanced                                           │                 │
+│     │ ▸ quality  ✓                                         │                 │
+│     │   dlaa                                               │                 │
+│     │                                                      │                 │
+│     │   [ Apply ]  [ Cancel ]                              │                 │
+│     └──────────────────────────────────────────────────────┘                 │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+ Type to jump  Up/Down choose  Tab control  Enter apply  Esc cancel

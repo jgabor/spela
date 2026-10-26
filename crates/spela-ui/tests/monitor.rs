@@ -154,6 +154,18 @@ fn monitor_cpu_and_alerts_120x40() {
 }
 
 #[test]
+fn monitor_cpu_and_alerts_80x24() {
+    let mut s = hot(80, 24);
+    update(&mut s, key("down"));
+    update(&mut s, key("enter"));
+    insta::assert_snapshot!("monitor_cpu_80x24", render_text(&mut s));
+    update(&mut s, key("tab"));
+    update(&mut s, key("down"));
+    update(&mut s, key("enter"));
+    insta::assert_snapshot!("monitor_alerts_80x24", render_text(&mut s));
+}
+
+#[test]
 fn the_list_counts_alerts_and_the_top_bar_names_the_highest() {
     let mut s = hot(120, 40);
     let text = render_text(&mut s);

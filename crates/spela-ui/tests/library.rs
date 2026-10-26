@@ -88,3 +88,22 @@ fn nothing_matches_the_filters_or_the_search() {
     assert!(s.library.query.is_empty());
     assert_eq!(s.library.rows[0], library::ListRow::AllGames);
 }
+
+#[test]
+fn select_mode_at_80x24() {
+    let mut s = loaded(80, 24);
+    update(&mut s, key("space"));
+    let text = render_text(&mut s);
+    assert!(text.contains("Selected: 1 total, 1 visible"), "{text}");
+    insta::assert_snapshot!(text);
+}
+
+#[test]
+fn filters_and_sort_at_80x24() {
+    let mut s = loaded(80, 24);
+    run(&mut s, Action::ToggleDllFilter);
+    run(&mut s, Action::SetSort(Sort::ZToA));
+    let text = render_text(&mut s);
+    assert!(text.contains("Scope [Z-A]"), "{text}");
+    insta::assert_snapshot!(text);
+}

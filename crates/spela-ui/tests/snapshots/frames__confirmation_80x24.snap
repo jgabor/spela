@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/frames.rs
+expression: render_text(&mut s)
+---
+ spela   ▸ Library  DLL Catalog  Monitor  Settings
+┌─ ▸ List ─────────────────────────────────────────────────────────────────────┐
+│ / Find games                                                                 │
+│   All games                                                                  │
+│ ▸ Ashfall Courier                                                        ▪ ⚑ │
+│   Brightwater Keep                                                           │
+│ ┌─ Confirm DLL update ─────────────────────────────────────────────────────┐ │
+│ │                                                                          │ │
+│ │  1 DLL target(s)                                                         │ │
+│ │                                                                          │ │
+│ │  Ashfall Courier · DLSS · 310.4.0 -> 310.5.3                             │ │
+│ │                                                                          │ │
+│ │  Backup: current DLL is backed up before replacement                     │ │
+│ │                                                                          │ │
+│ │                                                 [ Cancel ]  [ Confirm ]  │ │
+│ │                                                                          │ │
+│ └──────────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└─ ▪ DLLs  ⚑ profile ──────────────────────────────────────────────────────────┘
+
+ Left/Right Choose  Enter Activate  Tab Details  Esc Cancel

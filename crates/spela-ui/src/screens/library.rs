@@ -519,10 +519,17 @@ pub fn title(state: &AppState, _pane: Pane) -> String {
     title
 }
 
-/// The legend in the bottom border.
+/// The legend in the bottom border. In one pane the title reads `▸ List`,
+/// so the sort, the filters and the selection count move here, before the
+/// legend.
 pub fn footer(state: &AppState) -> Option<String> {
     let g = state.glyphs;
-    Some(format!("{} DLLs  {} profile", g.dlls, g.own))
+    let legend = format!("{} DLLs  {} profile", g.dlls, g.own);
+    let title = title(state, Pane::List);
+    if !state.layout().two_panes() && title != "Scope" {
+        return Some(format!("{title}  {legend}"));
+    }
+    Some(legend)
 }
 
 /// Whether the Find row has the cursor: then it takes typed keys.
