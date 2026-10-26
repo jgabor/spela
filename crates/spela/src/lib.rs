@@ -10,6 +10,7 @@
 //! | [`commands`] | One file per command group, with its arguments and its `run` |
 //! | [`router`] | Subcommand or wrapped game, decided before clap runs |
 //! | [`error`] | [`error::CliError`] and the exit codes |
+//! | [`json`] | `--json` output, schema version 1 |
 //! | [`output`] | `error:` and `hint:` lines, colour, the `--json` error object |
 //! | [`logging`] | The rolling log file and stderr warnings |
 //! | [`locks`] | The TUI lock and the launch lock |
@@ -28,6 +29,7 @@ pub mod commands;
 pub mod demo;
 pub mod error;
 pub mod helper;
+pub mod json;
 pub mod locks;
 pub mod logging;
 pub mod migration;

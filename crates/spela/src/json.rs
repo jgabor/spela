@@ -22,8 +22,8 @@ use std::path::Path;
 use jiff::Timestamp;
 use serde::Serialize;
 
-use crate::games::{DetectedDll, DllType, Game};
-use crate::profile::{Effective, Origin, Resolved, Scope, Section, Value};
+use spela_core::games::{DetectedDll, DllType, Game};
+use spela_core::profile::{Effective, Origin, Resolved, Scope, Section, Value};
 
 /// The schema version every `--json` object starts with.
 pub const SCHEMA_VERSION: u32 = 1;
@@ -226,7 +226,7 @@ pub fn to_text(value: &impl Serialize) -> Result<String, serde_json::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::profile::{FieldKey, OwnValues};
+    use spela_core::profile::{FieldKey, OwnValues};
 
     fn sample_game() -> Game {
         let dll = |name: &str, dll_type, version: Option<&str>| DetectedDll {

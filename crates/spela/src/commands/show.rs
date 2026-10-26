@@ -36,7 +36,7 @@ pub fn run(
     let game = read::find_game(&cache, &args.game)?;
     let has_profile = read::has_profile(ctx, game.app_id);
     if inv.cli.json {
-        return read::write_json(out, &spela_core::json::game_show(game, has_profile));
+        return read::write_json(out, &crate::json::game_show(game, has_profile));
     }
     read::write_out(out, &text(game, has_profile, Paint::new(ctx.colors.out)))
 }

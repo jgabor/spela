@@ -194,7 +194,7 @@ impl Default for Config {
             shader_cache: String::new(),
             dll_manifest_url: String::new(),
             auto_refresh_manifest: true,
-            manifest_refresh_hours: 24,
+            manifest_refresh_hours: crate::dll::manifest::DEFAULT_REFRESH_HOURS,
             ui: UiSettings::default(),
         }
     }

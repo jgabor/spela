@@ -42,7 +42,8 @@ use crate::paths::Paths;
 pub const DEFAULT_MANIFEST_URL: &str =
     "https://raw.githubusercontent.com/jgabor/spela/main/data/manifest.json";
 
-/// The refresh interval when `manifest_refresh_hours` is 0 or less.
+/// The refresh interval when `manifest_refresh_hours` is 0 or less: the
+/// config's default, as in Go.
 pub const DEFAULT_REFRESH_HOURS: i64 = 24;
 
 /// The DLL manifest, Go's schema version 1.
@@ -144,11 +145,6 @@ impl Manifest {
                 best
             }
         })
-    }
-
-    /// The entry of a family with exactly this version, if it is valid.
-    pub fn find(&self, dll_type: DllType, version: &str) -> Option<&ManifestEntry> {
-        self.valid_entries(dll_type).find(|e| e.version == version)
     }
 }
 
@@ -509,9 +505,6 @@ mod tests {
         assert_eq!(latest.version, "310.5.3", "the first of two equal versions");
         assert!(std::ptr::eq(latest, &m.entries(DllType::Dlss)[1]));
         assert_eq!(m.latest(DllType::Xess), None);
-        assert_eq!(m.find(DllType::Dlss, "310.4").unwrap().version, "310.4");
-        assert_eq!(m.find(DllType::Dlss, "../../../evil"), None);
-        assert_eq!(m.find(DllType::Dlss, "310.9"), None);
         assert_eq!(m.valid_entries(DllType::Dlss).count(), 4);
         assert_eq!(m.entries(DllType::Dlss).len(), 6);
     }

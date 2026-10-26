@@ -12,13 +12,7 @@ use std::collections::BTreeMap;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
-use common::{Run, Sandbox};
-
-const ROOT_TOKEN: &str = "/fixture-root";
-
-fn fixtures() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/go")
-}
+use common::{Run, Sandbox, copy_fixture, fixtures};
 
 /// A Go case copied into a sandbox.
 struct Case {
@@ -31,7 +25,7 @@ impl Case {
     fn new(name: &str) -> Case {
         let sandbox = Sandbox::new();
         let root = sandbox.root().join("case");
-        copy(&fixtures().join(name), &root, &root);
+        copy_fixture(&fixtures().join(name), &root, root.to_str().unwrap());
         for dir in ["config/spela", "data/spela", "cache/spela", "home"] {
             std::fs::create_dir_all(root.join(dir)).unwrap();
         }
@@ -116,26 +110,6 @@ fn walk(dir: &Path, visit: &mut dyn FnMut(&Path)) {
         } else {
             visit(&path);
         }
-    }
-}
-
-/// Copies a folder, replacing `/fixture-root` with `root` in text files.
-fn copy(from: &Path, to: &Path, root: &Path) {
-    std::fs::create_dir_all(to).unwrap();
-    for entry in std::fs::read_dir(from).unwrap().flatten() {
-        let target = to.join(entry.file_name());
-        if entry.file_type().unwrap().is_dir() {
-            copy(&entry.path(), &target, root);
-            continue;
-        }
-        let bytes = std::fs::read(entry.path()).unwrap();
-        let bytes = match String::from_utf8(bytes) {
-            Ok(text) => text
-                .replace(ROOT_TOKEN, &root.display().to_string())
-                .into_bytes(),
-            Err(e) => e.into_bytes(),
-        };
-        std::fs::write(&target, bytes).unwrap();
     }
 }
 

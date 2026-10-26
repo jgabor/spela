@@ -21,6 +21,7 @@ spela-ui.workspace = true
 anstyle.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
+jiff.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
@@ -33,7 +34,6 @@ tracing-subscriber.workspace = true
 [dev-dependencies]
 assert_cmd.workspace = true
 insta.workspace = true
-jiff.workspace = true
 libc.workspace = true
 predicates.workspace = true
 proptest.workspace = true

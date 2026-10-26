@@ -30,7 +30,7 @@ use crate::steam::manifest::{self, AppManifest};
 use crate::steam::tools;
 use crate::steam::vdf::VdfFileError;
 
-use super::{CACHE_VERSION, DetectedDll, DllType, Game, GameCache, cache};
+use super::{CACHE_VERSION, DetectedDll, Game, GameCache, cache};
 
 /// The text when there is no library to scan, Go's wording.
 pub const NO_STEAM: &str = "could not find Steam installation";
@@ -204,22 +204,13 @@ pub fn rescan(
     Ok(found)
 }
 
-/// The read-side views of the cache, which drop tool names as Go's `List`
-/// and `GamesWithDLSS` do, as a second guard behind the scan.
+/// The read-side view of the cache, which drops tool names as Go's `List`
+/// does, as a second guard behind the scan.
 impl GameCache {
     /// The games to list: every game whose name is not a tool name, sorted
     /// by app id.
     pub fn listed(&self) -> impl Iterator<Item = &Game> {
         self.games.iter().filter(|g| !tools::is_tool_name(&g.name))
-    }
-
-    /// The listed games with a DLSS, DLSS-G or DLSS-D DLL.
-    pub fn with_dlss(&self) -> impl Iterator<Item = &Game> {
-        self.listed().filter(|g| {
-            [DllType::Dlss, DllType::Dlssg, DllType::Dlssd]
-                .into_iter()
-                .any(|t| g.has(t))
-        })
     }
 }
 
@@ -227,6 +218,7 @@ impl GameCache {
 mod tests {
     use super::*;
     use crate::clock::ManualClock;
+    use crate::games::DllType;
     use crate::steam::manifest::{manifest_path, steamapps_dir};
 
     fn clock() -> ManualClock {
@@ -346,7 +338,5 @@ mod tests {
         cache.upsert(game(3, "Harbor Lights", vec![DllType::Xess]));
         let listed: Vec<u64> = cache.listed().map(|g| g.app_id).collect();
         assert_eq!(listed, [1, 3]);
-        let dlss: Vec<u64> = cache.with_dlss().map(|g| g.app_id).collect();
-        assert_eq!(dlss, [1]);
     }
 }

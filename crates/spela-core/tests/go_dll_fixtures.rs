@@ -3,8 +3,11 @@
 //! copied into a temp folder with `/fixture-root` replaced, as the
 //! fixtures README says, so no test reads or writes outside it.
 
+mod common;
+
 use std::path::{Path, PathBuf};
 
+use common::{FIXTURE_ROOT, copy_fixture, fixtures};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -17,43 +20,6 @@ use spela_core::games::DllType;
 use spela_core::migrate;
 use spela_core::paths::Paths;
 
-const FIXTURE_ROOT: &str = "/fixture-root";
-
-fn fixtures() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/go")
-}
-
-/// goref's text files: the ones that got the `/fixture-root` swap.
-fn is_text(path: &Path, data: &[u8]) -> bool {
-    let ext = path
-        .extension()
-        .map(|e| e.to_string_lossy().to_lowercase())
-        .unwrap_or_default();
-    let text_ext = [
-        "yaml", "yml", "json", "vdf", "acf", "txt", "md", "out", "err", "",
-    ];
-    text_ext.contains(&ext.as_str()) && !data.contains(&0)
-}
-
-fn copy_relocated(from: &Path, to: &Path, root: &str) {
-    std::fs::create_dir_all(to).unwrap();
-    for entry in std::fs::read_dir(from).unwrap() {
-        let entry = entry.unwrap();
-        let (src, dst) = (entry.path(), to.join(entry.file_name()));
-        if entry.file_type().unwrap().is_dir() {
-            copy_relocated(&src, &dst, root);
-            continue;
-        }
-        let data = std::fs::read(&src).unwrap();
-        if is_text(&src, &data) {
-            let text = String::from_utf8(data).unwrap().replace(FIXTURE_ROOT, root);
-            std::fs::write(&dst, text).unwrap();
-        } else {
-            std::fs::write(&dst, data).unwrap();
-        }
-    }
-}
-
 /// A fixture case in a temp folder, with spela's paths over Go's XDG
 /// layout (`data/spela`, not `data`).
 struct Case {
@@ -65,7 +31,7 @@ struct Case {
 fn case(name: &str) -> Case {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().join("case");
-    copy_relocated(&fixtures().join(name), &root, root.to_str().unwrap());
+    copy_fixture(&fixtures().join(name), &root, root.to_str().unwrap());
     let paths = Paths {
         config_dir: root.join("config/spela"),
         data_dir: root.join("data/spela"),

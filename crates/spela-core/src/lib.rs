@@ -26,7 +26,6 @@
 //! | [`dll`] | DLL detection, manifest, versions, staleness and backups |
 //! | [`denylist`] | The anti-cheat deny list |
 //! | [`migrate`] | Reading Go spela's YAML and migrating it |
-//! | [`json`] | `--json` output, schema version 1 |
 
 #![warn(missing_docs)]
 
@@ -40,7 +39,6 @@ pub mod fake;
 pub mod fs;
 pub mod games;
 pub mod hex;
-pub mod json;
 pub mod lock;
 pub mod migrate;
 pub mod paths;

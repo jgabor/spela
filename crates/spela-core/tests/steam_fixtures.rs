@@ -3,8 +3,12 @@
 //! copies a case into a temp folder and replaces `/fixture-root` with it,
 //! so nothing reads or writes a real Steam library or XDG folder.
 
+mod common;
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+
+use common::{copy_fixture, fixtures};
 
 use serde::Deserialize;
 use spela_core::clock::ManualClock;
@@ -16,41 +20,15 @@ use spela_core::steam::detect::{self, Clue};
 use spela_core::steam::library::SteamInstall;
 
 fn fixture(case: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/fixtures/go")
-        .join(case)
+    fixtures().join(case)
 }
 
 /// Copies a case and points its paths at the copy. Only text files are
 /// rewritten; the PE stubs are copied byte for byte.
 fn relocate(case: &str) -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
-    copy(&fixture(case), dir.path(), dir.path());
+    copy_fixture(&fixture(case), dir.path(), dir.path().to_str().unwrap());
     dir
-}
-
-fn copy(from: &Path, to: &Path, root: &Path) {
-    std::fs::create_dir_all(to).unwrap();
-    for entry in std::fs::read_dir(from).unwrap() {
-        let entry = entry.unwrap();
-        let target = to.join(entry.file_name());
-        if entry.file_type().unwrap().is_dir() {
-            copy(&entry.path(), &target, root);
-            continue;
-        }
-        let bytes = std::fs::read(entry.path()).unwrap();
-        let text = (!bytes.contains(&0))
-            .then(|| String::from_utf8(bytes.clone()).ok())
-            .flatten();
-        match text {
-            Some(text) => std::fs::write(
-                &target,
-                text.replace("/fixture-root", root.to_str().unwrap()),
-            )
-            .unwrap(),
-            None => std::fs::write(&target, bytes).unwrap(),
-        }
-    }
 }
 
 #[derive(Debug, Deserialize)]

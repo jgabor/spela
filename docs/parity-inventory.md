@@ -1046,7 +1046,7 @@ The legacy dry-run path, `ApplyEnv`, does the env part only (apply.go:32-36).
 - Scanning a library (library.go:81-124):
   - It globs `steamapps/appmanifest_*.acf` and skips parse failures and nil manifests.
   - It keeps a manifest only when StateFlags == 4.
-  - It drops tools: a known app id (36 entries, filter.go:11-51), a `toolmanifest.vdf` in the install dir, or a tool name.
+  - It drops tools: a known app id (32 entries, filter.go:11-51), a `toolmanifest.vdf` in the install dir, or a tool name.
   - The install dir is `<library>/steamapps/common/<installdir>`.
   - The prefix is `<library>/steamapps/compatdata/<appid>`, valid when `pfx/drive_c` is a directory (prefix.go:16-29).
   - DLLs come from `dll.ScanDirectory` (out of scope).

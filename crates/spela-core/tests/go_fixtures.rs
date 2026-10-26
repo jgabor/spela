@@ -12,9 +12,12 @@
 //! - the Go files are byte-identical afterwards;
 //! - a second run changes no file.
 
+mod common;
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+use common::{copy_fixture, fixtures};
 use serde_json::Value as Json;
 use spela_core::clock::ManualClock;
 use spela_core::config;
@@ -24,17 +27,11 @@ use spela_core::paths::Paths;
 use spela_core::profile::resolve::{resolve, resolve_all_games};
 use spela_core::profile::{FieldKey, OwnValues, store};
 
-const ROOT_TOKEN: &str = "/fixture-root";
-
 struct Case {
     _dir: tempfile::TempDir,
     base: PathBuf,
     paths: Paths,
     originals: BTreeMap<PathBuf, Vec<u8>>,
-}
-
-fn fixtures() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/go")
 }
 
 /// Copies a case into a temp dir, with `/fixture-root` replaced in text
@@ -44,21 +41,7 @@ fn case_with(name: &str, rename: &[(&str, &str)]) -> Case {
     let src = fixtures().join(name);
     let dir = tempfile::tempdir().unwrap();
     let base = dir.path().to_owned();
-    let root = base.to_str().unwrap();
-    for entry in walkdir::WalkDir::new(&src) {
-        let entry = entry.unwrap();
-        let dst = base.join(entry.path().strip_prefix(&src).unwrap());
-        if entry.file_type().is_dir() {
-            std::fs::create_dir_all(&dst).unwrap();
-            continue;
-        }
-        let bytes = std::fs::read(entry.path()).unwrap();
-        let bytes = match String::from_utf8(bytes) {
-            Ok(text) => text.replace(ROOT_TOKEN, root).into_bytes(),
-            Err(e) => e.into_bytes(),
-        };
-        std::fs::write(&dst, bytes).unwrap();
-    }
+    copy_fixture(&src, &base, base.to_str().unwrap());
     for (from, to) in rename {
         std::fs::rename(base.join(from), base.join(to)).unwrap();
     }

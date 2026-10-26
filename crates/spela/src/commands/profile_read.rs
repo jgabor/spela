@@ -161,8 +161,8 @@ fn load(args: &ShowArgs, ctx: &Context) -> Result<ProfileView, CliError> {
     read::profile(ctx, Scope::Game(game.app_id), &game.name)
 }
 
-fn json(view: &ProfileView, section: Option<Section>) -> spela_core::json::ProfileJson<'_> {
-    spela_core::json::profile(&view.effective, &view.name, view.has_profile, section)
+fn json(view: &ProfileView, section: Option<Section>) -> crate::json::ProfileJson<'_> {
+    crate::json::profile(&view.effective, &view.name, view.has_profile, section)
 }
 
 /// Go's note before the rows of a game without a profile file.

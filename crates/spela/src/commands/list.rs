@@ -38,7 +38,7 @@ pub fn run(
 ) -> Result<(), CliError> {
     let cache = read::games(ctx, Rescan::IfEmpty)?;
     if inv.cli.json {
-        let list = spela_core::json::game_list(cache.listed(), |id| read::has_profile(ctx, id));
+        let list = crate::json::game_list(cache.listed(), |id| read::has_profile(ctx, id));
         return read::write_json(out, &list);
     }
     read::write_out(

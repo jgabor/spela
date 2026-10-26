@@ -17,10 +17,8 @@ mod common;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use common::Sandbox;
+use common::{FIXTURE_ROOT, Sandbox, copy_fixture};
 use serde_json::Value;
-
-const FIXTURE_ROOT: &str = "/fixture-root";
 
 fn repo() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -361,26 +359,6 @@ fn cases() -> Vec<(Case, Option<&'static str>)> {
         .collect()
 }
 
-/// Copies a fixture case into `to`, replacing the root token in text files.
-fn copy_case(from: &Path, to: &Path, root: &str) {
-    std::fs::create_dir_all(to).unwrap();
-    for entry in std::fs::read_dir(from).unwrap() {
-        let entry = entry.unwrap();
-        let target = to.join(entry.file_name());
-        let kind = entry.file_type().unwrap();
-        if kind.is_dir() {
-            copy_case(&entry.path(), &target, root);
-        } else if kind.is_file() {
-            let bytes = std::fs::read(entry.path()).unwrap();
-            let bytes = match String::from_utf8(bytes) {
-                Ok(text) => text.replace(FIXTURE_ROOT, root).into_bytes(),
-                Err(e) => e.into_bytes(),
-            };
-            std::fs::write(&target, bytes).unwrap();
-        }
-    }
-}
-
 /// spela's output for one case, with the sandbox root put back as the
 /// token.
 struct Output {
@@ -392,7 +370,7 @@ struct Output {
 fn run_spela(case: &Case) -> Output {
     let s = Sandbox::new();
     let root = s.root().to_str().unwrap().to_owned();
-    copy_case(
+    copy_fixture(
         &repo().join("tests/fixtures/go").join(&case.scenario),
         s.root(),
         &root,

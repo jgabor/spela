@@ -221,7 +221,7 @@ pub fn write_json(
     out: &mut dyn std::io::Write,
     value: &impl serde::Serialize,
 ) -> Result<(), CliError> {
-    let text = spela_core::json::to_text(value)
+    let text = crate::json::to_text(value)
         .map_err(|e| CliError::new(exit::FAILURE, format!("cannot write the JSON output: {e}")))?;
     write_out(out, &text)
 }
