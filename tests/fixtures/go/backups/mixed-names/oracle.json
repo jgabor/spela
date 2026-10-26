@@ -13,7 +13,7 @@
     },
     {
       "original_path": "/fixture-root/library/steamapps/common/Lantern Keep/nvngx_dlssg.dll",
-      "backup_path": "/fixture-root/data/spela/backups/9100403/d6d2f207621c8db94ea78d9d453186e8ffc08a82f0f199836a69c052c7ed5a16-nvngx_dlssg.dll",
+      "backup_path": "/fixture-root/data/spela/backups/9100403/b2367246ad2dc13ab8a3f0a8b3a43226d0830aa30787667fe7b0af98567e6c71-nvngx_dlssg.dll",
       "name_scheme": "sha256-basename",
       "backup_file_exists": true
     }
