@@ -1237,7 +1237,8 @@ fn choices(state: &AppState, field: &Field) -> Option<Vec<(String, Value)>> {
     let word = |v: &Value| words::display_value(field, v);
     let out: Vec<Value> = match (field.kind, field.rule) {
         (Kind::Bool, _) => vec![Value::Bool(true), Value::Bool(false)],
-        // SMT's none cannot be stored: following is how it gets none.
+        // SMT's stored none ("unchanged", decision 65) is offered only
+        // where a scope already stores it, as a stored value below.
         (Kind::OptionalBool, _) => vec![
             Value::OptionalBool(Some(true)),
             Value::OptionalBool(Some(false)),
@@ -1298,12 +1299,17 @@ fn begin_edit(state: &mut AppState) -> Vec<AnyCmd> {
             });
             values.push(Some(value));
         }
-        // A stored value the system does not list stays a choice.
+        // A stored value the system does not list stays a choice. SMT's
+        // stored none reads unchanged (decision 65).
         if let Some(own) = &r.own
             && !values.iter().any(|v| v.as_ref() == Some(own))
         {
+            let label = match own {
+                Value::OptionalBool(None) => words::UNCHANGED.to_owned(),
+                other => words::display_value(field, other),
+            };
             labels.push(Choice {
-                label: words::display_value(field, own),
+                label,
                 current: true,
             });
             values.push(Some(own.clone()));
@@ -2317,6 +2323,73 @@ mod tests {
         assert!(!vrr.contains(&"none".to_owned()), "{vrr:?}");
         let mf: Vec<String> = labels(&mut s, FieldKey::DlssMultiFrame);
         assert_eq!(mf, ["Follow All games (none)", "0", "1", "2", "3", "4"]);
+    }
+
+    #[test]
+    fn smt_left_unchanged_reads_unchanged_and_follow_removes_it() {
+        // Decision 65: a game may store SMT's none as "unchanged".
+        let mut s = state_with_games(120, 40, 6);
+        let cmds = s.start();
+        let request = cmds
+            .iter()
+            .find_map(|c| match c {
+                AnyCmd::Profile(Cmd::Load { request }) => Some(*request),
+                _ => None,
+            })
+            .expect("a load");
+        let mut all = OwnValues::new();
+        all.set(FieldKey::CpuSmt, Value::OptionalBool(Some(false)))
+            .unwrap();
+        let mut own = OwnValues::new();
+        own.set(FieldKey::CpuSmt, Value::OptionalBool(None))
+            .unwrap();
+        let game = s.games.games[0].app_id;
+        on_msg(
+            &mut s,
+            Msg::Loaded {
+                request,
+                result: Ok(Loaded {
+                    all_games: Some((all, false)),
+                    games: vec![LoadedGame {
+                        app_id: game,
+                        values: own,
+                        read_only: false,
+                    }],
+                    broken: Vec::new(),
+                }),
+            },
+        );
+        s.focus = Pane::Detail;
+        s.profile.field = FieldKey::CpuSmt;
+        let scope = scope(&s).unwrap();
+        let r = resolved(&s, scope, FieldKey::CpuSmt).unwrap();
+        assert!(r.is_own());
+        assert_eq!(words::value_text(FieldKey::CpuSmt.field(), &r), "unchanged");
+        update(&mut s, Action::Edit);
+        let Some(Editor::Pick(e)) = &s.profile.editor else {
+            panic!("a picker")
+        };
+        let marked: Vec<&str> = e
+            .picker
+            .choices
+            .iter()
+            .filter(|c| c.current)
+            .map(|c| c.label.as_str())
+            .collect();
+        assert_eq!(marked, ["unchanged"], "the stored value stays a choice");
+        assert!(
+            !e.picker.choices[0].current,
+            "Follow is not the stored value"
+        );
+        s.profile.editor = None;
+        let cmds = step(&mut s, key("space"));
+        let AnyCmd::Save { write, .. } = &cmds[0] else {
+            panic!("{cmds:?}")
+        };
+        let Write::Profile { changes, .. } = write else {
+            panic!()
+        };
+        assert_eq!(changes[&FieldKey::CpuSmt], None, "Space follows");
     }
 
     #[test]
