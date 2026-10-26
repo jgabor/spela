@@ -25,6 +25,7 @@
 
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use sha2::{Digest, Sha256};
 
@@ -201,17 +202,22 @@ pub enum AcquireError {
     /// The cache folder or file cannot be written.
     #[error("cache DLL: {0}")]
     Write(String),
+    /// spela is quitting, so the download stopped. Nothing was kept.
+    #[error("download DLL: stopped because spela is quitting")]
+    Stopped,
 }
 
 /// The checksum-verified payload of `entry` in the DLL cache, downloading it
 /// unless `allow_download` is false. `progress` gets the bytes so far and
-/// the total when the server sent one.
+/// the total when the server sent one. When `stop` is set, a download in
+/// progress ends at its next chunk and its temp file is removed.
 pub fn acquire(
     http: &dyn Http,
     dll_cache_dir: &Path,
     dll_type: DllType,
     entry: &ManifestEntry,
     allow_download: bool,
+    stop: Option<&AtomicBool>,
     progress: &mut dyn FnMut(u64, Option<u64>),
 ) -> Result<PathBuf, AcquireError> {
     let path = manifest::cache_file(dll_cache_dir, dll_type, &entry.version)?;
@@ -245,12 +251,21 @@ pub fn acquire(
         .suffix(".tmp")
         .tempfile_in(&dir)
         .map_err(|e| AcquireError::Write(e.to_string()))?;
+    let stopped = || stop.is_some_and(|s| s.load(Ordering::SeqCst));
+    if stopped() {
+        return Err(AcquireError::Stopped);
+    }
     let mut hashing = HashingWriter {
         inner: tmp.as_file_mut(),
         hasher: Sha256::new(),
+        stop,
     };
-    http.get(&HttpRequest::new(uri), &mut hashing, progress)
-        .map_err(AcquireError::Download)?;
+    let got = http.get(&HttpRequest::new(uri), &mut hashing, progress);
+    if stopped() {
+        // Dropping the temp file deletes it.
+        return Err(AcquireError::Stopped);
+    }
+    got.map_err(AcquireError::Download)?;
     let actual = hex::encode(&hashing.hasher.finalize());
     if !same_sha(&actual, &entry.sha256) {
         // Dropping the temp file deletes it: the cache never holds it.
@@ -274,14 +289,20 @@ fn same_sha(a: &str, b: &str) -> bool {
     hex::parse_sha256(a).is_some_and(|a| hex::parse_sha256(b) == Some(a))
 }
 
-/// Writes through to a file and hashes what it wrote.
+/// Writes through to a file and hashes what it wrote. It refuses to write
+/// once `stop` is set, which ends the download.
 struct HashingWriter<'a> {
     inner: &'a mut std::fs::File,
     hasher: Sha256,
+    stop: Option<&'a AtomicBool>,
 }
 
 impl Write for HashingWriter<'_> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        if self.stop.is_some_and(|s| s.load(Ordering::SeqCst)) {
+            // Not `Interrupted`: `write_all` would retry it.
+            return Err(io::Error::other("stopped"));
+        }
         let n = self.inner.write(buf)?;
         self.hasher.update(&buf[..n]);
         Ok(n)
@@ -445,6 +466,7 @@ mod tests {
             DllType::Dlss,
             &entry(&body),
             true,
+            None,
             &mut |n, t| seen.push((n, t)),
         )
         .unwrap();
@@ -460,6 +482,7 @@ mod tests {
             DllType::Dlss,
             &entry(&body),
             true,
+            None,
             &mut |_, _| {},
         )
         .unwrap();
@@ -469,6 +492,7 @@ mod tests {
             DllType::Dlss,
             &entry(&body),
             false,
+            None,
             &mut |_, _| {},
         )
         .unwrap();
@@ -482,6 +506,7 @@ mod tests {
             DllType::Dlss,
             &entry(&body),
             false,
+            None,
             &mut |_, _| {},
         )
         .unwrap_err();
@@ -496,6 +521,7 @@ mod tests {
             DllType::Dlss,
             &entry(&body),
             true,
+            None,
             &mut |_, _| {},
         )
         .unwrap();
@@ -515,6 +541,7 @@ mod tests {
             DllType::Dlss,
             &entry(b"payload"),
             true,
+            None,
             &mut |_, _| {},
         )
         .unwrap_err();
@@ -538,6 +565,7 @@ mod tests {
             DllType::Dlss,
             &entry(b"payload"),
             true,
+            None,
             &mut |_, _| {},
         )
         .unwrap_err();
@@ -553,6 +581,7 @@ mod tests {
             DllType::Dlss,
             &entry(b"payload"),
             false,
+            None,
             &mut |_, _| {},
         )
         .unwrap_err();
@@ -566,7 +595,7 @@ mod tests {
         let mut bad = entry(b"payload");
         bad.version = "../../x".into();
         assert!(matches!(
-            acquire(&http, &dir, DllType::Dlss, &bad, true, &mut |_, _| {}),
+            acquire(&http, &dir, DllType::Dlss, &bad, true, None, &mut |_, _| {}),
             Err(AcquireError::Version(_))
         ));
         assert_eq!(http.requests().len(), 2, "no request for a bad version");

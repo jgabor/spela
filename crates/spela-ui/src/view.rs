@@ -280,6 +280,9 @@ pub fn work_state(state: &AppState) -> Option<(String, Role)> {
     if state.jobs.hardware.is_some() {
         return Some(("Applying...".into(), Role::Warn));
     }
+    if let Some(words) = crate::dll_jobs::work_words(state) {
+        return Some((words, Role::Warn));
+    }
     if !state.saves.is_empty() {
         return Some(("Saving...".into(), Role::Warn));
     }

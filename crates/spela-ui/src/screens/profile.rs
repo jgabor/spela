@@ -37,9 +37,9 @@
 //! again after each rescan. A scope whose file did not load or migrate, or
 //! that a newer spela wrote, is shown and never edited.
 //!
-//! The DLLs section shows the game's DLL versions with the Catalog's stale
-//! marks, the deny list line, and in Actions the deny list rows. The DLL
-//! actions arrive with the DLL operations (Phase 5).
+//! The DLLs section is [`game_dlls`]: the game's DLL versions with the
+//! Catalog's stale marks, the deny list line, and Install, Update and
+//! Restore, which are in Actions too, before the deny list rows.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -53,7 +53,8 @@ use spela_core::profile::{
 };
 
 use super::{
-    Action as AnyAction, Owner, Popup, Row, ScreenAction, confirm, denylist, dlls, library, preview,
+    Action as AnyAction, Owner, Popup, Row, ScreenAction, confirm, denylist, dlls, game_dlls,
+    library, preview,
 };
 use crate::editor::{EditorInput, EditorOutcome};
 use crate::event::{Cmd as AnyCmd, Write};
@@ -583,7 +584,9 @@ pub fn bindings(state: &AppState, _pane: Pane) -> Vec<Binding> {
     let left = left.when(l);
     let right = right.when(r);
     if aspect(state) == Aspect::Dlls {
-        return vec![left, right];
+        let mut out = game_dlls::bindings(state);
+        out.extend([left, right]);
+        return out;
     }
     let loaded = if state.profile.profiles.is_some() {
         Ok(())
@@ -646,9 +649,10 @@ fn page_rows(state: &AppState) -> Vec<Row> {
         return Vec::new();
     };
     if aspect(state) == Aspect::Dlls {
-        // The DLL rows come with the DLL operations (Phase 5); the deny
-        // list rows follow them (terminal-ux.md, denylist).
-        let mut rows = vec![preview_row(state)];
+        // The DLL rows, then Preview launch, then the deny list rows
+        // (terminal-ux.md, denylist).
+        let mut rows = game_dlls::rows(state);
+        rows.push(preview_row(state));
         rows.extend(denylist::actions(state, Pane::Detail));
         return rows;
     }
@@ -761,7 +765,12 @@ pub fn follow_selection(state: &mut AppState) -> Vec<AnyCmd> {
         state.profile.editor = None;
         state.dirty = true;
     }
-    want_notice(state)
+    if !game_dlls::editing(state) && state.game_dlls.chooser.take().is_some() {
+        state.dirty = true;
+    }
+    let mut cmds = want_notice(state);
+    cmds.extend(crate::dll_jobs::want_backup(state));
+    cmds
 }
 
 fn want_notice(state: &mut AppState) -> Vec<AnyCmd> {
@@ -804,6 +813,7 @@ pub fn update(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
     state.dirty = true;
     let mut cmds = run(state, action);
     cmds.extend(want_notice(state));
+    cmds.extend(crate::dll_jobs::want_backup(state));
     cmds
 }
 
@@ -1819,9 +1829,7 @@ pub fn render(state: &AppState, frame: &mut Frame, area: PaneArea, hits: &mut Hi
         return;
     }
     if aspect(state) == Aspect::Dlls {
-        if let Some(game) = library::selected_game(state) {
-            dlls_section(state, &mut p, game, x, rest, w);
-        }
+        game_dlls::render(state, &mut p, hits, rest, x, w);
         return;
     }
     if state.profile.profiles.is_none() {
@@ -1920,53 +1928,6 @@ fn editor_value(state: &AppState, scope: Scope, editor: &Editor) -> String {
             None => follow_text(state, scope, key),
         },
         Editor::Text(e) => e.editor.input.text().to_owned(),
-    }
-}
-
-fn dlls_section(state: &AppState, p: &mut Painter<'_>, game: &Game, x: u16, area: Rect, w: u16) {
-    let line = |text: String, role: Role| vec![(text, role)];
-    let mut lines: Vec<Vec<(String, Role)>> = vec![line(
-        format!("Install directory: {}", game.install_dir.display()),
-        Role::Muted,
-    )];
-    if let Some(prefix) = &game.prefix_path {
-        lines.push(line(
-            format!("Proton prefix: {}", prefix.display()),
-            Role::Muted,
-        ));
-    }
-    lines.push(line(
-        "Steam launch option: spela %command%".to_owned(),
-        Role::Muted,
-    ));
-    lines.push(Vec::new());
-    lines.push(line("DLL versions".to_owned(), Role::Title));
-    if game.dlls.is_empty() {
-        lines.push(line("No managed DLL installed".to_owned(), Role::Text));
-        let families: Vec<&str> = spela_core::dll::detect::CATALOGUE
-            .iter()
-            .map(|f| f.label)
-            .collect();
-        lines.push(line(
-            format!("Supported families: {}", families.join(", ")),
-            Role::Muted,
-        ));
-    } else {
-        // The Catalog's lines, with the same stale marks (decision 38).
-        lines.extend(dlls::game_dll_lines(state, game));
-    }
-    // The deny list line, only when a list names the game.
-    if let Some((text, role)) = denylist::state_line(state, game.app_id) {
-        lines.push(line(text, role));
-    }
-    lines.push(Vec::new());
-    lines.push(line(
-        "DLL actions are not yet implemented in this build".to_owned(),
-        Role::Muted,
-    ));
-    for (y, spans) in (area.y..area.bottom()).zip(lines) {
-        let spans: Vec<(&str, Role)> = spans.iter().map(|(t, r)| (t.as_str(), *r)).collect();
-        p.spans(x, y, w, &spans);
     }
 }
 

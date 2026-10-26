@@ -31,6 +31,7 @@
 
 use std::fmt;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::backup::{self, clean};
 use super::detect;
@@ -57,6 +58,16 @@ pub struct DllContext<'a> {
     pub http: &'a dyn Http,
     /// The clock, for scan and backup times.
     pub clock: &'a dyn Clock,
+    /// Set when spela is quitting: a download stops, and a batch stops
+    /// between items and saves what it already changed. `None` never stops.
+    pub stop: Option<&'a AtomicBool>,
+}
+
+impl DllContext<'_> {
+    /// Whether the operation should stop at the next safe point.
+    pub fn stopped(&self) -> bool {
+        self.stop.is_some_and(|s| s.load(Ordering::SeqCst))
+    }
 }
 
 impl fmt::Debug for DllContext<'_> {
@@ -193,6 +204,16 @@ pub enum FailKind {
     Backup,
     /// A game file or the lock failed.
     Write,
+    /// spela is quitting, so the operation stopped before it changed
+    /// anything.
+    Stopped,
+}
+
+/// The message of an operation that stopped because spela is quitting.
+pub const STOPPED: &str = "stopped because spela is quitting";
+
+fn stopped() -> OpError {
+    OpError::failed(FailKind::Stopped, STOPPED)
 }
 
 /// Why an operation failed.
@@ -293,13 +314,15 @@ fn acquire(
         dll_type,
         entry,
         allow_download,
+        cx.stop,
         &mut |n, t| progress(&event(n, t)),
     )
-    .map_err(|e: AcquireError| {
-        OpError::failed(
+    .map_err(|e: AcquireError| match e {
+        AcquireError::Stopped => stopped(),
+        e => OpError::failed(
             FailKind::Download,
             format!("acquire {dll_type} {}: {e}", entry.version),
-        )
+        ),
     })
 }
 
@@ -447,6 +470,9 @@ pub fn install(
     install_target(game, &entry.filename)?;
     guard(cx.paths, app_id)?;
     let payload = acquire(cx, app_id, dll_type, entry, true, progress)?;
+    if cx.stopped() {
+        return Err(stopped());
+    }
 
     let _lock =
         cache::lock(cx.paths).map_err(|e| OpError::failed(FailKind::Write, e.to_string()))?;
@@ -606,7 +632,8 @@ struct Ready {
 /// Updates each request independently and carries on after a failure.
 /// Every payload is acquired first, outside the lock; then one hold of
 /// `games.lock` backs up, swaps and rescans each game, and the cache is
-/// saved once.
+/// saved once. When spela is quitting ([`DllContext::stop`]), the items not
+/// started yet fail with [`STOPPED`], and what already changed is saved.
 pub fn update(
     cx: &DllContext<'_>,
     manifest: &Manifest,
@@ -627,6 +654,11 @@ pub fn update(
             result: Ok(OpResult::changed()),
             request,
         };
+        if cx.stopped() {
+            item.result = Err(stopped());
+            items.push(item);
+            continue;
+        }
         match prepare_update(cx, manifest, &snapshot, &mut item, progress) {
             Ok(Some((payload, sha256))) => ready.push(Ready {
                 index: items.len(),
@@ -738,6 +770,10 @@ fn swap_all(
     let mut changed = Vec::new();
     for r in ready {
         let item = &mut items[r.index];
+        if cx.stopped() {
+            item.result = Err(stopped());
+            continue;
+        }
         match swap_one(cx, &mut fresh, item, &r, progress) {
             Ok(result) => {
                 item.result = Ok(result);
@@ -836,6 +872,9 @@ pub fn restore(
 ) -> Result<Restored, OpError> {
     let snapshot = cache::load(cx.paths);
     snapshot.get(app_id).ok_or_else(|| game_not_found(app_id))?;
+    if cx.stopped() {
+        return Err(stopped());
+    }
     let _lock =
         cache::lock(cx.paths).map_err(|e| OpError::failed(FailKind::Write, e.to_string()))?;
     let mut fresh = cache::load(cx.paths);

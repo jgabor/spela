@@ -4,9 +4,16 @@
 //! when the session drops. Only `<config>/config.toml` is copied in, so
 //! theme and mouse settings carry over and the real file is never written.
 //! The demo never reads Go YAML and never migrates (decision 18).
+//!
+//! Its network is [`spela_core::fake::dlls`]: a manifest, payloads that
+//! match it and a tag list, so DLL flows run end to end and no request
+//! leaves the process.
 
 use std::io;
+use std::sync::Arc;
 
+use spela_core::backend::Http;
+use spela_core::dll::manifest::RefreshPolicy;
 use spela_core::paths::Paths;
 
 /// A demo run's private directories. Dropping it removes them.
@@ -39,6 +46,16 @@ impl DemoSession {
     pub fn root(&self) -> &std::path::Path {
         self.dir.path()
     }
+}
+
+/// The demo's network: the demo manifest at the URL the copied config
+/// resolves to, as well as the default one, and its payloads.
+pub fn http(paths: &Paths) -> Arc<dyn Http> {
+    let config = spela_core::config::load(&paths.config_file())
+        .map(|l| l.config)
+        .unwrap_or_default();
+    let url = RefreshPolicy::from_config(&config).url;
+    Arc::new(spela_core::fake::dlls::http(&url))
 }
 
 #[cfg(test)]

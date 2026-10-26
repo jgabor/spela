@@ -99,6 +99,21 @@ pub struct BackedUpFile {
     pub version: String,
 }
 
+/// One path a restore would change: an original put back, or a file an
+/// install created, deleted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestoreTarget {
+    /// The game's file.
+    pub path: PathBuf,
+    /// Its file name, as backed up.
+    pub dll_name: String,
+    /// The version backed up, empty when unknown or when the file is
+    /// deleted.
+    pub version: String,
+    /// The restore deletes the file, because an install created it.
+    pub deletes: bool,
+}
+
 /// How a backup file is named.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NameScheme {
@@ -197,6 +212,33 @@ impl BackupIndex {
     pub fn entry(&self, original_path: &Path) -> Option<&BackedUpFile> {
         let want = clean(original_path);
         self.files.iter().find(|f| clean(&f.original_path) == want)
+    }
+
+    /// What a restore would do to each path, from the index alone, in
+    /// [`plan_restore`]'s order: the backed up originals first, then the
+    /// files an install created. The TUI shows these before it asks, and
+    /// checks them again before the restore runs.
+    pub fn restore_targets(&self) -> Vec<RestoreTarget> {
+        let copies = self
+            .files
+            .iter()
+            .filter(|f| !self.is_created(&f.original_path))
+            .map(|f| RestoreTarget {
+                path: f.original_path.clone(),
+                dll_name: f.dll_name.clone(),
+                version: f.version.clone(),
+                deletes: false,
+            });
+        let deletes = self.created_files.iter().map(|p| RestoreTarget {
+            path: p.clone(),
+            dll_name: p
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default(),
+            version: String::new(),
+            deletes: true,
+        });
+        copies.chain(deletes).collect()
     }
 
     /// Whether an install created this path where no DLL existed.
@@ -804,5 +846,33 @@ mod tests {
             plan_restore(&paths, 5),
             Err(RestoreError::Index(BackupError::Parse(_)))
         ));
+    }
+
+    #[test]
+    fn restore_targets_put_originals_first_and_skip_created_entries() {
+        let file = |path: &str, version: &str| BackedUpFile {
+            original_path: path.into(),
+            backup_path: format!("/b/{path}").into(),
+            dll_name: "nvngx_dlss.dll".into(),
+            version: version.into(),
+        };
+        let index = BackupIndex {
+            app_id: 5,
+            files: vec![file("/g/a/nvngx_dlss.dll", "310.1"), file("/g/new.dll", "")],
+            created_files: vec!["/g/new.dll".into()],
+            ..BackupIndex::default()
+        };
+        let targets = index.restore_targets();
+        assert_eq!(targets.len(), 2);
+        assert_eq!(targets[0].path, PathBuf::from("/g/a/nvngx_dlss.dll"));
+        assert_eq!(
+            (targets[0].version.as_str(), targets[0].deletes),
+            ("310.1", false)
+        );
+        assert_eq!(targets[1].path, PathBuf::from("/g/new.dll"));
+        assert_eq!(
+            (targets[1].dll_name.as_str(), targets[1].deletes),
+            ("new.dll", true)
+        );
     }
 }

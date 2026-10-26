@@ -5,8 +5,10 @@
 //!
 //! 1. Block for one event, then take everything already waiting.
 //! 2. Coalesce runs of resize and drag events, keeping the first stamp.
-//! 3. Feed each event to [`spela_ui::update`]. A stop signal quits.
-//!    SIGCONT clears the screen and feeds a resize.
+//! 3. Feed each event to [`spela_ui::update`]. A stop signal quits, but
+//!    a running DLL job first finishes its current step, and so does
+//!    Ctrl-C or a terminal that went away during one. SIGCONT clears the
+//!    screen and feeds a resize.
 //! 4. Run each [`Cmd`]: the metrics thread, the job pool, the write queue,
 //!    or the [`Host`] for suspend.
 //! 5. `after_turn`: ticking on or off from `wants_metrics`, and one wake-up
@@ -170,11 +172,11 @@ impl<B: Backend + Markers> App<B> {
                 }
                 LoopEvent::InputClosed(reason) => {
                     self.exit_note = Some(format!("the terminal stopped sending input: {reason}"));
-                    self.quit = true;
+                    self.feed(Event::Stop);
                 }
                 LoopEvent::Signal(kind) => {
                     if kind.is_stop() {
-                        self.quit = true;
+                        self.feed(Event::Stop);
                     } else {
                         self.repaint_all()?;
                     }
@@ -195,8 +197,15 @@ impl<B: Backend + Markers> App<B> {
             }
         }
         self.after_turn();
-        if self.state.dirty {
-            self.draw(&stamps)?;
+        if self.state.dirty
+            && let Err(e) = self.draw(&stamps)
+        {
+            // While a DLL job finishes its step after a stop, a terminal
+            // that went away must not end the loop before the job does.
+            if !self.state.dll_jobs.stopping {
+                return Err(e);
+            }
+            tracing::warn!("cannot draw while quitting: {e}");
         }
         Ok(())
     }
@@ -212,6 +221,12 @@ impl<B: Backend + Markers> App<B> {
     /// on the workers.
     pub fn exec_cmd(&mut self, cmd: Cmd) {
         match cmd {
+            // Ctrl-C during a DLL job: the job finishes its step first, as
+            // for a stop signal. A second Ctrl-C quits at once.
+            Cmd::Quit if self.state.jobs.dll.is_some() && !self.state.dll_jobs.stopping => {
+                self.state.quit = false;
+                self.feed(Event::Stop);
+            }
             Cmd::Quit => self.quit = true,
             Cmd::Suspend => {
                 if let Err(e) = self.suspend() {
@@ -603,6 +618,10 @@ mod tests {
             driver,
             privilege: monitor::SharedPrivilege::new(Box::new(monitor::NoPrivilege)),
             log: crate::logging::LevelHandle::default(),
+            http: std::sync::Arc::new(spela_core::fake::FakeHttp::new()),
+            stop: Default::default(),
+            proc_root: None,
+            demo: false,
         };
         drop(tx);
         let terminal = Terminal::new(TestBackend::new(120, 40)).unwrap();
@@ -651,6 +670,98 @@ mod tests {
         assert_eq!(app.counters.draws, 2);
         app.handle_batch(vec![LoopEvent::Signal(SignalKind::Terminate)])
             .unwrap();
+        assert!(app.quitting());
+    }
+
+    /// A DLL update started from the first game's DLLs section, with the
+    /// manifest and an empty deny list loaded.
+    fn app_with_a_dll_job() -> (App<TestBackend>, u64) {
+        use spela_core::dll::manifest::{CachedManifest, Manifest, ManifestEntry};
+        use spela_ui::dll_jobs::{DllOp, Origin, Start};
+        use spela_ui::screens::dlls;
+        let (mut app, _) = app();
+        let mut m = Manifest::default();
+        m.dlls.insert(
+            "dlss".into(),
+            vec![ManifestEntry {
+                version: "310.5.3".into(),
+                filename: "nvngx_dlss.dll".into(),
+                ..ManifestEntry::default()
+            }],
+        );
+        app.state.jobs.scan = None;
+        let request = app.state.dlls.request.unwrap();
+        app.handle_batch(vec![LoopEvent::Done(Msg::Dlls(dlls::Msg::Loaded {
+            request,
+            result: Ok(dlls::Catalog {
+                manifest: Ok(Some(CachedManifest {
+                    manifest: m,
+                    ..CachedManifest::default()
+                })),
+                cached: Default::default(),
+                note: None,
+            }),
+        }))])
+        .unwrap();
+        let cmds = spela_ui::update::run(
+            &mut app.state,
+            spela_ui::screens::Action::Dll(Start {
+                op: DllOp::AutoUpdate,
+                origin: Origin::Auto,
+            }),
+        );
+        let Some(Cmd::Dll { token, .. }) = cmds.into_iter().next() else {
+            panic!("a DLL job")
+        };
+        (app, token)
+    }
+
+    fn dll_done(token: u64) -> LoopEvent<Msg> {
+        use spela_ui::dll_jobs::{DllDone, DllResult};
+        LoopEvent::Done(Msg::DllDone {
+            token,
+            done: Box::new(DllDone {
+                result: DllResult::Auto(Default::default()),
+                games: None,
+            }),
+        })
+    }
+
+    #[test]
+    fn a_stop_signal_waits_for_the_dll_job_to_finish_its_step() {
+        use crate::tui::signals::SignalKind;
+        let (mut app, token) = app_with_a_dll_job();
+        app.handle_batch(vec![LoopEvent::Signal(SignalKind::Terminate)])
+            .unwrap();
+        assert!(!app.quitting(), "the job finishes its step first");
+        assert!(app.state.dll_jobs.stopping);
+        app.handle_batch(vec![dll_done(token)]).unwrap();
+        assert!(app.quitting());
+    }
+
+    #[test]
+    fn ctrl_c_during_a_dll_job_waits_once_and_quits_on_the_second() {
+        let ctrl_c = || {
+            LoopEvent::Input(vec![TimedEvent {
+                event: TermEvent::Key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL)),
+                at: Instant::now(),
+            }])
+        };
+        let (mut app, _) = app_with_a_dll_job();
+        app.handle_batch(vec![ctrl_c()]).unwrap();
+        assert!(!app.quitting());
+        app.handle_batch(vec![ctrl_c()]).unwrap();
+        assert!(app.quitting(), "the second Ctrl-C quits at once");
+        let (mut app, token2) = app_with_a_dll_job();
+        app.handle_batch(vec![ctrl_c()]).unwrap();
+        app.handle_batch(vec![dll_done(token2)]).unwrap();
+        assert!(app.quitting());
+        // A terminal that went away waits for the job too.
+        let (mut app, token3) = app_with_a_dll_job();
+        app.handle_batch(vec![LoopEvent::InputClosed("closed".into())])
+            .unwrap();
+        assert!(!app.quitting());
+        app.handle_batch(vec![dll_done(token3)]).unwrap();
         assert!(app.quitting());
     }
 

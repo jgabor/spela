@@ -13,8 +13,9 @@ use spela_core::clock::ManualClock;
 use spela_core::config::Config;
 use spela_core::games::{DetectedDll, DllType, Game, GameCache};
 
-use crate::event::Event;
+use crate::event::{Cmd, Event, Msg};
 use crate::keymap::Key;
+use crate::screens::denylist;
 use crate::state::{AppState, Startup};
 
 /// The time every test state starts at.
@@ -116,4 +117,23 @@ pub fn render_text(state: &mut AppState) -> String {
         out.push('\n');
     }
     out
+}
+
+/// Answers the start's deny list load in `cmds` with empty lists, so the
+/// DLL rows that wait for it can run.
+pub fn empty_denylist(state: &mut AppState, cmds: &[Cmd]) {
+    for c in cmds {
+        if let Cmd::Denylist(denylist::Cmd::Load { request }) = c {
+            crate::update(
+                state,
+                Event::Msg(Msg::Denylist(denylist::Msg::Loaded {
+                    request: *request,
+                    result: Ok(spela_core::denylist::DenyLists::new(
+                        Default::default(),
+                        Default::default(),
+                    )),
+                })),
+            );
+        }
+    }
 }

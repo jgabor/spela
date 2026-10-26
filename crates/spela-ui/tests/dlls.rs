@@ -45,6 +45,7 @@ fn catalog() -> Catalog {
             ),
             (DllType::Dlssg, Ok(Vec::new())),
         ]),
+        note: None,
     }
 }
 
@@ -129,6 +130,7 @@ fn while_loading_and_without_a_manifest_nothing_reads_current() {
     let none = Catalog {
         manifest: Ok(None),
         cached: BTreeMap::new(),
+        note: None,
     };
     let mut s = state(120, 40, Some(none));
     let text = render_text(&mut s);
@@ -165,7 +167,8 @@ fn marks_and_the_update_all_row() {
     assert_eq!(dlls::stale_count(&s), 6);
 
     // Library has no row of its own; Deployment lists update-all, which
-    // cannot run in this build.
+    // waits for the startup scan and the deny list.
+    s.jobs.scan = None;
     let rows = spela_ui::screens::actions(&s, Pane::List);
     assert!(!rows.iter().any(|r| r.label.starts_with("Update all")));
     update(&mut s, key("right"));
@@ -175,7 +178,15 @@ fn marks_and_the_update_all_row() {
         .iter()
         .find(|r| r.label == "Update all stale deployments (6 DLLs)")
         .unwrap();
-    assert_eq!(row.unavailable.as_deref(), Some(dlls::NOT_BUILT));
+    assert_eq!(row.unavailable.as_deref(), Some("wait for the deny list"));
+    let cmds = spela_ui::screens::denylist::start(&mut s);
+    spela_ui::testing::empty_denylist(&mut s, &cmds);
+    let rows = spela_ui::screens::actions(&s, Pane::List);
+    let row = rows
+        .iter()
+        .find(|r| r.label == "Update all stale deployments (6 DLLs)")
+        .unwrap();
+    assert_eq!(row.unavailable, None);
 }
 
 #[test]

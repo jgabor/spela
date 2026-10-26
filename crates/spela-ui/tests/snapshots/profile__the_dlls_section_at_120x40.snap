@@ -14,14 +14,14 @@ expression: render_text(&mut s)
 │   Game 1 Remastered            │ DLL versions                                                                        │
 │   Glasshouse Detective     ▪ ⚑ │ DLSS    310.4.0       unknown  nvngx_dlss.dll                                       │
 │   Hollow Crown Tactics: D⋯     │                                                                                     │
-│   Ironleaf Expedition      ▪   │ DLL actions are not yet implemented in this build                                   │
-│   Lantern Drift              ⚑ │                                                                                     │
-│   Moonwell Farmstead       ▪   │                                                                                     │
-│   Nightglass Protocol          │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
+│   Ironleaf Expedition      ▪   │ DLL actions: Ashfall Courier                                                        │
+│   Lantern Drift              ⚑ │ ▸ Install DLL                                                                       │
+│   Moonwell Farmstead       ▪   │     Unavailable: wait for the deny list                                             │
+│   Nightglass Protocol          │   Update DLLs (0 files)                                                             │
+│                                │     Unavailable: wait for the deny list                                             │
+│                                │   Restore originals                                                                 │
+│                                │     Unavailable: reading the backup                                                 │
+│                                │ Choose a family and version, then review the target.                                │
 │                                │                                                                                     │
 │                                │                                                                                     │
 │                                │                                                                                     │
@@ -41,4 +41,4 @@ expression: render_text(&mut s)
 │                                │                                                                                     │
 └─ ▪ DLLs  ⚑ profile ────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
 
- 0 Actions  Left/Right Section  Tab Pane  Esc List  ? Help
+ 0 Actions  Up/Down Action  Left/Right Section  Tab Pane  Esc List  ? Help

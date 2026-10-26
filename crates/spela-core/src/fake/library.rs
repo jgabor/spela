@@ -2,9 +2,10 @@
 //!
 //! [`write`] lays out app manifests and game folders under a temp dir, with
 //! small DLL files where a game has managed DLLs, so a real scan of it
-//! finds games, DLLs and Proton prefixes. The DLL files hold no PE version,
-//! so their version reads as unknown. Every name and app id is fictional
-//! (decision 43).
+//! finds games, DLLs and Proton prefixes. Most DLL files are
+//! [`super::pe`] stubs with a version, older than the demo manifest's
+//! ([`super::dlls`]) for some, so the demo has stale, current and unknown
+//! DLLs to update. Every name and app id is fictional (decision 43).
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -21,8 +22,9 @@ pub struct DemoGame {
     pub name: &'static str,
     /// The `installdir`.
     pub dir: &'static str,
-    /// DLL files to create, relative to the install folder.
-    pub dlls: &'static [&'static str],
+    /// DLL files to create, relative to the install folder, each with its
+    /// version, or `None` for a file with no readable version.
+    pub dlls: &'static [(&'static str, Option<&'static str>)],
     /// Whether the game has a Proton prefix.
     pub prefix: bool,
 }
@@ -33,7 +35,10 @@ pub const DEMO_GAMES: &[DemoGame] = &[
         app_id: 9100110,
         name: "Ashfall Courier",
         dir: "Ashfall Courier",
-        dlls: &["bin/nvngx_dlss.dll", "bin/nvngx_dlssg.dll"],
+        dlls: &[
+            ("bin/nvngx_dlss.dll", Some("310.2.1")),
+            ("bin/nvngx_dlssg.dll", Some("310.5.3")),
+        ],
         prefix: true,
     },
     DemoGame {
@@ -47,21 +52,24 @@ pub const DEMO_GAMES: &[DemoGame] = &[
         app_id: 9100130,
         name: "Cinder Valley Racing",
         dir: "Cinder Valley Racing",
-        dlls: &["nvngx_dlss.dll"],
+        dlls: &[("nvngx_dlss.dll", Some("310.5.3"))],
         prefix: true,
     },
     DemoGame {
         app_id: 9100140,
         name: "Deepline Salvage",
         dir: "Deepline Salvage",
-        dlls: &["Engine/nvngx_dlss.dll", "Engine/nvngx_dlssd.dll"],
+        dlls: &[
+            ("Engine/nvngx_dlss.dll", Some("3.7.20")),
+            ("Engine/nvngx_dlssd.dll", Some("310.2.1")),
+        ],
         prefix: true,
     },
     DemoGame {
         app_id: 9100150,
         name: "Ember Tide",
         dir: "Ember Tide",
-        dlls: &["libxess.dll"],
+        dlls: &[("libxess.dll", Some("1.3.1"))],
         prefix: true,
     },
     DemoGame {
@@ -75,14 +83,17 @@ pub const DEMO_GAMES: &[DemoGame] = &[
         app_id: 9100170,
         name: "Hollow Crown Tactics: Definitive Edition",
         dir: "Hollow Crown Tactics",
-        dlls: &["nvngx_dlss.dll"],
+        dlls: &[("nvngx_dlss.dll", None)],
         prefix: true,
     },
     DemoGame {
         app_id: 9100180,
         name: "Ironleaf Expedition",
         dir: "Ironleaf Expedition",
-        dlls: &["bin/x64/nvngx_dlss.dll", "bin/x64/amd_fidelityfx_vk.dll"],
+        dlls: &[
+            ("bin/x64/nvngx_dlss.dll", Some("310.5.3")),
+            ("bin/x64/amd_fidelityfx_vk.dll", Some("1.0.1")),
+        ],
         prefix: true,
     },
     DemoGame {
@@ -103,14 +114,18 @@ pub const DEMO_GAMES: &[DemoGame] = &[
         app_id: 9100210,
         name: "Nightglass Protocol",
         dir: "Nightglass Protocol",
-        dlls: &["nvngx_dlss.dll", "nvngx_dlssg.dll", "nvngx_dlssd.dll"],
+        dlls: &[
+            ("nvngx_dlss.dll", Some("310.2.1")),
+            ("nvngx_dlssg.dll", Some("310.2.1")),
+            ("nvngx_dlssd.dll", Some("310.2.1")),
+        ],
         prefix: true,
     },
     DemoGame {
         app_id: 9100220,
         name: "Quarry of Stars",
         dir: "Quarry of Stars",
-        dlls: &["nvngx_dlss.dll"],
+        dlls: &[("nvngx_dlss.dll", Some("310.5.3"))],
         prefix: true,
     },
 ];
@@ -132,12 +147,15 @@ pub fn write(root: &Path) -> io::Result<SteamInstall> {
         )?;
         let dir = steamapps.join("common").join(game.dir);
         std::fs::create_dir_all(&dir)?;
-        for dll in game.dlls {
+        for (dll, version) in game.dlls {
             let path = dir.join(dll);
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent)?;
             }
-            std::fs::write(path, b"spela demo DLL, no PE version\n")?;
+            match version {
+                Some(v) => std::fs::write(path, super::pe::stub(v))?,
+                None => std::fs::write(path, b"spela demo DLL, no PE version\n")?,
+            }
         }
         if game.prefix {
             std::fs::create_dir_all(
@@ -178,6 +196,14 @@ mod tests {
         assert_eq!(found.games.len(), DEMO_GAMES.len());
         let nightglass = found.games.iter().find(|g| g.app_id == 9100210).unwrap();
         assert_eq!(nightglass.dlls.len(), 3);
+        assert!(
+            nightglass
+                .dlls
+                .iter()
+                .all(|d| d.version.as_deref() == Some("310.2.1"))
+        );
+        let hollow = found.games.iter().find(|g| g.app_id == 9100170).unwrap();
+        assert_eq!(hollow.dlls[0].version, None, "one DLL reads unknown");
         assert!(nightglass.prefix_path.is_some());
         let farm = found.games.iter().find(|g| g.app_id == 9100200).unwrap();
         assert!(farm.dlls.is_empty() && farm.prefix_path.is_none());

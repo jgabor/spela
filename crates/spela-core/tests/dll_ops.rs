@@ -82,6 +82,7 @@ impl Lab {
             config: &self.config,
             http: &self.http,
             clock: &self.clock,
+            stop: None,
         }
     }
 
@@ -774,6 +775,7 @@ fn go_era_backups_restore_byte_exact() {
             config: &lab.config,
             http: &lab.http,
             clock: &lab.clock,
+            stop: None,
         };
         let restored = ops::restore(&cx, app_id, &mut |_| {}).unwrap();
         assert_eq!(restored.restored.len(), index.files.len(), "{name}");
@@ -911,6 +913,7 @@ fn a_go_backup_restores_through_another_route_to_the_library() {
         config: &lab.config,
         http: &lab.http,
         clock: &lab.clock,
+        stop: None,
     };
     let restored = ops::restore(&cx, 9100401, &mut |_| {}).unwrap();
     assert_eq!(restored.restored.len(), 3);
@@ -936,4 +939,137 @@ fn a_go_backup_restores_through_another_route_to_the_library() {
         .unwrap_err()
         .to_string();
     assert!(err.contains("escapes install directory"), "{err}");
+}
+
+#[test]
+fn a_stop_ends_a_batch_between_items_and_saves_what_changed() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    let mut lab = Lab::new();
+    let first = lab.game(9100511, "Amber Reach", &[("nvngx_dlss.dll", &pe_3_7_10())]);
+    let second = lab.game(9100512, "Birch Hollow", &[("nvngx_dlss.dll", &pe_3_7_10())]);
+    lab.offer(DllType::Dlss, "310.2.1", "nvngx_dlss.dll", &pe_310_2_1());
+    let requests = ops::requests_for(
+        &cache::load(&lab.paths),
+        &[9100511, 9100512],
+        None,
+        None,
+        false,
+    );
+    let stop = AtomicBool::new(false);
+    let cx = DllContext {
+        stop: Some(&stop),
+        ..lab.cx()
+    };
+    // The signal comes while the first game's file is being swapped.
+    let batch = ops::update(&cx, &lab.manifest, requests, &mut |e: &ProgressEvent| {
+        if e.stage == Stage::Updating {
+            stop.store(true, Ordering::SeqCst);
+        }
+    });
+    assert_eq!((batch.updated, batch.failed), (1, 1), "{batch:?}");
+    assert!(batch.items[0].result.as_ref().unwrap().metadata_persisted);
+    let Err(OpError::Failed { kind, message }) = &batch.items[1].result else {
+        panic!("{:?}", batch.items[1].result)
+    };
+    assert_eq!((*kind, message.as_str()), (FailKind::Stopped, ops::STOPPED));
+    assert_eq!(read(&first.join("nvngx_dlss.dll")), pe_310_2_1());
+    assert_eq!(read(&second.join("nvngx_dlss.dll")), pe_3_7_10());
+    assert_eq!(
+        lab.game_of(9100511).dlls[0].version.as_deref(),
+        Some("310.2.1"),
+        "the swap that ran is saved in the game cache"
+    );
+    assert!(backup::load(&lab.paths, 9100512).unwrap().is_none());
+
+    // A stop during a download keeps nothing and touches no game.
+    lab.offer(
+        DllType::Dlss,
+        "310.5.3",
+        "nvngx_dlss.dll",
+        &vec![7u8; 100_000],
+    );
+    let before = lab.tree();
+    let stop = AtomicBool::new(false);
+    let cx = DllContext {
+        stop: Some(&stop),
+        ..lab.cx()
+    };
+    let err = ops::install(
+        &cx,
+        &lab.manifest,
+        9100512,
+        DllType::Dlss,
+        Some("310.5.3"),
+        &mut |e| {
+            if e.stage == Stage::Downloading && e.downloaded > 0 {
+                stop.store(true, Ordering::SeqCst);
+            }
+        },
+    )
+    .unwrap_err();
+    assert!(
+        matches!(
+            err,
+            OpError::Failed {
+                kind: FailKind::Stopped,
+                ..
+            }
+        ),
+        "{err}"
+    );
+    let changed = lab.changed_since(&before);
+    assert!(
+        changed.is_empty(),
+        "no game file and no cache file: {changed:?}"
+    );
+    lab.no_remote_host();
+}
+
+#[test]
+fn auto_update_skips_unknown_denied_and_running_games() {
+    use spela_core::dll::auto;
+    let mut lab = Lab::new();
+    lab.game(9100521, "Amber Reach", &[("nvngx_dlss.dll", &pe_3_7_10())]);
+    lab.game(9100522, "Birch Hollow", &[("nvngx_dlss.dll", &pe_3_7_10())]);
+    lab.game(
+        9100523,
+        "Cobalt Drift",
+        &[("nvngx_dlss.dll", b"no version")],
+    );
+    lab.game(9100524, "Dune Sea", &[("nvngx_dlss.dll", &pe_3_7_10())]);
+    lab.offer(DllType::Dlss, "310.2.1", "nvngx_dlss.dll", &pe_310_2_1());
+    denylist::deny(&lab.paths, 9100524, "Dune Sea", "fixture anti-cheat").unwrap();
+    let lists = denylist::load(&lab.paths).unwrap();
+    let cache = cache::load(&lab.paths);
+    let mut asked = Vec::new();
+    let done = auto::auto_update(
+        &lab.cx(),
+        &cache,
+        &lab.manifest,
+        &lists,
+        &mut |games| {
+            asked = games.iter().map(|g| g.app_id).collect();
+            [9100522].into()
+        },
+        &mut |_| {},
+    );
+    assert_eq!(
+        asked,
+        [9100521, 9100522],
+        "only stale, allowed games are asked about"
+    );
+    assert_eq!(done.running, ["Birch Hollow"]);
+    assert_eq!((done.batch.updated, done.batch.failed), (1, 0));
+    assert_eq!(
+        done.notice(),
+        "DLL auto-update: updated 1 DLL; skipped Birch Hollow while running"
+    );
+    assert_eq!(
+        lab.game_of(9100521).dlls[0].version.as_deref(),
+        Some("310.2.1")
+    );
+    for id in [9100522, 9100523, 9100524] {
+        assert!(backup::load(&lab.paths, id).unwrap().is_none(), "{id}");
+    }
+    lab.no_remote_host();
 }

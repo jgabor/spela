@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/dll_flows.rs
+expression: text
+---
+ spela   ▸ 1 Library  2 DLL Catalog  3 Monitor  4 Settings
+┌─ ▸ List ─────────────────────────────────────────────────────────────────────┐
+│ / Find games                                                                 │
+│   All games                                                                  │
+│ ▸ Ashfall Courier                                                        ▪   │
+│   Brightwater Keep                                                           │
+│   Cinder Valley Racing                                                   ▪   │
+│   Deepline Salvage                                                           │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└─ ▪ DLLs  ⚑ profile ──────────────────────────────────────────────────────────┘
+                                                      spela v0.7.1 is available
+ 0 Actions  Up/Down Game  Enter Open selection  Space Select game  Tab Detail

@@ -1,0 +1,44 @@
+---
+source: crates/spela-ui/tests/dll_flows.rs
+expression: render_text(&mut s)
+---
+ spela   ▸ Library  DLL Catalog  Monitor  Settings
+┌─ Scope ────────────────────────┬─ Ashfall Courier ───────────────────────────────────────────────────────────────────┐
+│ / Find games                   │ Ashfall Courier · App ID 9100010 · DLLs: DLSS 310.4.0 · Saved at once               │
+│   All games                    │ Own settings (4): Super resolution quality · Resolution override On · Ray override⋯ │
+│ ▸ Ashfall Courier          ▪ ⚑ │ Proton  DLSS  GPU  CPU  [DLLs]                                                      │
+│   Brightwater Keep             │                                                                                     │
+│   Cinder Valley Racing     ▪   │ Install directory: /fixture/steamapps/common/Ashfall Courier                        │
+│   Deepline Salvage           ⚑ │ Steam launch option: spela %command%                                                │
+│   Ember Tide               ▪   │                                                                                     │
+│   Game 1 Remastered            │ DLL versions                                                                        │
+│   Glasshouse Detective     ▪ ⚑ │ DLSS    310.4.0       stale    latest 310.5.3    nvngx_dlss.dll                     │
+│   Hollow Crown Tactics: D⋯     │                                                                                     │
+│   Ironleaf Expedition      ▪   │ DLL actions: Ashfall Courier                                                        │
+│   Lantern Drif┌─ Confirm DLL update ─────────────────────────────────────────────────────────────────┐               │
+│   Moonwell Far│                                                                                      │               │
+│   Nightglass P│  1 DLL target(s)                                                                     │               │
+│               │                                                                                      │               │
+│               │  Ashfall Courier · DLSS · 310.4.0 -> 310.5.3                                         │               │
+│               │  /fixture/steamapps/common/Ashfall Courier/nvngx_dlss.dll                            │               │
+│               │                                                                                      │               │
+│               │  Backup: current DLL is backed up before replacement                                 │               │
+│               │                                                                                      │               │
+│               │                                                             [ Cancel ]  [ Confirm ]  │               │
+│               │                                                                                      │               │
+│               └──────────────────────────────────────────────────────────────────────────────────────┘               │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+└─ ▪ DLLs  ⚑ profile ────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
+
+ Left/Right Choose  Enter Activate  Tab Details  Esc Cancel

@@ -10,7 +10,9 @@
 //! | [`backup`] | Reading `backup.json` and planning a restore |
 //! | [`swap`] | Backups before a swap, the swap and the containment checks |
 //! | [`ops`] | Install, update, batch update and restore |
+//! | [`auto`] | The TUI's startup auto-update |
 
+pub mod auto;
 pub mod backup;
 pub mod detect;
 pub mod fetch;

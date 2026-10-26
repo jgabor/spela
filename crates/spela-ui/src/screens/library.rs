@@ -17,8 +17,11 @@
 //! The DLL and profile filters, the four sorts and multi-select come from
 //! Actions, as in Go (TUI 11). Space selects a game. Select mode hides the
 //! All games and Find rows and freezes Detail on the scope it showed.
-//! Enter with visible selected games opens the batch actions; the batch
-//! DLL update itself arrives with the DLL operations (Phase 5).
+//! Enter with visible selected games opens the batch actions, whose
+//! `Update selected games (N visible)` updates the stale DLLs of the
+//! listed selected games to the manifest's latest, downloading as needed,
+//! after the confirmation (TUI 12; the job is [`crate::dll_jobs`]'s).
+//! Hidden selections never join a batch.
 //!
 //! This module is also the model of the screen contract described in
 //! [`crate::screens`]: every public function here with a `state` and a
@@ -45,10 +48,6 @@ use crate::theme::Role;
 
 /// The longest query, as in Go.
 pub const MAX_QUERY: usize = 30;
-
-/// Why the batch DLL update cannot run yet: it arrives with the DLL
-/// operations.
-pub const BATCH_NOT_BUILT: &str = "DLL updates are not yet implemented in this build";
 
 /// How the games are ordered, chosen from Actions.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -242,7 +241,7 @@ pub enum Action {
     SelectAll,
     /// Clears the listed selected games.
     ClearSelected,
-    /// Updates the selected games' DLLs. Phase 5 runs it.
+    /// Updates the listed selected games' stale DLLs, after asking.
     UpdateSelected,
 }
 
@@ -370,16 +369,43 @@ fn all_sorted(cache: &GameCache) -> Vec<usize> {
 /// the selection changed, keeping the cursor on the same game when it is
 /// still listed.
 pub fn games_changed(state: &mut AppState) {
-    // A list that had no games yet starts on the first game, as Go does,
-    // not on All games.
+    let keep = kept_scope(state);
+    rebuild_rows(state, keep);
+}
+
+/// The scope under the cursor, to keep across a change. A list that had no
+/// games yet starts on the first game, as Go does, not on All games.
+fn kept_scope(state: &AppState) -> Option<Scope> {
     let had_games = state
         .library
         .rows
         .iter()
         .any(|r| matches!(r, ListRow::Game(_)));
-    let keep = current_row(state)
+    current_row(state)
         .and_then(|r| row_scope(state, r))
-        .filter(|_| had_games);
+        .filter(|_| had_games)
+}
+
+/// Takes a new game cache, from a scan or a DLL job: drops selected games
+/// that are gone and keeps the cursor on its game. The rows index the old
+/// cache, so the scope to keep is read before the swap.
+pub fn replace_games(state: &mut AppState, cache: GameCache) {
+    let keep = kept_scope(state);
+    state.games = cache;
+    let games = &state.games;
+    state.library.selected.retain(|id| games.get(*id).is_some());
+    if !state.library.selecting() {
+        state.library.frozen = None;
+    }
+    if let Some(Scope::Game(id)) = state.library.frozen
+        && state.games.get(id).is_none()
+    {
+        state.library.frozen = None;
+    }
+    rebuild_rows(state, keep);
+}
+
+fn rebuild_rows(state: &mut AppState, keep: Option<Scope>) {
     let query = state.library.query.text().to_owned();
     let lib = &state.library;
     let pinned = query.is_empty() && !lib.filtered() && !lib.selecting();
@@ -405,9 +431,9 @@ pub fn games_changed(state: &mut AppState) {
     state.dirty = true;
 }
 
-/// Starts the background scan, unless one runs.
+/// Starts the background scan, unless one or a DLL job runs.
 pub fn start_scan(state: &mut AppState) -> Vec<AnyCmd> {
-    if state.jobs.scan.is_some() {
+    if state.jobs.scan.is_some() || state.jobs.dll.is_some() {
         return Vec::new();
     }
     let request = state.request();
@@ -432,20 +458,9 @@ pub fn scan_done(
     match result {
         Ok(cache) => {
             let n = cache.listed().count();
-            state.games = cache;
             state.library.scan_error = None;
-            let games = &state.games;
-            state.library.selected.retain(|id| games.get(*id).is_some());
-            if !state.library.selecting() {
-                state.library.frozen = None;
-            }
-            if let Some(Scope::Game(id)) = state.library.frozen
-                && state.games.get(id).is_none()
-            {
-                state.library.frozen = None;
-            }
             set_profiles(state, profiles);
-            games_changed(state);
+            replace_games(state, cache);
             state.say(Level::Info, format!("Rescan complete: {n} games found"));
             cmds.extend(profile::rescanned(state));
         }
@@ -455,6 +470,8 @@ pub fn scan_done(
         }
     }
     cmds.extend(profile::follow_selection(state));
+    // The startup auto-update waits for the startup scan, as in Go.
+    cmds.extend(crate::dll_jobs::scan_finished(state));
     cmds
 }
 
@@ -478,9 +495,13 @@ pub fn find(state: &mut AppState) -> Vec<AnyCmd> {
 
 /// The Rescan games row, shared by both Library panes.
 pub fn rescan_row(state: &AppState) -> Row {
-    Row::new("Rescan games", act(Action::Rescan)).when(match state.jobs.scan {
-        Some(_) => Err("wait for pending work".into()),
-        None => Ok(()),
+    // A scan and a DLL job each replace the game cache, so one waits for
+    // the other.
+    let busy = state.jobs.scan.is_some() || state.jobs.dll.is_some();
+    Row::new("Rescan games", act(Action::Rescan)).when(if busy {
+        Err("wait for pending work".into())
+    } else {
+        Ok(())
     })
 }
 
@@ -644,19 +665,50 @@ fn list_rows(state: &AppState) -> Vec<Row> {
     rows
 }
 
+/// The listed selected games.
+fn visible_selected_games(state: &AppState) -> Vec<&Game> {
+    let lib = &state.library;
+    lib.rows
+        .iter()
+        .filter_map(|r| game_at(state, *r))
+        .filter(|g| lib.selected.contains(&g.app_id))
+        .collect()
+}
+
 fn update_selected_row(state: &AppState, visible: usize) -> Row {
-    let reason = if state.jobs.busy() {
-        "wait for pending work"
-    } else if visible == 0 {
-        "no updates for selected filtered games"
+    let targets = crate::dll_jobs::stale_targets(state, visible_selected_games(state));
+    let available = if crate::dll_jobs::can_start(state).is_err() {
+        Err("wait for pending work".to_owned())
+    } else if targets.is_empty() {
+        Err("no updates for selected filtered games".to_owned())
     } else {
-        "not yet implemented in this build"
+        Ok(())
     };
     Row::new(
         format!("Update selected games ({visible} visible)"),
         act(Action::UpdateSelected),
     )
-    .when(Err(reason.into()))
+    .when(available)
+}
+
+fn update_selected(state: &mut AppState) -> Vec<AnyCmd> {
+    let visible = visible_selected(state);
+    if update_selected_row(state, visible).unavailable.is_some() {
+        return Vec::new();
+    }
+    let targets = crate::dll_jobs::stale_targets(state, visible_selected_games(state));
+    let items = crate::dll_jobs::update_items(state, &targets);
+    crate::dll_jobs::ask(
+        state,
+        super::confirm::Guard::DllUpdate,
+        "Confirm DLL update",
+        crate::dll_jobs::body(&items, "current DLL is backed up before replacement"),
+        "DLL update",
+        crate::dll_jobs::DllOp::Update {
+            requests: crate::dll_jobs::update_requests(&targets),
+        },
+        crate::dll_jobs::Origin::Batch { requested: visible },
+    )
 }
 
 /// The Actions rows for the list. The Detail pane's are the profile
@@ -904,7 +956,7 @@ fn step(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
             }
             selection_changed(state, before);
         }
-        Action::UpdateSelected => state.say(Level::Info, BATCH_NOT_BUILT),
+        Action::UpdateSelected => return update_selected(state),
     }
     Vec::new()
 }

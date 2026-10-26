@@ -225,6 +225,13 @@ pub fn run(ctx: &mut Context, _lock: InstanceLock, err: &mut dyn Write) -> Resul
         driver,
         privilege: exec::monitor::SharedPrivilege::new(privilege),
         log: ctx.log.clone(),
+        http: ctx.backends.http.clone(),
+        stop: Default::default(),
+        proc_root: match ctx.backends.kind {
+            BackendKind::Fake => None,
+            BackendKind::Real => Some("/proc".into()),
+        },
+        demo: ctx.demo,
     };
     drop(tx);
 

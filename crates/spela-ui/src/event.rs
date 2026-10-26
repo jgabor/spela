@@ -22,6 +22,7 @@ use spela_core::games::GameCache;
 use spela_core::metrics::CpuMetrics;
 use spela_core::profile::{FieldKey, Scope, Value};
 
+use crate::dll_jobs::{DllDone, DllOp};
 use crate::keymap::Key;
 use crate::screens;
 
@@ -42,6 +43,10 @@ pub enum Event {
     Wake,
     /// A worker or the write queue finished.
     Msg(Msg),
+    /// SIGTERM, SIGINT or SIGHUP, or a terminal that stopped sending input.
+    /// spela quits, but a running DLL job first finishes its current step
+    /// (architecture.md, TUI process).
+    Stop,
 }
 
 impl Event {
@@ -208,10 +213,22 @@ pub enum Msg {
         result: Result<(), String>,
     },
     /// The release check found a newer spela (`spela vX is available`).
-    /// Phase 5.
     ReleaseNotice(Option<String>),
-    /// The startup DLL auto-update changed something. Phase 5.
-    AutoUpdateNotice(String),
+    /// A DLL job moved to another stage. The shell sends one per stage, not
+    /// one per downloaded chunk.
+    DllProgress {
+        /// The token of the [`Cmd::Dll`].
+        token: u64,
+        /// Where the job is.
+        event: spela_core::dll::ops::ProgressEvent,
+    },
+    /// A DLL job finished.
+    DllDone {
+        /// The token of the [`Cmd::Dll`].
+        token: u64,
+        /// What it did, and the game cache after it.
+        done: Box<DllDone>,
+    },
     /// A hardware job finished. Phase 6.
     HardwareDone {
         /// The token of the [`Cmd::Hardware`].
@@ -258,10 +275,18 @@ pub enum Cmd {
         /// The write.
         write: Write,
     },
-    /// Check for a newer release. Phase 5.
+    /// Check for a newer release, on the job pool (decision 39).
     CheckRelease,
-    /// Update stale DLLs at startup. Phase 5.
-    AutoUpdate,
+    /// Run a DLL install, update, restore or the startup auto-update on the
+    /// job pool.
+    Dll {
+        /// The token its progress and result carry.
+        token: u64,
+        /// The operation.
+        op: DllOp,
+    },
+    /// spela is quitting: the running DLL job stops at its next safe point.
+    StopDll,
     /// Run a live hardware command on the job pool (decision 44). Phase 6.
     Hardware {
         /// The token the result carries.

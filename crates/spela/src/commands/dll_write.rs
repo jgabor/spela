@@ -104,6 +104,7 @@ impl Run {
             config: &self.config,
             http: self.http.as_ref(),
             clock: ctx.clock.as_ref(),
+            stop: None,
         }
     }
 
@@ -376,6 +377,7 @@ fn op_error(e: &OpError) -> CliError {
             FailKind::Download => "download_failed",
             FailKind::Backup => "backup_failed",
             FailKind::Write => "write_failed",
+            FailKind::Stopped => "stopped",
         },
     };
     CliError::new(exit::FAILURE, e.to_string()).with_kind(kind)
