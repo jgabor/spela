@@ -535,6 +535,81 @@ fn a_lost_record_adopts_the_targets_and_imports_only_what_is_gone() {
 }
 
 #[test]
+fn a_record_that_cannot_be_saved_keeps_what_was_dropped_for_the_next_run() {
+    use std::os::unix::fs::PermissionsExt;
+    let case = case("profiles/dropped-fields");
+    let data = &case.paths.data_dir;
+    std::fs::create_dir_all(data).unwrap();
+    let mode = std::fs::Permissions::from_mode;
+    std::fs::set_permissions(data, mode(0o555)).unwrap();
+    let e = migrate::run(&case.paths, &clock()).unwrap_err();
+    std::fs::set_permissions(data, mode(0o755)).unwrap();
+    assert!(matches!(e, migrate::MigrateError::Record(_)), "{e}");
+    assert!(
+        case.paths.all_games_profile().exists(),
+        "the first target was written"
+    );
+    assert!(
+        !case.paths.game_profile(9100118).exists(),
+        "the record is saved after each source, so the run stops there"
+    );
+
+    let report = migrate::run(&case.paths, &clock()).unwrap();
+    let all_games = report
+        .handled
+        .iter()
+        .find(|h| h.kind == SourceKind::AllGames)
+        .unwrap();
+    assert!(all_games.adopted);
+    let dropped = case.dropped(&case.paths.go().all_games_profile());
+    for (key, value) in [("gpu.clock_offset", "100"), ("gpu.memory_offset", "8000")] {
+        let d = find(&dropped, key).unwrap_or_else(|| panic!("{key}: {dropped:?}"));
+        assert_eq!(
+            (d.value.as_str(), d.why),
+            (value, Why::OffsetMeaningChanged)
+        );
+    }
+    let game = case.dropped(&case.paths.go().game_profile(9100118));
+    assert!(find(&game, "gpu.clock_offset").is_some(), "{game:?}");
+    let notice = report.notice();
+    assert!(
+        notice[0].starts_with("Migrated 2 files from Go spela"),
+        "{notice:?}"
+    );
+    assert!(
+        notice
+            .iter()
+            .any(|l| l.starts_with("GPU clock and memory offsets")),
+        "{notice:?}"
+    );
+}
+
+#[test]
+fn a_broken_go_cache_is_skipped_once_and_never_retried() {
+    let case = case("profiles/dropped-fields");
+    std::fs::create_dir_all(&case.paths.cache_dir).unwrap();
+    std::fs::write(case.paths.go().manifest_cache(), "{").unwrap();
+    std::fs::create_dir_all(&case.paths.data_dir).unwrap();
+    std::fs::write(case.paths.go().game_database(), "games: [\n").unwrap();
+    let report = migrate::run(&case.paths, &clock()).unwrap();
+    assert_eq!(report.failed().count(), 0, "{:?}", report.handled);
+    let record = case.record();
+    for path in [
+        case.paths.go().manifest_cache(),
+        case.paths.go().game_database(),
+    ] {
+        let entry = record.get(&path).unwrap();
+        assert_eq!(entry.result, Outcome::Skipped, "{}", path.display());
+        assert!(entry.note.contains("the cache refills"), "{}", entry.note);
+    }
+    assert!(!case.paths.manifest_cache().exists());
+    assert!(
+        migrate::run(&case.paths, &clock()).unwrap().is_empty(),
+        "settled, so the next start reads neither file and takes no lock"
+    );
+}
+
+#[test]
 fn a_target_that_does_not_load_is_left_alone() {
     let case = case("profiles/two-space");
     std::fs::write(case.paths.game_profile(9100114), "[gpu\n").unwrap();
@@ -839,6 +914,12 @@ fn caches_are_seeded_once_with_their_bytes_and_time() {
         std::fs::remove_file(&target).unwrap();
         assert!(migrate::run(&case.paths, &clock()).unwrap().is_empty());
         assert!(!target.exists(), "seeded once only (decision 53)");
+        assert!(
+            spela_core::dll::manifest::load_cache(&case.paths)
+                .unwrap()
+                .is_none(),
+            "readers never fall back to Go's file"
+        );
     }
     for which in ["ok", "failed"] {
         let from = format!("cache/spela/update-check.{which}.json");

@@ -8,11 +8,13 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 use serde_json::Value;
 
+use spela_core::clock::ManualClock;
 use spela_core::denylist::{self, DenyLists, Overrides, UserList};
 use spela_core::dll::backup::{self, NameScheme};
 use spela_core::dll::detect;
 use spela_core::dll::manifest::{self, DEFAULT_MANIFEST_URL};
 use spela_core::games::DllType;
+use spela_core::migrate;
 use spela_core::paths::Paths;
 
 const FIXTURE_ROOT: &str = "/fixture-root";
@@ -75,6 +77,12 @@ fn case(name: &str) -> Case {
         root,
         paths,
     }
+}
+
+/// Runs the migration, which copies Go's caches once as seeds.
+fn seed(c: &Case) {
+    let clock = ManualClock::new("2026-10-26T17:04:11Z".parse().unwrap());
+    migrate::run(&c.paths, &clock).unwrap();
 }
 
 fn oracles(c: &Case) -> Vec<Value> {
@@ -412,8 +420,12 @@ fn detection_finds_what_go_s_scan_found() {
 #[test]
 fn go_manifest_caches_seed_the_v1_cache() {
     let c = case("caches/manifest-with-fetch-time");
+    assert!(
+        manifest::load_cache(&c.paths).unwrap().is_none(),
+        "Go's file is read only by the migration (decision 53)"
+    );
+    seed(&c);
     let cached = manifest::load_cache(&c.paths).unwrap().unwrap();
-    assert!(cached.seeded_from_go);
     assert_eq!(
         cached.fetched_at,
         Some("2026-10-26T02:45:16.376726614+02:00".parse().unwrap())
@@ -433,6 +445,7 @@ fn go_manifest_caches_seed_the_v1_cache() {
     let go = c.paths.go().manifest_cache();
     let mtime =
         jiff::Timestamp::try_from(std::fs::metadata(&go).unwrap().modified().unwrap()).unwrap();
+    seed(&c);
     let cached = manifest::load_cache(&c.paths).unwrap().unwrap();
     assert_eq!(cached.fetched_at, Some(mtime));
     assert_eq!(cached.source_url, "");

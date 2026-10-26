@@ -24,10 +24,13 @@
 //! - A source is migrated at most once: "migrated" means listed in the
 //!   record, not "the target exists". A source missing from the record
 //!   whose target exists and loads is adopted and the target is left alone.
+//!   The values its Go file did not carry over are still recorded, and the
+//!   notice counts them. The record is saved after each source.
 //! - Each source succeeds or fails on its own. A failed source writes no
 //!   target, is recorded with its error and is tried again on every start.
 //!   A broken `default.yaml` also fails every game profile that has no
-//!   `overrides` key, because Go's legacy load needed it.
+//!   `overrides` key, because Go's legacy load needed it. A cache that
+//!   cannot be read is recorded as skipped instead, so it is logged once.
 //! - The config, profile and list steps run under `config.lock`. The game
 //!   cache step then runs under `games.lock` alone, and records its result
 //!   under `config.lock` again, so no step holds both locks.
@@ -169,20 +172,32 @@ impl Report {
             .map(|h| h.entry.error.as_str())
     }
 
+    /// The sources this run recorded as migrated: written, or adopted
+    /// because their target already existed. An adopted target can be one
+    /// an earlier run wrote and could not record, whose notice was never
+    /// shown.
+    pub fn settled(&self) -> impl Iterator<Item = &Handled> {
+        self.handled
+            .iter()
+            .filter(|h| h.entry.result == Outcome::Migrated)
+    }
+
     /// The values this run did not carry over that differ from Go's
     /// defaults: what the notice counts.
     pub fn notable_dropped(&self) -> impl Iterator<Item = &Dropped> {
-        self.migrated()
+        self.settled()
             .flat_map(|h| h.entry.dropped.iter())
             .filter(|d| !d.default)
     }
 
     /// The lines to show on the run that migrates: one line to stderr in
     /// the CLI, one status message in the TUI. Empty when nothing was
-    /// migrated. A second line says when Go clock or memory offsets were
-    /// not carried over (decision 31).
+    /// migrated. Adopted sources count, so the notice of a run that wrote
+    /// its targets but not the record is shown on the next run. A second
+    /// line says when Go clock or memory offsets were not carried over
+    /// (decision 31).
     pub fn notice(&self) -> Vec<String> {
-        let files = self.migrated().count();
+        let files = self.settled().count();
         if files == 0 {
             return Vec::new();
         }
@@ -263,7 +278,6 @@ pub fn run(paths: &Paths, clock: &dyn Clock) -> Result<Report, MigrateError> {
         let mut record = Record::load(&record_path)?;
         let todo = pending(&record);
         let mut games_source = None;
-        let mut changed = false;
         let all_games = load_go_all_games(paths);
         for candidate in todo {
             let handled = match candidate.kind {
@@ -273,13 +287,14 @@ pub fn run(paths: &Paths, clock: &dyn Clock) -> Result<Report, MigrateError> {
                 }
                 _ => ctx.migrate(&candidate, &all_games),
             };
-            changed |= record.put(handled.entry.clone());
+            // The record is saved after each source, so a crash or a failed
+            // save leaves at most one target that the record does not list.
+            // A source that fails again the same way leaves the record as
+            // it is, so a start that changes nothing writes nothing.
+            if record.put(handled.entry.clone()) {
+                record.save(&record_path)?;
+            }
             report.handled.push(handled);
-        }
-        // A source that fails again the same way leaves the record as it
-        // is, so a start that changes nothing writes nothing.
-        if changed {
-            record.save(&record_path)?;
         }
         games_source
     };
@@ -297,6 +312,11 @@ pub fn run(paths: &Paths, clock: &dyn Clock) -> Result<Report, MigrateError> {
     }
     for h in &report.handled {
         match h.entry.result {
+            Outcome::Skipped if !h.kind.is_user_intent() => tracing::warn!(
+                path = %h.entry.path.display(),
+                "skipped a Go spela cache file: {}",
+                h.entry.note
+            ),
             Outcome::Failed => tracing::warn!(
                 path = %h.entry.path.display(),
                 "cannot migrate a Go spela file: {}",
@@ -454,10 +474,19 @@ impl<'a> Context<'a> {
         }
     }
 
+    /// A source that cannot be migrated. User intent is recorded as failed
+    /// and tried again at every start. A cache is recorded as skipped, so
+    /// it is logged once and never read again: the scan or the next fetch
+    /// refills it.
     fn failed(&self, candidate: &Candidate, sha256: String, error: String) -> Handled {
         let mut entry = self.entry(candidate, sha256);
-        entry.result = Outcome::Failed;
-        entry.error = error;
+        if candidate.kind.is_user_intent() {
+            entry.result = Outcome::Failed;
+            entry.error = error;
+        } else {
+            entry.result = Outcome::Skipped;
+            entry.note = format!("not copied, and the cache refills: {error}");
+        }
         Handled {
             kind: candidate.kind,
             entry,
@@ -493,6 +522,17 @@ impl<'a> Context<'a> {
             return match self.loads(candidate.kind, &target) {
                 Ok(()) => {
                     entry.note = "its target already existed and was kept".to_owned();
+                    // The target may be one an earlier run wrote before it
+                    // could save the record, so the values the Go file did
+                    // not carry over are recorded all the same.
+                    match self.convert(candidate, &text, all_games) {
+                        Ok(ready) => entry.dropped = ready.dropped,
+                        Err(e) => {
+                            entry
+                                .note
+                                .push_str(&format!("; what it did not carry over is unknown: {e}"));
+                        }
+                    }
                     Handled {
                         kind: candidate.kind,
                         entry,

@@ -130,7 +130,6 @@ fn migrated_manifest_caches_load() {
     migrate::run(&c.paths, &clock()).unwrap();
     assert!(c.paths.manifest_cache().exists());
     let cached = manifest::load_cache(&c.paths).unwrap().unwrap();
-    assert!(!cached.seeded_from_go, "read from manifest-v1.json");
     assert_eq!(
         cached.fetched_at,
         Some("2026-10-26T02:45:16.376726614+02:00".parse().unwrap())
@@ -147,7 +146,6 @@ fn migrated_manifest_caches_load() {
         jiff::Timestamp::try_from(std::fs::metadata(&go).unwrap().modified().unwrap()).unwrap();
     migrate::run(&c.paths, &clock()).unwrap();
     let cached = manifest::load_cache(&c.paths).unwrap().unwrap();
-    assert!(!cached.seeded_from_go);
     assert_eq!(
         cached.fetched_at,
         Some(go_mtime),

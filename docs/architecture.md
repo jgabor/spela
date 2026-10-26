@@ -688,7 +688,7 @@ Go's JSON decoder ignores unknown keys, so an index stays readable by Go (inferr
 
 ### Manifest cache, DLL cache and update check
 
-These three keep Go's shapes. Decision 13 asks for new file names, so that an old Go binary that is still installed does not write the same files. The two JSON caches are renamed, and Go's files are read once, as seeds, when the new file is missing (decision 53). Backups keep Go's names (finding 7; decision 50), and the DLL cache folder stays shared with Go (decision 53).
+These three keep Go's shapes. Decision 13 asks for new file names, so that an old Go binary that is still installed does not write the same files. The two JSON caches are renamed, and Go's files are read once, as seeds, by the migration (decision 53). Readers read only the new files, so a deleted cache stays empty until the next fetch. Backups keep Go's names (finding 7; decision 50), and the DLL cache folder stays shared with Go (decision 53).
 
 - The manifest cache is `<cache>/manifest-v1.json`, seeded once from Go's `<cache>/manifest.json`. It is the remote manifest plus `fetched_at` and `source_url`. An old cache without those two keys counts as fetched from the default URL at the file's modification time (verified: [parity-inventory.md](parity-inventory.md), DLL 1.3). The remote URL and its schema do not change (decision 14). A manifest version is checked before it goes into a cache path (see [DLLs](#dlls)).
 - The DLL cache is `<dll_cache_path or cache/dlls>/<manifest key>/<version>.dll`, holding raw DLLs (verified: [parity-inventory.md](parity-inventory.md), DLL 1.3). Every use checks the SHA-256 against the manifest, so a Go-era file is either used or downloaded again (verified: [parity-inventory.md](parity-inventory.md), DLL 2.5). The folder keeps Go's name (decision 53), because the user may have set `dll_cache_path` and every file is checked by hash, so a shared file cannot be wrong (inferred).
@@ -805,19 +805,19 @@ The migration only reads Go files. It never renames, rewrites or deletes one ([.
 
 A source is migrated at most once, and "migrated" means "listed in the record as migrated or skipped", not "the target exists" (inferred). If a missing target triggered a migration, `spela profile delete <game>` would bring the game's YAML profile back at the next start. Removing `config.toml` to get the defaults back, as Go's error text tells users to do, would do the same (verified text: [parity-inventory.md](parity-inventory.md), CLI 3.14).
 
-Writing the target and updating the record are two steps, so a crash can fall between them. On the next start, a source that is missing from the record but whose target exists and parses is adopted. It is recorded as migrated and the target is not touched (inferred). A second run over the same files writes nothing. If the record is deleted, spela adopts every target that still exists and imports again only the sources whose targets are gone.
+Writing the target and updating the record are two steps, so a crash or a failed record write can fall between them. The record is saved after each source, so at most one target is left unrecorded. On the next start, a source that is missing from the record but whose target exists and parses is adopted. It is recorded as migrated and the target is not touched (inferred). The Go file is still converted, without writing, so the values it did not carry over go into the record all the same, and the notice counts them, because the run that wrote the target never showed one. A second run over the same files writes nothing. If the record is deleted, spela adopts every target that still exists and imports again only the sources whose targets are gone.
 
 ### Failure handling
 
-Each source succeeds or fails on its own. A failed source writes no target, leaves the Go file alone, and is recorded as `failed` with the error. It is tried again on every start until it works (inferred).
+Each source succeeds or fails on its own. A failed source writes no target, leaves the Go file alone, and is recorded as `failed` with the error. It is tried again on every start until it works (inferred). The rebuildable caches are the exception: a `games.yaml`, `manifest.json` or `update-check.json` that cannot be read or parsed is recorded as `skipped` with the error in its note, so it is logged once and never read again.
 
 - A YAML that does not parse, a file that cannot be read, or an invalid `gpu.vrr` fails that file. Go would fail to load the same file (verified: [parity-inventory.md](parity-inventory.md), domain 3).
 - A `default.yaml` that fails also fails All games and every legacy game profile, because they need it. Go's legacy `Load` fails the same way (verified: same). Game profiles that have an `overrides` key do not depend on it and still migrate.
 - A failed `config.yaml` is a config error with exit code 3 in the CLI and the TUI. The message names the YAML file and keeps Go's advice to fix it or remove it (verified text: [parity-inventory.md](parity-inventory.md), CLI 3.14). Once the user removes it, there is no source and the defaults apply. In wrapper mode, a config that fails to load or migrate warns on stderr and in the log, and the game launches with the default config and no profile (inferred, so a wrapper launch never fails on spela's own data, see [Game detection](#game-detection)).
 - A failed profile counts as a broken profile, with the per-surface rule in [Profiles and inheritance](#profiles-and-inheritance): the CLI and `launch --dry-run` report it and exit 3, and wrapper mode warns and falls back.
 - A failed list file blocks DLL install and update, which is the fail-closed rule under [Deny lists](#deny-lists).
-- A failed `games.yaml` is logged and skipped, and the scan rebuilds the cache.
-- A failed write, such as a full disk, leaves the target absent and the record unchanged, so the next start tries again.
+- A failed `games.yaml` is logged once and skipped, and the scan rebuilds the cache.
+- A failed target write, such as a full disk, leaves the target absent and the record unchanged, so the next start tries again. A failed record write stops the run with exit 3; the target written just before it is adopted on the next start (see [Idempotence](#idempotence)).
 
 ### Reading YAML
 

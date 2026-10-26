@@ -12,8 +12,8 @@
 //!
 //! - The one-time notice goes to stderr on the run that migrates, before the
 //!   command runs, even when the command then fails and under `--json`.
-//!   Commands that log to the file only, such as `tui`, leave it to their
-//!   own surface.
+//!   `tui`, which logs to the file only, does not migrate until it can show
+//!   the notice itself.
 //! - A Go `config.yaml` that does not migrate exits 3 with Go's advice.
 //! - A write to a scope whose Go file failed is refused with exit 3
 //!   ([`refuse_profile`], [`refuse_overrides`]): the Go file is tried again
@@ -40,7 +40,9 @@ pub const SOURCE_HINT: &str = "Fix the YAML or remove the file; spela migrates i
 /// the migration must run before it. Help, completions, the removed names,
 /// the root helper and the commands that only read or change live hardware
 /// do not. `--demo` never does: it runs on its own temp files and never
-/// reads Go YAML (decision 18).
+/// reads Go YAML (decision 18). `tui` does not yet either: it logs to the
+/// file only, so the one-time notice would be lost. It migrates once the
+/// TUI exists and can show the notice on its first frame (Phase 4).
 pub fn needs_store(command: Option<&Command>, demo: bool) -> bool {
     if demo {
         return false;
@@ -51,6 +53,7 @@ pub fn needs_store(command: Option<&Command>, demo: bool) -> bool {
     !matches!(
         command,
         Command::Completion { .. }
+            | Command::Tui
             | Command::Overlay(_)
             | Command::Gui(_)
             | Command::ApplyProfile(_)

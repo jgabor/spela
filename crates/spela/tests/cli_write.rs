@@ -195,6 +195,25 @@ fn the_first_write_migrates_and_a_second_run_changes_nothing() {
 }
 
 #[test]
+fn a_tui_first_run_does_not_swallow_the_notice() {
+    let case = Case::new("sandbox/main");
+    let tui = case.run(&["tui"]);
+    tui.expect_code(1);
+    assert!(!tui.stderr().contains("Migrated"), "{}", tui.stderr());
+    let list = case.run(&["profile", "list"]);
+    list.expect_code(0);
+    let notice = list.stderr();
+    assert!(
+        notice.contains("Migrated 9 files from Go spela"),
+        "{notice}"
+    );
+    assert!(
+        notice.contains("GPU clock and memory offsets from Go spela were not carried over"),
+        "{notice}"
+    );
+}
+
+#[test]
 fn set_flags_store_values_follow_on_default_and_imply_overrides() {
     let case = Case::new("sandbox/main");
     // Quiet Orchard has no profile: setting creates one with its name.

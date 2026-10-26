@@ -246,10 +246,6 @@ pub struct CachedManifest {
         skip_serializing_if = "String::is_empty"
     )]
     pub source_url: String,
-    /// Whether this was read from Go's `manifest.json` because
-    /// `manifest-v1.json` does not exist yet. Not in the file.
-    #[serde(skip)]
-    pub seeded_from_go: bool,
 }
 
 /// When the cached manifest is used and when it is fetched again: Go's
@@ -348,18 +344,12 @@ pub enum ManifestCacheError {
     },
 }
 
-/// The cached manifest: `manifest-v1.json`, or Go's `manifest.json` while
-/// that is missing. `None` when neither exists. Nothing is written.
+/// The cached manifest, `manifest-v1.json`. `None` when it does not exist.
+/// Go's `manifest.json` is never read here: the migration copies it once as
+/// the seed (decision 53), so a deleted cache stays deleted until the next
+/// fetch. Nothing is written.
 pub fn load_cache(paths: &Paths) -> Result<Option<CachedManifest>, ManifestCacheError> {
-    if let Some(cached) = read_cache(&paths.manifest_cache())? {
-        return Ok(Some(cached));
-    }
-    Ok(
-        read_cache(&paths.go().manifest_cache())?.map(|cached| CachedManifest {
-            seeded_from_go: true,
-            ..cached
-        }),
-    )
+    read_cache(&paths.manifest_cache())
 }
 
 fn read_cache(path: &Path) -> Result<Option<CachedManifest>, ManifestCacheError> {
@@ -658,22 +648,29 @@ mod tests {
     }
 
     #[test]
-    fn load_cache_prefers_v1_seeds_from_go_and_falls_back_to_the_file_time() {
+    fn load_cache_reads_v1_only_and_falls_back_to_the_file_time() {
         let base = tempfile::tempdir().unwrap();
         let paths = Paths::under(base.path());
         assert!(load_cache(&paths).unwrap().is_none());
 
         std::fs::create_dir_all(&paths.cache_dir).unwrap();
         let go = paths.go().manifest_cache();
-        std::fs::write(&go, r#"{"version":"1","updated_at":"2020-01-01T00:00:00Z","repository":"legacy","dlls":{}}"#).unwrap();
-        let seeded = load_cache(&paths).unwrap().unwrap();
-        assert!(seeded.seeded_from_go);
-        assert_eq!(seeded.manifest.repository, "legacy");
-        assert_eq!(seeded.source(), DEFAULT_MANIFEST_URL);
+        std::fs::write(&go, r#"{"version":"1","repository":"go","dlls":{}}"#).unwrap();
+        assert!(
+            load_cache(&paths).unwrap().is_none(),
+            "Go's file is the migration's seed, never read here (decision 53)"
+        );
+        std::fs::write(&go, "{").unwrap();
+        assert!(load_cache(&paths).unwrap().is_none(), "nor a broken one");
+
+        let v1_path = paths.manifest_cache();
+        std::fs::write(&v1_path, r#"{"version":"1","updated_at":"2020-01-01T00:00:00Z","repository":"legacy","dlls":{}}"#).unwrap();
+        let legacy = load_cache(&paths).unwrap().unwrap();
+        assert_eq!(legacy.manifest.repository, "legacy");
+        assert_eq!(legacy.source(), DEFAULT_MANIFEST_URL);
         let mtime =
-            Timestamp::try_from(std::fs::metadata(&go).unwrap().modified().unwrap()).unwrap();
-        assert_eq!(seeded.fetched_at, Some(mtime), "the file time stands in");
-        assert!(!paths.manifest_cache().exists(), "reading writes nothing");
+            Timestamp::try_from(std::fs::metadata(&v1_path).unwrap().modified().unwrap()).unwrap();
+        assert_eq!(legacy.fetched_at, Some(mtime), "the file time stands in");
 
         std::fs::write(
             paths.manifest_cache(),
@@ -681,7 +678,6 @@ mod tests {
         )
         .unwrap();
         let v1 = load_cache(&paths).unwrap().unwrap();
-        assert!(!v1.seeded_from_go);
         assert_eq!(v1.manifest.repository, "v1");
         assert_eq!(
             v1.fetched_at,
@@ -689,7 +685,7 @@ mod tests {
         );
         assert_eq!(v1.source(), "https://example.test/m.json");
 
-        // A broken v1 file is an error, not a reason to read Go's.
+        // A broken v1 file is an error.
         std::fs::write(paths.manifest_cache(), "{").unwrap();
         let err = load_cache(&paths).unwrap_err();
         assert!(matches!(err, ManifestCacheError::Parse { .. }), "{err}");
