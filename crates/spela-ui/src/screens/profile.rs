@@ -961,7 +961,7 @@ fn change(
 fn summary(state: &AppState, scope: Scope, key: FieldKey, value: Option<&Value>) -> String {
     let field = key.field();
     let mut text = match value {
-        Some(v) => format!("{} {}", field.label, words::display_value(field, v)),
+        Some(v) => format!("{} {}", field.label, words::stored_value_text(field, v)),
         None if all_games_scope(scope) => format!("{} uses the system default", field.label),
         None => format!("{} follows {}", field.label, words::ALL_GAMES),
     };
@@ -1152,10 +1152,7 @@ fn preview(state: &mut AppState) -> Vec<AnyCmd> {
 /// saves; `None` for a field that edits as text.
 fn choices(state: &AppState, field: &Field, scope: Scope) -> Option<Vec<(String, Value)>> {
     // SMT's stored none reads unchanged (decision 65).
-    let word = |v: &Value| match v {
-        Value::OptionalBool(None) => words::UNCHANGED.to_owned(),
-        other => words::display_value(field, other),
-    };
+    let word = |v: &Value| words::stored_value_text(field, v);
     let out: Vec<Value> = match (field.kind, field.rule) {
         (Kind::Bool, _) => vec![Value::Bool(true), Value::Bool(false)],
         // A game may leave SMT unchanged even when All games sets it
@@ -1234,10 +1231,7 @@ fn begin_edit(state: &mut AppState) -> Vec<AnyCmd> {
         if let Some(own) = &r.own
             && !values.iter().any(|v| v.as_ref() == Some(own))
         {
-            let label = match own {
-                Value::OptionalBool(None) => words::UNCHANGED.to_owned(),
-                other => words::display_value(field, other),
-            };
+            let label = words::stored_value_text(field, own);
             labels.push(Choice {
                 label,
                 current: true,
