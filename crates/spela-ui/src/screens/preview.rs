@@ -141,6 +141,8 @@ pub fn update(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
         return Vec::new();
     };
     state.dirty = true;
+    // A resize can shrink the range under the old position.
+    popup.scroll = popup.scroll.min(max);
     match action {
         Action::Up => popup.scroll = popup.scroll.saturating_sub(1),
         Action::Down => popup.scroll = (popup.scroll + 1).min(max),
@@ -166,9 +168,11 @@ pub fn render(
         return;
     }
     let (lines, role) = wrapped(popup, usize::from(inner.width.saturating_sub(4)));
+    // After a resize the old position may be past the end: show the end.
+    let scroll = popup.scroll.min(max_scroll(state, popup));
     for (n, line) in lines
         .iter()
-        .skip(popup.scroll)
+        .skip(scroll)
         .take(visible_rows(state))
         .enumerate()
     {

@@ -22,13 +22,20 @@ use crate::error::{CliError, exit};
 use crate::plan::SystemProbes;
 use crate::text::Paint;
 
-/// `launch` arguments.
+/// `launch` arguments. `--game-id` wins over a game named too, as in Go,
+/// where it needed a positional anyway, so `launch --game-id N x` keeps
+/// working.
 #[derive(Debug, Clone, PartialEq, Eq, Args)]
-#[command(group(ArgGroup::new("target").required(true).args(["game", "game_id"])))]
+#[command(group(
+    ArgGroup::new("target")
+        .required(true)
+        .multiple(true)
+        .args(["game", "game_id"])
+))]
 pub struct LaunchArgs {
     /// The game: a Steam AppID or its exact name.
     pub game: Option<String>,
-    /// The game by Steam AppID.
+    /// The game by Steam AppID. It wins over a game named too.
     #[arg(long, value_name = "N")]
     pub game_id: Option<u64>,
     /// Print what a launch would do, and change nothing.

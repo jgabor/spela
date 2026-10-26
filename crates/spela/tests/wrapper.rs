@@ -281,3 +281,35 @@ fn the_dry_run_shows_the_plan_and_smt_left_unchanged() {
         run.stderr()
     );
 }
+
+#[test]
+fn every_signal_is_forwarded_not_only_the_first() {
+    // Go forwarded the first signal and swallowed the rest. This game
+    // exits 9 only on its second TERM.
+    let s = Sandbox::new();
+    let ready = s.root().join("ready");
+    let first = s.root().join("first");
+    let game = setup(
+        &s,
+        &format!(
+            "n=0\ntrap 'n=$((n+1)); [ $n -ge 2 ] && exit 9; /usr/bin/touch {first}' TERM\n/usr/bin/touch '{ready}'\nwhile :; do /usr/bin/sleep 0.05; done",
+            first = first.display(),
+            ready = ready.display()
+        ),
+    );
+    let mut cmd = s.command();
+    cmd.arg(&game).stdout(Stdio::null()).stderr(Stdio::piped());
+    let child = cmd.spawn().unwrap();
+    wait_for(&ready);
+    // SAFETY: kill only sends a signal.
+    unsafe { libc::kill(child.id() as libc::pid_t, libc::SIGTERM) };
+    wait_for(&first);
+    unsafe { libc::kill(child.id() as libc::pid_t, libc::SIGTERM) };
+    let output = child.wait_with_output().unwrap();
+    assert_eq!(
+        output.status.code(),
+        Some(9),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}

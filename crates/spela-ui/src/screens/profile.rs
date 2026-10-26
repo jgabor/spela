@@ -1137,13 +1137,24 @@ fn preview(state: &mut AppState) -> Vec<AnyCmd> {
     };
     let (app_id, name) = (game.app_id, game.name.clone());
     let request = state.request();
+    // A profile that did not load or migrate answers at once with the
+    // error the dry run gives, which names the file: All games first, as
+    // `spela launch --dry-run` checks it first.
+    let failed = broken(state, Scope::AllGames)
+        .or_else(|| broken(state, Scope::Game(app_id)))
+        .map(str::to_owned);
+    let ask = failed.is_none();
     state.open(Popup::Preview(preview::State {
         request,
         name,
-        summary: None,
+        summary: failed.map(Err),
         scroll: 0,
     }));
-    vec![AnyCmd::Preview { request, app_id }]
+    if ask {
+        vec![AnyCmd::Preview { request, app_id }]
+    } else {
+        Vec::new()
+    }
 }
 
 // Editors.
@@ -2504,5 +2515,12 @@ mod tests {
             text.contains("Unavailable: profile 9100010.yaml: bad"),
             "{text}"
         );
+        // Preview launch says the same and asks the shell for nothing.
+        let cmds = update(&mut s, Action::Preview);
+        assert!(cmds.is_empty(), "{cmds:?}");
+        let Some(Popup::Preview(p)) = &s.popup else {
+            panic!("the preview popup")
+        };
+        assert_eq!(p.summary, Some(Err("profile 9100010.yaml: bad".to_owned())));
     }
 }

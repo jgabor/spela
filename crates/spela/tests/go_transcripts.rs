@@ -278,10 +278,9 @@ const ALLOWED: &[Allowed] = &[
         cases: &[
             "sandbox/main/launch-dry-run-with-command",
             "sandbox/main/launch-dry-run-dash-argument",
-            "sandbox/main/launch-dry-run-game-id",
         ],
         change: Change::ClapUsage,
-        why: "architecture, Commands: launch takes one game, by name or --game-id, and the dry run only; the extra-argument form that executed the game query is removed (bug: parity-inventory CLI 3.4), and a game and --game-id together conflict where Go ignored the name",
+        why: "architecture, Commands: launch takes one game, by name or --game-id, and the dry run only; the extra-argument form that executed the game query is removed (bug: parity-inventory CLI 3.4)",
     },
     Allowed {
         cases: &["sandbox/main/launch-dry-run-missing"],

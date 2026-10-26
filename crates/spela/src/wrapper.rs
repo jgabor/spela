@@ -570,6 +570,21 @@ fn game_command(invocation: &WrapperInvocation, plan: Option<&LaunchPlan>) -> Co
     command
 }
 
+/// Wrapper mode refuses to run as root (decision 35): a game run as root
+/// writes root-owned files into the user's home, and the polkit policy
+/// assumes the wrapper is the user. It runs before anything else, so
+/// nothing is written.
+pub fn refuse_root(euid: u32) -> Result<(), CliError> {
+    if euid != 0 {
+        return Ok(());
+    }
+    Err(
+        CliError::new(exit::FAILURE, "spela does not run games as root")
+            .with_hint("set the game's Steam launch options to `spela %command%` as your own user")
+            .with_kind("root"),
+    )
+}
+
 /// Wrapper mode as the process: refuses root, watches signals, sets up
 /// paths, logging and the backends, and runs the game.
 pub fn main(
@@ -581,15 +596,7 @@ pub fn main(
     err: &mut dyn Write,
 ) -> Result<u8, CliError> {
     // SAFETY: geteuid has no preconditions and cannot fail.
-    if unsafe { libc::geteuid() } == 0 {
-        return Err(
-            CliError::new(exit::FAILURE, "spela does not run games as root")
-                .with_hint(
-                    "set the game's Steam launch options to `spela %command%` as your own user",
-                )
-                .with_kind("root"),
-        );
-    }
+    refuse_root(unsafe { libc::geteuid() })?;
     let stop = Arc::new(StopSlot::new());
     let _signals = SignalForwarder::spawn(Arc::clone(&stop))
         .map_err(|e| CliError::new(exit::FAILURE, format!("cannot watch signals: {e}")))?;
@@ -941,6 +948,14 @@ mod tests {
         assert!(e.message.starts_with("cannot start "), "{}", e.message);
         assert_eq!(w.privilege.log().restores, 1);
         assert_eq!(w.display.sets().len(), 2);
+    }
+
+    #[test]
+    fn root_is_refused() {
+        let e = refuse_root(0).unwrap_err();
+        assert_eq!((e.code, e.kind), (exit::FAILURE, "root"));
+        assert!(e.hint.unwrap().contains("as your own user"));
+        assert!(refuse_root(1000).is_ok());
     }
 
     #[test]
