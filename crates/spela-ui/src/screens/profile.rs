@@ -1279,6 +1279,8 @@ fn begin_edit(state: &mut AppState) -> Vec<AnyCmd> {
         return Vec::new();
     };
     state.focus = Pane::Detail;
+    // One input at a time: an editor closes the Find row.
+    library::stop_finding(state);
     let before = words::value_text(field, &r);
     let mut cmds = Vec::new();
     if let Some(list) = choices(state, field) {

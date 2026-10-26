@@ -9,7 +9,7 @@ use spela_core::profile::{FieldKey, Scope};
 use spela_ui::AppState;
 use spela_ui::event::{Cmd, Event, Msg};
 use spela_ui::layout::Pane;
-use spela_ui::screens::{Popup, profile};
+use spela_ui::screens::{Action, Popup, ScreenAction, library, profile};
 use spela_ui::testing::{key, render_text};
 use spela_ui::update;
 
@@ -90,9 +90,35 @@ fn a_click_on_another_game_closes_the_editor() {
     let mut s = on_field(120, 40, FieldKey::DlssSrMode);
     update(&mut s, key("enter"));
     assert!(profile::editing(&s, Pane::Detail));
+    // A click on a row focuses the List and runs the row's select.
     s.focus = Pane::List;
-    update(&mut s, key("down"));
+    let next = s.library.cursor + 1;
+    spela_ui::update::run(
+        &mut s,
+        Action::Screen(ScreenAction::Library(library::Action::Select(next))),
+    );
     assert!(s.profile.editor.is_none());
+}
+
+#[test]
+fn the_editor_keeps_its_keys_after_a_click_on_the_list() {
+    for field in [FieldKey::DlssSrMode, FieldKey::GpuClockOffset] {
+        let mut s = on_field(120, 40, field);
+        update(&mut s, key("enter"));
+        // A click on the current game's row keeps the scope and the editor.
+        s.focus = Pane::List;
+        let here = s.library.cursor;
+        spela_ui::update::run(
+            &mut s,
+            Action::Screen(ScreenAction::Library(library::Action::Select(here))),
+        );
+        assert!(s.profile.editor.is_some(), "{field:?}");
+        update(&mut s, key("q"));
+        update(&mut s, key("2"));
+        assert!(!s.quit, "{field:?}: q typed or picked, not quit");
+        assert_eq!(s.dest, spela_ui::screens::Dest::Library, "{field:?}");
+        assert!(s.profile.editor.is_some(), "{field:?}");
+    }
 }
 
 #[test]

@@ -318,15 +318,41 @@ pub fn title(state: &AppState, pane: Pane) -> String {
 /// Then only its own bindings and Ctrl-C work, and letters and digits
 /// type (terminal-ux.md, option B).
 pub fn editing(state: &AppState, pane: Pane) -> bool {
-    deny_editing(state, pane) || by_owner!(owner(state.dest, pane), editing(state, pane))
+    library_lock(state).is_some() || by_owner!(owner(state.dest, pane), editing(state, pane))
 }
 
-/// The deny list's reason editor is open on Library. It lives in the
-/// game's DLLs section and draws in Detail, and it keeps the keys in
-/// either pane, so a click on the List cannot bring Browse keys back while
-/// it is open.
-fn deny_editing(state: &AppState, pane: Pane) -> bool {
-    state.dest == Dest::Library && denylist::editing(state, pane)
+/// An input open on Library that holds the keys.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Lock {
+    /// The deny list's reason editor, in Detail.
+    Deny,
+    /// The profile page's editor or picker, in Detail.
+    Profile,
+    /// The Find row, in the List.
+    Find,
+}
+
+/// The input open on Library, if any. It keeps the keys in either pane,
+/// so a click on the other pane cannot bring Browse keys back while it is
+/// drawn: `q` never quits and digits never leave in the middle of an edit.
+fn library_lock(state: &AppState) -> Option<Lock> {
+    if state.dest != Dest::Library {
+        return None;
+    }
+    if denylist::editing(state, Pane::Detail) {
+        Some(Lock::Deny)
+    } else if profile::editing(state, Pane::Detail) {
+        Some(Lock::Profile)
+    } else if library::editing(state, Pane::List) {
+        Some(Lock::Find)
+    } else {
+        None
+    }
+}
+
+/// The deny list's reason editor is open on Library: it draws in Detail.
+fn deny_editing(state: &AppState) -> bool {
+    library_lock(state) == Some(Lock::Deny)
 }
 
 /// Whether the UI is in Browse: no popup and no editor. Digits show in the
@@ -337,21 +363,23 @@ pub fn browsing(state: &AppState) -> bool {
 
 /// The bindings of the focused pane's screen.
 pub fn screen_bindings(state: &AppState, pane: Pane) -> Vec<Binding> {
-    if deny_editing(state, pane) {
-        return denylist::bindings(state, pane);
+    match library_lock(state) {
+        Some(Lock::Deny) => denylist::bindings(state, Pane::Detail),
+        Some(Lock::Profile) => profile::bindings(state, Pane::Detail),
+        Some(Lock::Find) => library::bindings(state, Pane::List),
+        None => by_owner!(owner(state.dest, pane), bindings(state, pane)),
     }
-    by_owner!(owner(state.dest, pane), bindings(state, pane))
 }
 
-/// Every binding that is active now, in dispatch order: Ctrl-C first,
-/// then the popup's, or the screen's between the global ones. The hint
-/// bar, Help and dispatch all read this one list.
+/// Every binding that is active now, in dispatch order: Ctrl-C and
+/// Ctrl-Z first, which work anywhere, then the popup's, or the screen's
+/// between the global ones. The hint bar, Help and dispatch all read this
+/// one list.
 pub fn bindings(state: &AppState) -> Vec<Binding> {
-    let mut out = vec![Binding::new(
-        Key::ctrl('c'),
-        Action::Interrupt,
-        "Quit at once",
-    )];
+    let mut out = vec![
+        Binding::new(Key::ctrl('c'), Action::Interrupt, "Quit at once"),
+        Binding::new(Key::ctrl('z'), Action::Suspend, "Suspend to the shell"),
+    ];
     if state.layout().mode == Mode::TooSmall {
         return out;
     }
@@ -426,18 +454,26 @@ pub fn global_bindings(state: &AppState) -> (Vec<Binding>, Vec<Binding>) {
     tail.push(Binding::new(Key::char(':'), Action::Palette, "Commands").also(Key::ctrl('k')));
     let find = find_available(state);
     tail.push(Binding::new(Key::char('/'), Action::Find, "Find").when(find));
-    let q_label = match state.focus {
-        Pane::Detail => "Back",
-        Pane::List => "Quit",
+    let q_label = if state.focus == Pane::Detail || list_back(state).is_some() {
+        "Back"
+    } else {
+        "Quit"
     };
     tail.push(Binding::new(Key::char('q'), Action::BackOrQuit, q_label));
     tail.push(Binding::new(Key::char('Q'), Action::Quit, "Quit now"));
-    tail.push(Binding::new(
-        Key::ctrl('z'),
-        Action::Suspend,
-        "Suspend to the shell",
-    ));
     (lead, tail)
+}
+
+/// What Esc backs out of on the List in Browse, such as Library's applied
+/// search, so `q` takes that step before it quits.
+pub fn list_back(state: &AppState) -> Option<Action> {
+    if state.focus != Pane::List || !browsing(state) {
+        return None;
+    }
+    screen_bindings(state, Pane::List)
+        .into_iter()
+        .find(|b| b.available() && b.keys.contains(&Key::ESC))
+        .map(|b| b.action)
 }
 
 /// Whether `/` has a list to find in: Library has Find games.
@@ -456,9 +492,10 @@ pub fn actions(state: &AppState, pane: Pane) -> Vec<Row> {
         rows.push(library::rescan_row(state));
     }
     rows.push(Row::new("Help", Action::Help).key(Key::char('?')));
+    // `Q` is Quit's key in every pane; `q` goes back first.
     rows.push(
         Row::new("Quit", Action::Quit)
-            .key(Key::char('q'))
+            .key(Key::char('Q'))
             .when(state.can_quit()),
     );
     rows
@@ -552,7 +589,7 @@ pub fn render_pane(state: &AppState, frame: &mut Frame, area: PaneArea, hits: &m
         owner(state.dest, area.pane),
         render(state, frame, area, hits)
     );
-    if deny_editing(state, area.pane) {
+    if deny_editing(state) {
         denylist::render(state, frame, area, hits);
     }
 }

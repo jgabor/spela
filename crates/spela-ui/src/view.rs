@@ -391,10 +391,14 @@ fn hint_bar(state: &AppState, frame: &mut Frame, layout: &Layout, hits: &mut Hit
             &format!(" {}", b.label),
             Role::Muted,
         );
-        hits.push(
-            Rect::new(start, y, x - start, 1),
-            HitTarget::Action(b.action.clone()),
-        );
+        // A `Type` hint names typing, not a key: a click on it does
+        // nothing, so it can never cancel the input it describes.
+        if b.typed.is_none() {
+            hits.push(
+                Rect::new(start, y, x - start, 1),
+                HitTarget::Action(b.action.clone()),
+            );
+        }
     }
 }
 

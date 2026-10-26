@@ -9,15 +9,16 @@ expression: render_text(&mut s)
 │ ▸ Ashfal│                                                                                                  │         │
 │   Bright│  Keys here: Library · list                                                                       ┃         │
 │   Cinder│  Ctrl-C         Quit at once                                                                     ┃         │
-│   Deepli│  0              Actions                                                                          ┃         │
-│   Ember │  Up/Down        Game                                                                             ┃         │
-│   Game 1│  Down           Next game                                                                        ┃         │
-│   Glassh│  Enter          Open selection                                                                   ┃         │
-│   Hollow│  Space          Select game                                                                      ┃         │
-│   Ironle│  PgUp           Page up                                                                          ┃         │
-│   Lanter│  PgDn           Page down                                                                        ┃         │
-│   Moonwe│  Home           First game                                                                       │         │
-│   Nightg│  End            Last game                                                                        │         │
+│   Deepli│  Ctrl-Z         Suspend to the shell                                                             ┃         │
+│   Ember │  0              Actions                                                                          ┃         │
+│   Game 1│  Up/Down        Game                                                                             ┃         │
+│   Glassh│  Down           Next game                                                                        ┃         │
+│   Hollow│  Enter          Open selection                                                                   ┃         │
+│   Ironle│  Space          Select game                                                                      ┃         │
+│   Lanter│  PgUp           Page up                                                                          ┃         │
+│   Moonwe│  PgDn           Page down                                                                        ┃         │
+│   Nightg│  Home           First game                                                                       │         │
+│         │  End            Last game                                                                        │         │
 │         │  1              Library                                                                          │         │
 │         │  2              DLL Catalog                                                                      │         │
 │         │  3              Monitor                                                                          │         │
@@ -30,7 +31,6 @@ expression: render_text(&mut s)
 │         │  /              Find                                                                             │         │
 │         │  q              Quit                                                                             │         │
 │         │  Q              Quit now                                                                         │         │
-│         │  Ctrl-Z         Suspend to the shell                                                             │         │
 │         │                                                                                                  │         │
 │         │  Actions here: open them with 0 after closing Help                                               │         │
 │         │  /              Search games                                                                     │         │

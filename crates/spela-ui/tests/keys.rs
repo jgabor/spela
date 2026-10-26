@@ -6,12 +6,17 @@
 //! hint bar shows runs the action it names, and Help lists the same keys
 //! the context dispatches.
 
+mod common;
+
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use spela_core::profile::FieldKey;
 use spela_ui::AppState;
+use spela_ui::event::Cmd;
+use spela_ui::hit::HitTarget;
 use spela_ui::keymap::{self, Binding, Key, KeyName, Resolution};
 use spela_ui::layout::Pane;
-use spela_ui::screens::{self, Popup, help};
-use spela_ui::testing::{key, state_with_games};
+use spela_ui::screens::{self, Dest, Popup, help};
+use spela_ui::testing::{key, render_text, state_with_games};
 use spela_ui::update;
 use spela_ui::view::fitted_hints;
 
@@ -63,6 +68,23 @@ fn contexts() -> Vec<(String, AppState)> {
             update(&mut s, key(popup));
             out.push((format!("{w}x{h} popup {popup}"), s));
         }
+        // The inputs: the profile picker and number editor, Settings'
+        // shared editor, and Find with a query.
+        for (field, name) in [
+            (FieldKey::DlssSrMode, "picker"),
+            (FieldKey::GpuClockOffset, "number editor"),
+        ] {
+            let mut s = common::loaded(w, h);
+            update(&mut s, key("enter"));
+            s.profile.field = field;
+            update(&mut s, key("enter"));
+            assert!(s.profile.editor.is_some(), "{name}");
+            out.push((format!("{w}x{h} {name}"), s));
+        }
+        let mut find = state_with_games(w, h, 12);
+        update(&mut find, key("/"));
+        update(&mut find, key("e"));
+        out.push((format!("{w}x{h} Find with a query"), find));
         let mut confirm = state_with_games(w, h, 12);
         confirm.confirm(screens::confirm::State::new(
             "Confirm",
@@ -130,6 +152,91 @@ fn every_hinted_key_runs_what_its_hint_says() {
             );
         }
     }
+}
+
+#[test]
+fn every_hint_click_runs_what_its_key_runs_and_typing_hints_do_nothing() {
+    for (name, mut state) in contexts() {
+        let bindings = screens::bindings(&state);
+        let text = render_text(&mut state);
+        let y = state.size.1 - 1;
+        let row: Vec<char> = text.lines().nth(usize::from(y)).unwrap().chars().collect();
+        for x in 0..state.size.0 {
+            let Some(HitTarget::Action(a)) = state.hits.hit(x, y).cloned() else {
+                continue;
+            };
+            let by_key = bindings.iter().any(|b| {
+                b.action == a
+                    && b.keys.first().is_some_and(|k| {
+                        keymap::resolve(&bindings, k) == Resolution::Run(a.clone())
+                    })
+            });
+            assert!(
+                by_key,
+                "{name}: a hint click at {x} runs {a:?}, which no key runs"
+            );
+            let at: String = row.iter().skip(usize::from(x)).take(5).collect();
+            assert_ne!(at, "Type ", "{name}: the Type hint is clickable");
+        }
+    }
+}
+
+#[test]
+fn ctrl_z_suspends_anywhere() {
+    let mut cases: Vec<(String, AppState)> = contexts();
+    cases.push(("72x20".into(), state_with_games(72, 20, 3)));
+    for (name, mut state) in cases {
+        assert_eq!(
+            update(&mut state, key("ctrl-z")),
+            vec![Cmd::Suspend],
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn q_clears_an_applied_search_before_it_quits() {
+    let mut s = state_with_games(120, 40, 12);
+    update(&mut s, key("/"));
+    for k in ["g", "l", "i", "m"] {
+        update(&mut s, key(k));
+    }
+    update(&mut s, key("enter"));
+    assert_eq!(s.library.query.text(), "glim");
+    let q = screens::bindings(&s)
+        .into_iter()
+        .find(|b| b.keys.contains(&Key::char('q')))
+        .unwrap();
+    assert_eq!(q.label, "Back");
+    assert!(update(&mut s, key("q")).is_empty());
+    assert!(
+        !s.quit && s.library.query.is_empty(),
+        "q cleared the search"
+    );
+    assert_eq!(update(&mut s, key("q")), vec![Cmd::Quit]);
+}
+
+#[test]
+fn a_library_row_from_the_palette_shows_library() {
+    let mut s = state_with_games(120, 40, 12);
+    update(&mut s, key("4"));
+    update(&mut s, key(":"));
+    for c in "search games".chars() {
+        update(&mut s, spela_ui::event::Event::Key(Key::char(c)));
+    }
+    update(&mut s, key("enter"));
+    assert_eq!(s.dest, Dest::Library);
+    assert!(s.library.finding, "Find is open");
+    // A sort from the palette shows Library too.
+    update(&mut s, key("esc"));
+    update(&mut s, key("3"));
+    update(&mut s, key(":"));
+    for c in "sort: z-a".chars() {
+        update(&mut s, spela_ui::event::Event::Key(Key::char(c)));
+    }
+    update(&mut s, key("enter"));
+    assert_eq!(s.dest, Dest::Library);
+    assert_eq!(s.library.sort, screens::library::Sort::ZToA);
 }
 
 #[test]

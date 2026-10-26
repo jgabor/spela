@@ -115,6 +115,9 @@ pub fn run(state: &mut AppState, action: Action) -> Vec<Cmd> {
             if state.focus == Pane::Detail {
                 back(state);
                 Vec::new()
+            } else if let Some(step) = screens::list_back(state) {
+                // One level back first, as Esc: an applied search clears.
+                run(state, step)
             } else {
                 quit(state)
             }

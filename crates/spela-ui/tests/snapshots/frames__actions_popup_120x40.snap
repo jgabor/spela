@@ -20,7 +20,7 @@ expression: render_text(&mut s)
 │   Nightglass Protocol          │    │   Update selected games (0 visible) · no updates for selected filtered games │ │
 │                                │    │   Rescan games                                                               │ │
 │                                │    │   Help                                                                    ?  │ │
-│                                │    │   Quit                                                                    q  │ │
+│                                │    │   Quit                                                                    Q  │ │
 │                                │    │                                                                              │ │
 │                                │    ├──────────────────────────────────────────────────────────────────────────────┤ │
 │                                │    │   Close                                                                      │ │

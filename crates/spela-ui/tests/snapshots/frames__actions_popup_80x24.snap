@@ -19,7 +19,7 @@ expression: render_text(&mut s)
 │ │   Update selected games (0 visible) · no updates for selected filtered ⋯ │ │
 │ │   Rescan games                                                           │ │
 │ │   Help                                                                ?  │ │
-│ │   Quit                                                                q  │ │
+│ │   Quit                                                                Q  │ │
 │ ├──────────────────────────────────────────────────────────────────────────┤ │
 │ │   Close                                                                  │ │
 │ └──────────────────────────────────────────────────────────────────────────┘ │

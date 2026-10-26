@@ -684,8 +684,23 @@ fn rows_height(state: &AppState) -> u16 {
     h.saturating_sub(top)
 }
 
-/// Runs a list action.
+/// Runs a list action. The ones that change what the list shows bring
+/// Library up first, so a palette row run from another destination shows
+/// what it did.
 pub fn update(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
+    if matches!(
+        action,
+        Action::Find
+            | Action::ToggleDllFilter
+            | Action::ToggleProfileFilter
+            | Action::ClearFilters
+            | Action::SetSort(_)
+            | Action::SelectAll
+            | Action::ClearSelected
+    ) {
+        state.dest = super::Dest::Library;
+        state.focus = Pane::List;
+    }
     let mut cmds = step(state, action);
     keep_cursor_visible(state);
     cmds.extend(profile::follow_selection(state));
@@ -696,6 +711,8 @@ fn open_find(state: &mut AppState) {
     if state.games.games.is_empty() || state.library.selecting() {
         return;
     }
+    // One input at a time: Find closes the profile page's editor.
+    state.profile.editor = None;
     let lib = &mut state.library;
     if !lib.finding {
         lib.find_before = Some((lib.query.text().to_owned(), lib.cursor));
@@ -703,6 +720,13 @@ fn open_find(state: &mut AppState) {
     }
     lib.finding = true;
     state.focus = Pane::List;
+}
+
+/// Leaves the Find row, keeping the query, when another input opens.
+pub fn stop_finding(state: &mut AppState) {
+    if state.library.finding {
+        leave_find(state);
+    }
 }
 
 fn leave_find(state: &mut AppState) {
@@ -942,7 +966,9 @@ pub fn wheel(state: &mut AppState, _pane: Pane, down: bool) -> Vec<AnyCmd> {
 
 fn find_row(state: &AppState, p: &mut Painter<'_>, inner: Rect, hits: &mut HitMap) -> u16 {
     let lib = &state.library;
-    let focused = state.focus == Pane::List;
+    // An open Find row keeps the keys in either pane, so it shows its
+    // cursor in either pane too.
+    let focused = state.focus == Pane::List || lib.finding;
     let x = inner.x + 1;
     let w = inner.width - 2;
     let y = inner.y;
