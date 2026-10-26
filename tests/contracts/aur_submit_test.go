@@ -44,7 +44,7 @@ func TestAURSubmit(t *testing.T) {
 			runGit := func(location string, arguments ...string) string {
 				t.Helper()
 				command := exec.Command(git, append([]string{"-C", filepath.Join(directory, location)}, arguments...)...)
-				command.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null", "GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@example.invalid", "GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@example.invalid")
+				command.Env = append(environmentWithoutGit(), "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null", "GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@example.invalid", "GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@example.invalid")
 				output, err := command.CombinedOutput()
 				if err != nil {
 					t.Fatalf("git %v: %v\n%s", arguments, err, output)
@@ -122,7 +122,7 @@ printf '%s\n' "$*" >> "$FIXTURE/makepkg.log"
 if [[ $1 == --printsrcinfo && $SCENARIO == srcinfo-failure ]]; then exit 43; fi
 exec "$REAL_MAKEPKG" "$@"
 `)
-			environment := append(os.Environ(), "PATH="+filepath.Join(directory, "bin")+":"+os.Getenv("PATH"), "FIXTURE="+directory, "REAL_GIT="+git, "REAL_MAKEPKG="+makepkg, "SCENARIO="+scenario, "TMPDIR="+filepath.Join(directory, "temporary"), "MAKEPKG_CONF="+filepath.Join(directory, "makepkg.conf"), "SRCDEST="+filepath.Join(directory, "outside"), "BUILDDIR="+filepath.Join(directory, "outside"), "AUR_SSH_TARGET=test-aur", "AUR_COMMIT_NAME=Test", "AUR_COMMIT_EMAIL=test@example.invalid", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null")
+			environment := append(environmentWithoutGit(), "PATH="+filepath.Join(directory, "bin")+":"+os.Getenv("PATH"), "FIXTURE="+directory, "REAL_GIT="+git, "REAL_MAKEPKG="+makepkg, "SCENARIO="+scenario, "TMPDIR="+filepath.Join(directory, "temporary"), "MAKEPKG_CONF="+filepath.Join(directory, "makepkg.conf"), "SRCDEST="+filepath.Join(directory, "outside"), "BUILDDIR="+filepath.Join(directory, "outside"), "AUR_SSH_TARGET=test-aur", "AUR_COMMIT_NAME=Test", "AUR_COMMIT_EMAIL=test@example.invalid", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null")
 			environment = append(environment, "BASH_ENV=/dev/null")
 			if scenario == "current" {
 				lines := strings.Split(string(original), "\n")
@@ -202,4 +202,16 @@ exec "$REAL_MAKEPKG" "$@"
 			}
 		})
 	}
+}
+
+// Git exports GIT_DIR to hooks run from a linked worktree. Inheriting it would
+// point fixture git commands at the real repository instead of the temp ones.
+func environmentWithoutGit() []string {
+	var environment []string
+	for _, entry := range os.Environ() {
+		if !strings.HasPrefix(entry, "GIT_") {
+			environment = append(environment, entry)
+		}
+	}
+	return environment
 }
