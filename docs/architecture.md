@@ -1,8 +1,8 @@
 # spela architecture and product direction
 
-Date: 2026-10-26. This doc synthesizes the research docs in this folder, the 29 decisions the user answered on 2026-10-25, and decisions 30 to 66, which Claude made on the user's delegation on 2026-10-26. It adds no new research. Claims carried over from a research doc keep the label they had there, (verified: <doc or path:line>), (inferred) or (unverified), and link the doc they came from. Design choices made here are (inferred) unless a decision in [README.md](README.md) makes them. A decision is cited as "decision N". The sources are:
+Date: 2026-10-26. This doc synthesizes the research docs in this folder, the 29 decisions the user answered on 2026-10-25, and decisions 30 to 68, which Claude made on the user's delegation on 2026-10-26. It adds no new research. Claims carried over from a research doc keep the label they had there, (verified: <doc or path:line>), (inferred) or (unverified), and link the doc they came from. Design choices made here are (inferred) unless a decision in [README.md](README.md) makes them. A decision is cited as "decision N". The sources are:
 
-- [README.md](README.md): the summary, the top findings and decisions 1 to 66. The decisions are binding. Decisions 30 to 66 override any proposal or open question in this doc that they contradict.
+- [README.md](README.md): the summary, the top findings and decisions 1 to 68. The decisions are binding. Decisions 30 to 68 override any proposal or open question in this doc that they contradict.
 - [terminal-ux.md](terminal-ux.md): the decided TUI spec, with [mockups.html](mockups.html) for the screens.
 - [mejl-study.md](mejl-study.md): mejl's method, mejl-ui and the mejl binary as built, and where mejl's docs and code disagree. mejl's code facts are the reference, not its docs.
 - [parity-inventory.md](parity-inventory.md): the Go behaviour contract. The corrections block at the top overrides its body, and this doc follows the corrections.

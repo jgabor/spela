@@ -1,6 +1,6 @@
 # spela terminal UX
 
-Date: 2026-10-25, updated 2026-10-26 for decisions 30 to 64. Status: decided. This doc adapts mejl's terminal UX (`~/git/mejl/docs/terminal-ux.md` and its code, see [mejl-study.md](mejl-study.md)) to spela's TUI contract ([parity-inventory.md](parity-inventory.md), section 4). The decisions are recorded in [README.md](README.md). The user chose option B: the basic keys of option A plus mejl's letter keys (decision 1), with the mouse on by default (decision 5). [mockups.html](mockups.html) draws the screens.
+Date: 2026-10-25, updated 2026-10-26 for decisions 30 to 64 and 67. Status: decided. This doc adapts mejl's terminal UX (`~/git/mejl/docs/terminal-ux.md` and its code, see [mejl-study.md](mejl-study.md)) to spela's TUI contract ([parity-inventory.md](parity-inventory.md), section 4). The decisions are recorded in [README.md](README.md). The user chose option B: the basic keys of option A plus mejl's letter keys (decision 1), with the mouse on by default (decision 5). [mockups.html](mockups.html) draws the screens.
 
 Labels follow mejl's method: (verified: source), (inferred), (unverified). Design choices here are (inferred) unless marked.
 
@@ -109,7 +109,7 @@ Not in either option: mejl's key presets, custom presets, key editor and macros.
 - **Help**: a large popup from Actions. It shows "Keys here" for the context it was opened from, then a reference table per mode, all from the keymap. It fixes today's bug where an available key shows an "unavailable" reason.
 - **Decision and DLL confirmation**: a popup with a body, a target list and `[ Cancel ]  [ Confirm ]`. Cancel has focus first, and Esc cancels. The text stays the same ("1 DLL target(s)", "Backup: …"). The denylist allow and the hardware actions use the same popup.
 - **Editors and pickers** stay inside Detail, under the field they edit, as today. They keep "Value before edit", type-to-jump and "Typing replaces the value". The one picker with no Detail field to sit under, `Set CPU governor`, opens inside the Actions popup instead (see [Hardware actions](#hardware-actions)). In the game's DLLs section an open DLL picker keeps the `DLL versions` block in view at 80x24: the rows under the picker give way first, then the picker shows a window on its choices.
-- **Progress and results** for DLL work stay inside Detail. Progress uses a word ("Work is running. Controls return when it finishes.") and no spinner.
+- **Progress and results** for DLL work stay inside Detail. Progress is one line of words, such as `Downloading DLSS 310.5.3...`, with "Work is running. Controls return when it finishes." and no spinner. A finished job leaves its result as one line under the DLL versions and on the status line. Esc in the version picker cancels the install, and nothing runs. The per-game Update offers only stale DLLs; Update all downloads what it needs. A scan and a DLL job never run at once, because each replaces the game cache: while one runs, Rescan and the DLL actions are unavailable with `wait for pending work`. At start the TUI fetches the DLL manifest when the refresh policy says it is due (decision 67).
 
 ## Profile page details
 
