@@ -21,7 +21,7 @@ expression: text
 │                                │ └──────────────────────────────────────────────────────┘                            │
 │                                │                                                                                     │
 │                                │ DLL actions: Ashfall Courier                                                        │
-│                                │ ▸ Install DLL                                                                       │
+│                                │   Install DLL                                                                       │
 │                                │   Update DLLs (1 file)                                                              │
 │                                │   Restore originals (0 files)                                                       │
 │                                │     Unavailable: no backup for this game                                            │

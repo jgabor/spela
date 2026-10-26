@@ -21,7 +21,7 @@ expression: render_text(&mut s)
 │                                │ └──────────────────────────────────────────────────────┘                            │
 │                                │                                                                                     │
 │                                │ DLL actions: Ashfall Courier                                                        │
-│                                │ ▸ Install DLL                                                                       │
+│                                │   Install DLL                                                                       │
 │                                │     Unavailable: DLL manifest unavailable                                           │
 │                                │   Update DLLs (0 files)                                                             │
 │                                │     Unavailable: no stale DLLs for this game                                        │

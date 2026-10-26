@@ -6,7 +6,7 @@ GPU and CPU tuning around Steam launches. The rewrite covers the CLI and the TUI
 with full feature parity. There is no GUI.
 
 Research and architecture for the rewrite live in `docs/` (start with
-`docs/README.md`, which records decisions 1 to 68, and `docs/architecture.md`).
+`docs/README.md`, which records decisions 1 to 71, and `docs/architecture.md`).
 The architecture and terminal UX follow mejl (`~/git/mejl`) wherever that fits.
 
 ## Layout

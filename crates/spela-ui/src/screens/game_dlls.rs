@@ -629,7 +629,10 @@ fn controls(state: &AppState, game: &Game) -> Vec<Line> {
     let chooser = open_chooser(state);
     for (i, kind) in Kind::ALL.iter().enumerate() {
         let ok = available(state, game, *kind);
-        let on = *kind == cursor && focused && chooser.is_none();
+        let on = *kind == cursor
+            && focused
+            && chooser.is_none()
+            && denylist::editor_for(state, game.app_id).is_none();
         let role = match (&ok, on) {
             (_, true) => Role::Key,
             (Ok(()), false) => Role::Text,
