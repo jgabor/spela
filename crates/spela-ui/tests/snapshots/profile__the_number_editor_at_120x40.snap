@@ -32,10 +32,10 @@ expression: render_text(&mut s)
 │                                │     ┌─ Edit Clock offset ──────────────────────────────────┐                        ┃
 │                                │     │ Value before edit: 150 MHz                           │                        ┃
 │                                │     │                                                      │                        ┃
-│                                │     │ ▸ 150                                                │                        │
+│                                │     │ 150                                                  │                        │
 │                                │     │ Whole number in MHz. Typing replaces the value.      │                        │
 │                                │     │                                                      │                        │
-│                                │     │ Input  Apply  Cancel                                 │                        │
+│                                │     │ [ Apply ]  [ Cancel ]                                │                        │
 │                                │     └──────────────────────────────────────────────────────┘                        │
 │                                │     KDE VRR                automatic     from All games                             │
 │                                │     Memory offset          none          system default                             │

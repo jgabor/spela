@@ -1,13 +1,17 @@
 //! A one-line text editor with Input, Apply and Cancel controls, shared by
-//! the Settings path and list editors and the deny list reason.
+//! every text editor: the profile page's numbers and path, the Settings
+//! path and list editors, and the deny list reason.
 //!
 //! It is Go's field editor in spela's boxed form (parity-inventory.md, TUI
 //! 8): a box titled `Edit <Label>`, a `Value before edit` line, the input,
 //! an optional hint, `Invalid value: <err>` after a refused value, and
-//! `[ Apply ]  [ Cancel ]`. Tab and Shift-Tab move between the input and
-//! the buttons, Left and Right switch buttons, Enter applies or cancels by
-//! focus (Enter in the input applies), and Esc cancels. An invalid value
-//! keeps the editor open with focus on the input, as in Go.
+//! `[ Apply ]  [ Cancel ]`, the mockups' button row. The hint and the error
+//! wrap inside the box. Tab and Shift-Tab move between the input and the
+//! buttons, Left and Right switch buttons, Enter applies or cancels by
+//! focus (Enter in the input applies), and Esc cancels. Typing on a button
+//! does nothing, as in Go. An invalid value keeps the editor open with
+//! focus on the input, as in Go. A number editor replaces its value on the
+//! first typed key until the cursor moves (Go's integer editors).
 //!
 //! A screen keeps an [`Editor`] in its state, returns
 //! [`Editor::bindings`] from its `bindings` while it is open (and `true`
@@ -21,6 +25,7 @@ use crate::input::{InputResult, LineInput};
 use crate::keymap::{Binding, Key, KeyName};
 use crate::paint::Painter;
 use crate::screens::Action;
+use crate::text::wrap;
 use crate::theme::Role;
 
 /// The longest value, as Go's text input allows.
@@ -84,6 +89,8 @@ pub struct Editor {
     pub error: Option<String>,
     /// What has focus.
     pub focus: EditorFocus,
+    /// The first typed key replaces the value, until the cursor moves.
+    pub replace: bool,
 }
 
 impl Editor {
@@ -97,7 +104,15 @@ impl Editor {
             hint: None,
             error: None,
             focus: EditorFocus::Input,
+            replace: false,
         }
+    }
+
+    /// Makes the first typed key replace the value, as a number editor
+    /// does.
+    pub fn replace_on_first_key(mut self) -> Editor {
+        self.replace = true;
+        self
     }
 
     /// Adds a hint line under the input.
@@ -120,25 +135,36 @@ impl Editor {
         map: fn(EditorInput) -> Action,
         typed: fn(char) -> Action,
     ) -> Vec<Binding> {
+        // Go's words: `Type to edit  Tab control  Enter apply|cancel edit
+        // Backspace delete  Esc cancel`.
         let enter = match self.focus {
-            EditorFocus::Cancel => "cancel",
+            EditorFocus::Cancel => "cancel edit",
             _ => "apply",
         };
         let mut out = Vec::new();
         if self.focus == EditorFocus::Input {
-            out.push(Binding::typed(typed, map(EditorInput::Esc), "text").hint_as("Type", 100));
+            out.push(Binding::typed(typed, map(EditorInput::Esc), "to edit").hint_as("Type", 100));
         }
-        out.push(Binding::new(Key::ENTER, map(EditorInput::Enter), enter).hint(90));
         out.push(Binding::new(Key::TAB, map(EditorInput::Tab), "control").hint(80));
+        out.push(Binding::new(Key::ENTER, map(EditorInput::Enter), enter).hint(90));
         out.push(Binding::new(
             Key::BACK_TAB,
             map(EditorInput::BackTab),
             "Previous control",
         ));
+        if self.focus == EditorFocus::Input {
+            out.push(
+                Binding::new(
+                    Key::BACKSPACE,
+                    map(EditorInput::Edit(Key::BACKSPACE)),
+                    "delete",
+                )
+                .hint(70),
+            );
+        }
         out.push(Binding::new(Key::ESC, map(EditorInput::Esc), "cancel").hint(85));
         if self.focus == EditorFocus::Input {
             for key in [
-                Key::BACKSPACE,
                 Key::named(KeyName::Delete),
                 Key::LEFT,
                 Key::RIGHT,
@@ -172,17 +198,25 @@ impl Editor {
     pub fn handle(&mut self, input: EditorInput) -> EditorOutcome {
         match input {
             EditorInput::Type(c) => {
-                if self.focus == EditorFocus::Input && self.input.text().chars().count() < MAX_CHARS
-                {
-                    self.input.handle(&Key::char(c));
-                    self.error = None;
+                if self.focus == EditorFocus::Input {
+                    if self.replace {
+                        self.input.clear();
+                        self.replace = false;
+                    }
+                    if self.input.text().chars().count() < MAX_CHARS {
+                        self.input.handle(&Key::char(c));
+                        self.error = None;
+                    }
                 }
             }
             EditorInput::Edit(key) => {
-                if self.focus == EditorFocus::Input
-                    && self.input.handle(&key) == InputResult::Changed
-                {
-                    self.error = None;
+                if self.focus == EditorFocus::Input {
+                    // Moving the cursor or deleting first edits in place,
+                    // as Go does.
+                    self.replace = false;
+                    if self.input.handle(&key) == InputResult::Changed {
+                        self.error = None;
+                    }
                 }
             }
             EditorInput::Tab => {
@@ -216,18 +250,33 @@ impl Editor {
         EditorOutcome::Moved
     }
 
-    /// Rows the boxed form takes: the box, the before line and a blank, the
-    /// input, the hint, the error, a blank and the buttons.
-    pub fn height(&self) -> u16 {
+    /// The hint and the error, wrapped to the text width of a box
+    /// `width` wide.
+    fn notes(&self, width: u16) -> Vec<(String, Role)> {
+        let cols = usize::from(width.saturating_sub(4)).max(1);
+        let mut out = Vec::new();
+        if let Some(hint) = &self.hint {
+            out.extend(wrap(hint, cols).into_iter().map(|l| (l, Role::Muted)));
+        }
+        if let Some(error) = &self.error {
+            let text = format!("Invalid value: {error}");
+            out.extend(wrap(&text, cols).into_iter().map(|l| (l, Role::Error)));
+        }
+        out
+    }
+
+    /// Rows the boxed form takes in a box `width` wide: the box, the before
+    /// line and a blank, the input, the wrapped hint and error, a blank and
+    /// the buttons.
+    pub fn height(&self, width: u16) -> u16 {
         let before = u16::from(self.before.is_some()) * 2;
-        let hint = u16::from(self.hint.is_some());
-        let error = u16::from(self.error.is_some());
-        5 + before + hint + error
+        let notes = u16::try_from(self.notes(width).len()).unwrap_or(u16::MAX);
+        (5 + before).saturating_add(notes)
     }
 
     /// Draws the boxed form at `area`'s top, as wide as `area`.
     pub fn render(&self, p: &mut Painter<'_>, area: Rect) {
-        let h = self.height().min(area.height);
+        let h = self.height(area.width).min(area.height);
         if h < 4 || area.width < 16 {
             return;
         }
@@ -252,16 +301,12 @@ impl Editor {
             }
             y += 1;
         }
-        if let Some(hint) = &self.hint
-            && y <= last
-        {
-            p.text(x, y, w, hint, Role::Muted);
+        for (line, role) in self.notes(r.width) {
+            if y > last {
+                break;
+            }
+            p.text(x, y, w, &line, role);
             y += 1;
-        }
-        if let Some(error) = &self.error
-            && y <= last
-        {
-            p.text(x, y, w, &format!("Invalid value: {error}"), Role::Error);
         }
         let by = r.bottom().saturating_sub(2);
         let apply = "[ Apply ]";
@@ -313,7 +358,9 @@ mod tests {
         e.handle(EditorInput::Tab);
         e.fail("backup_path must be an absolute path: rel");
         assert_eq!(e.focus, EditorFocus::Input);
-        assert_eq!(e.height(), 6);
+        assert_eq!(e.height(80), 6);
+        // A reason longer than the box wraps inside it.
+        assert_eq!(e.height(56), 7);
         typed(&mut e, "x");
         assert_eq!(e.error, None, "typing clears the error");
         assert_eq!(e.input.text(), "relx");
@@ -328,5 +375,26 @@ mod tests {
         e.handle(EditorInput::Tab);
         typed(&mut e, "z");
         assert!(e.input.is_empty(), "letters do nothing on the buttons");
+    }
+
+    #[test]
+    fn a_number_editor_replaces_on_the_first_key_until_the_cursor_moves() {
+        let mut e = Editor::new("Edit Clock offset", None, "150").replace_on_first_key();
+        typed(&mut e, "2");
+        assert_eq!(e.input.text(), "2");
+        let mut e = Editor::new("Edit Clock offset", None, "150").replace_on_first_key();
+        e.handle(EditorInput::Edit(Key::LEFT));
+        typed(&mut e, "2");
+        assert_eq!(e.input.text(), "1520");
+    }
+
+    #[test]
+    fn ctrl_u_clears_and_ctrl_w_deletes_a_word() {
+        let mut e = Editor::new("Edit", None, "");
+        typed(&mut e, "/mnt/games extra");
+        e.handle(EditorInput::Edit(Key::ctrl('w')));
+        assert_eq!(e.input.text(), "/mnt/games ");
+        e.handle(EditorInput::Edit(Key::ctrl('u')));
+        assert!(e.input.is_empty());
     }
 }

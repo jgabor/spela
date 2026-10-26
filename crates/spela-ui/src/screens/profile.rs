@@ -45,19 +45,19 @@ use std::collections::{BTreeMap, BTreeSet};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use spela_core::games::Game;
-use spela_core::profile::field::{Editor as EditorKind, Rule};
+use spela_core::profile::field::{Editor as EditorKind, FieldError, Rule};
 use spela_core::profile::resolve::{resolve, resolve_all_games};
 use spela_core::profile::{
     FIELDS, Field, FieldKey, FollowOutcome, Kind, OwnValues, Resolved, Scope, Section, Value, words,
 };
 
 use super::{Action as AnyAction, Owner, Popup, Row, ScreenAction, confirm, library, preview};
+use crate::editor::{EditorInput, EditorOutcome};
 use crate::event::{Cmd as AnyCmd, Write};
 use crate::hit::{HitMap, HitTarget};
-use crate::input::{InputResult, LineInput};
-use crate::keymap::{Binding, Key, KeyName};
+use crate::keymap::{Binding, Key};
 use crate::layout::{Pane, PaneArea};
-use crate::paint::{Painter, Span};
+use crate::paint::Painter;
 use crate::picker::{Choice, Picker, PickerInput, PickerOutcome};
 use crate::state::{AppState, Level};
 use crate::text::{width, wrap};
@@ -157,35 +157,16 @@ pub struct Group {
     pub outcome: FollowOutcome,
 }
 
-/// The focused control of the text editor.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum TextFocus {
-    /// The input.
-    #[default]
-    Input,
-    /// Apply.
-    Apply,
-    /// Cancel.
-    Cancel,
-}
-
-/// The editor for a number or a path, under its field.
+/// The editor for a number or a path, under its field: the shared
+/// [`crate::editor::Editor`] with the profile and the field it edits.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TextEditor {
     /// The profile it edits.
     pub scope: Scope,
     /// The field.
     pub key: FieldKey,
-    /// The input.
-    pub input: LineInput,
-    /// The first typed key replaces the value, until the cursor moves.
-    pub replace: bool,
-    /// The `Value before edit` text.
-    pub before: String,
-    /// The focused control.
-    pub focus: TextFocus,
-    /// Why the last Apply was refused.
-    pub error: Option<String>,
+    /// The editor.
+    pub editor: crate::editor::Editor,
 }
 
 /// A picker under its field, with the value each choice saves.
@@ -330,20 +311,8 @@ pub enum Action {
     Preview,
     /// A picker key.
     Pick(PickerInput),
-    /// A typed character in the text editor.
-    TextType(char),
-    /// An editing key in the text editor's input.
-    TextEdit(Key),
-    /// Tab in the text editor.
-    TextNext,
-    /// Shift-Tab in the text editor.
-    TextPrev,
-    /// Left or Right on the text editor's buttons.
-    TextSwitch,
-    /// Enter in the text editor: apply or cancel, by focus.
-    TextEnter,
-    /// Esc in the text editor.
-    TextCancel,
+    /// A key of the text editor.
+    Text(EditorInput),
 }
 
 /// The profile page's worker results.
@@ -410,7 +379,11 @@ fn pick_typed(c: char) -> AnyAction {
 }
 
 fn text_typed(c: char) -> AnyAction {
-    act(Action::TextType(c))
+    act(Action::Text(EditorInput::Type(c)))
+}
+
+fn text_key(input: EditorInput) -> AnyAction {
+    act(Action::Text(input))
 }
 
 // Reading the page.
@@ -584,63 +557,12 @@ pub fn editing(state: &AppState, _pane: Pane) -> bool {
     open_editor(state).is_some()
 }
 
-fn text_bindings(e: &TextEditor) -> Vec<Binding> {
-    let enter = match e.focus {
-        TextFocus::Cancel => "cancel edit",
-        _ => "apply",
-    };
-    let mut out = vec![
-        Binding::typed(text_typed, act(Action::TextCancel), "to edit").hint_as("Type", 100),
-        Binding::new(Key::TAB, act(Action::TextNext), "control").hint(80),
-        Binding::new(Key::BACK_TAB, act(Action::TextPrev), "Previous control"),
-        Binding::new(Key::ENTER, act(Action::TextEnter), enter).hint(90),
-    ];
-    let esc = Binding::new(Key::ESC, act(Action::TextCancel), "cancel").hint(85);
-    if e.focus == TextFocus::Input {
-        out.push(
-            Binding::new(
-                Key::BACKSPACE,
-                act(Action::TextEdit(Key::BACKSPACE)),
-                "delete",
-            )
-            .hint(70),
-        );
-        for key in [
-            Key::named(KeyName::Delete),
-            Key::LEFT,
-            Key::RIGHT,
-            Key::HOME,
-            Key::END,
-        ] {
-            out.push(Binding::new(key, act(Action::TextEdit(key)), "Move cursor"));
-        }
-    } else {
-        out.push(Binding::new(
-            Key::LEFT,
-            act(Action::TextSwitch),
-            "Choose button",
-        ));
-        out.push(Binding::new(
-            Key::RIGHT,
-            act(Action::TextSwitch),
-            "Choose button",
-        ));
-    }
-    // Esc last, after Backspace, as Go's hint orders them.
-    let at = out
-        .iter()
-        .position(|b| b.keys.first() == Some(&Key::BACKSPACE))
-        .map_or(out.len(), |i| i + 1);
-    out.insert(at, esc);
-    out
-}
-
 /// The page's keys.
 pub fn bindings(state: &AppState, _pane: Pane) -> Vec<Binding> {
     if let Some(editor) = open_editor(state) {
         return match editor {
             Editor::Pick(e) => e.picker.bindings(pick, pick_typed),
-            Editor::Text(e) => text_bindings(e),
+            Editor::Text(e) => e.editor.bindings(text_key, text_typed),
         };
     }
     let Some(scope) = scope(state) else {
@@ -883,15 +805,7 @@ fn run(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
     // a right-click Actions row, closes the editor first.
     let editor_action = matches!(
         action,
-        Action::Pick(_)
-            | Action::TextType(_)
-            | Action::TextEdit(_)
-            | Action::TextNext
-            | Action::TextPrev
-            | Action::TextSwitch
-            | Action::TextEnter
-            | Action::TextCancel
-            | Action::SelectField(_)
+        Action::Pick(_) | Action::Text(_) | Action::SelectField(_)
     );
     if !editor_action {
         state.profile.editor = None;
@@ -946,11 +860,7 @@ fn run(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
         Action::ApplyToOwnConfirmed(key) => return apply_to_own(state, key),
         Action::Preview => return preview(state),
         Action::Pick(input) => return pick_input(state, input),
-        Action::TextType(c) => text_type(state, c),
-        Action::TextEdit(key) => text_edit(state, key),
-        Action::TextNext | Action::TextPrev | Action::TextSwitch => text_focus(state, &action),
-        Action::TextEnter => return text_enter(state),
-        Action::TextCancel => state.profile.editor = None,
+        Action::Text(input) => return text_input(state, input),
     }
     Vec::new()
 }
@@ -1334,15 +1244,16 @@ fn begin_edit(state: &mut AppState) -> Vec<AnyCmd> {
         } else {
             r.value.canonical()
         };
-        state.profile.editor = Some(Editor::Text(TextEditor {
-            scope,
-            key,
-            input: LineInput::new(prefill),
-            replace: field.editor == EditorKind::Integer,
-            before,
-            focus: TextFocus::Input,
-            error: None,
-        }));
+        let mut editor =
+            crate::editor::Editor::new(format!("Edit {}", field.label), Some(before), &prefill);
+        let hint = words::number_hint(field);
+        if !hint.is_empty() {
+            editor = editor.hint(format!("{hint} Typing replaces the value."));
+        }
+        if field.editor == EditorKind::Integer {
+            editor = editor.replace_on_first_key();
+        }
+        state.profile.editor = Some(Editor::Text(TextEditor { scope, key, editor }));
     }
     state.dirty = true;
     cmds
@@ -1367,73 +1278,44 @@ fn pick_input(state: &mut AppState, input: PickerInput) -> Vec<AnyCmd> {
     }
 }
 
-fn text_editor(state: &mut AppState) -> Option<&mut TextEditor> {
-    match &mut state.profile.editor {
-        Some(Editor::Text(e)) => Some(e),
-        _ => None,
-    }
-}
-
-fn text_type(state: &mut AppState, c: char) {
-    let Some(e) = text_editor(state) else {
-        return;
-    };
-    e.focus = TextFocus::Input;
-    if e.replace {
-        e.input.clear();
-        e.replace = false;
-    }
-    e.input.handle(&Key::char(c));
-    e.error = None;
-}
-
-fn text_edit(state: &mut AppState, key: Key) {
-    let Some(e) = text_editor(state) else {
-        return;
-    };
-    // Moving the cursor first edits in place, as Go does.
-    e.replace = false;
-    if e.input.handle(&key) == InputResult::Changed {
-        e.error = None;
-    }
-}
-
-fn text_focus(state: &mut AppState, action: &Action) {
-    let Some(e) = text_editor(state) else {
-        return;
-    };
-    e.focus = match (action, e.focus) {
-        (Action::TextNext, TextFocus::Input) => TextFocus::Apply,
-        (Action::TextNext, TextFocus::Apply) => TextFocus::Cancel,
-        (Action::TextNext, TextFocus::Cancel) => TextFocus::Input,
-        (Action::TextPrev, TextFocus::Input) => TextFocus::Cancel,
-        (Action::TextPrev, TextFocus::Apply) => TextFocus::Input,
-        (Action::TextPrev, TextFocus::Cancel) => TextFocus::Apply,
-        (_, TextFocus::Apply) => TextFocus::Cancel,
-        (_, _) => TextFocus::Apply,
-    };
-}
-
-fn text_enter(state: &mut AppState) -> Vec<AnyCmd> {
-    let Some(e) = text_editor(state) else {
+fn text_input(state: &mut AppState, input: EditorInput) -> Vec<AnyCmd> {
+    let Some(Editor::Text(e)) = &mut state.profile.editor else {
         return Vec::new();
     };
-    if e.focus == TextFocus::Cancel {
+    let text = match e.editor.handle(input) {
+        EditorOutcome::Moved => return Vec::new(),
+        EditorOutcome::Cancel => {
+            state.profile.editor = None;
+            return Vec::new();
+        }
+        EditorOutcome::Apply(text) => text,
+    };
+    let (scope, key) = (e.scope, e.key);
+    // An empty Apply on a row that read "none" leaves it so: the editor
+    // opened empty there (decision 8), so nothing was typed.
+    if text.trim().is_empty() && e.editor.before.as_deref() == Some(words::NONE) {
         state.profile.editor = None;
         return Vec::new();
     }
-    let (scope, key) = (e.scope, e.key);
-    match key.field().parse(e.input.text()) {
+    match key.field().parse(&text) {
         Ok(value) => {
             state.profile.editor = None;
             set_field(state, scope, key, Some(value))
         }
         Err(err) => {
             // The editor stays open with focus on the input.
-            e.error = Some(err.to_string());
-            e.focus = TextFocus::Input;
+            e.editor.fail(edit_error(&err));
             Vec::new()
         }
+    }
+}
+
+/// Why a typed value was refused, in Go's TUI words where Go has them:
+/// `invalid integer: <raw>` (parity-inventory.md, TUI 17).
+fn edit_error(err: &FieldError) -> String {
+    match err {
+        FieldError::InvalidInteger { raw, .. } => format!("invalid integer: {raw}"),
+        other => other.to_string(),
     }
 }
 
@@ -1669,14 +1551,16 @@ fn notice_line(state: &AppState, app_id: u64) -> Option<(String, Role)> {
     Some((rest.to_owned(), Role::Muted))
 }
 
-fn editor_height(editor: &Editor) -> u16 {
+/// The width of the editor box in a body `cw` cells wide, as in the
+/// mockup: indented under its field, at most [`EDITOR_W`].
+fn editor_width(cw: usize) -> u16 {
+    EDITOR_W.min(u16::try_from(cw).unwrap_or(u16::MAX).saturating_sub(4))
+}
+
+fn editor_height(editor: &Editor, cw: usize) -> u16 {
     match editor {
         Editor::Pick(e) => e.picker.height(),
-        Editor::Text(e) => {
-            let hint = !words::number_hint(e.key.field()).is_empty();
-            // Borders, before, blank, input, hint, error, blank, controls.
-            2 + 3 + u16::from(hint) + u16::from(e.error.is_some()) + 2
-        }
+        Editor::Text(e) => e.editor.height(editor_width(cw)),
     }
 }
 
@@ -1698,7 +1582,7 @@ fn body(state: &AppState, scope: Scope, cw: usize) -> (Vec<Line>, usize, usize) 
             if focused {
                 start = lines.len() - 1;
                 if let Some(e) = editor {
-                    let h = editor_height(e);
+                    let h = editor_height(e, cw);
                     lines.push(Line::Editor(h));
                     for _ in 1..h {
                         lines.push(Line::Taken);
@@ -1996,12 +1880,12 @@ pub fn render(state: &AppState, frame: &mut Frame, area: PaneArea, hits: &mut Hi
             }
             Line::Editor(rows) => {
                 let room = u16::try_from(first + h - n).unwrap_or(0).min(*rows);
-                let ew = EDITOR_W.min(w.saturating_sub(4));
+                let ew = editor_width(usize::from(w));
                 let box_area = Rect::new(x + 4, y, ew, room);
                 if let Some(e) = open_editor(state) {
                     match e {
                         Editor::Pick(e) => e.picker.render(&mut p, box_area),
-                        Editor::Text(e) => text_render(state, &mut p, e, box_area),
+                        Editor::Text(e) => e.editor.render(&mut p, box_area),
                     }
                 }
             }
@@ -2019,82 +1903,7 @@ fn editor_value(state: &AppState, scope: Scope, editor: &Editor) -> String {
             Some(v) => words::display_value(key.field(), &v),
             None => follow_text(state, scope, key),
         },
-        Editor::Text(e) => e.input.text().to_owned(),
-    }
-}
-
-fn text_render(state: &AppState, p: &mut Painter<'_>, e: &TextEditor, area: Rect) {
-    let h = editor_height(&Editor::Text(e.clone())).min(area.height);
-    if h < 3 || area.width < 16 {
-        return;
-    }
-    let r = Rect::new(area.x, area.y, area.width, h);
-    let field = e.key.field();
-    p.clear(r);
-    p.frame(r, &format!("Edit {}", field.label), Role::Focus, Role::Key);
-    let x = r.x + 2;
-    let w = r.width.saturating_sub(4);
-    let mut y = r.y + 1;
-    let bottom = r.bottom().saturating_sub(1);
-    let line = |p: &mut Painter<'_>, y: &mut u16, spans: &[Span<'_>]| {
-        if *y < bottom {
-            p.spans(x, *y, w, spans);
-        }
-        *y += 1;
-    };
-    let before = format!("Value before edit: {}", e.before);
-    line(p, &mut y, &[(before.as_str(), Role::Muted)]);
-    y += 1;
-    // The input, with the cursor cell.
-    if y < bottom {
-        let on = e.focus == TextFocus::Input;
-        let at = p.text(
-            x,
-            y,
-            w,
-            state.glyphs.cursor,
-            if on { Role::Key } else { Role::Muted },
-        );
-        let at = at + 1;
-        let room = usize::from((x + w).saturating_sub(at).saturating_sub(1));
-        let (shown, cursor_x) = e.input.view(room);
-        p.text(at, y, (x + w).saturating_sub(at), &shown, Role::Strong);
-        if on {
-            let cx = at + u16::try_from(cursor_x).unwrap_or(0);
-            if cx < x + w {
-                p.cursor_row(Rect::new(cx, y, 1, 1));
-            }
-        }
-    }
-    y += 1;
-    let hint = words::number_hint(field);
-    if !hint.is_empty() {
-        let text = format!("{hint} Typing replaces the value.");
-        line(p, &mut y, &[(text.as_str(), Role::Muted)]);
-    }
-    if let Some(err) = &e.error {
-        let text = format!("Invalid value: {err}");
-        line(p, &mut y, &[(text.as_str(), Role::Error)]);
-    }
-    let by = bottom.saturating_sub(1);
-    let mut bx = x;
-    for (control, label) in [
-        (TextFocus::Input, "Input"),
-        (TextFocus::Apply, "Apply"),
-        (TextFocus::Cancel, "Cancel"),
-    ] {
-        let on = e.focus == control;
-        let end = p.text(
-            bx,
-            by,
-            (x + w).saturating_sub(bx),
-            label,
-            if on { Role::Key } else { Role::Text },
-        );
-        if on {
-            p.cursor_row(Rect::new(bx, by, end - bx, 1));
-        }
-        bx = end + 2;
+        Editor::Text(e) => e.editor.input.text().to_owned(),
     }
 }
 
@@ -2403,14 +2212,21 @@ mod tests {
         let Some(Editor::Text(e)) = &s.profile.editor else {
             panic!("a text editor")
         };
-        assert_eq!(e.input.text(), "", "none opens empty");
-        assert_eq!(e.before, "none");
-        // An empty number is refused and the editor stays.
+        assert_eq!(e.editor.input.text(), "", "none opens empty");
+        assert_eq!(e.editor.before.as_deref(), Some("none"));
+        // An empty Apply on none changes nothing and closes the editor.
+        assert!(step(&mut s, key("enter")).is_empty());
+        assert!(s.profile.editor.is_none());
+        // A value that is not a number is refused in Go's words, and the
+        // editor stays.
+        step(&mut s, key("enter"));
+        step(&mut s, key("x"));
         step(&mut s, key("enter"));
         let Some(Editor::Text(e)) = &s.profile.editor else {
             panic!("still open")
         };
-        assert!(e.error.is_some());
+        assert_eq!(e.editor.error.as_deref(), Some("invalid integer: x"));
+        step(&mut s, key("ctrl-u"));
         for c in ["1", "5", "0"] {
             step(&mut s, key(c));
         }
@@ -2434,7 +2250,7 @@ mod tests {
         let Some(Editor::Text(e)) = &s.profile.editor else {
             panic!()
         };
-        assert_eq!(e.input.text(), "2");
+        assert_eq!(e.editor.input.text(), "2");
         step(&mut s, key("esc"));
         assert!(s.profile.editor.is_none(), "Esc cancels");
     }

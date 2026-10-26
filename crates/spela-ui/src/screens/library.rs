@@ -210,7 +210,7 @@ pub enum Action {
     /// A typed character for the query.
     Type(char),
     /// An editing key for the query: Backspace, Delete, Left, Right, Home,
-    /// End.
+    /// End, Ctrl-U and Ctrl-W.
     Edit(Key),
     /// Tab on the Find row: the next control.
     FindNext,
@@ -547,6 +547,8 @@ fn find_bindings(state: &AppState) -> Vec<Binding> {
         Key::RIGHT,
         Key::HOME,
         Key::END,
+        Key::ctrl('u'),
+        Key::ctrl('w'),
     ] {
         out.push(Binding::new(key, act(Action::Edit(key)), "Edit the query"));
     }
@@ -1190,6 +1192,20 @@ mod tests {
         assert!(!s.quit, "q typed, not quit");
         step_event(&mut s, key("esc"));
         assert!(!s.library.finding && s.library.query.is_empty());
+    }
+
+    #[test]
+    fn ctrl_u_and_ctrl_w_edit_the_query() {
+        let mut s = state_with_games(120, 40, 12);
+        step_event(&mut s, key("/"));
+        for c in "ember tide".chars() {
+            step_event(&mut s, crate::event::Event::Key(Key::char(c)));
+        }
+        step_event(&mut s, key("ctrl-w"));
+        assert_eq!(s.library.query.text(), "ember ");
+        step_event(&mut s, key("ctrl-u"));
+        assert!(s.library.query.is_empty());
+        assert!(s.library.finding);
     }
 
     #[test]

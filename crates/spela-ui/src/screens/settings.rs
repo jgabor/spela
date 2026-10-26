@@ -539,7 +539,7 @@ fn render_detail(state: &AppState, p: &mut Painter<'_>, inner: Rect) {
     if let Some(editor) = &s.editor
         && y < bottom
     {
-        let h = editor.height().min(bottom - y);
+        let h = editor.height(inner.width - 2).min(bottom - y);
         editor.render(p, Rect::new(inner.x + 1, y, inner.width - 2, h));
         y += h + 1;
     }

@@ -78,7 +78,7 @@ fn letters_and_digits_type_in_an_editor_and_never_leave_it() {
     let Some(profile::Editor::Text(e)) = &s.profile.editor else {
         panic!("the editor is open")
     };
-    assert_eq!(e.input.text(), "250q01");
+    assert_eq!(e.editor.input.text(), "250q01");
     // An invalid number keeps the editor open with the reason.
     update(&mut s, key("enter"));
     let text = render_text(&mut s);

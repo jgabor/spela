@@ -41,4 +41,4 @@ expression: render_text(&mut s)
 │                                │                                                                                     │
 └─ ▪ DLLs  ⚑ profile ────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
 
- Type text  Enter apply  Tab control  Esc cancel
+ Type to edit  Tab control  Enter apply  Backspace delete  Esc cancel

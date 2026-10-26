@@ -461,9 +461,9 @@ pub fn render_editor(state: &AppState, p: &mut Painter<'_>, area: Rect) -> u16 {
     let Some(open) = &state.denylist.editor else {
         return 0;
     };
-    let h = (open.editor.height() + 2).min(area.height);
-    p.clear(Rect::new(area.x, area.y, area.width, h));
     let (x, w) = (area.x + 1, area.width.saturating_sub(2));
+    let h = (open.editor.height(w) + 2).min(area.height);
+    p.clear(Rect::new(area.x, area.y, area.width, h));
     let mut y = area.y;
     if let Some((text, role)) = state_line(state, open.app_id) {
         p.text(x, y, w, &text, role);
@@ -471,7 +471,7 @@ pub fn render_editor(state: &AppState, p: &mut Painter<'_>, area: Rect) -> u16 {
     y += 1;
     let rest = area.bottom().saturating_sub(y);
     open.editor
-        .render(p, Rect::new(x, y, w, open.editor.height().min(rest)));
+        .render(p, Rect::new(x, y, w, open.editor.height(w).min(rest)));
     h
 }
 
