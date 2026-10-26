@@ -3,12 +3,13 @@
 //!
 //! | File | Commands |
 //! |---|---|
-//! | this file | the shell's: metrics polls, saves, and the Phase 5 and 6 placeholders |
+//! | this file | the shell's: metrics polls, saves, and the Phase 5 placeholders |
 //! | [`monitor`] | also `Cmd::Hardware`, the hardware jobs |
 //! | [`library`] | `Cmd::Scan` and `library::Cmd` |
 //! | [`profile`] | `profile::Cmd` |
 //! | [`settings`] | `settings::Cmd` |
 //! | [`monitor`] | `monitor::Cmd` |
+//! | [`preview`] | `Cmd::Preview`, the dry-run summary |
 //! | [`dlls`] | `dlls::Cmd` |
 //! | [`denylist`] | `denylist::Cmd` |
 //!
@@ -20,6 +21,7 @@ pub mod denylist;
 pub mod dlls;
 pub mod library;
 pub mod monitor;
+pub mod preview;
 pub mod profile;
 pub mod settings;
 
@@ -113,12 +115,7 @@ impl Exec for Workers {
             // Phase 5.
             Cmd::CheckRelease | Cmd::AutoUpdate => {}
             Cmd::Hardware { token, op } => monitor::hardware(self, token, op),
-            Cmd::Preview { request, .. } => {
-                let _ = self.tx.done(Msg::PreviewReady {
-                    request,
-                    result: Err("Preview launch is not yet implemented in this build".into()),
-                });
-            }
+            Cmd::Preview { request, app_id } => preview::run(self, request, app_id),
             Cmd::SetLogLevel(level) => self.log.apply(level.name()),
             Cmd::Suspend | Cmd::Quit | Cmd::SetMouse(_) => {}
             Cmd::Library(c) => library::run(self, c),

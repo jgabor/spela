@@ -112,6 +112,25 @@ impl Display for KscreenDisplay {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Writes an executable script through `/bin/cp`, so this process never
+    /// holds a write descriptor to it that a parallel test's fork could
+    /// inherit, which would make running it fail with "text file busy".
+    fn write_script(path: &std::path::Path, text: impl AsRef<[u8]>) {
+        let source = path.with_file_name(format!(
+            "{}.text",
+            path.file_name().unwrap().to_string_lossy()
+        ));
+        std::fs::write(&source, text).unwrap();
+        let copied = std::process::Command::new("/bin/cp")
+            .arg(&source)
+            .arg(path)
+            .status()
+            .unwrap();
+        assert!(copied.success());
+        std::fs::remove_file(&source).unwrap();
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
     use std::os::unix::fs::PermissionsExt;
 
     /// A stand-in program: a shell script that logs its arguments and
@@ -119,15 +138,13 @@ mod tests {
     fn stand_in(dir: &std::path::Path, body: &str) -> KscreenDisplay {
         let log = dir.join("calls");
         let path = dir.join("doctor-stand-in");
-        std::fs::write(
+        write_script(
             &path,
             format!(
                 "#!/bin/sh\necho \"$LC_ALL $*\" >> '{}'\n{body}\n",
                 log.display()
             ),
-        )
-        .unwrap();
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        );
         KscreenDisplay {
             program: path,
             timeout: Duration::from_secs(5),

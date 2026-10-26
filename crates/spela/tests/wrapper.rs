@@ -8,7 +8,8 @@
 
 mod common;
 
-use std::os::unix::fs::PermissionsExt;
+use common::write_script;
+
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::{Duration, Instant};
@@ -40,15 +41,13 @@ fn setup(s: &Sandbox, body: &str) -> PathBuf {
     .unwrap();
     let game = folder.join("lantern.sh");
     let env_file = s.root().join("game-env");
-    std::fs::write(
+    write_script(
         &game,
         format!(
             "#!/bin/sh\n/usr/bin/env > '{}'\n{body}\n",
             env_file.display()
         ),
-    )
-    .unwrap();
-    std::fs::set_permissions(&game, std::fs::Permissions::from_mode(0o755)).unwrap();
+    );
     s.run(&["scan"]).expect_code(0);
     s.run(&[
         "gpu",
@@ -198,8 +197,7 @@ fn a_missing_game_cache_never_blocks_a_launch() {
 fn an_unknown_game_runs_with_no_profile() {
     let s = Sandbox::new();
     let script = s.root().join("tool.sh");
-    std::fs::write(&script, "#!/bin/sh\nexit 4\n").unwrap();
-    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    write_script(&script, "#!/bin/sh\nexit 4\n");
     let run = s.run(&[script.to_str().unwrap()]);
     run.expect_code(4);
     assert_eq!(run.stdout(), "Launching command...\n");
@@ -213,8 +211,7 @@ fn an_unknown_game_runs_with_no_profile() {
 fn demo_never_runs_a_game() {
     let s = Sandbox::new();
     let script = s.root().join("tool.sh");
-    std::fs::write(&script, "#!/bin/sh\n/usr/bin/touch ran\n").unwrap();
-    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    write_script(&script, "#!/bin/sh\n/usr/bin/touch ran\n");
     let run = s.run(&["--demo", script.to_str().unwrap()]);
     run.expect_code(2);
     assert!(
@@ -243,4 +240,44 @@ fn a_launch_that_cannot_start_restores_and_exits_1() {
     );
     let log = log_text(&s);
     assert!(log.contains("restore succeeded area=hardware"), "{log}");
+}
+
+#[test]
+fn the_dry_run_shows_the_plan_and_smt_left_unchanged() {
+    let s = Sandbox::new();
+    setup(&s, "exit 0");
+    s.run(&["cpu", "set", "--all-games", "--smt", "off"])
+        .expect_code(0);
+    s.run(&["cpu", "set", APP_ID, "--smt", "unchanged"])
+        .expect_code(0);
+    let run = s.run(&["launch", "--game-id", APP_ID, "--dry-run"]);
+    run.expect_code(0);
+    let out = run.stdout();
+    assert!(
+        out.contains("    cpu.smt=unchanged source=this_game restore=restorable_mutation\n"),
+        "{out}"
+    );
+    assert!(
+        out.contains("  CPU SMT:  left unchanged (cpu.smt=unchanged)\n"),
+        "{out}"
+    );
+    assert!(!out.contains("CPU SMT:  false"), "no SMT step: {out}");
+    assert!(
+        out.contains("  KDE VRR:  always in the desktop session"),
+        "{out}"
+    );
+    let show = s.run(&["cpu", "show", APP_ID]);
+    show.expect_code(0);
+    assert!(show.stdout().contains("unchanged"), "{}", show.stdout());
+    // The dry run changed nothing and took no lock.
+    assert!(s.markers().is_empty());
+    // Without --dry-run there is nothing to track (decision 40).
+    let run = s.run(&["launch", "Lantern Path"]);
+    run.expect_code(2);
+    assert!(
+        run.stderr()
+            .contains("hint: set the game's Steam launch options to `spela %command%` instead"),
+        "{}",
+        run.stderr()
+    );
 }

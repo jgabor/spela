@@ -12,7 +12,7 @@
 
 mod common;
 
-use std::os::unix::fs::PermissionsExt;
+use common::write_script;
 
 use std::path::{Path, PathBuf};
 
@@ -558,8 +558,7 @@ fn two_processes_never_interleave_lines_in_one_log_file() {
     let s = Sandbox::new();
     // A stand-in game that exits at once.
     let game = s.bin().join("mygame");
-    std::fs::write(&game, "#!/bin/sh\nexit 0\n").unwrap();
-    std::fs::set_permissions(&game, std::fs::Permissions::from_mode(0o755)).unwrap();
+    write_script(&game, "#!/bin/sh\nexit 0\n");
     let mut children = Vec::new();
     for _ in 0..EACH {
         for args in [&["mygame"][..], &["tui"][..]] {

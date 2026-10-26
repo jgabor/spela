@@ -625,6 +625,25 @@ pub fn main(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Writes an executable script through `/bin/cp`, so this process never
+    /// holds a write descriptor to it that a parallel test's fork could
+    /// inherit, which would make running it fail with "text file busy".
+    fn write_script(path: &std::path::Path, text: impl AsRef<[u8]>) {
+        let source = path.with_file_name(format!(
+            "{}.text",
+            path.file_name().unwrap().to_string_lossy()
+        ));
+        std::fs::write(&source, text).unwrap();
+        let copied = std::process::Command::new("/bin/cp")
+            .arg(&source)
+            .arg(path)
+            .status()
+            .unwrap();
+        assert!(copied.success());
+        std::fs::remove_file(&source).unwrap();
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
     use std::os::unix::fs::PermissionsExt;
 
     use spela_core::backend::VrrPolicy;
@@ -655,15 +674,13 @@ mod tests {
         let install = root.join("library/steamapps/common/Glimmer Run");
         std::fs::create_dir_all(&install).unwrap();
         let game = install.join("run.sh");
-        std::fs::write(
+        write_script(
             &game,
             format!(
                 "#!/bin/sh\n/usr/bin/env > '{}'\nexit ${{EXIT:-0}}\n",
                 root.join("game-env").display()
             ),
-        )
-        .unwrap();
-        std::fs::set_permissions(&game, std::fs::Permissions::from_mode(0o755)).unwrap();
+        );
         cache::update(&paths, |c: &mut GameCache| {
             c.upsert(Game {
                 app_id: APP_ID,
@@ -865,8 +882,7 @@ mod tests {
         let mut out = Vec::new();
         let mut err = Vec::new();
         let script = w.root.join("other.sh");
-        std::fs::write(&script, "#!/bin/sh\nexit 3\n").unwrap();
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        write_script(&script, "#!/bin/sh\nexit 3\n");
         let invocation = WrapperInvocation {
             env: vec![],
             command: vec![script.into_os_string()],

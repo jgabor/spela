@@ -584,7 +584,7 @@ fn bad_values_are_usage_errors_that_write_nothing() {
         ),
         (
             &["cpu", "set", "9100010", "--smt", "sometimes"][..],
-            "invalid SMT value: sometimes (use on, off, or default)",
+            "invalid SMT value: sometimes (use on, off, unchanged, or default)",
         ),
         (
             &["gpu", "set", "9100010", "--fan-speed", "loud"][..],

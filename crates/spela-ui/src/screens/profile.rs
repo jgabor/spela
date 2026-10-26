@@ -1150,16 +1150,27 @@ fn preview(state: &mut AppState) -> Vec<AnyCmd> {
 
 /// The choices of a field that edits with a picker, with the value each
 /// saves; `None` for a field that edits as text.
-fn choices(state: &AppState, field: &Field) -> Option<Vec<(String, Value)>> {
-    let word = |v: &Value| words::display_value(field, v);
+fn choices(state: &AppState, field: &Field, scope: Scope) -> Option<Vec<(String, Value)>> {
+    // SMT's stored none reads unchanged (decision 65).
+    let word = |v: &Value| match v {
+        Value::OptionalBool(None) => words::UNCHANGED.to_owned(),
+        other => words::display_value(field, other),
+    };
     let out: Vec<Value> = match (field.kind, field.rule) {
         (Kind::Bool, _) => vec![Value::Bool(true), Value::Bool(false)],
-        // SMT's stored none ("unchanged", decision 65) is offered only
-        // where a scope already stores it, as a stored value below.
-        (Kind::OptionalBool, _) => vec![
-            Value::OptionalBool(Some(true)),
-            Value::OptionalBool(Some(false)),
-        ],
+        // A game may leave SMT unchanged even when All games sets it
+        // (decision 65). On All games that is what following does, so it
+        // is offered there only where it is already stored, below.
+        (Kind::OptionalBool, _) => {
+            let mut v = vec![
+                Value::OptionalBool(Some(true)),
+                Value::OptionalBool(Some(false)),
+            ];
+            if !all_games_scope(scope) {
+                v.push(Value::OptionalBool(None));
+            }
+            v
+        }
         (Kind::Int, Rule::OneOf(list)) => list
             .iter()
             .filter_map(|s| s.parse().ok())
@@ -1200,7 +1211,7 @@ fn begin_edit(state: &mut AppState) -> Vec<AnyCmd> {
     library::stop_finding(state);
     let before = words::value_text(field, &r);
     let mut cmds = Vec::new();
-    if let Some(list) = choices(state, field) {
+    if let Some(list) = choices(state, field, scope) {
         let follow = format!(
             "{} ({})",
             words::reset_action(all_games_scope(scope)),
@@ -2149,7 +2160,7 @@ mod tests {
             }
         };
         let smt: Vec<String> = labels(&mut s, FieldKey::CpuSmt);
-        assert_eq!(smt, ["Follow All games (none)", "On", "Off"]);
+        assert_eq!(smt, ["Follow All games (none)", "On", "Off", "unchanged"]);
         let vrr: Vec<String> = labels(&mut s, FieldKey::GpuVrr);
         assert!(!vrr.contains(&"none".to_owned()), "{vrr:?}");
         let mf: Vec<String> = labels(&mut s, FieldKey::DlssMultiFrame);

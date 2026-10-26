@@ -2,7 +2,7 @@
 
 mod common;
 
-use std::os::unix::fs::PermissionsExt;
+use common::write_script;
 
 use common::Sandbox;
 use predicates::prelude::*;
@@ -173,8 +173,7 @@ fn wrapped_games_route_to_the_wrapper() {
     // Stand-in games on PATH that say they ran, by their exit code.
     let game = |name: &str| {
         let path = s.bin().join(name);
-        std::fs::write(&path, "#!/bin/sh\nexit 42\n").unwrap();
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        write_script(&path, "#!/bin/sh\nexit 42\n");
         path
     };
     game("mygame");

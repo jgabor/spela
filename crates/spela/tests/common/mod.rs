@@ -274,3 +274,22 @@ pub fn copy_fixture(from: &Path, to: &Path, root: &str) {
         std::fs::write(&target, bytes).unwrap();
     }
 }
+
+/// Writes an executable script through `/bin/cp`, so the test process
+/// never holds a write descriptor to it that a parallel test's fork could
+/// inherit, which would make running it fail with "text file busy".
+pub fn write_script(path: &Path, text: impl AsRef<[u8]>) {
+    let source = path.with_file_name(format!(
+        "{}.text",
+        path.file_name().unwrap().to_string_lossy()
+    ));
+    std::fs::write(&source, text).unwrap();
+    let copied = Command::new("/bin/cp")
+        .arg(&source)
+        .arg(path)
+        .status()
+        .unwrap();
+    assert!(copied.success());
+    std::fs::remove_file(&source).unwrap();
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+}

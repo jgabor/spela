@@ -128,7 +128,7 @@ pub fn run(w: &mut Workers, cmd: Cmd) {
 
 /// The driver version the metrics thread read, waiting for it a little. A
 /// thread that never answers counts as a driver that could not be asked.
-fn wait_driver(slot: &DriverSlot) -> Option<String> {
+pub(crate) fn wait_driver(slot: &DriverSlot) -> Option<String> {
     let step = Duration::from_millis(50);
     let mut waited = Duration::ZERO;
     loop {
