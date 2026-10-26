@@ -6,25 +6,26 @@ GPU and CPU tuning around Steam launches. The rewrite covers the CLI and the TUI
 with full feature parity. There is no GUI.
 
 Research and architecture for the rewrite live in `docs/` (start with
-`docs/README.md` and `docs/architecture.md` once they exist). The architecture
-and terminal UX follow mejl (`~/git/mejl`) wherever that fits.
+`docs/README.md`, which records decisions 1 to 64, and `docs/architecture.md`).
+The architecture and terminal UX follow mejl (`~/git/mejl`) wherever that fits.
 
 ## Layout
 
 | Path | Role |
 |---|---|
 | `crates/` | The Rust workspace. The crate split is set in `docs/architecture.md` |
-| `cmd/`, `internal/` | The Go implementation. It is the parity reference until each part is replaced, then it is deleted |
+| `cmd/`, `internal/`, and the Go code in `tools/` and `tests/` | The Go implementation. It stays untouched as the parity reference until the user's live launch checks pass, then the whole Go tree goes in one commit. The fixtures in `tests/fixtures/` stay |
 | `data/polkit/` | Polkit policy for privileged operations |
 | `docs/` | Research, architecture, plans, field and config references |
 
 The Go GUI (`internal/gui`, Wails, the frontend, `internal/nav/gui.go`,
-`tools/gen-nav-js`) is not ported.
+`tools/gen-nav-js`) is not ported. It is the one part of the Go tree deleted
+early, in Phase 1.
 
 ## Commands
 
 - Build: `cargo build`
-- Gate before handing off: `just check` (`cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`)
+- Gate before handing off: `just check` (`cargo fmt --all --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, `cargo test --workspace --locked`, and `just msrv`, which runs `cargo +1.89 check --workspace --all-targets --locked`)
 - Pre-commit hook that runs the gate: `just hooks` once per checkout
 - Go reference tests: `go test ./...`
 
@@ -34,7 +35,8 @@ The Go GUI (`internal/gui`, Wails, the frontend, `internal/nav/gui.go`,
 - No test writes to real game files or Steam libraries. Use fixture libraries in temp dirs.
 - No test or tool call contacts a remote host (DLL manifest and downloads, release checks). Tests use fixtures or a loopback fake.
 - Tests never touch the real XDG config, data, cache or state dirs. Use temp dirs.
-- Files written by the Go version (`config.yaml`, `profiles/*.yaml`, `games.yaml`, the DLL backup layout) are migrated to the rewrite's own shape the first time they are read. A migration keeps every value the user set, leaves the original file in place as a backup, and is tested against fixtures written by the Go version.
+- Files written by the Go version (`config.yaml`, `profiles/*.yaml`, `lists/*.yaml`, `games.yaml`) are migrated to the rewrite's own shape the first time they are read. A migration keeps every value the user set, or, where decisions 10, 31 and 46 drop it, records it in `migration.toml` and the migrated file's header. It leaves the original file in place as a backup, and is tested against fixtures written by the Go version.
+- DLL backups written by the Go version (`backup.json` and both backup file name schemes) are read in place and never moved or reshaped. New data goes in new top-level keys that Go ignores, never in `files[]`.
 - Privileged changes go through one batched `pkexec` round trip, and each applied change registers its restore before the game starts.
 - The UI thread never awaits and never blocks on NVML, `nvidia-smi`, `pkexec`, the network or a Steam scan.
 - Docs and comments: plain words, sentence case headings, no em dashes.

@@ -57,8 +57,8 @@ needed to reproduce and verify live resize reliably.
 Build the executable, then run a named session:
 
 ```bash
-mage build
-termctrl start spela-tui-review --cols 120 --rows 40 -- ./spela tui
+cargo build
+termctrl start spela-tui-review --cols 120 --rows 40 -- ./target/debug/spela tui
 termctrl wait spela-tui-review "Library" --timeout 20000
 termctrl status spela-tui-review
 termctrl show spela-tui-review
@@ -80,7 +80,7 @@ and database files into a temporary root:
 
 ```bash
 review_root="$(mktemp -d /tmp/spela-termctrl-XXXXXX)"
-mkdir -p "$review_root/config" "$review_root/data" "$review_root/cache" "$review_root/runtime"
+mkdir -p "$review_root/config" "$review_root/data" "$review_root/cache" "$review_root/state" "$review_root/runtime"
 
 config_source="${XDG_CONFIG_HOME:-$HOME/.config}/spela"
 data_source="${XDG_DATA_HOME:-$HOME/.local/share}/spela"
@@ -94,8 +94,9 @@ termctrl start spela-tui-isolated --cols 120 --rows 40 -- \
   env XDG_CONFIG_HOME="$review_root/config" \
       XDG_DATA_HOME="$review_root/data" \
       XDG_CACHE_HOME="$review_root/cache" \
+      XDG_STATE_HOME="$review_root/state" \
       XDG_RUNTIME_DIR="$review_root/runtime" \
-      ./spela tui
+      ./target/debug/spela tui
 termctrl wait spela-tui-isolated "Library" --timeout 20000
 termctrl show spela-tui-isolated
 ```
@@ -105,13 +106,17 @@ stay in `review_root`, but DLL and launch operations can touch real game files.
 Use deterministic fixtures with temporary game paths for those operations. Never
 approve privileged or destructive actions against real game files during review.
 
-The E2E suite creates fresh fixture games, profiles, a manifest, isolated HOME
-and XDG paths, and its own Terminal Control runtime directory. It builds the
-executable and cleans up its unique sessions and temporary files:
+`spela --demo` is the safest review: it runs on fictional games and the fake
+GPU, polkit and display backends, under a temp dir it removes on quit, so no
+real file or setting can change:
 
 ```bash
-go test -tags=e2e ./tests/e2e -count=1 -v
+termctrl start spela-tui-demo --cols 120 --rows 40 -- ./target/debug/spela --demo
 ```
+
+The Go E2E suite (`go test -tags=e2e ./tests/e2e`) checks the Go TUI only and
+is not kept for the rewrite (decision 54). Its journeys become pty scenarios on
+the Rust binary.
 
 An empty game database must remain interactive and show `No games found` with
 Actions and Settings recovery guidance. For manual review, use an isolated empty

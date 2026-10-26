@@ -373,7 +373,7 @@ figure.window {
         <li>The highest alert shows in the top bar as a glyph and a word: "⚠ Power limited". The List shows "⚠ 1" on its Alerts row. Selecting Alerts lists it with the full message and the recovery hint, as in Go.</li>
         <li>Sparklines hold the 20 samples of today's ring buffers. Temperature uses the thermal scale. Power is coloured sample by sample by its ratio to the limit, so 318W of 320W reads orange in neon and yellow in the 16-colour theme.</li>
         <li>Gauges use full blocks and ░ only. The partial blocks the Go TUI uses are left out to keep the glyph set small.</li>
-        <li>The status line carries the release notice on the right, in the Go wording that parity section 17 keeps: "Spela v0.9.0 is available (you have v0.8.2)". terminal-ux.md shortens it to "spela v0.9.0 is available", which its own rule that other strings stay does not allow. One of the two needs to change.</li>
+        <li>The status line carries the release notice on the right: "spela v0.9.0 is available". Go's header said "Spela v0.9.0 is available (you have v0.8.2)". architecture.md settles the shorter text (where the sources disagree, row 43), and terminal-ux.md lists it with the changed strings.</li>
       </ul>
     </div>
     <div>
@@ -392,7 +392,7 @@ figure.window {
       <ul>
         <li>The List shows labels only, as today. The groups stack in one column and the current group opens below its name, so the user sees every group and where they are.</li>
         <li>Detail shows the option's title, value, save state and description. The "Choices" line is new: it shows where the next <kbd>Space</kbd> goes.</li>
-        <li>Display holds "Confirm destructive actions". "Compact mode" is gone, because the config migration drops <code>compact_mode</code> (decision 3). Theme (terminal, neon, mono), Mouse and ASCII glyphs join Display. Their labels are provisional: no doc names them yet.</li>
+        <li>Display holds "Confirm destructive actions". "Compact mode" is gone, because the config migration drops <code>compact_mode</code> (decision 3). Theme (terminal, neon, mono), Mouse and ASCII glyphs join Display, with the labels and descriptions terminal-ux.md settles (settled questions).</li>
         <li>Detail also shows the default, 24 hours, from the Go config defaults.</li>
         <li>The save reached disk, so the status line says "Saved: Refresh interval 24" in green with ✓.</li>
       </ul>
@@ -1027,7 +1027,7 @@ function buildMonitor() {
     { p: [[fit('Fan', 7), 'm'], ...gaugeParts(64, 100, 20), ['  64%', '']] },
   ];
   paint(g, d, lines);
-  statusLine(g, 38, [], [['Spela v0.9.0 is available (you have v0.8.2)', 'wn']]);
+  statusLine(g, 38, [], [['spela v0.9.0 is available', 'wn']]);
   hintBar(g, 39, [['0', 'Actions'], ['Up/Down', 'Item'], ['Enter', 'Open'], ['Tab', 'Pane'], ['?', 'Help']]);
   return g;
 }
@@ -1035,7 +1035,7 @@ function buildMonitor() {
 /* ---------- Screen 6: Settings ---------- */
 
 const SETTINGS = [
-  ['Display', ['Confirm destructive actions', 'Theme', 'Mouse', 'ASCII glyphs']], // the last three are provisional labels
+  ['Display', ['Confirm destructive actions', 'Theme', 'Mouse', 'ASCII glyphs']], // labels from terminal-ux.md, settled questions
   ['Startup', ['Re-scan on startup', 'Auto-update DLLs', 'Check for updates']],
   ['Paths', ['Steam path', 'Additional library paths', 'DLL cache path', 'Backup path', 'Default shader cache path']],
   ['DLL policy', ['Auto-refresh manifest', 'Refresh interval', 'DLL manifest URL']],
