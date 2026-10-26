@@ -9,9 +9,10 @@
 //!
 //! The backend is the one the run selected. Under `--demo` and
 //! `SPELA_BACKEND=fake` it is the in-process fake, so nothing on this
-//! machine changes. The real backend is not built yet and answers that it
-//! is not, so the status line says so; Phase 6 builds the polkit round
-//! trip behind the same trait.
+//! machine changes. Otherwise it is the polkit runner built for the TUI:
+//! `pkexec --disable-internal-agent` with a null stdin, so pkexec never
+//! prompts on the TUI's tty, and stdout and stderr on pipes, so nothing is
+//! written over the frame (decision 44).
 
 use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};

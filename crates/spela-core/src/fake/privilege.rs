@@ -1,25 +1,33 @@
 //! A privilege runner that needs no root.
 //!
-//! It plays the root helper in process: GPU steps go to a
+//! It runs the root helper's real loops ([`crate::helper::serve`]) in
+//! process, on a thread, over pipe pairs: the `--serve` loop for
+//! [`Privilege::start`] and the `--once` loop for
+//! [`Privilege::apply_once`]. The parent's side is the real client
+//! ([`crate::helper::client`]), so these tests check the helper the wrapper
+//! starts and the code that talks to it. GPU steps go to a
 //! [`FakeGpuControl`], and CPU steps write a sysfs tree under a temp dir
-//! that the test passes in. It follows the helper's rules: prior values are
-//! read first, a step whose prior cannot be read is skipped, a failed step
-//! does not stop the next one, and a session dropped without a restore
-//! restores, as the helper does at end of input.
+//! that the test passes in.
 //!
-//! These rules are written out here because the `--serve` loop does not
-//! exist yet. When Phase 6 builds it, this fake drives that loop over
-//! in-memory pipes instead, so its tests check the helper the wrapper
-//! really runs (architecture.md, Backends and fakes).
+//! The faults stand in for what only polkit or a dying parent can do: a
+//! dismissed prompt, no polkit, no agent, a failure at step N, and a parent
+//! that goes away at step N.
 
-use std::path::{Path, PathBuf};
+use std::io::{self, BufReader, Write};
+use std::path::PathBuf;
+use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use crate::backend::gpu::{FanSetting, GpuControl, Prior};
+use crate::backend::cpu::{CPU_DIR, SMT_ACTIVE_FILE};
+use crate::backend::gpu::GpuControl;
 use crate::backend::privilege::{
     ApplyReport, HardwareRequest, Privilege, PrivilegeError, PrivilegedSession, RestoreReport,
-    SettingValue, Step, StepOutcome, StepReport,
+    SettingValue, Step,
 };
+use crate::helper::client::{self, Finish, HelperExit, HelperSession, StartError};
+use crate::helper::machine::{Machine, Saved, SystemMachine};
+use crate::helper::protocol;
+use crate::helper::serve::{self, Event};
 
 use super::gpu::FakeGpuControl;
 
@@ -32,17 +40,20 @@ pub enum PrivilegeFault {
     Unavailable,
     /// Step number `n` of the request, counting from 0, fails.
     FailAtStep(usize),
-    /// The wrapper goes away before step number `n`, counting from 0. The
-    /// helper sees the end of its input, restores the steps it applied and
-    /// exits, so the caller gets an error and no session.
+    /// The wrapper goes away at step number `n`, counting from 0. A
+    /// `--serve` helper sees the end of its input before it changes step
+    /// `n`, restores the steps it applied and exits, so the caller gets an
+    /// error and no session. A `--once` helper sees its output close when
+    /// it reports step `n`: that step and the ones before it stay, as a
+    /// live change does, and the caller gets an error.
     ParentGone(usize),
     /// No polkit agent can ask for the password. Nothing changes, and the
-    /// error carries pkexec's own text.
+    /// error carries the agent's own text.
     NoAgent,
 }
 
-/// What pkexec prints when no polkit agent can ask (unverified: the
-/// user's live check settles how pkexec reports it).
+/// What the polkit agent prints when no agent can ask (unverified: the
+/// user's live check settles how it reports it).
 pub const NO_AGENT_MESSAGE: &str =
     "Error executing command as another user: No authentication agent found.";
 
@@ -59,17 +70,11 @@ pub struct PrivilegeLog {
     pub restores_on_parent_gone: usize,
 }
 
-/// The machine the fake changes.
-#[derive(Debug, Clone)]
-struct Machine {
-    control: FakeGpuControl,
-    sys_root: Option<PathBuf>,
-}
-
-/// Runs the helper's steps in process.
+/// Runs the helper's loops in process.
 #[derive(Debug, Clone)]
 pub struct FakePrivilege {
-    machine: Machine,
+    control: FakeGpuControl,
+    sys_root: Option<PathBuf>,
     fault: Option<PrivilegeFault>,
     log: Arc<Mutex<PrivilegeLog>>,
 }
@@ -80,7 +85,8 @@ impl FakePrivilege {
     /// steps are skipped.
     pub fn new(control: FakeGpuControl, sys_root: Option<PathBuf>) -> Self {
         FakePrivilege {
-            machine: Machine { control, sys_root },
+            control,
+            sys_root,
             fault: None,
             log: Arc::new(Mutex::new(PrivilegeLog::default())),
         }
@@ -108,74 +114,33 @@ impl FakePrivilege {
         }
     }
 
-    /// Applies the request's steps. With [`PrivilegeFault::ParentGone`] it
-    /// stops before that step and returns the steps applied so far as the
-    /// error.
-    fn apply_batch(&mut self, request: &HardwareRequest) -> Result<ApplyReport, ApplyReport> {
-        let (fail_at, gone_at) = match self.fault {
-            Some(PrivilegeFault::FailAtStep(n)) => (Some(n), None),
-            Some(PrivilegeFault::ParentGone(n)) => (None, Some(n)),
-            _ => (None, None),
-        };
-        let steps = request
-            .steps()
-            .into_iter()
-            .enumerate()
-            .take_while(|(i, _)| gone_at != Some(*i))
-            .map(|(i, (step, target))| {
-                if !step.is_restorable() {
-                    let outcome = if fail_at == Some(i) {
-                        StepOutcome::Failed(format!("fake failure at step {i}"))
-                    } else {
-                        match self.machine.set(step, &target) {
-                            Ok(()) => StepOutcome::AppliedNoRestore,
-                            Err(e) => StepOutcome::Failed(e),
-                        }
-                    };
-                    return StepReport {
-                        step,
-                        target,
-                        outcome,
-                    };
-                }
-                let outcome = match self.machine.read(step) {
-                    Err(why) => StepOutcome::Skipped(format!("prior value not readable: {why}")),
-                    Ok(_) if fail_at == Some(i) => {
-                        StepOutcome::Failed(format!("fake failure at step {i}"))
-                    }
-                    Ok(prior) => match self.machine.set(step, &target) {
-                        Ok(()) => StepOutcome::Applied { prior },
-                        Err(e) => StepOutcome::Failed(e),
-                    },
-                };
-                StepReport {
-                    step,
-                    target,
-                    outcome,
-                }
-            })
-            .collect();
-        let report = ApplyReport { steps };
-        if gone_at.is_some_and(|n| n < request.steps().len()) {
-            Err(report)
-        } else {
-            Ok(report)
+    /// The machine the helper thread changes, with this runner's faults.
+    fn machine(&self, events: Option<Sender<Event>>) -> FakeMachine {
+        let control = self.control.clone();
+        FakeMachine {
+            inner: SystemMachine::new(
+                Box::new(move || Ok(Box::new(control.clone()) as Box<dyn GpuControl>)),
+                self.sys_root.clone(),
+            ),
+            sys_root: self.sys_root.clone(),
+            fail_at: match self.fault {
+                Some(PrivilegeFault::FailAtStep(n)) => Some(n),
+                _ => None,
+            },
+            gone_at: events.and_then(|tx| match self.fault {
+                Some(PrivilegeFault::ParentGone(n)) => Some((n, tx)),
+                _ => None,
+            }),
+            next: 0,
+            current: 0,
         }
     }
 
-    /// What the helper does when its input ends mid-apply: put back what
-    /// it applied, then exit.
-    fn parent_gone(&mut self, partial: &ApplyReport, restore: bool) -> PrivilegeError {
-        if restore {
-            for s in partial.restore_plan().steps {
-                let _ = self.machine.set(s.step, &s.value);
-            }
-            lock(&self.log).restores_on_parent_gone += 1;
+    fn gone_at(&self) -> Option<usize> {
+        match self.fault {
+            Some(PrivilegeFault::ParentGone(n)) => Some(n),
+            _ => None,
         }
-        PrivilegeError::Helper(format!(
-            "the helper lost its parent after {} step(s) (fake)",
-            partial.steps.len()
-        ))
     }
 }
 
@@ -184,168 +149,199 @@ impl Privilege for FakePrivilege {
         &mut self,
         request: &HardwareRequest,
     ) -> Result<Box<dyn PrivilegedSession>, PrivilegeError> {
+        if request.is_empty() {
+            return Ok(client::empty_session());
+        }
         self.prompt()?;
-        let report = match self.apply_batch(request) {
-            Ok(report) => report,
-            Err(partial) => return Err(self.parent_gone(&partial, true)),
-        };
-        Ok(Box::new(FakeSession {
-            report,
-            machine: self.machine.clone(),
-            log: Arc::clone(&self.log),
-            done: false,
-        }))
+        let (to_helper_r, to_helper_w) = io::pipe().map_err(pipe_error)?;
+        let (from_helper_r, from_helper_w) = io::pipe().map_err(pipe_error)?;
+        let (tx, rx) = mpsc::channel();
+        let mut machine = self.machine(Some(tx.clone()));
+        serve::spawn_reader(BufReader::new(to_helper_r), tx).map_err(pipe_error)?;
+        let helper = std::thread::Builder::new()
+            .name("spela-fake-helper".into())
+            .spawn(move || {
+                let mut out = from_helper_w;
+                serve::serve(&rx, &mut out, &mut machine)
+            })
+            .map_err(pipe_error)?;
+        match client::start(
+            request,
+            Box::new(to_helper_w),
+            Box::new(BufReader::new(from_helper_r)),
+            joined(helper),
+        ) {
+            Ok(session) => Ok(Box::new(FakeSession {
+                inner: Some(session),
+                log: Arc::clone(&self.log),
+            })),
+            Err(e) => {
+                if matches!(
+                    e,
+                    StartError::Stopped {
+                        restored: Some(_),
+                        ..
+                    }
+                ) {
+                    lock(&self.log).restores_on_parent_gone += 1;
+                }
+                Err(e.into_privilege_error())
+            }
+        }
     }
 
     fn apply_once(&mut self, request: &HardwareRequest) -> Result<ApplyReport, PrivilegeError> {
+        if request.is_empty() {
+            return Ok(ApplyReport::default());
+        }
         self.prompt()?;
-        // A one-shot helper never restores, even when its parent goes.
-        self.apply_batch(request)
-            .map_err(|partial| self.parent_gone(&partial, false))
+        let line = protocol::encode_request(&request.steps());
+        let (from_helper_r, from_helper_w) = io::pipe().map_err(pipe_error)?;
+        let mut machine = self.machine(None);
+        let gone_at = self.gone_at();
+        let helper = std::thread::Builder::new()
+            .name("spela-fake-helper".into())
+            .spawn(move || {
+                let mut out = ClosesAfter {
+                    inner: from_helper_w,
+                    lines_left: gone_at,
+                };
+                serve::once(&line, &mut out, &mut machine)
+            })
+            .map_err(pipe_error)?;
+        client::read_once(request, &mut BufReader::new(from_helper_r), joined(helper))
+            .map_err(StartError::into_privilege_error)
     }
 }
 
+/// Waits for the helper thread and passes on its exit code.
+fn joined(helper: std::thread::JoinHandle<u8>) -> Finish {
+    Box::new(move || HelperExit {
+        code: Some(helper.join().map_or(101, i32::from)),
+        stderr: String::new(),
+    })
+}
+
+fn pipe_error(e: io::Error) -> PrivilegeError {
+    PrivilegeError::Helper(format!("cannot start the fake helper: {e}"))
+}
+
+/// The helper's machine with the fake's faults, and the one thing the
+/// kernel does that a temp tree cannot: `smt/active` follows
+/// `smt/control`.
+struct FakeMachine {
+    inner: SystemMachine,
+    sys_root: Option<PathBuf>,
+    fail_at: Option<usize>,
+    gone_at: Option<(usize, Sender<Event>)>,
+    /// The index the next step gets.
+    next: usize,
+    /// The step being applied.
+    current: usize,
+}
+
+impl FakeMachine {
+    fn follow_smt(&self, on: bool) {
+        if let Some(root) = &self.sys_root {
+            let active = root.join(CPU_DIR).join(SMT_ACTIVE_FILE);
+            if active.exists() {
+                let _ = std::fs::write(active, if on { "1" } else { "0" });
+            }
+        }
+    }
+}
+
+impl Machine for FakeMachine {
+    fn check(&mut self, step: Step, target: &SettingValue) -> Result<(), String> {
+        self.current = self.next;
+        self.next += 1;
+        if let Some((n, tx)) = &self.gone_at
+            && *n == self.current
+        {
+            // The helper reads its input before it changes this step.
+            let _ = tx.send(Event::Eof);
+        }
+        self.inner.check(step, target)
+    }
+
+    fn read_prior(&mut self, step: Step) -> Result<Saved, String> {
+        self.inner.read_prior(step)
+    }
+
+    fn apply(&mut self, step: Step, target: &SettingValue) -> Result<(), String> {
+        if self.fail_at == Some(self.current) {
+            return Err(format!("fake failure at step {}", self.current));
+        }
+        self.inner.apply(step, target)?;
+        if let SettingValue::Smt(on) = target {
+            self.follow_smt(*on);
+        }
+        Ok(())
+    }
+
+    fn restore(&mut self, step: Step, saved: &Saved) -> Result<(), String> {
+        self.inner.restore(step, saved)?;
+        if let Saved::Value(SettingValue::Smt(on)) = saved {
+            self.follow_smt(*on);
+        }
+        Ok(())
+    }
+}
+
+/// The `--once` helper's stdout: it closes, like a pipe whose reader went
+/// away, once `lines_left` lines are through.
+struct ClosesAfter<W: Write> {
+    inner: W,
+    lines_left: Option<usize>,
+}
+
+impl<W: Write> Write for ClosesAfter<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        if self.lines_left == Some(0) {
+            return Err(io::Error::from(io::ErrorKind::BrokenPipe));
+        }
+        let n = self.inner.write(buf)?;
+        if buf[..n].contains(&b'\n')
+            && let Some(left) = &mut self.lines_left
+        {
+            *left -= 1;
+        }
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+/// A session over the fake helper thread, counting restores for the log.
 struct FakeSession {
-    report: ApplyReport,
-    machine: Machine,
+    inner: Option<HelperSession>,
     log: Arc<Mutex<PrivilegeLog>>,
-    done: bool,
-}
-
-impl FakeSession {
-    fn run_restore(&mut self) -> RestoreReport {
-        self.done = true;
-        let steps = self
-            .report
-            .restore_plan()
-            .steps
-            .into_iter()
-            .map(|s| (s.step, self.machine.set(s.step, &s.value)))
-            .collect();
-        RestoreReport { steps }
-    }
 }
 
 impl PrivilegedSession for FakeSession {
     fn report(&self) -> &ApplyReport {
-        &self.report
+        self.inner
+            .as_ref()
+            .map(HelperSession::report)
+            .expect("a session is restored only once")
     }
 
     fn restore(mut self: Box<Self>) -> Result<RestoreReport, PrivilegeError> {
-        let report = self.run_restore();
+        let session = self.inner.take().expect("a session is restored only once");
         lock(&self.log).restores += 1;
-        Ok(report)
+        session.finish_restore()
     }
 }
 
 impl Drop for FakeSession {
     fn drop(&mut self) {
-        if !self.done {
-            self.run_restore();
+        if let Some(session) = self.inner.take() {
             lock(&self.log).restores_on_drop += 1;
+            drop(session);
         }
     }
-}
-
-impl Machine {
-    fn read(&mut self, step: Step) -> Result<SettingValue, String> {
-        let gpu = self.control.read_prior();
-        let known = |p: Prior<SettingValue>| match p {
-            Prior::Known(v) => Ok(v),
-            Prior::Unknown(why) => Err(why),
-        };
-        match step {
-            Step::LockedClocks => Err("locked clocks have no prior value".into()),
-            Step::ClockOffset => known(gpu.clock_offset_mhz.map(SettingValue::Mhz)),
-            Step::MemoryOffset => known(gpu.memory_offset_mhz.map(SettingValue::Mhz)),
-            Step::PowerLimit => known(gpu.power_limit_w.map(SettingValue::Watts)),
-            // A fan whose mode cannot be read goes back to automatic.
-            Step::Fan => Ok(SettingValue::Fan(
-                gpu.fan.known().copied().unwrap_or(FanSetting::Auto),
-            )),
-            Step::CpuGovernor => {
-                let cpu0 = self.cpu_dir()?.join("cpu0/cpufreq/scaling_governor");
-                read_trimmed(&cpu0).map(SettingValue::Governor)
-            }
-            Step::Smt => match read_trimmed(&self.cpu_dir()?.join("smt/control"))?.as_str() {
-                "on" => Ok(SettingValue::Smt(true)),
-                "off" => Ok(SettingValue::Smt(false)),
-                other => Err(format!("SMT control is {other:?}")),
-            },
-        }
-    }
-
-    fn set(&mut self, step: Step, value: &SettingValue) -> Result<(), String> {
-        let gpu = |r: Result<(), crate::backend::GpuError>| r.map_err(|e| e.to_string());
-        match (step, value) {
-            (Step::LockedClocks, SettingValue::DriverDefault) => {
-                gpu(self.control.reset_locked_clocks())
-            }
-            (Step::ClockOffset, SettingValue::Mhz(v)) => gpu(self.control.set_clock_offset(*v)),
-            (Step::MemoryOffset, SettingValue::Mhz(v)) => gpu(self.control.set_memory_offset(*v)),
-            (Step::PowerLimit, SettingValue::Watts(v)) => gpu(self.control.set_power_limit(*v)),
-            (Step::Fan, SettingValue::Fan(FanSetting::Percent(p))) => {
-                gpu(self.control.set_fan_speed(*p))
-            }
-            (Step::Fan, SettingValue::Fan(FanSetting::Auto)) => gpu(self.control.set_fan_auto()),
-            (Step::CpuGovernor, SettingValue::Governor(g)) => self.set_governor(g),
-            (Step::Smt, SettingValue::Smt(on)) => {
-                let smt = self.cpu_dir()?.join("smt");
-                std::fs::write(smt.join("control"), if *on { "on" } else { "off" })
-                    .map_err(|e| e.to_string())?;
-                // The kernel updates `active` with `control`, so a reader of
-                // the same tree sees the change.
-                let active = smt.join("active");
-                if active.exists() {
-                    std::fs::write(active, if *on { "1" } else { "0" })
-                        .map_err(|e| e.to_string())?;
-                }
-                Ok(())
-            }
-            (step, value) => Err(format!("{value} is not a value for {step}")),
-        }
-    }
-
-    fn set_governor(&self, governor: &str) -> Result<(), String> {
-        let cpu = self.cpu_dir()?;
-        let available = cpu.join("cpu0/cpufreq/scaling_available_governors");
-        if let Ok(list) = std::fs::read_to_string(&available)
-            && !list.split_whitespace().any(|g| g == governor)
-        {
-            return Err(format!("governor {governor} is not available"));
-        }
-        let entries = std::fs::read_dir(&cpu).map_err(|e| e.to_string())?;
-        let mut written = 0;
-        for entry in entries.flatten() {
-            let name = entry.file_name();
-            let name = name.to_string_lossy();
-            let is_cpu = name
-                .strip_prefix("cpu")
-                .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()));
-            let file = entry.path().join("cpufreq/scaling_governor");
-            if is_cpu && file.exists() {
-                std::fs::write(&file, governor).map_err(|e| e.to_string())?;
-                written += 1;
-            }
-        }
-        if written == 0 {
-            return Err("no CPU has a governor".into());
-        }
-        Ok(())
-    }
-
-    fn cpu_dir(&self) -> Result<PathBuf, String> {
-        self.sys_root
-            .as_ref()
-            .map(|root| root.join("devices/system/cpu"))
-            .ok_or_else(|| "no sysfs tree (fake)".to_owned())
-    }
-}
-
-fn read_trimmed(path: &Path) -> Result<String, String> {
-    std::fs::read_to_string(path)
-        .map(|s| s.trim().to_owned())
-        .map_err(|e| format!("{}: {e}", path.display()))
 }
 
 fn lock(log: &Mutex<PrivilegeLog>) -> MutexGuard<'_, PrivilegeLog> {
@@ -355,7 +351,16 @@ fn lock(log: &Mutex<PrivilegeLog>) -> MutexGuard<'_, PrivilegeLog> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
+
+    use crate::backend::{FanSetting, StepOutcome};
     use crate::fake::GpuCall;
+
+    fn read_trimmed(path: &Path) -> Result<String, String> {
+        std::fs::read_to_string(path)
+            .map(|s| s.trim().to_owned())
+            .map_err(|e| e.to_string())
+    }
 
     /// A sysfs tree with two CPUs on powersave and SMT on.
     fn sysfs() -> tempfile::TempDir {
@@ -604,7 +609,7 @@ mod tests {
     }
 
     #[test]
-    fn unavailable_governor_fails_that_step_only() {
+    fn unavailable_governor_skips_that_step_only() {
         let sys = sysfs();
         let mut privilege = FakePrivilege::new(FakeGpuControl::new(), Some(sys.path().into()));
         let report = privilege
@@ -614,7 +619,11 @@ mod tests {
                 ..HardwareRequest::default()
             })
             .unwrap();
-        assert!(matches!(report.steps[0].outcome, StepOutcome::Failed(_)));
+        // A governor sysfs does not list fails its check: skipped, with the
+        // reason.
+        assert!(
+            matches!(&report.steps[0].outcome, StepOutcome::Skipped(why) if why.contains("not available"))
+        );
         assert!(matches!(
             report.steps[1].outcome,
             StepOutcome::Applied { .. }

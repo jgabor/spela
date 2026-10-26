@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use crate::backend::cpu::{Cpu, CpuError};
+use crate::backend::cpu::{Cpu, CpuError, CpuInfo};
 
 /// A fault the fake CPU can show.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -83,7 +83,29 @@ impl Cpu for FakeCpu {
         Self::check(&state, crate::backend::cpu::SMT_ACTIVE_FILE)?;
         Ok(state.smt_active)
     }
+
+    /// The demo CPU's `cpu info` lines: fictional, with no SCX line.
+    fn info(&mut self) -> Result<CpuInfo, CpuError> {
+        let state = self.lock();
+        if state.fault.is_some() {
+            return Err(CpuError {
+                path: "/proc/cpuinfo".into(),
+                reason: "no such file or directory (fake)".into(),
+            });
+        }
+        Ok(CpuInfo {
+            model: Some(DEMO_MODEL.into()),
+            cores: 16,
+            average_mhz: Some(3_420),
+            load_percent: Some(12),
+            memory_mib: Some((9_800, 32_000)),
+            scx_active: None,
+        })
+    }
 }
+
+/// The demo CPU's model name.
+pub const DEMO_MODEL: &str = "Demo CPU 8-Core Processor";
 
 /// The governors the demo sysfs tree offers, as acpi-cpufreq lists them.
 pub const DEMO_GOVERNORS: &str = "conservative ondemand userspace powersave performance schedutil";

@@ -70,10 +70,10 @@ pub fn needs_store(command: Option<&Command>, demo: bool) -> bool {
             | Command::Proton { command: None }
             | Command::Denylist { command: None }
             | Command::Gpu {
-                command: Some(GpuCommand::Info(_) | GpuCommand::Reset(_)),
+                command: Some(GpuCommand::Info | GpuCommand::Reset),
             }
             | Command::Cpu {
-                command: Some(CpuCommand::Info(_) | CpuCommand::Governor(_) | CpuCommand::Smt(_)),
+                command: Some(CpuCommand::Info | CpuCommand::Governor(_) | CpuCommand::Smt(_)),
             }
     )
 }

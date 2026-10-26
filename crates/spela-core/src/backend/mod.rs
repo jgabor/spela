@@ -20,7 +20,7 @@ pub mod privilege;
 
 use std::sync::Arc;
 
-pub use cpu::{Cpu, CpuError, SysfsCpu};
+pub use cpu::{Cpu, CpuError, CpuInfo, SysfsCpu, SystemRoots};
 pub use display::{Display, DisplayError, Output, VrrPolicy};
 pub use gpu::{
     FanSetting, Gpu, GpuControl, GpuError, GpuInfo, GpuMetrics, GpuPrior, Prior, ThrottleReasons,

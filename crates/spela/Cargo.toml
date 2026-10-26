@@ -24,6 +24,7 @@ clap_complete.workspace = true
 crossterm.workspace = true
 jiff.workspace = true
 libc.workspace = true
+nvml-wrapper.workspace = true
 ratatui.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -15,6 +15,7 @@
 //! | [`logging`] | The rolling log file and stderr warnings |
 //! | [`locks`] | The TUI lock and the launch lock |
 //! | [`backends`] | The `SPELA_BACKEND` selector and the real backends |
+//! | [`nvml`] | GPU 0 through NVML: the reads, and the setters the helper calls |
 //! | [`privilege`] | The real privilege backend, the only code that names its program |
 //! | [`helper`] | The hidden `apply-profile` root helper |
 //! | [`migration`] | The migration from Go spela, run before a command reads the store |
@@ -34,6 +35,7 @@ pub mod json;
 pub mod locks;
 pub mod logging;
 pub mod migration;
+pub mod nvml;
 pub mod output;
 pub mod privilege;
 pub mod router;
