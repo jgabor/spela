@@ -275,7 +275,11 @@ impl Picker {
             y += 2;
         }
         let last = r.bottom().saturating_sub(4);
-        for (i, choice) in self.choices.iter().enumerate() {
+        // A list taller than its box shows a window that keeps the cursor
+        // in view.
+        let rows = usize::from((last + 1).saturating_sub(y)).max(1);
+        let first = self.cursor.saturating_sub(rows - 1);
+        for (i, choice) in self.choices.iter().enumerate().skip(first) {
             if y > last {
                 break;
             }
@@ -378,5 +382,31 @@ mod tests {
         assert_eq!(p.handle(PickerInput::Enter), PickerOutcome::Cancel);
         assert_eq!(p.handle(PickerInput::Esc), PickerOutcome::Cancel);
         assert_eq!(p.height(), 8 + 6);
+    }
+
+    #[test]
+    fn a_box_shorter_than_the_list_keeps_the_cursor_and_buttons_in_view() {
+        use ratatui::buffer::Buffer;
+        let mut p = sr();
+        p.cursor = 7;
+        let area = Rect::new(0, 0, 40, 9);
+        let mut buf = Buffer::empty(area);
+        let mut painter = Painter::new(
+            &mut buf,
+            crate::theme::Theme::new(Default::default(), true),
+            crate::theme::Glyphs::new(false),
+        );
+        p.render(&mut painter, area);
+        let text: String = (0..area.height)
+            .map(|y| {
+                (0..area.width)
+                    .map(|x| buf[(x, y)].symbol().to_owned())
+                    .collect::<String>()
+                    + "\n"
+            })
+            .collect();
+        assert!(text.contains("dlaa"), "the cursor's choice shows:\n{text}");
+        assert!(!text.contains("Follow All games"), "{text}");
+        assert!(text.contains("[ Apply ]"), "{text}");
     }
 }

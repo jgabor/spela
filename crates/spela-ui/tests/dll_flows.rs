@@ -665,3 +665,24 @@ fn a_stop_waits_for_the_dll_step_then_quits() {
     let cmds = finish(&mut s, token, DllResult::Updated(Ok(batch)), None);
     assert!(s.quit && cmds.contains(&Cmd::Quit));
 }
+
+#[test]
+fn ascii_glyphs_reach_the_section_the_pickers_and_the_confirmations() {
+    for (w, h) in [(120, 40), (80, 24)] {
+        let mut s = section(w, h, &backed_up());
+        let mut config = s.config.clone();
+        config.ui.ascii_glyphs = true;
+        s.set_config(config);
+        let text = render_text(&mut s);
+        assert!(text.is_ascii(), "{w}x{h} section:\n{text}");
+        update(&mut s, key("enter"));
+        update(&mut s, key("enter"));
+        let text = render_text(&mut s);
+        assert!(text.contains("Select DLSS version"), "{text}");
+        assert!(text.is_ascii(), "{w}x{h} version picker:\n{text}");
+        update(&mut s, key("enter"));
+        let text = render_text(&mut s);
+        assert!(text.contains("Confirm DLL install"), "{text}");
+        assert!(text.is_ascii(), "{w}x{h} confirmation:\n{text}");
+    }
+}
