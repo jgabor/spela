@@ -1,8 +1,11 @@
 //! The command palette (`:` or Ctrl-K): one fuzzy list over every
 //! destination, Actions row, game and setting, from every destination.
 //!
-//! Typing filters with [`crate::fuzzy`], matched letters are highlighted,
-//! Up and Down move, Enter runs, Esc closes. A row shows its key when it
+//! The rows are the destinations, every screen's Actions rows (the deny
+//! list rows for the game selected in Library among them), every game and
+//! every setting. Typing filters with [`crate::fuzzy`], matched letters are
+//! highlighted, Up and Down move, Enter runs, Esc closes. A row shows its
+//! key when it
 //! has one, and an unavailable row shows its reason, as in Actions
 //! (terminal-ux.md, option B). The rows come from the screens' `palette`
 //! through [`crate::screens::palette`].
@@ -74,7 +77,8 @@ pub fn status_text(popup: &State) -> String {
     if popup.input.is_empty() {
         format!("{} commands", popup.rows.len())
     } else {
-        format!("{shown} best matches for \"{}\"", popup.input.text())
+        let noun = if shown == 1 { "match" } else { "matches" };
+        format!("{shown} best {noun} for \"{}\"", popup.input.text())
     }
 }
 
@@ -312,6 +316,19 @@ mod tests {
         step(&mut s, key("enter"));
         assert!(s.popup.is_none());
         assert_eq!(s.dest, Dest::Settings);
+    }
+
+    #[test]
+    fn the_status_counts_matches_in_words() {
+        let mut s = state_with_games(120, 40, 3);
+        step(&mut s, key(":"));
+        for c in "refresh interval".chars() {
+            step(&mut s, crate::event::Event::Key(Key::char(c)));
+        }
+        let Some(Popup::Palette(p)) = &s.popup else {
+            unreachable!()
+        };
+        assert_eq!(status_text(p), "1 best match for \"refresh interval\"");
     }
 
     #[test]
