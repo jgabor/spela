@@ -16,10 +16,95 @@
 //! sysfs tree into the temp dir, so the TUI and every CLI command (`scan`,
 //! `list`, `show`, `launch --dry-run`, the `dll` commands and the live CPU
 //! commands) run on the same built-in games and the same fake hardware.
+//!
+//! The temp dir goes on every exit the process controls: the session's
+//! drop on a normal quit or a main-thread panic, and [`remove_now`] on the
+//! exits that skip drops, the TUI's second stop signal and a fatal panic
+//! on another thread. A kill that cannot be caught, such as SIGKILL, leaves
+//! it behind, so each new session removes the demo dirs whose process is
+//! gone. A dir counts only when it has the [`MARKER`] file with that
+//! process's PID and belongs to this user.
 
 use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard};
+
+/// The temp dir's name prefix.
+const PREFIX: &str = "spela-demo-";
+
+/// The file in a demo dir that names the process that made it.
+pub const MARKER: &str = ".spela-demo-pid";
+
+/// The running session's temp dir, for [`remove_now`].
+static LIVE: Mutex<Option<PathBuf>> = Mutex::new(None);
+
+fn live() -> MutexGuard<'static, Option<PathBuf>> {
+    LIVE.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Removes the running demo's temp dir at once, for an exit that skips the
+/// session's drop. A no-op when no demo runs or it is already gone.
+pub fn remove_now() {
+    let dir = live().take();
+    if let Some(dir) = dir {
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
+/// Whether process `pid` still runs. A PID this user may not signal is
+/// someone else's process, and counts as running.
+fn running(pid: u32) -> bool {
+    let Ok(pid) = libc::pid_t::try_from(pid) else {
+        return true;
+    };
+    // SAFETY: signal 0 only checks that the process exists.
+    if unsafe { libc::kill(pid, 0) } == 0 {
+        return true;
+    }
+    io::Error::last_os_error().raw_os_error() != Some(libc::ESRCH)
+}
+
+/// Removes the demo dirs under `tmp`, other than `own`, that a process left
+/// behind when it could not clean up: each needs this user's ownership, a
+/// [`MARKER`] with a PID, and that process gone.
+fn sweep_stale(tmp: &Path, own: &Path) {
+    use std::os::unix::fs::MetadataExt;
+    let Ok(entries) = std::fs::read_dir(tmp) else {
+        return;
+    };
+    // SAFETY: geteuid has no preconditions and cannot fail.
+    let uid = unsafe { libc::geteuid() };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let named = entry
+            .file_name()
+            .to_str()
+            .is_some_and(|n| n.starts_with(PREFIX));
+        if !named || path == own {
+            continue;
+        }
+        // Not a symlink: the metadata of the entry itself.
+        let Ok(meta) = std::fs::symlink_metadata(&path) else {
+            continue;
+        };
+        if !meta.is_dir() || meta.uid() != uid {
+            continue;
+        }
+        let pid = std::fs::read_to_string(path.join(MARKER))
+            .ok()
+            .and_then(|text| text.trim().parse::<u32>().ok());
+        if let Some(pid) = pid
+            && !running(pid)
+        {
+            match std::fs::remove_dir_all(&path) {
+                Ok(()) => tracing::info!(dir = %path.display(), pid, "removed a stale demo dir"),
+                Err(e) => {
+                    tracing::info!(dir = %path.display(), "cannot remove a stale demo dir: {e}")
+                }
+            }
+        }
+    }
+}
 
 use spela_core::backend::{Backends, Cpu, Http, Privilege, SysfsCpu};
 use spela_core::dll::manifest::RefreshPolicy;
@@ -37,7 +122,11 @@ impl DemoSession {
     /// Makes the temp dir and copies the user's config into it, if there is
     /// one.
     pub fn start(real: &Paths) -> io::Result<DemoSession> {
-        let dir = tempfile::Builder::new().prefix("spela-demo-").tempdir()?;
+        let dir = tempfile::Builder::new().prefix(PREFIX).tempdir()?;
+        std::fs::write(dir.path().join(MARKER), std::process::id().to_string())?;
+        if let Some(tmp) = dir.path().parent() {
+            sweep_stale(tmp, dir.path());
+        }
         let paths = Paths::under(dir.path());
         let config = real.config_file();
         if config.is_file() {
@@ -56,6 +145,7 @@ impl DemoSession {
         }
         spela_core::fake::library::write(&paths.cache_dir.join("demo-steam"))?;
         spela_core::fake::cpu::write_sysfs(&sys_dir(&paths))?;
+        *live() = Some(dir.path().to_owned());
         Ok(DemoSession { dir, paths })
     }
 
@@ -77,6 +167,16 @@ impl DemoSession {
         spela_core::games::scan::rescan(&self.paths, &install, &spela_core::clock::SystemClock)
             .map(|_| ())
             .map_err(|e| e.to_string())
+    }
+}
+
+impl Drop for DemoSession {
+    /// Forgets the dir for [`remove_now`]; the temp dir removes itself.
+    fn drop(&mut self) {
+        let mut live = live();
+        if live.as_deref() == Some(self.dir.path()) {
+            *live = None;
+        }
     }
 }
 

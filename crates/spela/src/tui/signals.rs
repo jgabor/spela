@@ -6,8 +6,9 @@
 //! first stop signal goes to the main loop, which quits cleanly. If a
 //! second one comes, the terminal is restored at once and the process
 //! exits with `128 + signal`, with raw mode off even when the capability
-//! probe had it on. SIGCONT goes to the loop too, which repaints.
-//! Wrapper mode has its own policy and does not use this.
+//! probe had it on, and the demo's temp dir removed. SIGCONT goes to the
+//! loop too, which repaints. Wrapper mode has its own policy and does not
+//! use this.
 
 /// A signal the TUI reacts to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -99,6 +100,8 @@ impl SignalWatcher {
                             // is recorded, so restore cannot know of it.
                             // This is a no-op when raw mode is off.
                             let _ = crossterm::terminal::disable_raw_mode();
+                            // The exit skips every drop, the demo's too.
+                            crate::demo::remove_now();
                             std::process::exit(code);
                         }
                     }

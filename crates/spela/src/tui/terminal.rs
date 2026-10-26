@@ -268,6 +268,9 @@ pub fn install_panic_hook() {
             restore_after_panic();
             previous(info);
             if thread.name() != Some("main") {
+                // The exit skips every drop, the demo's too. On the main
+                // thread the unwinding drops the demo session.
+                crate::demo::remove_now();
                 std::process::exit(101);
             }
         }

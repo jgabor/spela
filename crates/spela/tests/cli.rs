@@ -326,6 +326,45 @@ fn demo_runs_in_a_private_temp_dir_that_goes_away() {
 }
 
 #[test]
+fn a_demo_removes_the_demo_dirs_a_killed_run_left() {
+    let s = Sandbox::new();
+    // A process that has exited: its PID is free.
+    let mut done = std::process::Command::new("/bin/sh")
+        .args(["-c", "exit 0"])
+        .spawn()
+        .unwrap();
+    let gone = done.id();
+    done.wait().unwrap();
+    let dir = |name: &str, marker: Option<String>| {
+        let path = s.tmp().join(name);
+        std::fs::create_dir_all(path.join("cache")).unwrap();
+        if let Some(pid) = marker {
+            std::fs::write(path.join(".spela-demo-pid"), pid).unwrap();
+        }
+        path
+    };
+    let killed = dir("spela-demo-killed", Some(gone.to_string()));
+    let running = dir("spela-demo-running", Some(std::process::id().to_string()));
+    let unmarked = dir("spela-demo-unmarked", None);
+    let other = dir("other-killed", Some(gone.to_string()));
+    s.run(&["--demo"]).expect_code(1);
+    assert!(!killed.exists(), "the killed run's dir goes");
+    assert!(running.exists(), "a running demo's dir stays");
+    assert!(
+        unmarked.exists(),
+        "a dir spela cannot prove is its own stays"
+    );
+    assert!(other.exists());
+    let left: Vec<String> = std::fs::read_dir(s.tmp())
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| n.starts_with("spela-demo-"))
+        .collect();
+    assert_eq!(left.len(), 2, "this run's own dir went too: {left:?}");
+}
+
+#[test]
 fn backend_selector_typos_fail() {
     let s = Sandbox::new();
     let run = s.run_with(&["scan"], &[("SPELA_BACKEND", "fkae")]);

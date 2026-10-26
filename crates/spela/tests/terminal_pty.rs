@@ -477,6 +477,46 @@ fn sigterm_quits_and_restores() {
     in_order(after, &["\x1b[?1049l", "\x1b[?25h"]);
 }
 
+/// The demo dirs in the sandbox's temp dir.
+fn demo_dirs(s: &Sandbox) -> Vec<std::path::PathBuf> {
+    std::fs::read_dir(s.tmp())
+        .unwrap()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.file_name()
+                .is_some_and(|n| n.to_string_lossy().starts_with("spela-demo-"))
+        })
+        .collect()
+}
+
+#[test]
+fn a_stop_signal_removes_the_demo_dir() {
+    let s = Sandbox::new();
+    let mut live = Live::start(&s, &["--demo", "tui"], 24, 80, &[]);
+    live.wait_screen("Library");
+    assert_eq!(demo_dirs(&s).len(), 1);
+    // SAFETY: SIGTERM to our own child.
+    assert_eq!(unsafe { libc::kill(live.pid(), libc::SIGTERM) }, 0);
+    let (code, _) = live.finish();
+    assert_eq!(code, Some(0));
+    assert_eq!(demo_dirs(&s), Vec::<std::path::PathBuf>::new());
+
+    // A hangup and a kill together, as a closed terminal sends them: the
+    // second exits at once, without the drops, and the dir still goes.
+    let mut live = Live::start(&s, &["--demo", "tui"], 24, 80, &[]);
+    live.wait_screen("Library");
+    assert_eq!(demo_dirs(&s).len(), 1);
+    // SAFETY: two stop signals to our own child.
+    unsafe {
+        assert_eq!(libc::kill(live.pid(), libc::SIGHUP), 0);
+        assert_eq!(libc::kill(live.pid(), libc::SIGTERM), 0);
+    }
+    let (code, _) = live.finish();
+    assert!(matches!(code, Some(0 | 143)), "{code:?}");
+    assert_eq!(demo_dirs(&s), Vec::<std::path::PathBuf>::new());
+}
+
 #[test]
 fn a_paste_types_into_find_and_fires_no_keys() {
     let s = Sandbox::new();
