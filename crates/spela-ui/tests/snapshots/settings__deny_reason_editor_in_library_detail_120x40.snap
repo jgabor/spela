@@ -6,28 +6,28 @@ expression: render_text(&mut s)
 ┌─ Scope ────────────────────────┬─ Ashfall Courier ───────────────────────────────────────────────────────────────────┐
 │ / Find games                   │ Ashfall Courier · App ID 9100010 · DLLs: DLSS 310.4.0 · Saved at once               │
 │   All games                    │                                                                                     │
-│ ▸ Ashfall Courier          ▪ ⚑ │                                                                                     │
-│   Brightwater Keep             │ ┌─ Deny DLL swaps: Ashfall Courier ───────────────────────────────────────────────┐ │
-│   Cinder Valley Racing     ▪   │ │ user-specified                                                                  │ │
-│   Deepline Salvage           ⚑ │ │ The reason. Empty uses user-specified.                                          │ │
-│   Ember Tide               ▪   │ │                                                                                 │ │
-│   Game 1 Remastered            │ │ [ Apply ]  [ Cancel ]                                                           │ │
-│   Glasshouse Detective     ▪ ⚑ │ └─────────────────────────────────────────────────────────────────────────────────┘ │
-│   Hollow Crown Tactics: D⋯     │                                                                                     │
-│   Ironleaf Expedition      ▪   │                                                                                     │
-│   Lantern Drift              ⚑ │                                                                                     │
-│   Moonwell Farmstead       ▪   │                                                                                     │
-│   Nightglass Protocol          │                                                                                     │
+│ ▸ Ashfall Courier          ▪ ⚑ │ Proton  DLSS  GPU  CPU  [DLLs]                                                      │
+│   Brightwater Keep             │                                                                                     │
+│   Cinder Valley Racing     ▪   │ Install directory: /fixture/steamapps/common/Ashfall Courier                        │
+│   Deepline Salvage           ⚑ │ Steam launch option: spela %command%                                                │
+│   Ember Tide               ▪   │                                                                                     │
+│   Game 1 Remastered            │ DLL versions                                                                        │
+│   Glasshouse Detective     ▪ ⚑ │ DLSS    310.4.0       unknown  nvngx_dlss.dll                                       │
+│   Hollow Crown Tactics: D⋯     │ ┌─ Deny DLL swaps: Ashfall Courier ────────────────────┐                            │
+│   Ironleaf Expedition      ▪   │ │ user-specified                                       │                            │
+│   Lantern Drift              ⚑ │ │ The reason. Empty uses user-specified.               │                            │
+│   Moonwell Farmstead       ▪   │ │                                                      │                            │
+│   Nightglass Protocol          │ │ [ Apply ]  [ Cancel ]                                │                            │
+│                                │ └──────────────────────────────────────────────────────┘                            │
 │                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
+│                                │ DLL actions: Ashfall Courier                                                        │
+│                                │ ▸ Install DLL                                                                       │
+│                                │     Unavailable: DLL manifest unavailable                                           │
+│                                │   Update DLLs (0 files)                                                             │
+│                                │     Unavailable: no stale DLLs for this game                                        │
+│                                │   Restore originals                                                                 │
+│                                │     Unavailable: reading the backup                                                 │
+│                                │ Choose a family and version, then review the target.                                │
 │                                │                                                                                     │
 │                                │                                                                                     │
 │                                │                                                                                     │

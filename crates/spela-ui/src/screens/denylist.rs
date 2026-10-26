@@ -344,6 +344,11 @@ pub fn update(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
             state.close_popup();
             state.dest = Dest::Library;
             state.focus = Pane::Detail;
+            // The editor opens in the game's DLLs section, under its state
+            // line, where the swaps it guards are.
+            if library::selected_game(state).is_some_and(|g| g.app_id == app_id) {
+                state.profile.aspect = super::profile::Aspect::Dlls;
+            }
             Vec::new()
         }
         Action::Apply {
@@ -441,11 +446,32 @@ pub fn wheel(_state: &mut AppState, _pane: Pane, _down: bool) -> Vec<AnyCmd> {
     Vec::new()
 }
 
+/// The open reason editor, when it is for `app_id`.
+pub fn editor_for(state: &AppState, app_id: u64) -> Option<&crate::editor::Editor> {
+    state
+        .denylist
+        .editor
+        .as_ref()
+        .filter(|open| open.app_id == app_id)
+        .map(|open| &open.editor)
+}
+
+/// Whether Detail shows the editor's game's DLLs section, which draws the
+/// editor under its state line itself.
+fn drawn_inline(state: &AppState) -> bool {
+    let Some(open) = &state.denylist.editor else {
+        return false;
+    };
+    state.dest == Dest::Library
+        && super::profile::aspect(state) == super::profile::Aspect::Dlls
+        && library::selected_game(state).is_some_and(|g| g.app_id == open.app_id)
+}
+
 /// Draws the reason editor over Library's Detail, with the game's state
-/// line above it, while it is open. The DLLs section may instead draw
-/// [`render_editor`] under its own state line.
+/// line above it, while it is open and the game's DLLs section is not in
+/// view. The DLLs section draws it under its own state line otherwise.
 pub fn render(state: &AppState, frame: &mut Frame, area: PaneArea, _hits: &mut HitMap) {
-    if state.denylist.editor.is_none() || area.pane != Pane::Detail {
+    if state.denylist.editor.is_none() || area.pane != Pane::Detail || drawn_inline(state) {
         return;
     }
     let inner = area.inner;

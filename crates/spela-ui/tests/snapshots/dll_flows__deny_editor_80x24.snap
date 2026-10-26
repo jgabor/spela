@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/dll_flows.rs
+expression: text
+---
+ spela   ▸ Library  DLL Catalog  Monitor  Settings
+┌─ ▸ Detail ───────────────────────────────────────────────────────────────────┐
+│ Ashfall Courier · App ID 9100010 · DLLs: DLSS 310.4.0 · Saved at once        │
+│ Own settings (4): Super resolution quality · Resolution override On · Ray o⋯ │
+│ Proton  DLSS  GPU  CPU  [DLLs]                                               │
+│                                                                              │
+│ Install directory: /fixture/steamapps/common/Ashfall Courier                 │
+│ Steam launch option: spela %command%                                         │
+│                                                                              │
+│ DLL versions                                                                 │
+│ DLSS    310.4.0       stale    latest 310.5.3    nvngx_dlss.dll              │
+│ ┌─ Deny DLL swaps: Ashfall Courier ────────────────────┐                     │
+│ │ user-specified                                       │                     │
+│ │ The reason. Empty uses user-specified.               │                     │
+│ │                                                      │                     │
+│ │ [ Apply ]  [ Cancel ]                                │                     │
+│ └──────────────────────────────────────────────────────┘                     │
+│                                                                              │
+│ DLL actions: Ashfall Courier                                                 │
+│ ▸ Install DLL                                                                │
+│   Update DLLs (1 file)                                                       │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+ Type to edit  Tab control  Enter apply  Backspace delete  Esc cancel

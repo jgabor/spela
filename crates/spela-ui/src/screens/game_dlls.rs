@@ -543,6 +543,8 @@ enum Line {
     Action(usize, Vec<(String, Role)>),
     /// The install picker, this many rows high.
     Picker(u16),
+    /// The deny reason editor, this many rows high.
+    DenyEditor(u16),
 }
 
 fn spans(text: impl Into<String>, role: Role) -> Line {
@@ -578,9 +580,14 @@ fn versions(state: &AppState, game: &Game, w: usize) -> Vec<Line> {
     if restore_count(state, game.app_id).is_some_and(|n| n > 0) {
         lines.push(spans("Backup available", Role::Muted));
     }
-    // The deny list line, only when a list names the game.
+    // The deny list line, only when a list names the game, and the deny
+    // reason editor under it while it is open (terminal-ux.md, Denylist).
     if let Some((text, role)) = denylist::state_line(state, game.app_id) {
         lines.push(spans(text, role));
+    }
+    if let Some(editor) = denylist::editor_for(state, game.app_id) {
+        let width = picker_width(u16::try_from(w).unwrap_or(u16::MAX));
+        lines.push(Line::DenyEditor(editor.height(width)));
     }
     if let Some((text, level)) = state.dll_jobs.results.get(&game.app_id) {
         let role = match level {
@@ -664,7 +671,7 @@ pub fn render(
         lines
             .iter()
             .map(|l| match l {
-                Line::Picker(n) => usize::from(*n),
+                Line::Picker(n) | Line::DenyEditor(n) => usize::from(*n),
                 _ => 1,
             })
             .sum()
@@ -682,7 +689,11 @@ pub fn render(
         bottom[at] = Line::Picker(rows.min(fit.max(MIN_PICKER_H)));
     }
     let bottom_h = height(&bottom);
+    // While the deny reason editor is open under the versions, it and the
+    // versions stay; the controls below give way first.
+    let deny_open = top.iter().any(|l| matches!(l, Line::DenyEditor(_)));
     let keep_h = match picker_at {
+        _ if deny_open => 0,
         Some(at) => height(&bottom[..=at]),
         None => bottom_h,
     };
@@ -706,7 +717,7 @@ pub fn render(
     }
     // The controls are kept first; the versions give way.
     let room = h.saturating_sub(keep_h + 1);
-    if top.len() > room {
+    if !deny_open && top.len() > room {
         top.truncate(room);
         if room > 0 {
             let n = game.dlls.len();
@@ -751,6 +762,13 @@ pub fn render(
                 if let Some(c) = open_chooser(state) {
                     c.picker()
                         .render(p, Rect::new(x + 4, *y, picker_width(w), room));
+                }
+                *y += room;
+            }
+            Line::DenyEditor(rows) => {
+                let room = end.saturating_sub(*y).min(*rows);
+                if let Some(editor) = denylist::editor_for(state, game.app_id) {
+                    editor.render(p, Rect::new(x, *y, picker_width(w), room));
                 }
                 *y += room;
             }

@@ -1,0 +1,44 @@
+---
+source: crates/spela-ui/tests/dll_flows.rs
+expression: text
+---
+ spela   ▸ Library  DLL Catalog  Monitor  Settings
+┌─ Scope ────────────────────────┬─ Ashfall Courier ───────────────────────────────────────────────────────────────────┐
+│ / Find games                   │ Ashfall Courier · App ID 9100010 · DLLs: DLSS 310.4.0 · Saved at once               │
+│   All games                    │ Own settings (4): Super resolution quality · Resolution override On · Ray override⋯ │
+│ ▸ Ashfall Courier          ▪ ⚑ │ Proton  DLSS  GPU  CPU  [DLLs]                                                      │
+│   Brightwater Keep             │                                                                                     │
+│   Cinder Valley Racing     ▪   │ Install directory: /fixture/steamapps/common/Ashfall Courier                        │
+│   Deepline Salvage           ⚑ │ Steam launch option: spela %command%                                                │
+│   Ember Tide               ▪   │                                                                                     │
+│   Game 1 Remastered            │ DLL versions                                                                        │
+│   Glasshouse Detective     ▪ ⚑ │ DLSS    310.4.0       stale    latest 310.5.3    nvngx_dlss.dll                     │
+│   Hollow Crown Tactics: D⋯     │ ┌─ Deny DLL swaps: Ashfall Courier ────────────────────┐                            │
+│   Ironleaf Expedition      ▪   │ │ user-specified                                       │                            │
+│   Lantern Drift              ⚑ │ │ The reason. Empty uses user-specified.               │                            │
+│   Moonwell Farmstead       ▪   │ │                                                      │                            │
+│   Nightglass Protocol          │ │ [ Apply ]  [ Cancel ]                                │                            │
+│                                │ └──────────────────────────────────────────────────────┘                            │
+│                                │                                                                                     │
+│                                │ DLL actions: Ashfall Courier                                                        │
+│                                │ ▸ Install DLL                                                                       │
+│                                │   Update DLLs (1 file)                                                              │
+│                                │   Restore originals (0 files)                                                       │
+│                                │     Unavailable: no backup for this game                                            │
+│                                │ Choose a family and version, then review the target.                                │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+└─ ▪ DLLs  ⚑ profile ────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
+
+ Type to edit  Tab control  Enter apply  Backspace delete  Esc cancel

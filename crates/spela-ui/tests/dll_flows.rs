@@ -788,3 +788,41 @@ fn the_version_picker_keeps_the_versions_in_view_at_80x24() {
     let text = render_text(&mut s);
     assert!(text.contains("DLL versions"), "{text}");
 }
+
+/// Deny DLL swaps opens its reason editor in the DLLs section under the
+/// versions and the state line, so the section strip, `DLL versions` and
+/// the DLL rows stay in view; the controls below give way at 80x24
+/// (terminal-ux.md, Denylist).
+#[test]
+fn the_deny_editor_opens_under_the_dll_versions() {
+    for (w, h) in [(120, 40), (80, 24)] {
+        let mut s = section(w, h, &[]);
+        let game = spela_ui::screens::library::selected_game(&s)
+            .unwrap()
+            .clone();
+        spela_ui::update::run(
+            &mut s,
+            spela_ui::screens::Action::Screen(spela_ui::screens::ScreenAction::Denylist(
+                denylist::Action::Deny {
+                    app_id: game.app_id,
+                    name: game.name.clone(),
+                },
+            )),
+        );
+        let text = render_text(&mut s);
+        let at = |needle: &str| {
+            text.find(needle)
+                .unwrap_or_else(|| panic!("{w}x{h}: {needle:?} in\n{text}"))
+        };
+        assert!(text.contains("[DLLs]"), "{text}");
+        // The DLL row: its mark, `stale`, shows only there.
+        assert!(at("DLL versions") < at("stale"), "{text}");
+        assert!(
+            at("stale") < at("Deny DLL swaps: Ashfall Courier"),
+            "{text}"
+        );
+        assert!(text.contains("[ Apply ]"), "{text}");
+        check_keys(&format!("{w}x{h} deny editor"), &s);
+        insta::assert_snapshot!(format!("deny_editor_{w}x{h}"), text);
+    }
+}
