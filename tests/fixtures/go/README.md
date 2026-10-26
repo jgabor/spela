@@ -94,6 +94,7 @@ entries.
 | `profiles/own-values/` | Own values with explicit zeros and `smt: false` that differ from All games, and own values equal to All games or to the system default (`this_game_same`) | `profile.Mutate`, `profile.MutateDefault`, `(*Profile).Set` |
 | `profiles/sr-model-preset/` | The retired `dlss.sr_model_preset` key and marker in All games and games, a legacy file with only that key, and a lowercase `sr_preset: k` | literal YAML (Go no longer writes `sr_model_preset`) |
 | `profiles/two-space/` | 2-space indented `default.yaml` and game profile with an overrides map, as Go's tests write them by hand | literal YAML, read by `profile.Load` |
+| `profiles/yaml-shapes/` | Shapes yaml.v3 loads that a strict reader refuses: floats in int fields (`power_limit: 250.0`, `fan_speed: 40.7`, cut toward zero) and a second `---` document, which yaml.v3 ignores | literal YAML, read by `profile.Load` |
 | `profiles/yaml11-bools/` | YAML 1.1 booleans: `smt: yes`, `on`, `off`, `Yes`, `y`, `TRUE`, `NO`, also as a marker value | literal YAML, read by `profile.Load` |
 | `sandbox/empty/` | An empty home with no Steam install and no spela files, for empty-state transcripts | nothing; Go writes only what the commands create |
 | `sandbox/errors/` | The main sandbox plus a game profile that does not parse (9100030) and one with an invalid `gpu.vrr` (9100060), for error transcripts | as `sandbox/main`, plus literal YAML |

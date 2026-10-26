@@ -183,11 +183,12 @@ impl Report {
     }
 
     /// The values this run did not carry over that differ from Go's
-    /// defaults: what the notice counts.
+    /// defaults: what the notice counts. A preset stored as `default` is
+    /// not one of them, because it launches as Go launched it.
     pub fn notable_dropped(&self) -> impl Iterator<Item = &Dropped> {
         self.settled()
             .flat_map(|h| h.entry.dropped.iter())
-            .filter(|d| !d.default)
+            .filter(|d| !d.default && d.why != Why::StoredAsDefault)
     }
 
     /// The lines to show on the run that migrates: one line to stderr in

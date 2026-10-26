@@ -348,6 +348,7 @@ struct DlssYaml {
     rr_override: Option<bool>,
     fg_enabled: Option<bool>,
     fg_override: Option<bool>,
+    #[serde(deserialize_with = "super::yaml::go_int")]
     multi_frame: Option<i64>,
     indicator: Option<bool>,
     fg_indicator: Option<bool>,
@@ -360,10 +361,14 @@ struct GpuYaml {
     shader_cache: Option<bool>,
     shader_cache_path: Option<String>,
     threaded_optimization: Option<bool>,
+    #[serde(deserialize_with = "super::yaml::go_int")]
     clock_offset: Option<i64>,
+    #[serde(deserialize_with = "super::yaml::go_int")]
     memory_offset: Option<i64>,
+    #[serde(deserialize_with = "super::yaml::go_int")]
     power_limit: Option<i64>,
     power_mizer: Option<String>,
+    #[serde(deserialize_with = "super::yaml::go_int")]
     fan_speed: Option<i64>,
 }
 

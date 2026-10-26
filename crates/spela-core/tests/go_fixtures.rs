@@ -205,6 +205,26 @@ fn is_offset(key: &str) -> bool {
     key == "gpu.clock_offset" || key == "gpu.memory_offset"
 }
 
+/// The render preset env value Go's `dlssPresetToEnv` exported for a
+/// stored preset, `auto` aside (Go resolved it from the mode).
+fn go_preset_env(preset: &str) -> String {
+    match preset {
+        "A" | "B" | "C" | "D" | "E" | "F" | "J" | "K" | "L" | "M" => {
+            format!("render_preset_{}", preset.to_lowercase())
+        }
+        _ => "render_preset_default".to_owned(),
+    }
+}
+
+/// The drops a value Go applied at launch may take although the effective
+/// value then differs from Go's. Each one is a known gap, open until a
+/// decision permits it or spela gets a way to store the value. Any other
+/// drop of a value Go applied fails the test.
+const KNOWN_GAPS: &[(&str, &str)] = &[(
+    "cpu.smt",
+    "a game marks SMT with no value, which left SMT unchanged in Go; TOML has no stored form for it, so the game follows All games",
+)];
+
 /// Checks a profile case against its oracle: every field's effective value
 /// and origin, in All games and in every game, including a game with no
 /// profile file.
@@ -330,11 +350,33 @@ fn check_profiles(case: &Case, report: &Report) {
                 }
                 continue;
             }
-            if here.is_some_and(|d| d.why != Why::NoMarker) {
-                continue;
-            }
             let k = FieldKey::from_key(key).unwrap();
             let r = resolve(game_values.as_ref(), all_values.as_ref(), k);
+            match here.map(|d| d.why) {
+                None | Some(Why::NoMarker) => {}
+                Some(Why::StoredAsDefault) => {
+                    // The stored value differs, the launch does not.
+                    assert_eq!(
+                        serde_json::to_value(&r.value).unwrap(),
+                        "default",
+                        "{app_id} {key}"
+                    );
+                    let go = f["effective"].as_str().unwrap();
+                    assert_eq!(
+                        go_preset_env(go),
+                        "render_preset_default",
+                        "{app_id} {key}: Go exported the default preset for {go:?}"
+                    );
+                    continue;
+                }
+                Some(why) => {
+                    assert!(
+                        KNOWN_GAPS.iter().any(|(gap, _)| *gap == key),
+                        "{app_id} {key}: dropped as {why:?}, which changes what Go applied"
+                    );
+                    continue;
+                }
+            }
             assert_eq!(
                 serde_json::to_value(&r.value).unwrap(),
                 f["effective"],
@@ -361,20 +403,18 @@ fn check_profiles(case: &Case, report: &Report) {
                 | Why::UnknownMarker
                 | Why::UnknownKey
                 | Why::AllGamesName => true,
-                Why::NotSupported if d.key == "cpu.smt" => game && d.value == "none",
-                // Go checked only gpu.vrr, so a file can hold a value no
+                Why::NotSupported => {
+                    KNOWN_GAPS.iter().any(|(gap, _)| *gap == d.key) && game && d.value == "none"
+                }
+                // Go checked only gpu.vrr, so a file can hold a preset no
                 // field allows, such as the e2e fixture's sr_preset
                 // "quality". The field must really refuse it.
-                Why::NotSupported => {
+                Why::StoredAsDefault => {
                     let field = FieldKey::from_key(&d.key).unwrap().field();
-                    let json: Json = serde_json::from_str(&d.value).unwrap();
-                    let value = match json {
-                        Json::Bool(b) => spela_core::profile::Value::Bool(b),
-                        Json::Number(n) => spela_core::profile::Value::Int(n.as_i64().unwrap()),
-                        Json::String(s) => spela_core::profile::Value::Text(s),
-                        other => panic!("{other}"),
-                    };
-                    field.check(&value).is_err()
+                    let preset: String = serde_json::from_str(&d.value).unwrap();
+                    field
+                        .check(&spela_core::profile::Value::Text(preset))
+                        .is_err()
                 }
                 _ => false,
             };
@@ -401,7 +441,7 @@ fn every_profile_case_matches_its_oracle() {
         .map(|e| e.unwrap().file_name().into_string().unwrap())
         .collect();
     names.sort();
-    assert_eq!(names.len(), 20, "{names:?}");
+    assert_eq!(names.len(), 21, "{names:?}");
     for name in names
         .iter()
         .map(|n| format!("profiles/{n}"))

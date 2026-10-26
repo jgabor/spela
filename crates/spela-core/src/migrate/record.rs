@@ -40,9 +40,11 @@ pub const RECORD_VERSION: i64 = 1;
 pub enum Outcome {
     /// Its target was written, or already existed and was adopted.
     Migrated,
-    /// Go never used it, so there is nothing to migrate.
+    /// Go never used it, so there is nothing to migrate, or it is a cache
+    /// that could not be read, which refills.
     Skipped,
     /// It could not be read or written. It is tried again on every start.
+    /// A cache that cannot be read is skipped instead: it refills.
     Failed,
 }
 
@@ -88,6 +90,11 @@ pub enum Why {
     Default,
     /// A value spela cannot hold, such as SMT marked with no value.
     NotSupported,
+    /// A DLSS preset Go did not know, such as `quality`. Go exported
+    /// `render_preset_default` for it, so it is stored as `default`, which
+    /// exports the same. Nothing changes at launch, so the notice does not
+    /// count it.
+    StoredAsDefault,
     /// The All games profile's `name`, which spela does not keep.
     AllGamesName,
     /// A deny entry for a game that is also allowed. Allow wins
@@ -109,6 +116,7 @@ impl Why {
             Why::IgnoredByGo => "Go spela ignored it and used the default",
             Why::Default => "Go spela's default",
             Why::NotSupported => "spela cannot store it",
+            Why::StoredAsDefault => "Go applied the default preset for it; stored as default",
             Why::AllGamesName => "All games has no name",
             Why::AllowedAndDenied => "the game is also allowed, and allow wins",
         }

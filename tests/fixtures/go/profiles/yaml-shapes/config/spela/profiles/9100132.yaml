@@ -1,0 +1,11 @@
+name: Second Draft
+proton:
+    enable_hdr: true
+overrides:
+    proton.enable_hdr: true
+---
+name: Ignored
+proton:
+    enable_wayland: true
+overrides:
+    proton.enable_wayland: true

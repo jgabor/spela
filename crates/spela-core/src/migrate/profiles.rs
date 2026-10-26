@@ -9,6 +9,12 @@
 //! A set field is kept as an own value, except that decision 10 drops the
 //! retired fields, decision 31 drops Go's clock and memory offsets, and a
 //! value spela cannot hold is dropped with a note. Each drop is recorded.
+//!
+//! A DLSS preset that is not one of spela's, such as `quality`, is not
+//! dropped: Go's `dlssPresetToEnv` exported `render_preset_default` for any
+//! preset it did not know (`internal/profile/apply.go`), so it is stored as
+//! `default`, which exports the same, and the rewrite is recorded. The
+//! launch then stays as it was, whatever All games sets.
 
 use crate::profile::{FieldKey, Kind, OwnValues, Value};
 
@@ -74,6 +80,21 @@ pub fn convert(go: &GoProfile, scope: GoScope, unknown_keys: &[(String, String)]
             continue;
         }
         let result = match to_value(field, leaf) {
+            Some(Value::Text(preset))
+                if is_preset(field)
+                    && field.field().check(&Value::Text(preset.clone())).is_err() =>
+            {
+                values
+                    .set(field, Value::Text("default".to_owned()))
+                    .expect("default is a preset");
+                dropped.push(Dropped::new(
+                    key,
+                    leaf.display(),
+                    Why::StoredAsDefault,
+                    false,
+                ));
+                continue;
+            }
             Some(value) => values.set(field, value).map(|_| ()),
             None => Err(crate::profile::FieldError::WrongKind {
                 key: field.as_str(),
@@ -126,6 +147,11 @@ pub fn convert(go: &GoProfile, scope: GoScope, unknown_keys: &[(String, String)]
         values,
         dropped,
     }
+}
+
+/// Whether a field is one of the two DLSS presets.
+fn is_preset(field: FieldKey) -> bool {
+    matches!(field, FieldKey::DlssSrPreset | FieldKey::DlssRrPreset)
 }
 
 /// A Go leaf as the value of a kept field.
@@ -224,25 +250,51 @@ mod tests {
 
     #[test]
     fn values_spela_cannot_hold_are_recorded() {
+        let go = parse_profile(&lines(&["overrides:", "    cpu.smt: true"])).unwrap();
+        let c = convert(&go, GoScope::Game, &[]);
+        assert!(c.values.is_empty());
+        assert_eq!(keys(&c.dropped), [("cpu.smt", Why::NotSupported)]);
+        assert_eq!(c.dropped[0].value, "none");
+    }
+
+    #[test]
+    fn presets_go_did_not_know_are_stored_as_default() {
+        // Go exported render_preset_default for each of these.
         let go = parse_profile(&lines(&[
             "dlss:",
+            "    sr_preset: quality",
             "    rr_preset: auto",
             "overrides:",
-            "    cpu.smt: true",
+            "    dlss.sr_preset: true",
             "    dlss.rr_preset: true",
         ]))
         .unwrap();
         let c = convert(&go, GoScope::Game, &[]);
-        assert!(c.values.is_empty());
+        for key in [FieldKey::DlssSrPreset, FieldKey::DlssRrPreset] {
+            assert_eq!(c.values.get(key), Some(&Value::Text("default".into())));
+        }
         assert_eq!(
             keys(&c.dropped),
             [
-                ("dlss.rr_preset", Why::NotSupported),
-                ("cpu.smt", Why::NotSupported)
+                ("dlss.sr_preset", Why::StoredAsDefault),
+                ("dlss.rr_preset", Why::StoredAsDefault)
             ]
         );
-        assert_eq!(c.dropped[1].value, "none");
-        assert!(c.dropped[0].note.contains("unsupported value"));
+        assert_eq!(c.dropped[0].value, "\"quality\"");
+        // A preset spela knows is kept as it is.
+        let go = parse_profile(&lines(&[
+            "dlss:",
+            "    sr_preset: K",
+            "overrides:",
+            "    dlss.sr_preset: true",
+        ]))
+        .unwrap();
+        let c = convert(&go, GoScope::Game, &[]);
+        assert_eq!(
+            c.values.get(FieldKey::DlssSrPreset),
+            Some(&Value::Text("K".into()))
+        );
+        assert!(c.dropped.is_empty());
     }
 
     #[test]

@@ -188,17 +188,17 @@ const ALLOWED: &[Allowed] = &[
         cases: &["e2e/library/profile-show"],
         change: Change::Line {
             go: "  Resolution preset    quality   this game · All games: default",
-            spela: "  Resolution preset    default   from All games",
+            spela: "  Resolution preset    default   this game · same as All games",
         },
-        why: "decision 8 and architecture, Profiles and inheritance: every enum is checked on load; Go stored sr_preset \"quality\", which is no preset, so the migration records it as not_supported instead of carrying it over",
+        why: "architecture, Profiles and inheritance: every enum is checked on load. Go stored sr_preset \"quality\", which is no preset, and exported render_preset_default for it, so the migration stores the preset default, which exports the same, and records the rewrite as stored_as_default",
     },
     Allowed {
         cases: &["e2e/library/dlss-show"],
         change: Change::Line {
             go: "Resolution preset    quality   this game · All games: default",
-            spela: "Resolution preset    default   from All games",
+            spela: "Resolution preset    default   this game · same as All games",
         },
-        why: "decision 8, as in profile show",
+        why: "as in profile show: the unknown preset is stored as default, which Go exported for it",
     },
     Allowed {
         cases: &[

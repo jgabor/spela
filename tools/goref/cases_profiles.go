@@ -150,6 +150,7 @@ func (w *fixtureWriter) writeProfileCases() error {
 		w.profileSRModelPreset,
 		w.profileYAML11Bools,
 		w.profileTwoSpace,
+		w.profileYAMLShapes,
 		w.profileEmptyOverrides,
 		w.profileMarkers,
 		w.profileDroppedFields,
@@ -449,6 +450,21 @@ func (w *fixtureWriter) profileTwoSpace() error {
 	}
 	w.note("profiles/two-space/", "2-space indented `default.yaml` and game profile with an overrides map, as Go's tests write them by hand", "literal YAML, read by `profile.Load`")
 	return w.profileOracle(c, "2-space files load like 4-space ones", 9100114, noProfile)
+}
+
+func (w *fixtureWriter) profileYAMLShapes() error {
+	c, err := w.enterCase("profiles/yaml-shapes")
+	if err != nil {
+		return err
+	}
+	if err := writeText(profileFile(c, "9100131.yaml"), "name: Copper Lantern\ngpu:\n    power_limit: 250.0\n    fan_speed: 40.7\ndlss:\n    multi_frame: 2.0\noverrides:\n    gpu.power_limit: true\n    gpu.fan_speed: true\n    dlss.multi_frame: true\n"); err != nil {
+		return err
+	}
+	if err := writeText(profileFile(c, "9100132.yaml"), "name: Second Draft\nproton:\n    enable_hdr: true\noverrides:\n    proton.enable_hdr: true\n---\nname: Ignored\nproton:\n    enable_wayland: true\noverrides:\n    proton.enable_wayland: true\n"); err != nil {
+		return err
+	}
+	w.note("profiles/yaml-shapes/", "Shapes yaml.v3 loads that a strict reader refuses: floats in int fields (`power_limit: 250.0`, `fan_speed: 40.7`, cut toward zero) and a second `---` document, which yaml.v3 ignores", "literal YAML, read by `profile.Load`")
+	return w.profileOracle(c, "yaml.v3 reads floats into ints and only the first document", 9100131, 9100132)
 }
 
 func (w *fixtureWriter) profileEmptyOverrides() error {

@@ -36,6 +36,7 @@ struct ConfigYaml {
     backup_path: Option<String>,
     dll_manifest_url: Option<String>,
     auto_refresh_manifest: Option<bool>,
+    #[serde(deserialize_with = "yaml::go_int")]
     manifest_refresh_hours: Option<i64>,
     theme: Option<String>,
     compact_mode: Option<bool>,
@@ -325,6 +326,18 @@ mod tests {
                 ("show_hints", Why::RetiredKey),
             ]
         );
+    }
+
+    #[test]
+    fn a_float_hour_count_reads_as_yaml_v3_reads_it() {
+        let c = convert("manifest_refresh_hours: 24.0\n", &paths()).unwrap();
+        assert_eq!(c.text, "version = 1\n", "24 is Go's default");
+        let c = convert(
+            "manifest_refresh_hours: 48.5\n---\nlog_level: debug\n",
+            &paths(),
+        )
+        .unwrap();
+        assert_eq!(c.text, "version = 1\nmanifest_refresh_hours = 48\n");
     }
 
     #[test]
