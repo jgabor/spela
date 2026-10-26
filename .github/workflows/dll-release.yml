@@ -1,5 +1,10 @@
 name: DLL Release
 
+# Releases a DLL by hand to jgabor/spela-dlls and adds it to the manifest.
+# The asset and the manifest entry use the family's real file name, such as
+# nvngx_dlss.dll, which install writes into the game folder. The inputs reach
+# the shell only through env, never as ${{ }} in a script.
+
 on:
   workflow_dispatch:
     inputs:
@@ -31,93 +36,95 @@ permissions:
 
 jobs:
   release-dll:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    env:
+      DLL_TYPE: ${{ inputs.dll_type }}
+      VERSION: ${{ inputs.version }}
+      DLL_URL: ${{ inputs.dll_url }}
+      NOTES: ${{ inputs.notes }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Validate inputs
         run: |
-          if ! [[ "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
-            echo "Invalid version format. Expected X.Y or X.Y.Z"
+          case "$DLL_TYPE" in
+            dlss) FILENAME=nvngx_dlss.dll ;;
+            dlssg) FILENAME=nvngx_dlssg.dll ;;
+            dlssd) FILENAME=nvngx_dlssd.dll ;;
+            xess) FILENAME=libxess.dll ;;
+            fsr) FILENAME=amd_fidelityfx_vk.dll ;;
+            *)
+              echo "Unknown DLL type" >&2
+              exit 1
+              ;;
+          esac
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "Invalid version format. Expected X.Y or X.Y.Z" >&2
             exit 1
           fi
+          if ! [[ "$DLL_URL" =~ ^https://[^[:space:]]+$ ]]; then
+            echo "The DLL URL must be https" >&2
+            exit 1
+          fi
+          echo "FILENAME=$FILENAME" >> "$GITHUB_ENV"
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Build the updater
+        run: cargo build --locked -p dlss-updater
 
       - name: Download DLL
         run: |
           mkdir -p dist
-          curl -L "${{ inputs.dll_url }}" -o dist/${{ inputs.dll_type }}.dll
+          curl --fail --location -o "dist/$FILENAME" "$DLL_URL"
 
       - name: Calculate SHA256
         id: sha
         run: |
-          SHA256=$(sha256sum dist/${{ inputs.dll_type }}.dll | cut -d' ' -f1)
-          SIZE=$(stat -c%s dist/${{ inputs.dll_type }}.dll)
-          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
-          echo "size=$SIZE" >> $GITHUB_OUTPUT
+          echo "sha256=$(sha256sum "dist/$FILENAME" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "size=$(stat -c%s "dist/$FILENAME")" >> "$GITHUB_OUTPUT"
 
       - name: Create release in spela-dlls
         env:
           GH_TOKEN: ${{ secrets.DLLS_REPO_TOKEN }}
+          SHA256: ${{ steps.sha.outputs.sha256 }}
+          SIZE: ${{ steps.sha.outputs.size }}
         run: |
-          TAG="dll-${{ inputs.dll_type }}-v${{ inputs.version }}"
-          NOTES="## ${{ inputs.dll_type }} v${{ inputs.version }}
-
-          ${{ inputs.notes }}
-
-          **SHA256:** \`${{ steps.sha.outputs.sha256 }}\`
-          **Size:** ${{ steps.sha.outputs.size }} bytes"
-
+          TAG="dll-${DLL_TYPE}-v${VERSION}"
+          BODY=$(printf '## %s v%s\n\n%s\n\n**SHA256:** `%s`\n**Size:** %s bytes\n' \
+            "$DLL_TYPE" "$VERSION" "$NOTES" "$SHA256" "$SIZE")
           gh release create "$TAG" \
             --repo jgabor/spela-dlls \
-            --title "${{ inputs.dll_type }} v${{ inputs.version }}" \
-            --notes "$NOTES" \
-            dist/${{ inputs.dll_type }}.dll
+            --title "$DLL_TYPE v$VERSION" \
+            --notes "$BODY" \
+            "dist/$FILENAME"
 
-      - name: Update manifest
+      - name: Add to the manifest
         run: |
-          python3 << 'EOF'
-          import json
-          from datetime import datetime, timezone
-
-          with open('data/manifest.json', 'r') as f:
-              manifest = json.load(f)
-
-          dll_type = '${{ inputs.dll_type }}'
-          version = '${{ inputs.version }}'
-          sha256 = '${{ steps.sha.outputs.sha256 }}'
-          size = int('${{ steps.sha.outputs.size }}')
-          notes = '${{ inputs.notes }}'
-
-          new_dll = {
-              'version': version,
-              'filename': f'{dll_type}.dll',
-              'url': f'https://github.com/jgabor/spela-dlls/releases/download/dll-{dll_type}-v{version}/{dll_type}.dll',
-              'sha256': sha256,
-              'size': size,
-              'release_date': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-              'notes': notes
-          }
-
-          if dll_type not in manifest['dlls']:
-              manifest['dlls'][dll_type] = []
-
-          # Remove existing entry with same version if present
-          manifest['dlls'][dll_type] = [d for d in manifest['dlls'][dll_type] if d['version'] != version]
-
-          # Add new entry at the beginning (latest first)
-          manifest['dlls'][dll_type].insert(0, new_dll)
-
-          # Update manifest timestamp
-          manifest['updated_at'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-
-          with open('data/manifest.json', 'w') as f:
-              json.dump(manifest, f, indent=2)
-          EOF
-
-      - name: Commit manifest update
-        run: |
+          TAG="dll-${DLL_TYPE}-v${VERSION}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/manifest.json
-          git commit -m "chore: add ${{ inputs.dll_type }} v${{ inputs.version }} to manifest"
-          git push
+          for attempt in 1 2 3 4 5; do
+            git fetch --depth=1 origin main
+            git checkout -B main FETCH_HEAD
+            ./target/debug/dlss-updater add -type "$DLL_TYPE" -version "$VERSION" \
+              -file "dist/$FILENAME" \
+              -url "https://github.com/jgabor/spela-dlls/releases/download/$TAG/$FILENAME" \
+              -notes "$NOTES" -manifest data/manifest.json
+            git add data/manifest.json
+            if git diff --staged --quiet; then
+              echo "No changes to commit"
+              exit 0
+            fi
+            git commit -m "chore: add $DLL_TYPE v$VERSION to manifest"
+            if git push origin main; then
+              exit 0
+            fi
+            echo "Push failed, starting again from main (attempt $attempt)"
+            sleep $((attempt * 2))
+          done
+          echo "Failed to push after 5 attempts" >&2
+          exit 1

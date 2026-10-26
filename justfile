@@ -8,6 +8,20 @@ default:
 build:
     cargo build
 
+# Build the release binary, target/release/spela.
+build-release:
+    cargo build --release --locked -p spela
+
+# Install the release binary to /usr/bin/spela and the polkit policy, the
+# paths the AUR package uses: Steam runs launch options with
+# PATH=/usr/bin:/bin, and the policy names /usr/bin/spela. Run
+# `just build-release` first, then `sudo just install`. `just install <dir>`
+# stages the files under <dir> instead.
+install destdir="":
+    @test -x target/release/spela || { echo "target/release/spela is missing: run 'just build-release' first" >&2; exit 1; }
+    install -Dm755 target/release/spela "{{destdir}}/usr/bin/spela"
+    install -Dm644 data/polkit/io.github.spela.policy "{{destdir}}/usr/share/polkit-1/actions/io.github.spela.policy"
+
 # Run spela with any arguments, for example `just run tui`.
 run *args:
     cargo run -- {{args}}

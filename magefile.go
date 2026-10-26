@@ -133,7 +133,7 @@ func Coverage() error {
 	defer cleanup()
 
 	coverPackages := "./cmd/...,./internal/...,./tools/..."
-	testPackages := []string{"./cmd/...", "./internal/...", "./tools/...", "./tests/contracts/..."}
+	testPackages := []string{"./cmd/...", "./internal/...", "./tools/..."}
 	runGoCoverage := func(name string, packages []string, tags ...string) error {
 		args := []string{"test", "-covermode=atomic", "-coverpkg=" + coverPackages,
 			"-coverprofile=" + filepath.Join(coverageDir, "go-"+name+".out")}
