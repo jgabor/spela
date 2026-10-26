@@ -61,29 +61,18 @@ fn unknown_commands_are_usage_errors() {
 }
 
 #[test]
-fn unbuilt_commands_say_so_and_exit_1() {
-    let s = Sandbox::new();
-    let run = s.run(&["gpu", "info"]);
-    run.expect_code(1);
-    assert_eq!(
-        run.stderr(),
-        "error: 'spela gpu info' is not yet implemented in this build\n"
-    );
-    assert!(run.stdout().is_empty());
-    assert!(!s.state_dir().exists(), "CLI commands write no log file");
-}
-
-#[test]
 fn json_failures_print_only_an_error_object() {
     let s = Sandbox::new();
+    // The fake privilege runner has no sysfs tree, so a governor change
+    // fails in the helper.
     for args in [
-        &["--json", "gpu", "info"][..],
-        &["gpu", "info", "--json"][..],
+        &["--json", "cpu", "governor", "performance"][..],
+        &["cpu", "governor", "performance", "--json"][..],
     ] {
         let run = s.run(args);
         run.expect_code(1);
         assert!(run.stderr().is_empty(), "{}", run.stderr());
-        insta::assert_snapshot!("json_not_implemented", run.stdout());
+        insta::assert_snapshot!("json_failure", run.stdout());
     }
 }
 
@@ -233,11 +222,23 @@ fn apply_profile_refuses_go_flags_and_writes_nothing() {
                 "apply-profile: this is the spela 0.7 helper; the Go helper's flags are not supported\n",
             );
     }
-    s.spela()
-        .args(["apply-profile", "--serve"])
-        .assert()
-        .code(1)
-        .stderr("apply-profile: not yet implemented in this build\n");
+    // Tests never run as root, so both modes stop at the root check before
+    // they read stdin, open NVML or look at /sys.
+    // SAFETY: geteuid has no preconditions and cannot fail.
+    if unsafe { libc::geteuid() } != 0 {
+        for args in [
+            &["apply-profile", "--serve"][..],
+            &["apply-profile", "--once", "{}"][..],
+        ] {
+            s.spela()
+                .args(args)
+                .write_stdin("{\"version\":1,\"type\":\"apply\",\"steps\":[{\"step\":\"smt\",\"value\":false}]}\n")
+                .assert()
+                .code(1)
+                .stdout("")
+                .stderr("apply-profile must be run with root privileges\n");
+        }
+    }
     let tree = s.tree();
     assert!(
         !tree.iter().any(|p| p.starts_with("xdg-")),

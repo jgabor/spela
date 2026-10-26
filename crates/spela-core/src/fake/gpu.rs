@@ -82,6 +82,8 @@ impl FakeGpu {
                 name: "Demo GPU 4080".into(),
                 driver_version: "580.95.05".into(),
                 memory_total_mib: 16_376,
+                power_draw_mw: Some(22_450),
+                power_limit_range_w: Some((100, 360)),
             },
             vec![
                 sample(41, 3, 22, 0),
@@ -160,6 +162,9 @@ struct ControlState {
     fail_at_call: Option<usize>,
     prior_unreadable: bool,
 }
+
+/// The power limits the fake card accepts, in W: the demo GPU's range.
+pub const POWER_LIMIT_RANGE_W: (u32, u32) = (100, 360);
 
 /// GPU setters that change values in memory and record every call.
 #[derive(Debug, Clone)]
@@ -257,6 +262,13 @@ impl GpuControl for FakeGpuControl {
             power_limit_w: Prior::Known(s.power_limit_w),
             fan: Prior::Known(s.fan),
         }
+    }
+
+    fn power_limit_range(&mut self) -> Result<(u32, u32), GpuError> {
+        if self.lock().prior_unreadable {
+            return Err(GpuError::NotSupported("not readable (fake)".into()));
+        }
+        Ok(POWER_LIMIT_RANGE_W)
     }
 
     fn set_clock_offset(&mut self, mhz: i32) -> Result<(), GpuError> {

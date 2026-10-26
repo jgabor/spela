@@ -721,13 +721,54 @@ fn cpu_governor_and_smt_read_the_fake_cpu() {
     let run = s.run(&["cpu", "smt"]);
     run.expect_code(0);
     assert_eq!(run.stdout(), "SMT: true\n");
-    // Setting is the write side, not built here.
-    let run = s.run(&["cpu", "governor", "performance"]);
-    run.expect_code(1);
-    assert!(
-        run.stderr()
-            .contains("'spela cpu governor' is not yet implemented")
+}
+
+#[test]
+fn gpu_and_cpu_info_read_the_fake() {
+    let s = Sandbox::new();
+    let run = s.run(&["gpu", "info"]);
+    run.expect_code(0);
+    assert_eq!(
+        run.stdout(),
+        "GPU:  Demo GPU 4080\nDriver:  580.95.05\nVRAM:  16376 MB\nTemp:  41°C\n\
+         Power:  22.4 W / 320 W limit (100–360 W range)\nCore:  285 MHz\nMem:  10501 MHz\n\
+         Fan:  0%\nLoad:  3%\n"
     );
+    let run = s.run(&["cpu", "info"]);
+    run.expect_code(0);
+    assert_eq!(
+        run.stdout(),
+        "CPU:  Demo CPU 8-Core Processor\nCores:  16\n\
+         Governor:  powersave (performance, powersave available)\nSMT:  enabled\n\
+         Freq:  3420 MHz avg\nLoad:  12%\nRAM:  9800 / 32000 MB\n"
+    );
+    // The sandbox's drop checks that neither ran nvidia-smi, systemctl or
+    // scx_loader.
+}
+
+#[test]
+fn the_live_commands_run_the_fake_helper_and_take_the_launch_lock() {
+    let s = Sandbox::new();
+    let run = s.run(&["gpu", "reset"]);
+    run.expect_code(0);
+    assert_eq!(run.stdout(), "GPU clocks reset to default\n");
+    // A typo is a usage error; Go turned SMT off.
+    let run = s.run(&["cpu", "smt", "of"]);
+    run.expect_code(2);
+    assert_eq!(
+        run.stderr(),
+        "error: invalid SMT value: of (use on or off)\n"
+    );
+    // A governor sysfs does not list is refused before any prompt.
+    let run = s.run(&["cpu", "governor", "turbo"]);
+    run.expect_code(1);
+    assert_eq!(
+        run.stderr(),
+        "error: failed to set governor: CPU governor \"turbo\" is not available \
+         (available: performance, powersave)\n"
+    );
+    let lock = s.state_dir().join("locks");
+    assert!(lock.is_dir(), "the live commands took the launch lock");
 }
 
 /// A game cache written by hand with fixed times, so the JSON snapshots

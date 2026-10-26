@@ -12,6 +12,7 @@
 //! | [`hex`] | SHA-256 and hex helpers |
 //! | [`backend`] | The traits for GPU, CPU reads, display, privilege and HTTP |
 //! | [`fake`] | The fake behind every trait, shared by tests and `--demo` |
+//! | [`helper`] | The root helper's protocol, checks and loops, run by the binary and the fake |
 //!
 //! The domain:
 //!
@@ -44,6 +45,7 @@ pub mod env;
 pub mod fake;
 pub mod fs;
 pub mod games;
+pub mod helper;
 pub mod hex;
 pub mod kscreen;
 pub mod launch;

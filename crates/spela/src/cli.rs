@@ -520,7 +520,9 @@ pub fn process(
             // The root helper runs as root with root's environment: no
             // XDG paths, no log file, nothing written.
             if let Some(Command::ApplyProfile(a)) = &inv.cli.command {
-                return helper::run(a, err);
+                let code = helper::run(a, out, err);
+                let _ = out.flush();
+                return code;
             }
             let json = inv.cli.json;
             match setup_and_run(&inv, env, paths, colors, out, err) {
@@ -668,7 +670,10 @@ pub fn run(
         Command::Completion { shell } => commands::completion::run(*shell, out),
         Command::Overlay(_) => Err(removed::overlay()),
         Command::Gui(_) => Err(removed::gui()),
-        Command::ApplyProfile(a) => Err(helper::check(a)),
+        // `process` runs the helper before any setup; this seam never does.
+        Command::ApplyProfile(a) => Err(helper::check(a).unwrap_or_else(|| {
+            CliError::new(exit::FAILURE, "apply-profile runs only as its own process")
+        })),
     }
 }
 

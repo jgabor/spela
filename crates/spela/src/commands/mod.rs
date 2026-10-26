@@ -25,6 +25,7 @@
 //! | [`profile_write`], [`section_write`], [`config_write`], [`denylist_write`] | the stored-profile, config and deny list writes |
 //! | [`dll_write`] | `dll install`, `update` and `restore` |
 //! | [`target`] | what the writes share: `<game>` or `--all-games`, exit codes |
+//! | [`hardware`] | `gpu info`, `cpu info`, and the live `gpu reset`, `cpu governor <g>` and `cpu smt <v>` through the one-shot helper |
 //!
 //! The hidden `apply-profile` root helper is [`crate::helper`].
 
@@ -42,6 +43,7 @@ pub mod dll_read;
 pub mod dll_write;
 pub mod dlss;
 pub mod gpu;
+pub mod hardware;
 pub mod launch;
 pub mod list;
 pub mod profile;

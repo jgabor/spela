@@ -421,22 +421,38 @@ pub fn result_text(
             "Not applied: the polkit prompt was dismissed".to_owned(),
         ),
         Err(PrivilegeError::Helper(text)) if text.contains(NO_AGENT) => {
-            let (what, command) = match op {
-                HardwareOp::GpuReset => ("GPU reset", "spela gpu reset".to_owned()),
-                HardwareOp::Governor(g) => ("Governor change", format!("spela cpu governor {g}")),
-                HardwareOp::Smt(on) => (
-                    "SMT change",
-                    format!("spela cpu smt {}", if *on { "on" } else { "off" }),
-                ),
-            };
+            let (what, command) = what_and_command(op);
             (
                 Level::Error,
                 format!("{what} needs a polkit agent. Run '{command}' in a terminal"),
             )
         }
-        Err(PrivilegeError::Helper(text)) | Err(PrivilegeError::Unavailable(text)) => {
-            (Level::Error, text.clone())
+        // How pkexec reports a missing agent is a user live check, so any
+        // other helper failure gets the same pointer to the CLI
+        // (architecture.md, TUI process).
+        Err(PrivilegeError::Helper(text)) => {
+            let (_, command) = what_and_command(op);
+            (
+                Level::Error,
+                format!(
+                    "{}. Run '{command}' in a terminal",
+                    text.trim().trim_end_matches('.')
+                ),
+            )
         }
+        Err(PrivilegeError::Unavailable(text)) => (Level::Error, text.clone()),
+    }
+}
+
+/// A hardware command's name for the status line, and its CLI command.
+fn what_and_command(op: &HardwareOp) -> (&'static str, String) {
+    match op {
+        HardwareOp::GpuReset => ("GPU reset", "spela gpu reset".to_owned()),
+        HardwareOp::Governor(g) => ("Governor change", format!("spela cpu governor {g}")),
+        HardwareOp::Smt(on) => (
+            "SMT change",
+            format!("spela cpu smt {}", if *on { "on" } else { "off" }),
+        ),
     }
 }
 

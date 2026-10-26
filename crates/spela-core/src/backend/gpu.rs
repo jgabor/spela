@@ -41,6 +41,11 @@ pub struct GpuInfo {
     pub driver_version: String,
     /// Total VRAM in MiB.
     pub memory_total_mib: u64,
+    /// The board's power draw when asked, in mW, for `gpu info`'s one
+    /// decimal. `None` when the card does not report it.
+    pub power_draw_mw: Option<u32>,
+    /// The lowest and highest power limit the card accepts, in W.
+    pub power_limit_range_w: Option<(u32, u32)>,
 }
 
 /// Why the driver holds the clocks back: NVML's four throttle reasons that
@@ -152,6 +157,9 @@ pub trait Gpu: Send {
 pub trait GpuControl: Send {
     /// Reads every value the setters below can change.
     fn read_prior(&mut self) -> GpuPrior;
+    /// The lowest and highest power limit the card accepts, in W. The
+    /// helper checks a requested limit against it before any change.
+    fn power_limit_range(&mut self) -> Result<(u32, u32), GpuError>;
     /// Sets the graphics clock offset.
     fn set_clock_offset(&mut self, mhz: i32) -> Result<(), GpuError>;
     /// Sets the memory clock offset.

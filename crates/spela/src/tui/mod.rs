@@ -205,6 +205,11 @@ pub fn run(ctx: &mut Context, _lock: InstanceLock, err: &mut dyn Write) -> Resul
     let metrics = MetricsThread::spawn(gpu, cpu, Box::new(cpu_reader.clone()), tx.clone())
         .map_err(|e| failure("metrics thread", e))?;
     let driver = metrics.driver();
+    // The TUI's own polkit runner: no text agent and a null stdin, so
+    // pkexec never prompts on this tty (decision 44).
+    if ctx.backends.kind == BackendKind::Real {
+        ctx.backends.privilege = Box::new(crate::privilege::PolkitPrivilege::tui());
+    }
     let privilege = std::mem::replace(
         &mut ctx.backends.privilege,
         Box::new(exec::monitor::NoPrivilege),
