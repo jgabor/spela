@@ -371,7 +371,9 @@ pub fn clear(paths: &Paths, app_id: u64) -> Result<bool, ListError> {
     })
 }
 
-/// The overrides file as spela writes it, for the migration from Go.
+/// The overrides file as spela writes it, for the migration from Go. It
+/// writes the lists as given: the migration first keeps an app that Go
+/// listed in both only in `allowed`, and records its `denied` entry.
 pub fn overrides_toml(overrides: &Overrides) -> String {
     let mut doc = DocumentMut::new();
     doc.insert("version", value(LIST_VERSION));
@@ -525,10 +527,15 @@ fn edit_overrides(
     }
     let mut doc: DocumentMut = text.parse().map_err(|e| invalid(&path, e))?;
     if text.trim().is_empty() {
+        // A new file starts with its version.
         doc.insert("version", value(LIST_VERSION));
     }
     if !change(&mut doc) {
         return Ok(false);
+    }
+    // Every TOML file spela writes carries its version (decision 43).
+    if !doc.contains_key("version") {
+        doc.insert("version", value(LIST_VERSION));
     }
     let new_text = doc.to_string();
     parse_overrides(&path, &new_text)?;
@@ -824,6 +831,21 @@ mod tests {
             text.starts_with("# my notes\nversion = 1\nallowed = []\n"),
             "{text}"
         );
+        // A hand-written file without a version gets one on its next write.
+        let other = tempfile::tempdir().unwrap();
+        let hand = Paths::under(other.path());
+        write(&hand.deny_overrides(), "# mine\nallowed = [1]\n");
+        assert!(!allow(&hand, 1).unwrap(), "no change, no write");
+        assert_eq!(
+            std::fs::read_to_string(hand.deny_overrides()).unwrap(),
+            "# mine\nallowed = [1]\n"
+        );
+        assert!(allow(&hand, 2).unwrap());
+        assert_eq!(
+            std::fs::read_to_string(hand.deny_overrides()).unwrap(),
+            "# mine\nallowed = [1, 2]\nversion = 1\n"
+        );
+
         let lists = load(&paths).unwrap();
         assert!(lists.check(1172470).is_denied(), "deny cleared the allow");
         assert_eq!(
