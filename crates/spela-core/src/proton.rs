@@ -699,13 +699,13 @@ mod tests {
             &[
                 ("0", "proton_experimental"),
                 ("9100010", "GE-Proton10-34"),
-                ("4263293584", ""),
+                ("4200000001", ""),
             ],
         );
         assert_eq!(mapped_tool(root, 9100010).unwrap(), "GE-Proton10-34");
         assert_eq!(mapped_tool(root, 9100099).unwrap(), "proton_experimental");
         assert_eq!(
-            mapped_tool(root, 4263293584).unwrap(),
+            mapped_tool(root, 4200000001).unwrap(),
             "proton_experimental",
             "an empty name falls back"
         );

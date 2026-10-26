@@ -183,12 +183,6 @@ pub fn rescan(
     Ok(found)
 }
 
-/// Whether the CLI should rescan before it reads the cache: when the cache
-/// is empty, or when `rescan_on_startup` is on (Go's `RefreshIfNeeded`).
-pub fn needs_rescan(cache: &GameCache, rescan_on_startup: bool) -> bool {
-    cache.is_empty() || rescan_on_startup
-}
-
 /// The read-side views of the cache, which drop tool names as Go's `List`
 /// and `GamesWithDLSS` do, as a second guard behind the scan.
 impl GameCache {
@@ -304,24 +298,6 @@ mod tests {
         rescan(&paths, &install, &clock()).unwrap();
         let ids: Vec<u64> = cache::load(&paths).games.iter().map(|g| g.app_id).collect();
         assert_eq!(ids, [9100010], "a game that is gone drops out");
-    }
-
-    #[test]
-    fn needs_rescan_follows_go() {
-        let empty = GameCache::default();
-        assert!(needs_rescan(&empty, false));
-        let mut one = GameCache::default();
-        one.games.push(Game {
-            app_id: 1,
-            name: "x".into(),
-            install_dir: "/x".into(),
-            library_path: "/".into(),
-            prefix_path: None,
-            scanned_at: clock().now(),
-            dlls: Vec::new(),
-        });
-        assert!(!needs_rescan(&one, false));
-        assert!(needs_rescan(&one, true));
     }
 
     #[test]
