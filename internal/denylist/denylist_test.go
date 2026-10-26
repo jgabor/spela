@@ -213,12 +213,22 @@ func TestCheckReportsAListThatCannotBeRead(t *testing.T) {
 		t.Fatal("IsDenied keeps treating an unreadable list as empty")
 	}
 
-	// A user denial still holds while the deny list is broken.
+	// A user denial or allow override still holds for the read answer while
+	// the deny list error is reported.
 	if err := Deny(1091500, "Cyberpunk 2077", "test"); err != nil {
 		t.Fatal(err)
 	}
-	if denied, reason, err := Check(1091500); !denied || reason != "test" || err != nil {
-		t.Fatalf("user denial: denied=%v reason=%q err=%v", denied, reason, err)
+	if denied, reason, err := Check(1091500); !denied || reason != "test" || err == nil {
+		t.Fatalf("user denial with broken deny list: denied=%v reason=%q err=%v, want denied with error", denied, reason, err)
+	}
+	if denied, reason := IsDenied(1091500); !denied || reason != "test" {
+		t.Fatalf("IsDenied user denial: denied=%v reason=%q", denied, reason)
+	}
+	if err := Allow(1172470); err != nil {
+		t.Fatal(err)
+	}
+	if denied, _, err := Check(1172470); denied || err == nil {
+		t.Fatalf("user allow with broken deny list: denied=%v err=%v, want allowed with error", denied, err)
 	}
 
 	if err := os.Remove(filepath.Join(listsDir, "denylist.yaml")); err != nil {
@@ -227,8 +237,11 @@ func TestCheckReportsAListThatCannotBeRead(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(listsDir, "overrides.yaml"), []byte("allowed: [unclosed"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if denied, _, err := Check(1172470); !denied || err != nil {
-		t.Fatalf("built-in denial with broken overrides: denied=%v err=%v, want denied", denied, err)
+	if denied, _, err := Check(1172470); !denied || err == nil {
+		t.Fatalf("built-in denial with broken overrides: denied=%v err=%v, want denied with error", denied, err)
+	}
+	if denied, _ := IsDenied(1172470); !denied {
+		t.Fatal("IsDenied built-in denial still holds when overrides are broken")
 	}
 	if denied, _, err := Check(1091500); denied || err == nil {
 		t.Fatalf("broken overrides: denied=%v err=%v, want an error", denied, err)

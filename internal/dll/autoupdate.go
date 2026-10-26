@@ -33,11 +33,14 @@ func AutoUpdate(running func([]*game.Game) map[uint64]bool) AutoUpdateResult {
 	}
 	games := database.List()
 	sort.Slice(games, func(left, right int) bool { return games[left].Name < games[right].Name })
+	// Nobody confirms this update, so a deny list or overrides file that cannot
+	// be read stops it rather than letting an anti-cheat game through.
+	if _, _, err := denylist.Check(0); err != nil {
+		return AutoUpdateResult{Err: fmt.Errorf("check deny list: %w", err)}
+	}
 	var candidates []*game.Game
 	pending := make(map[uint64][]UpdateRequest)
 	for _, entry := range games {
-		// Nobody confirms this update, so a deny list that cannot be read
-		// stops it rather than letting an anti-cheat game through.
 		denied, _, err := denylist.Check(entry.AppID)
 		if err != nil {
 			return AutoUpdateResult{Err: fmt.Errorf("check deny list: %w", err)}

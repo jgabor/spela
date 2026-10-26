@@ -119,33 +119,34 @@ func IsDenied(appID uint64) (bool, string) {
 // error the answer covers only the lists that were read.
 func Check(appID uint64) (bool, string, error) {
 	overrides, overridesErr := LoadOverrides()
+	list, listErr := LoadDenyList()
+	var err error
+	if overridesErr != nil {
+		err = fmt.Errorf("read %s: %w", overridesPath(), overridesErr)
+	} else if listErr != nil {
+		err = fmt.Errorf("read %s: %w", denyListPath(), listErr)
+	}
+
 	if overrides != nil {
 		if slices.Contains(overrides.Allowed, appID) {
-			return false, "", nil
+			return false, "", err
 		}
 		for _, e := range overrides.Denied {
 			if e.AppID == appID {
-				return true, e.Reason, nil
+				return true, e.Reason, err
 			}
 		}
 	}
 
-	list, listErr := LoadDenyList()
 	if list != nil {
 		for _, e := range list.Entries {
 			if e.AppID == appID {
-				return true, e.Reason, nil
+				return true, e.Reason, err
 			}
 		}
 	}
 
-	if overridesErr != nil {
-		return false, "", fmt.Errorf("read %s: %w", overridesPath(), overridesErr)
-	}
-	if listErr != nil {
-		return false, "", fmt.Errorf("read %s: %w", denyListPath(), listErr)
-	}
-	return false, "", nil
+	return false, "", err
 }
 
 func Allow(appID uint64) error {

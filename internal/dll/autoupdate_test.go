@@ -115,6 +115,14 @@ func TestAutoUpdateStopsWhenTheDenyListCannotBeRead(t *testing.T) {
 		t.Fatalf("broken deny list = %+v, notice %q", result, result.Notice())
 	}
 	assertFileBytes(t, path, []byte("original"))
+
+	// An allow override for the game must not mask a broken deny list.
+	assertWriteFile(t, filepath.Join(lists, "overrides.yaml"), []byte("allowed:\n  - 1091500\n"))
+	result = AutoUpdate(func([]*game.Game) map[uint64]bool { t.Fatal("no game is checked without a deny list"); return nil })
+	if result.Err == nil || !strings.HasPrefix(result.Notice(), "DLL auto-update skipped: check deny list: read ") {
+		t.Fatalf("broken deny list with allow override = %+v, notice %q", result, result.Notice())
+	}
+	assertFileBytes(t, path, []byte("original"))
 }
 
 func TestAutoUpdateNoticeCountsAndNames(t *testing.T) {
