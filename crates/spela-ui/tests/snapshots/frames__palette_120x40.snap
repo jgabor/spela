@@ -1,0 +1,44 @@
+---
+source: crates/spela-ui/tests/frames.rs
+expression: render_text(&mut s)
+---
+ spela   ▸ Library  DLL Catalog  Monitor  Settings
+┌─ Scope ────────────────────────┬─ Ashfall Courier ───────────────────────────────────────────────────────────────────┐
+│ / Find games                   │ Ashfall Courier · App ID 9100010                                                    │
+│   All games                    │                                                                                     │
+│ ▸ Ashfall Courie┌─ Commands ───────────────────────────────────────────────────────── : or Ctrl-K ─┐                 │
+│   Brightwater Ke│ > dl                                                                             │                 │
+│   Cinder Valley ├──────────────────────────────────────────────────────────────────────────────────┤                 │
+│   Deepline Salva│ ▸ Go to DLL Catalog                               2         destination          │                 │
+│   Ember Tide    ├──────────────────────────────────────────────────────────────────────────────────┤                 │
+│   Game 1 Remaste│ Type to filter. Enter runs, Esc closes.                                          │                 │
+│   Glasshouse Det│ A row shows its key when it has one. Actions rows are reached with 0.            │                 │
+│   Hollow Crown T│                                                                                  │                 │
+│   Ironleaf Exped└──────────────────────────────────────────────────────────────────────────────────┘                 │
+│   Lantern Drift              ⚑ │                                                                                     │
+│   Moonwell Farmstead       ▪   │                                                                                     │
+│   Nightglass Protocol          │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+└─ ▪ DLLs  ⚑ profile ────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
+ 1 best matches for "dl"
+ Up/Down Move  Enter Run  Esc Close

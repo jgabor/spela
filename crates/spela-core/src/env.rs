@@ -28,6 +28,23 @@ pub mod var {
     /// Steam game.
     pub const STEAM_GAME_ID: &str = "SteamGameId";
 
+    /// The terminal type, for the TUI's capability probe and its quirks.
+    pub const TERM: &str = "TERM";
+    /// The terminal program, such as `kitty` or `vscode`.
+    pub const TERM_PROGRAM: &str = "TERM_PROGRAM";
+    /// The terminal program's version, part of the capability cache key.
+    pub const TERM_PROGRAM_VERSION: &str = "TERM_PROGRAM_VERSION";
+    /// `truecolor` or `24bit` when the terminal draws 24-bit colour.
+    pub const COLORTERM: &str = "COLORTERM";
+    /// Set inside tmux.
+    pub const TMUX: &str = "TMUX";
+    /// Set inside Zellij.
+    pub const ZELLIJ: &str = "ZELLIJ";
+    /// Set inside GNU screen.
+    pub const STY: &str = "STY";
+    /// Set in an SSH session with a terminal.
+    pub const SSH_TTY: &str = "SSH_TTY";
+
     /// Every name above, for [`super::Env::from_process`].
     pub const ALL: &[&str] = &[
         SPELA_BACKEND,
@@ -37,6 +54,14 @@ pub mod var {
         HOME,
         STEAM_APP_ID,
         STEAM_GAME_ID,
+        TERM,
+        TERM_PROGRAM,
+        TERM_PROGRAM_VERSION,
+        COLORTERM,
+        TMUX,
+        ZELLIJ,
+        STY,
+        SSH_TTY,
     ];
 }
 

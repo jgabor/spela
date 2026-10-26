@@ -1,4 +1,8 @@
-//! `spela tui`: the interactive terminal UI.
+//! `spela tui`: the interactive terminal UI, and `--demo` with no command.
+//!
+//! The shell lives in [`crate::tui`]; this file is the command's entry.
+
+use std::io::Write;
 
 use spela_core::lock::InstanceLock;
 
@@ -6,8 +10,7 @@ use crate::cli::Context;
 use crate::error::CliError;
 
 /// Runs the TUI. [`crate::cli`] has already taken the TUI lock, which is
-/// held until this returns. Next in the startup order: the config and the
-/// terminal (Phase 4).
-pub fn run(_ctx: &mut Context, _lock: InstanceLock) -> Result<(), CliError> {
-    Err(CliError::not_implemented("tui"))
+/// held until this returns.
+pub fn run(ctx: &mut Context, lock: InstanceLock, err: &mut dyn Write) -> Result<(), CliError> {
+    crate::tui::run(ctx, lock, err)
 }

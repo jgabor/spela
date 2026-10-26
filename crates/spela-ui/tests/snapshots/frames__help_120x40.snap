@@ -1,0 +1,44 @@
+---
+source: crates/spela-ui/tests/frames.rs
+expression: render_text(&mut s)
+---
+ spela   ▸ Library  DLL Catalog  Monitor  Settings
+┌─ Scope ────────────────────────┬─ Ashfall Courier ───────────────────────────────────────────────────────────────────┐
+│ / Find g┌─ Keyboard shortcuts ─────────────────────────────────────────────────────────────────────────────┐         │
+│   All ga│  Reference only. Close Help before using these controls.                                         │         │
+│ ▸ Ashfal│                                                                                                  │         │
+│   Bright│  Keys here: Library · list                                                                       ┃         │
+│   Cinder│  Ctrl-C         Quit at once                                                                     ┃         │
+│   Deepli│  0              Actions                                                                          ┃         │
+│   Ember │  Up/Down        Game                                                                             ┃         │
+│   Game 1│  Down           Next game                                                                        ┃         │
+│   Glassh│  Enter          Open selection                                                                   ┃         │
+│   Hollow│  PgUp           Page up                                                                          ┃         │
+│   Ironle│  PgDn           Page down                                                                        ┃         │
+│   Lanter│  Home           First game                                                                       ┃         │
+│   Moonwe│  End            Last game                                                                        ┃         │
+│   Nightg│  1              Library                                                                          ┃         │
+│         │  2              DLL Catalog                                                                      ┃         │
+│         │  3              Monitor                                                                          ┃         │
+│         │  4              Settings                                                                         ┃         │
+│         │  Tab            Pane                                                                             ┃         │
+│         │  Shift-Tab      Previous pane                                                                    │         │
+│         │  Esc            Back · nothing to close                                                          │         │
+│         │  ?              Help                                                                             │         │
+│         │  :              Commands                                                                         │         │
+│         │  /              Find                                                                             │         │
+│         │  q              Quit                                                                             │         │
+│         │  Q              Quit now                                                                         │         │
+│         │  Ctrl-Z         Suspend to the shell                                                             │         │
+│         │                                                                                                  │         │
+│         │  Everywhere                                                                                      │         │
+│         │  0              Actions for this context                                                         │         │
+│         │  1 to 4         Library, DLL Catalog, Monitor, Settings                                          │         │
+│         │  Tab            Next pane                                                                        │         │
+│         │  Shift-Tab      Previous pane                                                                    │         │
+│         │                                                                                                  │         │
+│         │   Close                                                                                          │         │
+│         └──────────────────────────────────────────────────────────────────────────────────────────────────┘         │
+└─ ▪ DLLs  ⚑ profile ────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
+
+ Up/Down Scroll  Tab Close button  Esc Close

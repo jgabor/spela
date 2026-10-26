@@ -606,12 +606,12 @@ pub fn run(
 ) -> Result<(), CliError> {
     let Some(command) = &inv.cli.command else {
         if inv.cli.demo {
-            return run_tui(ctx);
+            return run_tui(ctx, err);
         }
         return write_help(out, &[], ctx.colors.out);
     };
     match command {
-        Command::Tui => run_tui(ctx),
+        Command::Tui => run_tui(ctx, err),
         Command::Scan(args) => commands::scan::run(args, inv, ctx, out, err),
         Command::List(args) => commands::list::run(args, inv, ctx, out, err),
         Command::Show(args) => commands::show::run(args, inv, ctx, out, err),
@@ -643,10 +643,10 @@ pub fn run(
 
 /// Startup order: logging (done), the TUI lock, then the TUI itself. The
 /// lock is taken here so its log line keeps the `spela::cli` target.
-fn run_tui(ctx: &mut Context) -> Result<(), CliError> {
+fn run_tui(ctx: &mut Context, err: &mut dyn Write) -> Result<(), CliError> {
     let lock = locks::tui(&ctx.paths)?;
     tracing::info!(lock = %lock.path().display(), "took the TUI lock");
-    commands::tui::run(ctx, lock)
+    commands::tui::run(ctx, lock, err)
 }
 
 fn write_help(out: &mut dyn Write, path: &[String], color: bool) -> Result<(), CliError> {

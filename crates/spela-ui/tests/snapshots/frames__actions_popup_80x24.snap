@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/frames.rs
+expression: render_text(&mut s)
+---
+ spela   ▸ Library  DLL Catalog  Monitor  Settings
+┌─ ▸ List ─────────────────────────────────────────────────────────────────────┐
+│ / Find games                                                                 │
+│ ┌─ Actions · Library · list ───────────────────────────────────────────────┐ │
+│ │                                                                          │ │
+│ │ ▸ Search games                                                        /  │ │
+│ │   Rescan games                                                           │ │
+│ │   Help                                                                ?  │ │
+│ │   Quit                                                                q  │ │
+│ │                                                                          │ │
+│ ├──────────────────────────────────────────────────────────────────────────┤ │
+│ │   Close                                                                  │ │
+│ └──────────────────────────────────────────────────────────────────────────┘ │
+│   Lantern Drift                                                            ⚑ │
+│   Moonwell Farmstead                                                     ▪   │
+│   Nightglass Protocol                                                        │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└─ ▪ DLLs  ⚑ profile ──────────────────────────────────────────────────────────┘
+
+ Up/Down Choose  Enter Run  Tab Next control  Esc Close

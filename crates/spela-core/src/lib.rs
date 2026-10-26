@@ -26,9 +26,12 @@
 //! | [`dll`] | DLL detection, manifest, versions, staleness and backups |
 //! | [`denylist`] | The anti-cheat deny list |
 //! | [`migrate`] | Reading Go spela's YAML and migrating it |
+//! | [`metrics`] | CPU and memory metrics from procfs text |
+//! | [`alerts`] | The GPU alert evaluator |
 
 #![warn(missing_docs)]
 
+pub mod alerts;
 pub mod backend;
 pub mod clock;
 pub mod config;
@@ -40,6 +43,7 @@ pub mod fs;
 pub mod games;
 pub mod hex;
 pub mod lock;
+pub mod metrics;
 pub mod migrate;
 pub mod paths;
 pub mod pe;

@@ -12,8 +12,8 @@
 //!
 //! - The one-time notice goes to stderr on the run that migrates, before the
 //!   command runs, even when the command then fails and under `--json`.
-//!   `tui`, which logs to the file only, does not migrate until it can show
-//!   the notice itself.
+//!   `tui` logs to the file only, so it runs the migration itself, after its
+//!   terminal check, and shows the notice inside the TUI.
 //! - A Go `config.yaml` that does not migrate exits 3 with Go's advice.
 //! - A write to a scope whose Go file failed is refused with exit 3
 //!   ([`refuse_profile`]): the Go file is tried again at the next start, and
@@ -44,9 +44,9 @@ pub const LIST_HINT: &str = "Fix the YAML or the folder's permissions; spela mig
 /// the migration must run before it. Help, completions, the removed names,
 /// the root helper and the commands that only read or change live hardware
 /// do not. `--demo` never does: it runs on its own temp files and never
-/// reads Go YAML (decision 18). `tui` does not yet either: it logs to the
-/// file only, so the one-time notice would be lost. It migrates once the
-/// TUI exists and can show the notice on its first frame (Phase 4).
+/// reads Go YAML (decision 18). `tui` runs it itself, after its terminal
+/// check, so the notice shows inside the TUI and a run with no terminal
+/// migrates nothing.
 pub fn needs_store(command: Option<&Command>, demo: bool) -> bool {
     if demo {
         return false;

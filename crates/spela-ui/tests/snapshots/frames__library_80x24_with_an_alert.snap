@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/frames.rs
+expression: render_text(&mut s)
+---
+ spela   ▸ 1 Library  2 DLL Catalog  3 Monitor  4 Settings  71° ⚠ Power limited
+┌─ ▸ List ─────────────────────────────────────────────────────────────────────┐
+│ / Find games                                                                 │
+│   All games                                                                  │
+│ ▸ Ashfall Courier                                                        ▪ ⚑ │
+│   Brightwater Keep                                                           │
+│   Cinder Valley Racing                                                   ▪   │
+│   Deepline Salvage                                                         ⚑ │
+│   Ember Tide                                                             ▪   │
+│   Game 1 Remastered                                                          │
+│   Glasshouse Detective                                                   ▪ ⚑ │
+│   Hollow Crown Tactics: Definitive Edition                                   │
+│   Ironleaf Expedition                                                    ▪   │
+│   Lantern Drift                                                            ⚑ │
+│   Moonwell Farmstead                                                     ▪   │
+│   Nightglass Protocol                                                        │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└─ ▪ DLLs  ⚑ profile ──────────────────────────────────────────────────────────┘
+
+ 0 Actions  Up/Down Game  Enter Open selection  Tab Detail  ? Help

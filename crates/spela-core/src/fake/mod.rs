@@ -13,6 +13,7 @@ pub mod cpu;
 pub mod display;
 pub mod gpu;
 pub mod http;
+pub mod library;
 pub mod privilege;
 
 use std::sync::Arc;

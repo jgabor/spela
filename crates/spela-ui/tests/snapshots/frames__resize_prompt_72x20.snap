@@ -1,0 +1,15 @@
+---
+source: crates/spela-ui/tests/frames.rs
+expression: render_text(&mut s)
+---
+
+
+
+
+
+
+
+
+                            Resize terminal
+                       spela needs at least 80x24
+                          Current size: 72x20

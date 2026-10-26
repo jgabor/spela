@@ -249,7 +249,7 @@ fn tui_takes_its_lock_and_logs_inside_the_sandbox() {
     run.expect_code(1);
     assert_eq!(
         run.stderr(),
-        "error: 'spela tui' is not yet implemented in this build\n"
+        "error: spela tui needs a terminal\nhint: run it in a terminal; every operation is also a CLI command\n"
     );
     let lock = s.state_dir().join("locks/tui.lock");
     assert!(lock.is_file(), "{:?}", s.tree());
@@ -306,7 +306,7 @@ fn demo_runs_in_a_private_temp_dir_that_goes_away() {
     run.expect_code(1);
     assert_eq!(
         run.stderr(),
-        "error: 'spela tui' is not yet implemented in this build\n"
+        "error: spela tui needs a terminal\nhint: run it in a terminal; every operation is also a CLI command\n"
     );
     assert!(
         !s.state_dir().exists(),

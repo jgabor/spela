@@ -20,6 +20,7 @@
 //! | [`migration`] | The migration from Go spela, run before a command reads the store |
 //! | [`demo`] | `--demo`: a private temp dir and the fake backends |
 //! | [`text`] | Colour roles for command output |
+//! | [`tui`] | The TUI shell: terminal, threads and the loop around `spela-ui` |
 
 #![warn(missing_docs)]
 
@@ -37,3 +38,4 @@ pub mod output;
 pub mod privilege;
 pub mod router;
 pub mod text;
+pub mod tui;

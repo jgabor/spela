@@ -7,7 +7,43 @@
 //! `std::net` or `std::env`, and when this crate depends on a backend
 //! crate.
 //!
-//! Phase 4 fills it: `AppState`, `update`, `render`, the keymap, layout,
-//! hit map, theme and text width.
+//! | Module | Role |
+//! |---|---|
+//! | [`state`] | [`AppState`]: what every screen shares, and one field per screen |
+//! | [`event`] | [`Event`], [`Msg`] and [`Cmd`]: what reaches update, and what it asks the shell |
+//! | [`update`] | [`update()`]: the one place state changes |
+//! | [`view`] | [`render`]: the frame, the top bar, the status line and the hint bar |
+//! | [`screens`] | One file per destination and popup, registered in one place |
+//! | [`keymap`] | Keys, bindings and the resolver the hint bar and Help read too |
+//! | [`layout`] | The frame's geometry: the 80x24 floor and the 100x30 breakpoint |
+//! | [`hit`] | Click regions recorded while drawing |
+//! | [`theme`] | `terminal`, `neon` and `mono`, and the glyph sets |
+//! | [`paint`] | Drawing helpers the screens share |
+//! | [`text`] | Display width, sanitising, truncation and wrapping |
+//! | [`input`] | [`input::LineInput`], one line of editable text |
+//! | [`fuzzy`] | The palette's matcher |
+//! | [`perf`] | The key-to-flush ring |
+//! | [`testing`] | Test support: fictional games, a manual clock, frames as text |
 
 #![warn(missing_docs)]
+
+pub mod event;
+pub mod fuzzy;
+pub mod hit;
+pub mod input;
+pub mod keymap;
+pub mod layout;
+pub mod paint;
+pub mod perf;
+pub mod screens;
+pub mod state;
+pub mod testing;
+pub mod text;
+pub mod theme;
+pub mod update;
+pub mod view;
+
+pub use event::{Cmd, Event, Msg};
+pub use state::{AppState, Startup};
+pub use update::update;
+pub use view::render;

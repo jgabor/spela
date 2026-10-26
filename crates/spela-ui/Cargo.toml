@@ -9,3 +9,12 @@ description = "spela's TUI state, update and view, with no I/O"
 
 [dependencies]
 spela-core.workspace = true
+crossterm.workspace = true
+jiff.workspace = true
+ratatui.workspace = true
+thiserror.workspace = true
+unicode-segmentation.workspace = true
+unicode-width.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
