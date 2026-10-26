@@ -1,0 +1,31 @@
+---
+source: crates/spela/tests/cli.rs
+expression: run.stdout()
+---
+Manage DLSS, XeSS and FSR DLLs: list, update, install, restore
+
+Usage: spela dll [OPTIONS] [COMMAND]
+
+Commands:
+  list           List a game's DLLs, or every game with DLSS, XeSS or FSR
+  check-updates  Check for newer DLL versions
+  update         Update a game's DLL, or every game's
+  install        Install a DLL into a game
+  cache          List cached DLL versions
+  restore        Put a game's original DLLs back
+  help           Print this message or the help of the given subcommand(s)
+
+Options:
+      --json
+          Print results as JSON (schema version 1)
+
+      --demo
+          Run on built-in fictional data. Your files are never written
+
+      --log-level <LEVEL>
+          Log level. Overrides SPELA_LOG
+          
+          [possible values: off, error, warn, info, debug, trace]
+
+  -h, --help
+          Print help

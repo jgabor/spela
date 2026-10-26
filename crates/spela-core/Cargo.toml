@@ -1,0 +1,23 @@
+[package]
+name = "spela-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "spela's domain and its seams: paths, env, files, locks, backends and the fake"
+
+[dependencies]
+etcetera.workspace = true
+http.workspace = true
+jiff.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+# A probe until the config lands (Phase 2 and 3): it makes the MSRV check
+# build both crates at 1.89 now. See tests/toml_probe.rs.
+toml.workspace = true
+toml_edit.workspace = true

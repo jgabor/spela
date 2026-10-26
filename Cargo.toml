@@ -1,0 +1,88 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+# dlss-updater is CI infrastructure, so `cargo build` and `cargo install`
+# leave it out. `--workspace` still builds and tests it.
+default-members = ["crates/spela", "crates/spela-core", "crates/spela-ui"]
+
+[workspace.package]
+# Above the last Go release (v0.6.2), because the Go release check reads the
+# same tags.
+version = "0.7.0"
+edition = "2024"
+# std::fs::File::lock (1.89) and serde-saphyr 2.0 (1.89).
+rust-version = "1.89"
+license = "MIT"
+repository = "https://github.com/jgabor/spela"
+
+[workspace.dependencies]
+# Internal
+spela-core = { path = "crates/spela-core", version = "0.7.0" }
+spela-ui = { path = "crates/spela-ui", version = "0.7.0" }
+
+# TUI (same pins as mejl). No event-stream: the input thread blocks on read.
+ratatui = "0.30.2"
+crossterm = "0.29.0"
+unicode-width = "0.2"
+unicode-segmentation = "1.13"
+
+# CLI
+clap = { version = "4.6.7", features = ["derive"] }
+clap_complete = "4.6.11"
+anstyle = "1.0.14"
+
+# Formats
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+toml = "1.1.8"
+toml_edit = "0.25.17"
+# Read only, for the migration from Go's YAML. Pinned: two majors in three
+# months.
+serde-saphyr = "=2.0.0"
+keyvalues-parser = "0.2.4"
+object = { version = "0.40.0", default-features = false, features = ["read_core", "pe", "std"] }
+
+# GPU. Loads libnvidia-ml.so.1 at run time, no link-time NVIDIA dependency.
+nvml-wrapper = "0.13.0"
+
+# Network and integrity
+ureq = { version = "3.5.0", features = ["platform-verifier"] }
+http = "1"
+# 0.11 output has no LowerHex. Use spela_core::hex.
+sha2 = "0.11.1"
+
+# System and paths
+etcetera = "0.11.0"
+rustix = { version = "1.1.5", features = ["process", "fs"] }
+libc = "0.2.191"
+# Same major as crossterm's, so the tree has one copy.
+signal-hook = "0.3.18"
+tempfile = "3.27.0"
+wait-timeout = "0.2.1"
+walkdir = "2.5.0"
+regex-lite = "0.1.9"
+
+# Time, logging, errors
+jiff = "0.2.38"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["env-filter", "fmt", "ansi", "std"] }
+tracing-appender = "0.2.5"
+anyhow = "1.0.104"
+thiserror = "2.0.21"
+
+# Tests
+insta = "1.49.0"
+assert_cmd = "2.2.2"
+predicates = "3.1.4"
+vt100 = "0.18.1"
+proptest = "1.12.0"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+# Unwind, never abort: an abort would skip the restore after a game exits.
+panic = "unwind"
+
+[profile.dev.package."*"]
+opt-level = 1

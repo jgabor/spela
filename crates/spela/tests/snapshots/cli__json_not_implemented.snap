@@ -1,0 +1,11 @@
+---
+source: crates/spela/tests/cli.rs
+expression: run.stdout()
+---
+{
+  "schema_version": 1,
+  "error": {
+    "code": "not_implemented",
+    "message": "'spela scan' is not yet implemented in this build"
+  }
+}

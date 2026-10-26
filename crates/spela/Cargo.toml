@@ -1,0 +1,39 @@
+[package]
+name = "spela"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Linux gaming configuration for NVIDIA GPUs: per-game profiles, DLSS and Proton settings, DLL management"
+
+[lib]
+name = "spela"
+path = "src/lib.rs"
+
+[[bin]]
+name = "spela"
+path = "src/main.rs"
+
+[dependencies]
+spela-core.workspace = true
+spela-ui.workspace = true
+anstyle.workspace = true
+clap.workspace = true
+clap_complete.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-appender.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+assert_cmd.workspace = true
+insta.workspace = true
+libc.workspace = true
+predicates.workspace = true
+proptest.workspace = true
+tempfile.workspace = true
+vt100.workspace = true

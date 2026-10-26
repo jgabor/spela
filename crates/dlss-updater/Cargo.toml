@@ -1,0 +1,12 @@
+[package]
+name = "dlss-updater"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Keeps spela's DLL manifest current. CI only"
+publish = false
+
+[dependencies]
+spela-core.workspace = true

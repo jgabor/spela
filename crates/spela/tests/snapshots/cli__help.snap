@@ -1,0 +1,59 @@
+---
+source: crates/spela/tests/cli.rs
+expression: help.stdout()
+---
+Linux gaming optimization tool for NVIDIA GPUs: per-game profiles, DLSS and
+Proton settings, DLL management with backups, and GPU and CPU tuning around
+Steam launches.
+
+To launch a game with its profile, set its Steam launch options to
+`spela %command%`.
+
+Usage: spela [OPTIONS] [COMMAND]
+
+Commands:
+  scan        Scan Steam libraries for games and their DLLs
+  list        List the games found in Steam libraries
+  show        Show one game and its DLLs
+  launch      Show what launching a game would do (dry run only)
+  profile     Manage per-game profiles and All games
+  config      Show or change spela's settings
+  dll         Manage DLSS, XeSS and FSR DLLs: list, update, install, restore
+  dlss        DLSS settings in a profile
+  gpu         GPU information, profile settings and reset
+  cpu         CPU information, profile settings, governor and SMT
+  proton      Proton settings in a profile
+  denylist    The anti-cheat deny list for DLL swaps
+  tui         Open the interactive terminal UI
+  completion  Print a shell completion script
+  help        Print this message or the help of the given subcommand(s)
+
+Options:
+  -v, --version
+          Print the version
+
+      --json
+          Print results as JSON (schema version 1)
+
+      --demo
+          Run on built-in fictional data. Your files are never written
+
+      --log-level <LEVEL>
+          Log level. Overrides SPELA_LOG
+          
+          [possible values: off, error, warn, info, debug, trace]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+Exit codes:
+  0  success
+  1  failure
+  2  usage error
+  3  config or profile file invalid
+  5  another spela holds the lock
+  In wrapper mode (spela %command%), the game's own exit code.
+
+Environment:
+  SPELA_LOG  log filter, such as debug or spela=trace
+  NO_COLOR   turn colour off
