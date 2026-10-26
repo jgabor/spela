@@ -197,7 +197,11 @@ fn pe_versions_match_go_in_every_formatter_shape() {
             checked += 1;
         }
         if game.install_dir.is_dir() {
-            let found = spela_core::dll::detect::scan_dir(&game.install_dir);
+            let found = spela_core::dll::detect::scan_directory(
+                &game.install_dir,
+                spela_core::pe::version_string,
+            )
+            .unwrap();
             assert_eq!(found.len(), game.dlls.len(), "{}", game.name);
         }
     }

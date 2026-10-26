@@ -11,23 +11,26 @@
 //! - the install folder is `<library>/steamapps/common/<installdir>`, and
 //!   a manifest whose `installdir` is not one plain folder name is skipped;
 //! - the prefix is `compatdata/<appid>` when its `pfx/drive_c` exists;
-//! - the DLLs come from [`crate::dll::detect`].
+//! - the DLLs come from [`crate::dll::detect`], with versions from
+//!   [`crate::pe`]. A walk error ends that game's walk and keeps what was
+//!   found before it, as Go's `Rescan` did.
 //!
 //! When two libraries hold the same AppID, the first library wins and the
 //! second is logged. Go kept whichever its map order gave last.
 
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::clock::Clock;
 use crate::dll::detect;
 use crate::paths::Paths;
+use crate::pe;
 use crate::steam::library::{Library, SteamInstall, proton_prefix};
 use crate::steam::manifest::{self, AppManifest};
 use crate::steam::tools;
 use crate::steam::vdf::VdfFileError;
 
-use super::{CACHE_VERSION, DllType, Game, GameCache, cache};
+use super::{CACHE_VERSION, DetectedDll, DllType, Game, GameCache, cache};
 
 /// The text when there is no library to scan, Go's wording.
 pub const NO_STEAM: &str = "could not find Steam installation";
@@ -153,11 +156,25 @@ fn game_from(library: &Library, app: &AppManifest, clock: &dyn Clock) -> Option<
         app_id: app.app_id,
         name: app.name.clone(),
         prefix_path: proton_prefix(&library.path, app.app_id),
-        dlls: detect::scan_dir(&install_dir),
+        dlls: dlls_in(&install_dir),
         install_dir,
         library_path: library.path.clone(),
         scanned_at: clock.now(),
     })
+}
+
+/// The known DLLs under a game's install folder, with their PE versions. A
+/// walk error, such as a missing install folder, ends the walk there; the
+/// game keeps the DLLs found before it, as Go's `Rescan` did, and the error
+/// is logged.
+fn dlls_in(install_dir: &Path) -> Vec<DetectedDll> {
+    match detect::scan_directory(install_dir, pe::version_string) {
+        Ok(found) => found,
+        Err(e) => {
+            tracing::warn!("{e}; keeping the {} DLLs found before it", e.found.len());
+            e.found
+        }
+    }
 }
 
 /// Scans Steam and replaces the cache with what it found, under

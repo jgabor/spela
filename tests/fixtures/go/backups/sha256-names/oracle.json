@@ -7,19 +7,19 @@
   "files": [
     {
       "original_path": "/fixture-root/library/steamapps/common/Glimmer Run/bin/x64/nvngx_dlss.dll",
-      "backup_path": "/fixture-root/data/spela/backups/9100401/ce81d770e3eb550899f3c38f0aeb18e2d6813faae817f37c5509e1813624d920-nvngx_dlss.dll",
+      "backup_path": "/fixture-root/data/spela/backups/9100401/afc5cb0e62847ad656ff25320a53601076a1f462cf595cb603cc29e76cff26e7-nvngx_dlss.dll",
       "name_scheme": "sha256-basename",
       "backup_file_exists": true
     },
     {
       "original_path": "/fixture-root/library/steamapps/common/Glimmer Run/bin/x64/nvngx_dlssg.dll",
-      "backup_path": "/fixture-root/data/spela/backups/9100401/0cab390de79b336ffdb5b83c3fb82769ad7d96ed5cef6de3e178977cbd998e8c-nvngx_dlssg.dll",
+      "backup_path": "/fixture-root/data/spela/backups/9100401/8b0eff53e5535666bcc20fe6fbe61959861a137ade539405df59633199523532-nvngx_dlssg.dll",
       "name_scheme": "sha256-basename",
       "backup_file_exists": true
     },
     {
       "original_path": "/fixture-root/library/steamapps/common/Glimmer Run/plugins/nvngx_dlss.dll",
-      "backup_path": "/fixture-root/data/spela/backups/9100401/ab6f4392b773b177879f43f3d510e54cd27974d58daa476348ceeb5f081b0d73-nvngx_dlss.dll",
+      "backup_path": "/fixture-root/data/spela/backups/9100401/40a7b3e6b1f9f4bb3bc141d59225c5c81d74c6263b9cea4d08be67e9c761aabc-nvngx_dlss.dll",
       "name_scheme": "sha256-basename",
       "backup_file_exists": true
     }

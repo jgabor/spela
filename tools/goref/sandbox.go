@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -187,12 +188,15 @@ var hashedBackupName = regexp.MustCompile(`^[0-9a-f]{64}-`)
 // rehashBackups renames the sha256 backup files of a copied case so that
 // each name is the hash Go computes for the relocated original path under
 // FixtureRoot, as if Go had run in /fixture-root. Without this the names
-// would hash the random generation folder and change on every run.
+// would hash the random generation folder and change on every run. The
+// case's oracle.json, written before the copy, gets the same renames, so its
+// backup paths match backup.json and the files on disk.
 func rehashBackups(caseDir string) error {
 	indexes, err := filepath.Glob(filepath.Join(caseDir, "data", "spela", "backups", "*", "backup.json"))
 	if err != nil {
 		return err
 	}
+	var renames []string
 	for _, indexPath := range indexes {
 		data, err := os.ReadFile(indexPath)
 		if err != nil {
@@ -224,6 +228,7 @@ func rehashBackups(caseDir string) error {
 				return err
 			}
 			text = strings.ReplaceAll(text, name, renamed)
+			renames = append(renames, name, renamed)
 		}
 		if text != string(data) {
 			if err := os.WriteFile(indexPath, []byte(text), 0o644); err != nil {
@@ -231,5 +236,25 @@ func rehashBackups(caseDir string) error {
 			}
 		}
 	}
-	return nil
+	return renameInOracle(filepath.Join(caseDir, "oracle.json"), renames)
+}
+
+// renameInOracle applies the backup file renames (old, new pairs) to a
+// case's oracle.json, when the case has one.
+func renameInOracle(oraclePath string, renames []string) error {
+	if len(renames) == 0 {
+		return nil
+	}
+	data, err := os.ReadFile(oraclePath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	text := strings.NewReplacer(renames...).Replace(string(data))
+	if text == string(data) {
+		return nil
+	}
+	return os.WriteFile(oraclePath, []byte(text), 0o644)
 }
