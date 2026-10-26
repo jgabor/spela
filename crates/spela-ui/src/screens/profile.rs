@@ -1675,13 +1675,21 @@ fn header(
     match (scope, library::selected_game(state)) {
         (Scope::Game(_), Some(game)) => {
             let name = format!("{} {dot} App ID {}", game.name, game.app_id);
-            let dlls = format!(" {dot} DLLs: {} {dot} ", dll_summary(game));
-            let full = width(&name) + width(&dlls) + width(&status);
-            let middle = if full <= usize::from(w) {
-                dlls.as_str()
+            // The DLL summary takes the room between the name and the save
+            // state, cut with the ellipsis, so the state always shows.
+            let room = usize::from(w).saturating_sub(width(&name) + width(&status));
+            let lead = format!(" {dot} DLLs: ");
+            let summary = dll_summary(game);
+            let frame = width(&lead) + width(&sep);
+            let dlls = if frame + width(&summary) <= room {
+                format!("{lead}{summary}{sep}")
+            } else if room >= frame + 8 {
+                let (cut, _) = crate::text::truncate(&summary, room - frame, state.glyphs.ellipsis);
+                format!("{lead}{cut}{sep}")
             } else {
-                sep.as_str()
+                sep.clone()
             };
+            let middle = dlls.as_str();
             p.spans(
                 x,
                 y,

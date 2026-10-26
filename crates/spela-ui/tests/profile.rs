@@ -319,3 +319,27 @@ fn an_all_games_save_never_names_a_game() {
     assert!(text.starts_with("Saved: HDR"), "{text}");
     assert!(text.ends_with("(All games)"), "{text}");
 }
+
+#[test]
+fn the_header_keeps_the_dll_summary_and_the_save_state() {
+    use spela_core::games::{DetectedDll, DllType};
+    let mut s = on_field(120, 40, FieldKey::DlssSrMode);
+    let game = &mut s.games.games[0];
+    game.dlls = [
+        (DllType::Dlss, "nvngx_dlss.dll"),
+        (DllType::Dlssg, "nvngx_dlssg.dll"),
+        (DllType::Dlssd, "nvngx_dlssd.dll"),
+    ]
+    .into_iter()
+    .map(|(dll_type, name)| DetectedDll {
+        path: game.install_dir.join(name),
+        name: name.into(),
+        dll_type,
+        version: None,
+    })
+    .collect();
+    let text = render_text(&mut s);
+    let header = text.lines().nth(2).unwrap();
+    assert!(header.contains("DLLs: DLSS unknown"), "{header}");
+    assert!(header.contains("Saved at once"), "{header}");
+}

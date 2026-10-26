@@ -283,3 +283,12 @@ fn letters_do_nothing_in_browse_that_they_should_not() {
         assert!(again.quit, "{name}: Ctrl-C");
     }
 }
+
+#[test]
+fn q_quits_from_every_list_with_nothing_to_back_out_of() {
+    for dest in ["1", "2", "3", "4"] {
+        let mut s = state_with_games(120, 40, 12);
+        update(&mut s, key(dest));
+        assert_eq!(update(&mut s, key("q")), vec![Cmd::Quit], "dest {dest}");
+    }
+}

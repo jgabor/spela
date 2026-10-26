@@ -15,7 +15,7 @@ Labels follow mejl's method: (verified: source), (inferred), (unverified). Desig
 
 ## Principles
 
-1. **The frame fits 80x24.** Everything an action needs is reachable at the minimum size. Below it, a bounded resize prompt replaces the screen and only Ctrl-C works (verified: parity-inventory.md, layout contract).
+1. **The frame fits 80x24.** Everything an action needs is reachable at the minimum size. Below it, a bounded resize prompt replaces the screen and only Ctrl-C and Ctrl-Z work (verified: parity-inventory.md, layout contract).
 2. **Keys you can see are keys that work.** The hint bar and Help come from the same keymap as dispatch. A key never shows unless it works in the current context (verified: spela's `CanonicalKeymap` already does this; mejl does the same for help and which-key).
 3. **Basic keys work everywhere.** Every binding works with legacy key encoding, in stock tmux and over SSH. No default needs the kitty keyboard protocol (verified: mejl terminal-ux.md, tmux defaults).
 4. **The UI thread never waits.** NVML, `pkexec`, Steam scans, the manifest and downloads all run on workers. The loop draws at most once per batch of events. It wakes only for input, for worker results, and for the 2 s metrics tick on screens that show metrics. Focus lost does not pause the tick (decision 42).
@@ -56,7 +56,7 @@ mejl's 160-column breakpoint is not needed, because spela has two panes, not thr
 
 | Destination | List | Detail |
 |---|---|---|
-| 1 Library | The Find row, then the pinned All games row, then games with markers (▪ has DLLs, ⚑ has its own profile). The title shows the sort and filters, and "Selected: N" in select mode | The profile page, with game line, own settings, section strip `[Proton] DLSS GPU CPU DLLs`, and rows of label, value and source. The focused row is followed by its description. The Proton section can carry the VKD3D notice. Or the game's DLLs section, with its denylist line. Preview launch opens from Actions |
+| 1 Library | The Find row, then the pinned All games row, then games with markers (▪ has DLLs, ⚑ has its own profile). The title shows the sort and filters, and "Selected: N" in select mode. In one pane, where the title reads `▸ List`, they sit in the bottom border before the legend | The profile page, with game line, own settings, section strip `[Proton] DLSS GPU CPU DLLs`, and rows of label, value and source. The focused row is followed by its description. The Proton section can carry the VKD3D notice. Or the game's DLLs section, with its denylist line. Preview launch opens from Actions |
 | 2 DLL Catalog | The groups Library and Deployment (← → switch) | Per family: latest, cached versions and deployments marked current, stale or unknown. Stale is one function, shared with Library and the CLI (decision 38) |
 | 3 Monitor | GPU, CPU and Alerts | Sparklines, gauges and the alert list, fed by the same metrics as the top bar. Actions holds the hardware actions |
 | 4 Settings | Groups and options, labels only | The option's value, description and save state |
