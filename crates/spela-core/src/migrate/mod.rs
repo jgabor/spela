@@ -263,6 +263,7 @@ pub fn run(paths: &Paths, clock: &dyn Clock) -> Result<Report, MigrateError> {
         let mut record = Record::load(&record_path)?;
         let todo = pending(&record);
         let mut games_source = None;
+        let mut changed = false;
         let all_games = load_go_all_games(paths);
         for candidate in todo {
             let handled = match candidate.kind {
@@ -272,10 +273,12 @@ pub fn run(paths: &Paths, clock: &dyn Clock) -> Result<Report, MigrateError> {
                 }
                 _ => ctx.migrate(&candidate, &all_games),
             };
-            record.put(handled.entry.clone());
+            changed |= record.put(handled.entry.clone());
             report.handled.push(handled);
         }
-        if !report.handled.is_empty() {
+        // A source that fails again the same way leaves the record as it
+        // is, so a start that changes nothing writes nothing.
+        if changed {
             record.save(&record_path)?;
         }
         games_source
@@ -431,7 +434,9 @@ impl<'a> Context<'a> {
                 .to_string()
                 .parse()
                 .expect("an RFC 3339 time is a TOML datetime"),
-            date: now.to_zoned(TimeZone::system()).date().to_string(),
+            // UTC, like `at`: the system zone would read `TZ` behind the
+            // env module's back.
+            date: now.to_zoned(TimeZone::UTC).date().to_string(),
         }
     }
 

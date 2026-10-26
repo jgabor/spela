@@ -83,13 +83,33 @@ fn case(name: &str) -> Case {
 
 /// Every file under `base` except the lock files, with its bytes.
 fn snapshot(base: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
+    files(base)
+        .map(|p| {
+            let bytes = std::fs::read(&p).unwrap();
+            (p, bytes)
+        })
+        .collect()
+}
+
+/// Every file under `base` except the lock files, with its inode. An
+/// atomic write always makes a new inode, even with the same bytes.
+fn inodes(base: &Path) -> BTreeMap<PathBuf, u64> {
+    use std::os::unix::fs::MetadataExt;
+    files(base)
+        .map(|p| {
+            let ino = std::fs::metadata(&p).unwrap().ino();
+            (p, ino)
+        })
+        .collect()
+}
+
+fn files(base: &Path) -> impl Iterator<Item = PathBuf> + '_ {
     walkdir::WalkDir::new(base)
         .into_iter()
         .map(Result::unwrap)
         .filter(|e| e.file_type().is_file())
-        .filter(|e| !e.path().starts_with(base.join("state")))
-        .map(|e| (e.path().to_owned(), std::fs::read(e.path()).unwrap()))
-        .collect()
+        .filter(move |e| !e.path().starts_with(base.join("state")))
+        .map(|e| e.path().to_owned())
 }
 
 fn clock() -> ManualClock {
@@ -125,6 +145,7 @@ impl Case {
             );
         }
         let after = snapshot(&self.base);
+        let after_inodes = inodes(&self.base);
         let again = migrate::run(&self.paths, &clock()).unwrap();
         assert!(
             again
@@ -149,6 +170,11 @@ impl Case {
                 path.display()
             );
         }
+        assert_eq!(
+            inodes(&self.base),
+            after_inodes,
+            "a second run writes no file"
+        );
         report
     }
 }
@@ -317,6 +343,42 @@ fn check_profiles(case: &Case, report: &Report) {
             if find(&all_dropped, key).is_none() {
                 assert_eq!(r.origin.as_str(), f["origin"], "{app_id} {key} origin");
             }
+        }
+    }
+
+    // A drop the fixtures cannot explain would hide a lost value behind
+    // "listed as dropped", so every reason must be one these files hold.
+    for entry in case.record().sources {
+        if !entry.path.starts_with(paths.profiles_dir()) {
+            continue;
+        }
+        let game = entry.path != all_source;
+        for d in &entry.dropped {
+            let expected = match d.why {
+                Why::Retired
+                | Why::OffsetMeaningChanged
+                | Why::NoMarker
+                | Why::UnknownMarker
+                | Why::UnknownKey
+                | Why::AllGamesName => true,
+                Why::NotSupported if d.key == "cpu.smt" => game && d.value == "none",
+                // Go checked only gpu.vrr, so a file can hold a value no
+                // field allows, such as the e2e fixture's sr_preset
+                // "quality". The field must really refuse it.
+                Why::NotSupported => {
+                    let field = FieldKey::from_key(&d.key).unwrap().field();
+                    let json: Json = serde_json::from_str(&d.value).unwrap();
+                    let value = match json {
+                        Json::Bool(b) => spela_core::profile::Value::Bool(b),
+                        Json::Number(n) => spela_core::profile::Value::Int(n.as_i64().unwrap()),
+                        Json::String(s) => spela_core::profile::Value::Text(s),
+                        other => panic!("{other}"),
+                    };
+                    field.check(&value).is_err()
+                }
+                _ => false,
+            };
+            assert!(expected, "{}: unexpected drop {d}", entry.path.display());
         }
     }
 
