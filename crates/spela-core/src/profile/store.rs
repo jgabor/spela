@@ -360,11 +360,11 @@ pub fn game_file_app_id(file_name: &str) -> Option<u64> {
 // Writing.
 
 /// The text of a new profile file: an optional header comment, `version`,
-/// the game's `name`, and each own value in table order.
+/// the game's `name` when it has one, and each own value in table order.
 pub fn render(name: Option<&str>, values: &OwnValues, header: &[String]) -> String {
     let mut doc = DocumentMut::new();
     doc.insert("version", toml_edit::value(PROFILE_VERSION));
-    if let Some(name) = name {
+    if let Some(name) = name.filter(|n| !n.is_empty()) {
         doc.insert("name", toml_edit::value(name));
     }
     for section in Section::ALL {
