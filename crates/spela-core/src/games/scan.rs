@@ -163,6 +163,10 @@ fn game_from(library: &Library, app: &AppManifest, clock: &dyn Clock) -> Option<
 /// Scans Steam and replaces the cache with what it found, under
 /// `games.lock`. With no library to scan, the cache is left as it is and
 /// the error says `could not find Steam installation`, as in Go.
+///
+/// The CLI calls this only for `spela scan` or when the cache is empty;
+/// `rescan_on_startup` switches only the TUI's background scan
+/// (decision 24).
 pub fn rescan(
     paths: &Paths,
     install: &SteamInstall,
