@@ -49,11 +49,40 @@ fn act(a: Action) -> AnyAction {
     AnyAction::Popup(PopupAction::Notice(a))
 }
 
+/// The notice wrapped to the popup's width, and the popup's area, at the
+/// current size.
+fn body(state: &AppState, popup: &State) -> (Vec<String>, Rect) {
+    let layout = state.layout();
+    let inner_w = usize::from(WIDTH.min(layout.workspace().width).saturating_sub(6));
+    let wrapped: Vec<String> = popup
+        .lines
+        .iter()
+        .flat_map(|l| crate::text::wrap(l, inner_w))
+        .collect();
+    let h = u16::try_from(wrapped.len())
+        .unwrap_or(u16::MAX)
+        .saturating_add(6);
+    (wrapped, layout.centered(WIDTH, h))
+}
+
+/// Whether Up and Down have anything to scroll, or why not.
+fn can_scroll(state: &AppState, popup: &State) -> Result<(), String> {
+    let (wrapped, area) = body(state, popup);
+    if wrapped.len() > usize::from(area.height.saturating_sub(6)) {
+        Ok(())
+    } else {
+        Err("nothing to scroll".into())
+    }
+}
+
 /// The notice's keys.
-pub fn bindings(_state: &AppState, _popup: &State) -> Vec<Binding> {
+pub fn bindings(state: &AppState, popup: &State) -> Vec<Binding> {
+    let scroll = can_scroll(state, popup);
     vec![
-        Binding::new(Key::UP, act(Action::Up), "Scroll").hint_as("Up/Down", 50),
-        Binding::new(Key::DOWN, act(Action::Down), "Scroll down"),
+        Binding::new(Key::UP, act(Action::Up), "Scroll")
+            .hint_as("Up/Down", 50)
+            .when(scroll.clone()),
+        Binding::new(Key::DOWN, act(Action::Down), "Scroll down").when(scroll),
         Binding::new(Key::ENTER, act(Action::Close), "Close").hint(90),
         Binding::new(Key::ESC, act(Action::Close), "Close").hint(80),
     ]
@@ -78,19 +107,10 @@ pub fn render(
     state: &AppState,
     popup: &State,
     frame: &mut Frame,
-    layout: &Layout,
+    _layout: &Layout,
     hits: &mut HitMap,
 ) {
-    let inner_w = usize::from(WIDTH.min(layout.workspace().width).saturating_sub(6));
-    let wrapped: Vec<String> = popup
-        .lines
-        .iter()
-        .flat_map(|l| crate::text::wrap(l, inner_w))
-        .collect();
-    let h = u16::try_from(wrapped.len())
-        .unwrap_or(u16::MAX)
-        .saturating_add(6);
-    let area = layout.centered(WIDTH, h);
+    let (wrapped, area) = body(state, popup);
     let mut p = Painter::new(frame.buffer_mut(), state.theme, state.glyphs);
     let inner = p.popup(area, "Migrated from Go spela", hits);
     if inner.height < 4 || inner.width < 12 {

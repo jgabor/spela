@@ -2,10 +2,9 @@
 //! Clear actions (terminal-ux.md, denylist; decisions 20 and 36).
 //!
 //! It draws no pane of its own. The game's DLLs section shows
-//! [`state_line`] under "DLL versions", dims Install and Update with
-//! [`swap_allowed`], and lists [`actions`] after its DLL rows. Until that
-//! section exists the rows are reached through the palette, which lists
-//! them for the game selected in Library.
+//! [`state_line`] under "DLL versions" and lists [`actions`] in its Actions
+//! popup, after the DLL rows once Phase 5 adds them; the palette lists
+//! them too. Phase 5's Install and Update rows dim with [`swap_allowed`].
 //!
 //! - The lists load on the job pool ([`Cmd::Load`]) at start and again
 //!   after every change, because spela-ui reads no files. A list that does
@@ -325,7 +324,6 @@ pub fn update(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
             }
             state.confirm(
                 confirm::State::new("Allow DLL swaps", body, apply)
-                    .confirm_label("Allow")
                     .cancel_message("DLL swaps not allowed, nothing changed"),
             );
             Vec::new()

@@ -636,9 +636,9 @@ mod tests {
     fn groups_and_options_wrap_and_a_new_group_starts_at_the_top() {
         let mut s = state_with_games(120, 40, 2);
         step(&mut s, key("4"));
-        assert_eq!(current(&s).unwrap().key, "ui.theme");
-        step(&mut s, key("up"));
         assert_eq!(current(&s).unwrap().key, "confirm_destructive");
+        step(&mut s, key("up"));
+        assert_eq!(current(&s).unwrap().key, "ui.ascii_glyphs");
         step(&mut s, key("left"));
         assert_eq!(group_title(s.settings.group), "Logging");
         assert_eq!(s.settings.cursor, 0);

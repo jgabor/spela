@@ -58,24 +58,60 @@ pub fn ready(state: &mut AppState, request: u64, result: Result<String, String>)
     }
 }
 
+/// The body text and its role.
+fn text(popup: &State) -> (String, Role) {
+    match &popup.summary {
+        None => ("Building the launch plan...".to_owned(), Role::Muted),
+        Some(Ok(s)) => (format!("{s}\n\n{READ_ONLY}"), Role::Text),
+        Some(Err(e)) => (format!("Unavailable: {e}"), Role::Error),
+    }
+}
+
+/// The body rows the popup shows: it fills the workspace.
+fn visible_rows(state: &AppState) -> usize {
+    let ws = state.layout().workspace();
+    let area = state.layout().centered(ws.width, ws.height);
+    usize::from(area.height.saturating_sub(4))
+}
+
+/// How far the body can scroll: zero when it all fits.
+fn max_scroll(state: &AppState, popup: &State) -> usize {
+    text(popup)
+        .0
+        .lines()
+        .count()
+        .saturating_sub(visible_rows(state))
+}
+
 /// The popup's keys.
-pub fn bindings(_state: &AppState, _popup: &State) -> Vec<Binding> {
+pub fn bindings(state: &AppState, popup: &State) -> Vec<Binding> {
+    let scroll = if max_scroll(state, popup) > 0 {
+        Ok(())
+    } else {
+        Err("nothing to scroll".to_owned())
+    };
     vec![
-        Binding::new(Key::UP, act(Action::Up), "Scroll").hint_as("Up/Down", 100),
-        Binding::new(Key::DOWN, act(Action::Down), "Scroll down"),
+        Binding::new(Key::UP, act(Action::Up), "Scroll")
+            .hint_as("Up/Down", 100)
+            .when(scroll.clone()),
+        Binding::new(Key::DOWN, act(Action::Down), "Scroll down").when(scroll),
         Binding::new(Key::ESC, act(Action::Close), "Close").hint(80),
     ]
 }
 
 /// Runs a popup action.
 pub fn update(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
+    let max = match &state.popup {
+        Some(Popup::Preview(popup)) => max_scroll(state, popup),
+        _ => return Vec::new(),
+    };
     let Some(Popup::Preview(popup)) = &mut state.popup else {
         return Vec::new();
     };
     state.dirty = true;
     match action {
         Action::Up => popup.scroll = popup.scroll.saturating_sub(1),
-        Action::Down => popup.scroll += 1,
+        Action::Down => popup.scroll = (popup.scroll + 1).min(max),
         Action::Close => state.close_popup(),
     }
     Vec::new()
@@ -97,16 +133,12 @@ pub fn render(
     if inner.height < 3 || inner.width < 10 {
         return;
     }
-    let (text, role) = match &popup.summary {
-        None => ("Building the launch plan...".to_owned(), Role::Muted),
-        Some(Ok(s)) => (format!("{s}\n\n{READ_ONLY}"), Role::Text),
-        Some(Err(e)) => (format!("Unavailable: {e}"), Role::Error),
-    };
+    let (text, role) = text(popup);
     let lines: Vec<&str> = text.lines().collect();
     for (n, line) in lines
         .iter()
         .skip(popup.scroll)
-        .take(usize::from(inner.height - 2))
+        .take(visible_rows(state))
         .enumerate()
     {
         let y = inner.y + 1 + u16::try_from(n).unwrap_or(0);

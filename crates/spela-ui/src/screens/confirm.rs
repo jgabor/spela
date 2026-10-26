@@ -163,12 +163,31 @@ fn act(a: Action) -> AnyAction {
     AnyAction::Popup(PopupAction::Confirm(a))
 }
 
+/// The body rows the popup shows at the current size.
+fn visible_rows(state: &AppState, popup: &State) -> usize {
+    let body = u16::try_from(popup.body.len()).unwrap_or(u16::MAX);
+    let area = state.layout().centered(WIDTH, body.saturating_add(6));
+    usize::from(area.height.saturating_sub(6))
+}
+
+/// Whether Up and Down have anything to scroll, or why not.
+fn can_scroll(state: &AppState, popup: &State) -> Result<(), String> {
+    if popup.body.len() > visible_rows(state, popup) {
+        Ok(())
+    } else {
+        Err("nothing to scroll".into())
+    }
+}
+
 /// The popup's keys.
-pub fn bindings(_state: &AppState, popup: &State) -> Vec<Binding> {
+pub fn bindings(state: &AppState, popup: &State) -> Vec<Binding> {
     if popup.focus == Focus::Body {
+        let scroll = can_scroll(state, popup);
         return vec![
-            Binding::new(Key::UP, act(Action::Up), "Scroll").hint_as("Up/Down", 100),
-            Binding::new(Key::DOWN, act(Action::Down), "Scroll down"),
+            Binding::new(Key::UP, act(Action::Up), "Scroll")
+                .hint_as("Up/Down", 100)
+                .when(scroll.clone()),
+            Binding::new(Key::DOWN, act(Action::Down), "Scroll down").when(scroll),
             Binding::new(Key::TAB, act(Action::Tab), "Buttons")
                 .also(Key::BACK_TAB)
                 .hint(50),
@@ -258,7 +277,7 @@ pub fn render(
     }
     let x = inner.x + 2;
     let w = inner.width.saturating_sub(4);
-    let visible = usize::from(inner.height - 4);
+    let visible = visible_rows(state, popup);
     for (n, line) in popup
         .body
         .iter()
@@ -351,5 +370,31 @@ mod tests {
         step(&mut s, key("right"));
         let cmds = step(&mut s, key("enter"));
         assert_eq!(cmds, vec![AnyCmd::Quit]);
+    }
+
+    #[test]
+    fn scroll_works_only_when_the_body_does_not_fit() {
+        let scroll_shown = |s: &AppState| {
+            crate::screens::bindings(s)
+                .iter()
+                .any(|b| b.label == "Scroll" && b.available())
+        };
+        let mut s = state_with_games(120, 40, 3);
+        s.confirm(State::new(
+            "Short",
+            lines(&["one"], Role::Text),
+            AnyAction::Help,
+        ));
+        step(&mut s, key("tab"));
+        assert!(!scroll_shown(&s), "one line fits");
+        let long: Vec<String> = (0..80).map(|i| format!("line {i}")).collect();
+        let long: Vec<&str> = long.iter().map(String::as_str).collect();
+        s.confirm(State::new(
+            "Long",
+            lines(&long, Role::Text),
+            AnyAction::Help,
+        ));
+        step(&mut s, key("tab"));
+        assert!(scroll_shown(&s), "80 lines do not");
     }
 }

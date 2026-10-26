@@ -3,17 +3,17 @@ source: crates/spela-ui/tests/frames.rs
 expression: render_text(&mut s)
 ---
  spela   1 Library  2 DLL Catalog  3 Monitor  ▸ 4 Settings
-┌─ Settings · Display ───────────┬─ Theme ─────────────────────────────────────────────────────────────────────────────┐
-│ Display                        │ Theme                                                                               │
-│ ▸ Theme                        │ terminal                                                                            │
-│   Mouse                        │ Saved at once                                                                       │
-│   ASCII glyphs                 │                                                                                     │
-│   Confirm destructive actions  │ Colours. terminal uses your terminal's palette, neon is spela's own, mono uses      │
-│ Startup                        │ none.                                                                               │
-│ Paths                          │                                                                                     │
-│ DLL policy                     │ Choices: [terminal]  neon  mono                                                     │
-│ Logging                        │                                                                                     │
-│                                │ Default: terminal                                                                   │
+┌─ Settings · Display ───────────┬─ Confirm destructive actions ───────────────────────────────────────────────────────┐
+│ Display                        │ Confirm destructive actions                                                         │
+│ ▸ Confirm destructive actions  │ On                                                                                  │
+│   Theme                        │ Saved at once                                                                       │
+│   Mouse                        │                                                                                     │
+│   ASCII glyphs                 │ Ask before updating DLLs. Restoring and installing DLLs always ask.                 │
+│ Startup                        │                                                                                     │
+│ Paths                          │ Choices: [On]  Off                                                                  │
+│ DLL policy                     │                                                                                     │
+│ Logging                        │ Default: On                                                                         │
+│                                │                                                                                     │
 │                                │                                                                                     │
 │                                │                                                                                     │
 │                                │                                                                                     │

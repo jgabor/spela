@@ -50,6 +50,9 @@ mod tests {
         for option in &OPTIONS {
             assert!(help.contains(option.key), "{}", option.key);
         }
-        assert!(help.starts_with("Keys: ui.theme, "), "{help}");
+        assert!(
+            help.starts_with("Keys: confirm_destructive, ui.theme, "),
+            "{help}"
+        );
     }
 }

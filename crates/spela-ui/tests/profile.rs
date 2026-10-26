@@ -263,3 +263,41 @@ fn ascii_glyphs_reach_every_part_of_the_page() {
     let text = render_text(&mut s);
     assert!(text.is_ascii(), "the number editor: {text}");
 }
+
+#[test]
+fn the_dlls_section_lists_the_deny_rows_in_actions() {
+    let mut s = on_field(120, 40, FieldKey::CpuSmt);
+    update(&mut s, key("right"));
+    assert_eq!(profile::aspect(&s), profile::Aspect::Dlls);
+    update(&mut s, key("0"));
+    let Some(Popup::Actions(p)) = &s.popup else {
+        panic!("Actions")
+    };
+    let labels: Vec<&str> = p.rows.iter().map(|r| r.label.as_str()).collect();
+    let game = &s.games.games[0].name;
+    for row in [
+        "Allow DLL swaps",
+        "Deny DLL swaps",
+        "Clear denylist override",
+    ] {
+        assert!(
+            labels.contains(&format!("{row}: {game}").as_str()),
+            "{row} in {labels:?}"
+        );
+    }
+}
+
+#[test]
+fn an_all_games_save_never_names_a_game() {
+    let mut s = loaded(120, 40);
+    s.library.cursor = 0;
+    s.focus = Pane::Detail;
+    s.profile.field = FieldKey::ProtonEnableHdr;
+    let cmds = update(&mut s, key("space"));
+    // The user moves to a game before the save answers.
+    s.library.cursor = 1;
+    saved(&mut s, &cmds);
+    let text = &s.status.as_ref().unwrap().text;
+    assert!(text.starts_with("Saved: HDR"), "{text}");
+    assert!(text.ends_with("(All games)"), "{text}");
+}

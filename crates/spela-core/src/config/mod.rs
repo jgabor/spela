@@ -456,9 +456,17 @@ pub fn option(key: &str) -> Option<&'static ConfigOption> {
     OPTIONS.iter().find(|o| o.key == key)
 }
 
-/// Every setting, by section and then in Go's Settings order. `version` is
-/// not a setting.
+/// Every setting, by section and then in Go's Settings order, with the
+/// new Display settings after Go's one (mockups.html, screen 6). `version`
+/// is not a setting.
 pub static OPTIONS: [ConfigOption; 16] = [
+    ConfigOption {
+        key: "confirm_destructive",
+        section: SettingsSection::Display,
+        label: "Confirm destructive actions",
+        description: "Ask before updating DLLs. Restoring and installing DLLs always ask.",
+        kind: OptionKind::Bool,
+    },
     ConfigOption {
         key: "ui.theme",
         section: SettingsSection::Display,
@@ -478,13 +486,6 @@ pub static OPTIONS: [ConfigOption; 16] = [
         section: SettingsSection::Display,
         label: "ASCII glyphs",
         description: "Draw boxes, markers and sparklines in plain ASCII, for fonts that show the symbols wrong.",
-        kind: OptionKind::Bool,
-    },
-    ConfigOption {
-        key: "confirm_destructive",
-        section: SettingsSection::Display,
-        label: "Confirm destructive actions",
-        description: "Ask before updating DLLs. Restoring and installing DLLs always ask.",
         kind: OptionKind::Bool,
     },
     ConfigOption {
