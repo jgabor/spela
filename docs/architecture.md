@@ -350,7 +350,7 @@ Each seam has the real implementation and a fake. The fake is the second impleme
 |---|---|---|---|
 | GPU reads | nvml-wrapper on device 0. It loads `libnvidia-ml.so.1` at runtime, so a missing driver is an error value, not a crash (verified: [rust-crates.md](rust-crates.md), NVML) | Scripted metrics. For the demo, a generator that walks through the alert states | trait `Gpu` |
 | GPU control, root side only | nvml-wrapper setters inside the root helper | Records every call, fails at a chosen step | trait `GpuControl` |
-| CPU sysfs | Files under `SystemRoots.sys` (`/sys`) | A temp-dir tree | root path |
+| CPU sysfs | Files under `/sys`. The reads (governor, available governors, SMT) also sit behind trait `Cpu` as `SysfsCpu`, so `--demo` and the binary tests read the fake (as built in Phase 2) | A temp-dir tree for `SysfsCpu`; `FakeCpu` for the trait | root path, plus trait `Cpu` for reads |
 | procfs | Files under `SystemRoots.proc` (`/proc`): running games, cpuinfo, meminfo, loadavg | A temp-dir tree with fake pid folders | root path |
 | Display (KDE VRR) | `kscreen-doctor` with a 10 s timeout and `LC_ALL=C` (verified: [parity-inventory.md](parity-inventory.md), CLI 6.5) | Scripted outputs and replies | trait `Display` |
 | Privilege | `pkexec` running this binary's `apply-profile --serve` for a launch (decision 30), or `apply-profile --once` for a live command | Runs the helper loop in process over in-memory pipes, against the `GpuControl` fake and the sysfs tree. Can be dismissed, find no polkit agent, fail at step N, or lose its parent at step N. Until Phase 6 builds the `--serve` loop, the fake applies the helper's rules itself (as built in Phase 1) | trait `Privilege` |

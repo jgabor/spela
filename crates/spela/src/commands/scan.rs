@@ -36,7 +36,7 @@ pub fn run(
     let install = read::steam(ctx, &config);
     match scan::rescan(&ctx.paths, &install, ctx.clock.as_ref()) {
         Ok(_) => {}
-        Err(RescanError::NoSteam) => return Err(read::no_steam("scan failed")),
+        Err(RescanError::NoSteam) => return Err(read::no_steam(ctx, "scan failed")),
         Err(e) => {
             return Err(CliError::new(exit::FAILURE, format!("scan failed: {e}")));
         }

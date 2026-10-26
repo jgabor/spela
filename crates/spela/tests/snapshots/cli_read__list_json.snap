@@ -1,0 +1,49 @@
+---
+source: crates/spela/tests/cli_read.rs
+expression: "run.stdout().replace(&root, \"[ROOT]\")"
+---
+{
+  "schema_version": 1,
+  "games": [
+    {
+      "app_id": 9100410,
+      "name": "Amber Reach",
+      "install_dir": "[ROOT]/lib/steamapps/common/Amber",
+      "library_path": "[ROOT]/lib",
+      "prefix_path": "[ROOT]/lib/steamapps/compatdata/9100410",
+      "scanned_at": "2026-10-26T15:02:10.5Z",
+      "has_profile": true,
+      "dlls": [
+        {
+          "path": "[ROOT]/lib/steamapps/common/Amber/bin/nvngx_dlss.dll",
+          "name": "nvngx_dlss.dll",
+          "type": "dlss",
+          "version": "310.5.3"
+        },
+        {
+          "path": "[ROOT]/lib/steamapps/common/Amber/bin/nvngx_dlssg.dll",
+          "name": "nvngx_dlssg.dll",
+          "type": "dlssg",
+          "version": null
+        }
+      ]
+    },
+    {
+      "app_id": 9100420,
+      "name": "Cobalt Drift",
+      "install_dir": "[ROOT]/lib/steamapps/common/Cobalt",
+      "library_path": "[ROOT]/lib",
+      "prefix_path": null,
+      "scanned_at": "2026-10-26T15:02:10Z",
+      "has_profile": false,
+      "dlls": [
+        {
+          "path": "[ROOT]/lib/steamapps/common/Cobalt/libxess.dll",
+          "name": "libxess.dll",
+          "type": "xess",
+          "version": "1.3.1"
+        }
+      ]
+    }
+  ]
+}

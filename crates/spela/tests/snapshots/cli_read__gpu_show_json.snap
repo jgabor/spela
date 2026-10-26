@@ -1,0 +1,93 @@
+---
+source: crates/spela/tests/cli_read.rs
+expression: "run.stdout().replace(&root, \"[ROOT]\")"
+---
+{
+  "schema_version": 1,
+  "scope": "game",
+  "app_id": 9100420,
+  "name": "Cobalt Drift",
+  "has_profile": false,
+  "fields": [
+    {
+      "key": "gpu.clock_offset",
+      "section": "gpu",
+      "kind": "int",
+      "unit": "MHz",
+      "value": 0,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "gpu.vrr",
+      "section": "gpu",
+      "kind": "string",
+      "unit": null,
+      "value": "",
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "gpu.memory_offset",
+      "section": "gpu",
+      "kind": "int",
+      "unit": "MHz",
+      "value": 0,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "gpu.power_limit",
+      "section": "gpu",
+      "kind": "int",
+      "unit": "W",
+      "value": 0,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "gpu.fan_speed",
+      "section": "gpu",
+      "kind": "int",
+      "unit": "%",
+      "value": 0,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "gpu.shader_cache",
+      "section": "gpu",
+      "kind": "bool",
+      "unit": null,
+      "value": false,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "gpu.shader_cache_path",
+      "section": "gpu",
+      "kind": "string",
+      "unit": null,
+      "value": "",
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "gpu.threaded_optimization",
+      "section": "gpu",
+      "kind": "bool",
+      "unit": null,
+      "value": false,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    }
+  ]
+}

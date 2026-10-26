@@ -62,19 +62,24 @@ pub fn steam(ctx: &Context, config: &Config) -> SteamInstall {
     install
 }
 
-/// The game cache. With [`Rescan::IfEmpty`], an empty cache is rebuilt
-/// from Steam first; with no Steam to scan that is Go's error.
+/// The game cache. With [`Rescan::IfEmpty`], the config is loaded, as Go's
+/// `list` and `show` always loaded it, so a config that does not load exits
+/// 3, and an empty cache is rebuilt from Steam first; with no Steam to scan
+/// that is Go's error.
 pub fn games(ctx: &Context, rescan: Rescan) -> Result<GameCache, CliError> {
-    let cache = cache::load(&ctx.paths);
-    if rescan == Rescan::Never || !cache.is_empty() {
-        return Ok(cache);
+    if rescan == Rescan::Never {
+        return Ok(cache::load(&ctx.paths));
     }
     let config = config(ctx)?;
+    let cache = cache::load(&ctx.paths);
+    if !cache.is_empty() {
+        return Ok(cache);
+    }
     let install = steam(ctx, &config);
     tracing::info!("the game cache is empty, so spela scans Steam first");
     match scan::rescan(&ctx.paths, &install, ctx.clock.as_ref()) {
         Ok(_) => Ok(cache::load(&ctx.paths)),
-        Err(RescanError::NoSteam) => Err(no_steam("failed to refresh game database")),
+        Err(RescanError::NoSteam) => Err(no_steam(ctx, "failed to refresh game database")),
         Err(e) => Err(CliError::new(
             exit::FAILURE,
             format!("failed to refresh game database: {e}"),
@@ -83,7 +88,16 @@ pub fn games(ctx: &Context, rescan: Rescan) -> Result<GameCache, CliError> {
 }
 
 /// Go's error when there is no Steam library to scan, after `context`.
-pub fn no_steam(context: &str) -> CliError {
+/// `--demo` never reads the user's Steam and has no fictional library yet,
+/// so it says that instead.
+pub fn no_steam(ctx: &Context, context: &str) -> CliError {
+    if ctx.demo {
+        return CliError::new(
+            exit::FAILURE,
+            format!("{context}: the demo has no Steam library yet"),
+        )
+        .with_kind("no_steam");
+    }
     CliError::new(exit::FAILURE, format!("{context}: {}", scan::NO_STEAM))
         .with_hint("set steam_path with 'spela config set steam_path <folder>'")
         .with_kind("no_steam")

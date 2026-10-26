@@ -720,3 +720,82 @@ fn cpu_governor_and_smt_read_the_fake_cpu() {
             .contains("'spela cpu governor' is not yet implemented")
     );
 }
+
+/// A game cache written by hand with fixed times, so the JSON snapshots
+/// stay the same on every run.
+fn fixed_cache(s: &Sandbox) {
+    let lib = s.root().join("lib");
+    let common = lib.join("steamapps/common");
+    let cache = serde_json::json!({
+        "version": 1,
+        "updated_at": "2026-10-26T15:02:11Z",
+        "games": [
+            {
+                "app_id": 9100410,
+                "name": "Amber Reach",
+                "install_dir": common.join("Amber"),
+                "library_path": lib,
+                "prefix_path": lib.join("steamapps/compatdata/9100410"),
+                "scanned_at": "2026-10-26T17:02:10.5+02:00",
+                "dlls": [
+                    {"path": common.join("Amber/bin/nvngx_dlssg.dll"), "name": "nvngx_dlssg.dll", "type": "dlssg", "version": null},
+                    {"path": common.join("Amber/bin/nvngx_dlss.dll"), "name": "nvngx_dlss.dll", "type": "dlss", "version": "310.5.3"}
+                ]
+            },
+            {
+                "app_id": 9100420,
+                "name": "Cobalt Drift",
+                "install_dir": common.join("Cobalt"),
+                "library_path": lib,
+                "scanned_at": "2026-10-26T15:02:10Z",
+                "dlls": [
+                    {"path": common.join("Cobalt/libxess.dll"), "name": "libxess.dll", "type": "xess", "version": "1.3.1"}
+                ]
+            }
+        ]
+    });
+    write(&cache_dir(s).join("games.json"), &cache.to_string());
+}
+
+#[test]
+fn json_output_is_pinned_by_snapshots() {
+    let s = Sandbox::new();
+    fixed_cache(&s);
+    profiles(&s);
+    let root = s.root().to_str().unwrap().to_owned();
+    for (name, args) in [
+        ("list_json", &["list", "--json"][..]),
+        ("show_json", &["show", "9100410", "--json"][..]),
+        (
+            "profile_show_json",
+            &["profile", "show", "9100410", "--json"][..],
+        ),
+        (
+            "profile_show_all_games_json",
+            &["profile", "show", "--all-games", "--json"][..],
+        ),
+        ("gpu_show_json", &["gpu", "show", "9100420", "--json"][..]),
+    ] {
+        let run = s.run(args);
+        run.expect_code(0);
+        assert!(run.stderr().is_empty(), "{name}: {}", run.stderr());
+        insta::assert_snapshot!(name, run.stdout().replace(&root, "[ROOT]"));
+    }
+}
+
+#[test]
+fn list_and_show_load_the_config_even_with_a_full_cache() {
+    let s = Sandbox::new();
+    fixed_cache(&s);
+    write(
+        &config_dir(&s).join("config.toml"),
+        "check_updates = \"maybe\"\n",
+    );
+    for args in [&["list"][..], &["show", "9100410"][..]] {
+        let run = s.run(args);
+        run.expect_code(3);
+        assert!(run.stderr().contains("config.toml"), "{}", run.stderr());
+    }
+    // The commands that never read the config in Go still work.
+    s.run(&["profile", "show", "9100410"]).expect_code(0);
+}

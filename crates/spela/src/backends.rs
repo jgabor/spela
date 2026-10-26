@@ -1,9 +1,10 @@
 //! Picks the backends for a run: the fake for `--demo` and for
 //! `SPELA_BACKEND=fake`, otherwise the real ones.
 //!
-//! The real GPU, display and HTTP backends arrive in later phases (NVML in
-//! Phase 2, `kscreen-doctor` and polkit in Phase 6, ureq with the manifest
-//! in Phase 5). Until then they report that they are not built. They open
+//! The real CPU reads are built: [`SysfsCpu`] over `/sys`. The real GPU,
+//! display and HTTP backends arrive in later phases (NVML in Phase 2,
+//! `kscreen-doctor` and polkit in Phase 6, ureq with the manifest in Phase
+//! 5). Until then they report that they are not built. They open
 //! nothing when built, so a command that never asks pays nothing; NVML in
 //! particular stays lazy (it costs 4 to 17 ms per process).
 
