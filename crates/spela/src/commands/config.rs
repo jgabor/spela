@@ -1,12 +1,14 @@
 //! `spela config`: show or change spela's settings.
 //!
-//! Each subcommand still takes a placeholder [`Rest`] and says it is not
-//! built yet until its phase declares its arguments here.
+//! The read subcommands are in [`super::config_read`]. The others still
+//! take a placeholder [`Rest`] and say they are not built yet until their
+//! phase declares their arguments here.
 
 use std::io::Write;
 
 use clap::Subcommand;
 
+use super::config_read;
 use crate::cli::{Context, Invocation, Rest};
 use crate::error::CliError;
 
@@ -14,7 +16,7 @@ use crate::error::CliError;
 #[derive(Debug, Clone, Subcommand)]
 pub enum ConfigCommand {
     /// Print the config.
-    Show(Rest),
+    Show,
     /// Change one setting.
     Set(Rest),
 }
@@ -23,12 +25,12 @@ pub enum ConfigCommand {
 pub fn run(
     command: &ConfigCommand,
     inv: &Invocation,
-    _ctx: &mut Context,
-    _out: &mut dyn Write,
-    _err: &mut dyn Write,
+    ctx: &mut Context,
+    out: &mut dyn Write,
+    err: &mut dyn Write,
 ) -> Result<(), CliError> {
     match command {
-        ConfigCommand::Show(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
+        ConfigCommand::Show => config_read::show(inv, ctx, out, err),
         ConfigCommand::Set(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
     }
 }

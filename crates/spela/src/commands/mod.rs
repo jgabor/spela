@@ -17,6 +17,8 @@
 //! | [`gpu`] | `gpu info`, `reset`, `set`, `show`, `profile-reset` |
 //! | [`cpu`] | `cpu info`, `governor`, `smt`, `set`, `show`, `profile-reset` |
 //! | [`denylist`] | `denylist show`, `check`, `allow`, `deny`, `clear` |
+//! | [`profile_read`], [`config_read`], [`dll_read`], [`denylist_read`], [`cpu_read`] | The read subcommands of those groups, apart from their write side |
+//! | [`read`] | What the read commands share: config, Steam, the game cache, profiles |
 //! | [`tui`] | `tui`, and `--demo` with no command |
 //! | [`completion`] | `completion <shell>` |
 //! | [`removed`] | the reserved `overlay` and `gui` (decision 45) |
@@ -25,15 +27,21 @@
 
 pub mod completion;
 pub mod config;
+pub mod config_read;
 pub mod cpu;
+pub mod cpu_read;
 pub mod denylist;
+pub mod denylist_read;
 pub mod dll;
+pub mod dll_read;
 pub mod dlss;
 pub mod gpu;
 pub mod launch;
 pub mod list;
 pub mod profile;
+pub mod profile_read;
 pub mod proton;
+pub mod read;
 pub mod removed;
 pub mod scan;
 pub mod show;

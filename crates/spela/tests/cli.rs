@@ -62,8 +62,8 @@ fn unknown_commands_are_usage_errors() {
 fn unbuilt_commands_say_so_and_exit_1() {
     let s = Sandbox::new();
     for (args, name) in [
-        (&["scan"][..], "scan"),
-        (&["profile", "show", "Some Game"][..], "profile show"),
+        (&["gpu", "info"][..], "gpu info"),
+        (&["profile", "create", "Some Game"][..], "profile create"),
         (&["dll", "update", "--all"][..], "dll update"),
         (
             &["gpu", "set", "x", "--clock-offset", "-100"][..],
@@ -86,7 +86,10 @@ fn unbuilt_commands_say_so_and_exit_1() {
 #[test]
 fn json_failures_print_only_an_error_object() {
     let s = Sandbox::new();
-    for args in [&["--json", "scan"][..], &["scan", "--json"][..]] {
+    for args in [
+        &["--json", "gpu", "info"][..],
+        &["gpu", "info", "--json"][..],
+    ] {
         let run = s.run(args);
         run.expect_code(1);
         assert!(run.stderr().is_empty(), "{}", run.stderr());
@@ -97,16 +100,17 @@ fn json_failures_print_only_an_error_object() {
 #[test]
 fn global_flags_after_a_positional_still_count() {
     let s = Sandbox::new();
-    // --json after a game name still gives the error object.
+    // --json after a game name still gives the error object. The sandbox
+    // has no Steam, so the empty cache cannot be scanned.
     let run = s.run(&["show", "x", "--json"]);
     run.expect_code(1);
     assert!(run.stderr().is_empty(), "{}", run.stderr());
     let error: serde_json::Value = serde_json::from_str(&run.stdout()).unwrap();
     assert_eq!(error["schema_version"], 1, "{error}");
-    assert_eq!(error["error"]["code"], "not_implemented", "{error}");
+    assert_eq!(error["error"]["code"], "no_steam", "{error}");
     assert_eq!(
         error["error"]["message"],
-        "'spela show' is not yet implemented in this build"
+        "failed to refresh game database: could not find Steam installation"
     );
     // --demo after a game name selects the demo, not the real paths.
     let run = s.run_with(&["show", "x", "--demo"], &[("SPELA_LOG", "info")]);

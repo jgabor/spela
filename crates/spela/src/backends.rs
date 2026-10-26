@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use spela_core::backend::{
     BackendKind, Backends, Display, DisplayError, Gpu, GpuError, GpuInfo, GpuMetrics, Http,
-    HttpError, HttpRequest, HttpResponse, Output, VrrPolicy,
+    HttpError, HttpRequest, HttpResponse, Output, SysfsCpu, VrrPolicy,
 };
 use spela_core::env::Env;
 
@@ -49,6 +49,7 @@ pub fn real() -> Backends {
     Backends {
         kind: BackendKind::Real,
         gpu: Box::new(NvmlGpu),
+        cpu: Box::new(SysfsCpu::system()),
         display: Box::new(KscreenDisplay),
         privilege: Box::new(PolkitPrivilege),
         http: Arc::new(UreqHttp),

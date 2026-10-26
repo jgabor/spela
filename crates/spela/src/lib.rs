@@ -17,6 +17,8 @@
 //! | [`privilege`] | The real privilege backend, the only code that names its program |
 //! | [`helper`] | The hidden `apply-profile` root helper |
 //! | [`demo`] | `--demo`: a private temp dir and the fake backends |
+//! | [`startup`] | The migration from Go spela before a command reads the store |
+//! | [`text`] | Colour roles for command output |
 
 #![warn(missing_docs)]
 
@@ -31,3 +33,5 @@ pub mod logging;
 pub mod output;
 pub mod privilege;
 pub mod router;
+pub mod startup;
+pub mod text;

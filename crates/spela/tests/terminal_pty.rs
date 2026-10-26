@@ -233,7 +233,7 @@ fn errors_are_coloured_on_a_terminal_unless_no_color() {
     assert!(coloured.raw.contains(&0x1b), "ANSI on a terminal");
     let row = coloured.parser.screen().contents();
     assert!(
-        row.starts_with("error: 'spela scan' is not yet implemented in this build"),
+        row.starts_with("error: scan failed: could not find Steam installation"),
         "{row:?}"
     );
     // vt100 saw the red, bold `error:`.

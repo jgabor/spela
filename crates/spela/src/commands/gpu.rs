@@ -1,12 +1,16 @@
 //! `spela gpu`: gPU information, profile settings and reset.
 //!
-//! Each subcommand still takes a placeholder [`Rest`] and says it is not
-//! built yet until its phase declares its arguments here.
+//! The read subcommands are in [`super::profile_read`]. The others still
+//! take a placeholder [`Rest`] and say they are not built yet until their
+//! phase declares their arguments here.
 
 use std::io::Write;
 
 use clap::Subcommand;
 
+use spela_core::profile::Section;
+
+use super::profile_read::{self, ShowArgs};
 use crate::cli::{Context, Invocation, Rest};
 use crate::error::CliError;
 
@@ -20,7 +24,7 @@ pub enum GpuCommand {
     /// Change GPU settings in a profile.
     Set(Rest),
     /// Show GPU settings in a profile.
-    Show(Rest),
+    Show(ShowArgs),
     /// Make GPU settings follow All games.
     ProfileReset(Rest),
 }
@@ -29,15 +33,17 @@ pub enum GpuCommand {
 pub fn run(
     command: &GpuCommand,
     inv: &Invocation,
-    _ctx: &mut Context,
-    _out: &mut dyn Write,
-    _err: &mut dyn Write,
+    ctx: &mut Context,
+    out: &mut dyn Write,
+    err: &mut dyn Write,
 ) -> Result<(), CliError> {
     match command {
         GpuCommand::Info(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
         GpuCommand::Reset(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
         GpuCommand::Set(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
-        GpuCommand::Show(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
+        GpuCommand::Show(args) => {
+            profile_read::section_show(Section::Gpu, args, inv, ctx, out, err)
+        }
         GpuCommand::ProfileReset(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
     }
 }

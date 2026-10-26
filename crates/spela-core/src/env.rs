@@ -20,9 +20,24 @@ pub mod var {
     pub const NO_COLOR: &str = "NO_COLOR";
     /// Where programs are found, for telling a wrapped game from a typo.
     pub const PATH: &str = "PATH";
+    /// The user's home folder, where Steam is looked for.
+    pub const HOME: &str = "HOME";
+    /// The variable Steam sets to the game's AppID.
+    pub const STEAM_APP_ID: &str = "SteamAppId";
+    /// The variable Steam sets to the game's ID, which is the AppID for a
+    /// Steam game.
+    pub const STEAM_GAME_ID: &str = "SteamGameId";
 
     /// Every name above, for [`super::Env::from_process`].
-    pub const ALL: &[&str] = &[SPELA_BACKEND, SPELA_LOG, NO_COLOR, PATH];
+    pub const ALL: &[&str] = &[
+        SPELA_BACKEND,
+        SPELA_LOG,
+        NO_COLOR,
+        PATH,
+        HOME,
+        STEAM_APP_ID,
+        STEAM_GAME_ID,
+    ];
 }
 
 /// Environment variables captured once at startup.
