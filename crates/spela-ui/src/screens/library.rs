@@ -321,6 +321,17 @@ fn sort_key(g: &Game) -> (String, u64) {
     (g.name.to_lowercase(), g.app_id)
 }
 
+/// Whether the library holds any game the list can show. With none, the
+/// List drops All games and the Find row and shows the empty state, as Go
+/// did.
+pub fn has_games(state: &AppState) -> bool {
+    state
+        .games
+        .games
+        .iter()
+        .any(|g| !spela_core::steam::tools::is_tool_name(&g.name))
+}
+
 /// The games the list shows, in its order: tools left out, then the
 /// query, the filters and the sort.
 fn listed(state: &AppState, query: &str) -> Vec<usize> {
@@ -408,7 +419,7 @@ pub fn replace_games(state: &mut AppState, cache: GameCache) {
 fn rebuild_rows(state: &mut AppState, keep: Option<Scope>) {
     let query = state.library.query.text().to_owned();
     let lib = &state.library;
-    let pinned = query.is_empty() && !lib.filtered() && !lib.selecting();
+    let pinned = query.is_empty() && !lib.filtered() && !lib.selecting() && has_games(state);
     let mut rows = Vec::new();
     if pinned {
         rows.push(ListRow::AllGames);
@@ -478,7 +489,7 @@ pub fn scan_done(
 /// Whether `/` can find: there are games to find in, and select mode is
 /// off.
 pub fn can_find(state: &AppState) -> Result<(), String> {
-    if state.games.games.is_empty() {
+    if !has_games(state) {
         Err("no games".into())
     } else if state.library.selecting() {
         Err("clear the selection first".into())
@@ -769,7 +780,7 @@ pub fn update(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
 }
 
 fn open_find(state: &mut AppState) {
-    if state.games.games.is_empty() || state.library.selecting() {
+    if !has_games(state) || state.library.selecting() {
         return;
     }
     // One input at a time: Find closes the profile page's editor.
@@ -801,10 +812,11 @@ fn step(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
     state.dirty = true;
     let last = state.library.rows.len().saturating_sub(1);
     let page = page(state);
+    let any_games = has_games(state);
     let lib = &mut state.library;
     match action {
         Action::Up => {
-            if lib.cursor == 0 && !state.games.games.is_empty() && !lib.selecting() {
+            if lib.cursor == 0 && any_games && !lib.selecting() {
                 open_find(state);
             } else {
                 lib.cursor = lib.cursor.saturating_sub(1);
@@ -1033,7 +1045,9 @@ fn find_row(state: &AppState, p: &mut Painter<'_>, inner: Rect, hits: &mut HitMa
     let x = inner.x + 1;
     let w = inner.width - 2;
     let y = inner.y;
-    if lib.selecting() {
+    // With no games there is nothing to find: the empty state takes the
+    // row, as in Go.
+    if lib.selecting() || (!lib.finding && lib.query.is_empty() && !has_games(state)) {
         return y;
     }
     hits.push(
@@ -1187,7 +1201,7 @@ fn empty_state(state: &AppState, p: &mut Painter<'_>, area: Rect) {
             ),
             (hint.to_owned(), Role::Muted),
         ]
-    } else if lib.filtered() && !state.games.games.is_empty() {
+    } else if lib.filtered() && has_games(state) {
         vec![
             ("No games match filters".to_owned(), Role::Text),
             ("Clear filters in Actions".to_owned(), Role::Muted),

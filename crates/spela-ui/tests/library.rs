@@ -107,3 +107,32 @@ fn filters_and_sort_at_80x24() {
     assert!(text.contains("Scope [Z-A]"), "{text}");
     insta::assert_snapshot!(text);
 }
+
+/// With no games, the List shows Go's empty state: no All games row, no
+/// Find row, and the scan error stays under the recovery hint after the
+/// status line clears.
+#[test]
+fn an_empty_library_shows_the_recovery_state() {
+    for (w, h) in [(120, 40), (80, 24)] {
+        for error in [None, Some("could not find Steam installation")] {
+            let mut s = spela_ui::testing::state_with_games(w, h, 0);
+            s.library.scan_error = error.map(str::to_owned);
+            assert!(s.library.rows.is_empty(), "{w}x{h}: {:?}", s.library.rows);
+            check_keys(&format!("{w}x{h} empty"), &s);
+            let text = render_text(&mut s);
+            assert!(text.contains("No games found"), "{text}");
+            assert!(text.contains("Use Actions to rescan or"), "{text}");
+            assert!(text.contains("Settings for paths"), "{text}");
+            assert!(!text.contains("Find games"), "{text}");
+            assert!(!text.contains("All games"), "{text}");
+            if let Some(e) = error {
+                assert!(text.contains(&e[..20]), "{text}");
+            }
+            let name = format!(
+                "empty_library_{w}x{h}{}",
+                if error.is_some() { "_scan_error" } else { "" }
+            );
+            insta::assert_snapshot!(name, text);
+        }
+    }
+}

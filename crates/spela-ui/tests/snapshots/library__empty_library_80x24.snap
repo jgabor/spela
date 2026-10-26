@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/library.rs
+expression: text
+---
+ spela   ▸ 1 Library  2 DLL Catalog  3 Monitor  4 Settings
+┌─ ▸ List ─────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│ No games found                                                               │
+│ Use Actions to rescan or Settings for paths                                  │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└─ ▪ DLLs  ⚑ profile ──────────────────────────────────────────────────────────┘
+
+ 0 Actions  Tab Detail  ? Help

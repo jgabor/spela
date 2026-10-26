@@ -3,12 +3,12 @@ source: crates/spela-ui/tests/frames.rs
 expression: render_text(&mut s)
 ---
  spela   ▸ 1 Library  2 DLL Catalog  3 Monitor  4 Settings
-┌─ Scope ────────────────────────┬─ All games ─────────────────────────────────────────────────────────────────────────┐
-│ / Find games                   │ All games · Saved at once                                                           │
-│ ▸ All games                    │ Games follow these values unless they set their own.                                │
-│                                │ [Proton]  DLSS  GPU  CPU                                                            │
+┌─ Scope ────────────────────────┬─ Profile ───────────────────────────────────────────────────────────────────────────┐
+│                                │ Select a game from the scope list                                                   │
+│ No games found                 │                                                                                     │
+│ Use Actions to rescan or       │                                                                                     │
+│ Settings for paths             │                                                                                     │
 │                                │                                                                                     │
-│                                │ Loading profiles...                                                                 │
 │                                │                                                                                     │
 │                                │                                                                                     │
 │                                │                                                                                     │
@@ -41,4 +41,4 @@ expression: render_text(&mut s)
 │                                │                                                                                     │
 └─ ▪ DLLs  ⚑ profile ────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
 
- 0 Actions  Up/Down Game  Enter Open selection  Tab Pane  ? Help
+ 0 Actions  Tab Pane  ? Help
