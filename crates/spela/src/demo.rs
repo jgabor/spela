@@ -3,6 +3,9 @@
 //! Every path comes from [`Paths::under`] a fresh temp dir that is removed
 //! when the session drops. Only `<config>/config.toml` is copied in, so
 //! theme and mouse settings carry over and the real file is never written.
+//! The copy's `dll_cache_path` and `backup_path` are cleared, because the
+//! demo installs, updates and restores DLLs: its payloads and backups stay
+//! in the temp dir, never in the user's own DLL cache or backup folder.
 //! The demo never reads Go YAML and never migrates (decision 18).
 //!
 //! Its network is [`spela_core::fake::dlls`]: a manifest, payloads that
@@ -33,6 +36,16 @@ impl DemoSession {
         if config.is_file() {
             std::fs::create_dir_all(&paths.config_dir)?;
             std::fs::copy(&config, paths.config_file())?;
+            let own_folders = spela_core::config::load(&paths.config_file()).is_ok_and(|l| {
+                !l.config.dll_cache_path.is_empty() || !l.config.backup_path.is_empty()
+            });
+            if own_folders {
+                spela_core::config::store::set_many(
+                    &paths,
+                    &[("dll_cache_path", ""), ("backup_path", "")],
+                )
+                .map_err(io::Error::other)?;
+            }
         }
         Ok(DemoSession { dir, paths })
     }
@@ -82,6 +95,28 @@ mod tests {
         }
         drop(session);
         assert!(!root.exists());
+    }
+
+    #[test]
+    fn the_copy_never_points_at_the_user_s_dll_cache_or_backups() {
+        let base = tempfile::tempdir().unwrap();
+        let real = Paths::under(base.path());
+        std::fs::create_dir_all(&real.config_dir).unwrap();
+        let text = "dll_cache_path = \"/home/x/dlls\"\nbackup_path = \"/home/x/backups\"\n\n[ui]\ntheme = \"neon\"\n";
+        std::fs::write(real.config_file(), text).unwrap();
+        let session = DemoSession::start(&real).unwrap();
+        let config = spela_core::config::load(&session.paths().config_file())
+            .unwrap()
+            .config;
+        assert_eq!(config.dll_cache_path, "");
+        assert_eq!(config.backup_path, "");
+        assert_eq!(config.ui.theme, spela_core::config::Theme::Neon);
+        assert!(
+            config
+                .dll_cache_dir(session.paths())
+                .starts_with(session.root())
+        );
+        assert_eq!(std::fs::read_to_string(real.config_file()).unwrap(), text);
     }
 
     #[test]

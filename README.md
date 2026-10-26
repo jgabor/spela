@@ -117,13 +117,25 @@ spela denylist check 1091500        # check DLL swap policy
 spela dll check-updates             # fetch/check available versions
 
 # Optional file changes, only after reviewing compatibility:
-spela dll update 1091500 dlss        # update DLSS Super Resolution, backing up originals
-spela dll restore 1091500            # restore the game's backed-up DLLs
+spela dll update 1091500             # update every stale DLL of the game, backing up originals
+spela dll update 1091500 dlss        # only DLSS Super Resolution
+spela dll install 1091500 dlss --version 310.2.1   # pin a version, older ones included
+spela dll update --all               # every game a deny list does not name
+spela dll restore 1091500            # put the originals back, remove DLLs spela added
+spela dll cache                      # the versions in the DLL cache
 ```
 
-The update command requires a DLL type (`dlss`, `dlssg`, `dlssd`, `xess`, or
-`fsr`). Restore operates on the game's backups, not just the most recently
-updated type. DLL updates persist until restored; wrapper cleanup does not undo them.
+A type is one of `dlss`, `dlssg`, `dlssd`, `xess` or `fsr`. Restore works on the
+game's whole backup, not just the most recently updated type, and removes a DLL
+that an install created where none existed. DLL updates persist until restored;
+wrapper cleanup does not undo them.
+
+In the TUI, the same operations are on a game's DLLs section (the last section
+of its page, or its Actions), on the Library's batch actions for selected games,
+and on the DLL Catalog's Deployment group as `Update all stale deployments`.
+Each one asks first, with Cancel focused. With `auto_update_dlls` on, the TUI
+updates stale DLLs at start, skipping running and deny-listed games, and with
+`check_updates` on it says when a newer spela is released.
 
 Use `spela --help` or `spela <command> --help` for the full command reference.
 
