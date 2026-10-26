@@ -1,0 +1,7 @@
+Download and install the latest version of a DLL for a game.
+
+Usage:
+  spela dll update <game> <dll-type> [flags]
+
+Flags:
+  -h, --help   help for update

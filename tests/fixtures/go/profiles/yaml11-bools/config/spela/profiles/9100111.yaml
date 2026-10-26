@@ -1,0 +1,12 @@
+name: Moss Signal
+proton:
+    enable_hdr: on
+    enable_wayland: Yes
+    vkd3d_heap: off
+cpu:
+    smt: yes
+overrides:
+    proton.enable_hdr: yes
+    proton.enable_wayland: true
+    proton.vkd3d_heap: true
+    cpu.smt: true

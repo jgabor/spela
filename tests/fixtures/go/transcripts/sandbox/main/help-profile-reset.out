@@ -1,0 +1,9 @@
+Clear every setting the game has of its own, so it follows All games for
+all settings. The profile file stays and keeps its name. A game without a
+profile already does.
+
+Usage:
+  spela profile reset <game> [flags]
+
+Flags:
+  -h, --help   help for reset

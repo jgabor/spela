@@ -1,0 +1,22 @@
+{
+  "note": "config.Default().Save(): Go writes every key, defaults included",
+  "file": "config/spela/config.yaml",
+  "exists": true,
+  "load_error": null,
+  "effective": {
+    "auto_refresh_manifest": true,
+    "auto_update_dlls": false,
+    "check_updates": true,
+    "compact_mode": false,
+    "confirm_destructive": true,
+    "log_level": "info",
+    "manifest_refresh_hours": 24,
+    "rescan_on_startup": true,
+    "shader_cache": "/fixture-root/cache/spela/nvidia",
+    "theme": "default"
+  },
+  "validate_error": null,
+  "dll_cache_dir": "/fixture-root/cache/spela/dlls",
+  "backup_files_dir": "/fixture-root/data/spela/backups",
+  "shader_cache_dir": "/fixture-root/cache/spela/nvidia"
+}

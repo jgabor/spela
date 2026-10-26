@@ -1,0 +1,1162 @@
+{
+  "note": "every field set and marked in both scopes",
+  "all_games": {
+    "file": "config/spela/profiles/default.yaml",
+    "exists": true,
+    "load_error": null,
+    "name": "",
+    "overrides_after_load": {
+      "cpu.affinity": true,
+      "cpu.governor": true,
+      "cpu.smt": true,
+      "dlss.fg_enabled": true,
+      "dlss.fg_indicator": true,
+      "dlss.fg_override": true,
+      "dlss.indicator": true,
+      "dlss.multi_frame": true,
+      "dlss.rr_mode": true,
+      "dlss.rr_override": true,
+      "dlss.rr_preset": true,
+      "dlss.sr_mode": true,
+      "dlss.sr_override": true,
+      "dlss.sr_preset": true,
+      "gpu.clock_offset": true,
+      "gpu.fan_speed": true,
+      "gpu.memory_offset": true,
+      "gpu.power_limit": true,
+      "gpu.power_mizer": true,
+      "gpu.shader_cache": true,
+      "gpu.shader_cache_path": true,
+      "gpu.threaded_optimization": true,
+      "gpu.vrr": true,
+      "overlay.enabled": true,
+      "overlay.position": true,
+      "overlay.show_cpu": true,
+      "overlay.show_fps": true,
+      "overlay.show_frametime": true,
+      "overlay.show_gpu": true,
+      "overlay.show_vram": true,
+      "overlay.toggle_key": true,
+      "proton.enable_hdr": true,
+      "proton.enable_ngx_updater": true,
+      "proton.enable_wayland": true,
+      "proton.vkd3d_heap": true
+    },
+    "fields": [
+      {
+        "field": "proton.enable_hdr",
+        "kept": true,
+        "stored": true,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "proton.enable_wayland",
+        "kept": true,
+        "stored": false,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "proton.enable_ngx_updater",
+        "kept": true,
+        "stored": false,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "proton.vkd3d_heap",
+        "kept": true,
+        "stored": false,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "dlss.sr_mode",
+        "kept": true,
+        "stored": "performance",
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "dlss.sr_preset",
+        "kept": true,
+        "stored": "auto",
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "dlss.sr_override",
+        "kept": true,
+        "stored": true,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "dlss.rr_mode",
+        "kept": true,
+        "stored": "quality",
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "dlss.rr_preset",
+        "kept": true,
+        "stored": "K",
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "dlss.rr_override",
+        "kept": true,
+        "stored": false,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "dlss.fg_enabled",
+        "kept": true,
+        "stored": false,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "dlss.fg_override",
+        "kept": true,
+        "stored": true,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "dlss.multi_frame",
+        "kept": true,
+        "stored": 2,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "dlss.indicator",
+        "kept": true,
+        "stored": false,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "dlss.fg_indicator",
+        "kept": true,
+        "stored": false,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "gpu.clock_offset",
+        "kept": true,
+        "stored": 0,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "gpu.vrr",
+        "kept": true,
+        "stored": "never",
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "gpu.memory_offset",
+        "kept": true,
+        "stored": 0,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "gpu.power_limit",
+        "kept": true,
+        "stored": 250,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "gpu.fan_speed",
+        "kept": true,
+        "stored": 0,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "gpu.power_mizer",
+        "kept": false,
+        "stored": "adaptive",
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "gpu.shader_cache",
+        "kept": true,
+        "stored": false,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "gpu.shader_cache_path",
+        "kept": true,
+        "stored": "",
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "gpu.threaded_optimization",
+        "kept": true,
+        "stored": false,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "cpu.governor",
+        "kept": true,
+        "stored": "schedutil",
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "cpu.smt",
+        "kept": true,
+        "stored": true,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "cpu.affinity",
+        "kept": false,
+        "stored": "",
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "overlay.enabled",
+        "kept": false,
+        "stored": false,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "overlay.position",
+        "kept": false,
+        "stored": "bottom-left",
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "overlay.show_fps",
+        "kept": false,
+        "stored": true,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "overlay.show_frametime",
+        "kept": false,
+        "stored": false,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "overlay.show_cpu",
+        "kept": false,
+        "stored": false,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "overlay.show_gpu",
+        "kept": false,
+        "stored": false,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "overlay.show_vram",
+        "kept": false,
+        "stored": false,
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      },
+      {
+        "field": "overlay.toggle_key",
+        "kept": false,
+        "stored": "",
+        "marked": true,
+        "origin": "set_here",
+        "all_games_sets": true
+      }
+    ]
+  },
+  "games": [
+    {
+      "app_id": 9100101,
+      "file": "config/spela/profiles/9100101.yaml",
+      "exists": true,
+      "load_error": null,
+      "loaded": true,
+      "name": "Glimmer Run",
+      "overrides_after_load": {
+        "cpu.affinity": true,
+        "cpu.governor": true,
+        "cpu.smt": true,
+        "dlss.fg_enabled": true,
+        "dlss.fg_indicator": true,
+        "dlss.fg_override": true,
+        "dlss.indicator": true,
+        "dlss.multi_frame": true,
+        "dlss.rr_mode": true,
+        "dlss.rr_override": true,
+        "dlss.rr_preset": true,
+        "dlss.sr_mode": true,
+        "dlss.sr_override": true,
+        "dlss.sr_preset": true,
+        "gpu.clock_offset": true,
+        "gpu.fan_speed": true,
+        "gpu.memory_offset": true,
+        "gpu.power_limit": true,
+        "gpu.power_mizer": true,
+        "gpu.shader_cache": true,
+        "gpu.shader_cache_path": true,
+        "gpu.threaded_optimization": true,
+        "gpu.vrr": true,
+        "overlay.enabled": true,
+        "overlay.position": true,
+        "overlay.show_cpu": true,
+        "overlay.show_fps": true,
+        "overlay.show_frametime": true,
+        "overlay.show_gpu": true,
+        "overlay.show_vram": true,
+        "overlay.toggle_key": true,
+        "proton.enable_hdr": true,
+        "proton.enable_ngx_updater": true,
+        "proton.enable_wayland": true,
+        "proton.vkd3d_heap": true
+      },
+      "fields": [
+        {
+          "field": "proton.enable_hdr",
+          "kept": true,
+          "stored": true,
+          "overridden": true,
+          "effective": true,
+          "source": "override",
+          "origin": "this_game_same",
+          "all_games_sets": true,
+          "all_games_value": true
+        },
+        {
+          "field": "proton.enable_wayland",
+          "kept": true,
+          "stored": true,
+          "overridden": true,
+          "effective": true,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "proton.enable_ngx_updater",
+          "kept": true,
+          "stored": true,
+          "overridden": true,
+          "effective": true,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "proton.vkd3d_heap",
+          "kept": true,
+          "stored": true,
+          "overridden": true,
+          "effective": true,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "dlss.sr_mode",
+          "kept": true,
+          "stored": "quality",
+          "overridden": true,
+          "effective": "quality",
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": "performance"
+        },
+        {
+          "field": "dlss.sr_preset",
+          "kept": true,
+          "stored": "K",
+          "overridden": true,
+          "effective": "K",
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": "auto"
+        },
+        {
+          "field": "dlss.sr_override",
+          "kept": true,
+          "stored": true,
+          "overridden": true,
+          "effective": true,
+          "source": "override",
+          "origin": "this_game_same",
+          "all_games_sets": true,
+          "all_games_value": true
+        },
+        {
+          "field": "dlss.rr_mode",
+          "kept": true,
+          "stored": "dlaa",
+          "overridden": true,
+          "effective": "dlaa",
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": "quality"
+        },
+        {
+          "field": "dlss.rr_preset",
+          "kept": true,
+          "stored": "L",
+          "overridden": true,
+          "effective": "L",
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": "K"
+        },
+        {
+          "field": "dlss.rr_override",
+          "kept": true,
+          "stored": true,
+          "overridden": true,
+          "effective": true,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "dlss.fg_enabled",
+          "kept": true,
+          "stored": true,
+          "overridden": true,
+          "effective": true,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "dlss.fg_override",
+          "kept": true,
+          "stored": true,
+          "overridden": true,
+          "effective": true,
+          "source": "override",
+          "origin": "this_game_same",
+          "all_games_sets": true,
+          "all_games_value": true
+        },
+        {
+          "field": "dlss.multi_frame",
+          "kept": true,
+          "stored": 4,
+          "overridden": true,
+          "effective": 4,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": 2
+        },
+        {
+          "field": "dlss.indicator",
+          "kept": true,
+          "stored": true,
+          "overridden": true,
+          "effective": true,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "dlss.fg_indicator",
+          "kept": true,
+          "stored": true,
+          "overridden": true,
+          "effective": true,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "gpu.clock_offset",
+          "kept": true,
+          "stored": 120,
+          "overridden": true,
+          "effective": 120,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": 0
+        },
+        {
+          "field": "gpu.vrr",
+          "kept": true,
+          "stored": "automatic",
+          "overridden": true,
+          "effective": "automatic",
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": "never"
+        },
+        {
+          "field": "gpu.memory_offset",
+          "kept": true,
+          "stored": 500,
+          "overridden": true,
+          "effective": 500,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": 0
+        },
+        {
+          "field": "gpu.power_limit",
+          "kept": true,
+          "stored": 300,
+          "overridden": true,
+          "effective": 300,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": 250
+        },
+        {
+          "field": "gpu.fan_speed",
+          "kept": true,
+          "stored": 70,
+          "overridden": true,
+          "effective": 70,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": 0
+        },
+        {
+          "field": "gpu.power_mizer",
+          "kept": false,
+          "stored": "prefer_maximum_performance",
+          "overridden": true,
+          "effective": "prefer_maximum_performance",
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": "adaptive"
+        },
+        {
+          "field": "gpu.shader_cache",
+          "kept": true,
+          "stored": true,
+          "overridden": true,
+          "effective": true,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "gpu.shader_cache_path",
+          "kept": true,
+          "stored": "/shader-cache",
+          "overridden": true,
+          "effective": "/shader-cache",
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": ""
+        },
+        {
+          "field": "gpu.threaded_optimization",
+          "kept": true,
+          "stored": true,
+          "overridden": true,
+          "effective": true,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "cpu.governor",
+          "kept": true,
+          "stored": "performance",
+          "overridden": true,
+          "effective": "performance",
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": "schedutil"
+        },
+        {
+          "field": "cpu.smt",
+          "kept": true,
+          "stored": false,
+          "overridden": true,
+          "effective": false,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": true
+        },
+        {
+          "field": "cpu.affinity",
+          "kept": false,
+          "stored": "0-7",
+          "overridden": true,
+          "effective": "0-7",
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": ""
+        },
+        {
+          "field": "overlay.enabled",
+          "kept": false,
+          "stored": true,
+          "overridden": true,
+          "effective": true,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "overlay.position",
+          "kept": false,
+          "stored": "top-right",
+          "overridden": true,
+          "effective": "top-right",
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": "bottom-left"
+        },
+        {
+          "field": "overlay.show_fps",
+          "kept": false,
+          "stored": true,
+          "overridden": true,
+          "effective": true,
+          "source": "override",
+          "origin": "this_game_same",
+          "all_games_sets": true,
+          "all_games_value": true
+        },
+        {
+          "field": "overlay.show_frametime",
+          "kept": false,
+          "stored": true,
+          "overridden": true,
+          "effective": true,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "overlay.show_cpu",
+          "kept": false,
+          "stored": true,
+          "overridden": true,
+          "effective": true,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "overlay.show_gpu",
+          "kept": false,
+          "stored": true,
+          "overridden": true,
+          "effective": true,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "overlay.show_vram",
+          "kept": false,
+          "stored": true,
+          "overridden": true,
+          "effective": true,
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "overlay.toggle_key",
+          "kept": false,
+          "stored": "F12",
+          "overridden": true,
+          "effective": "F12",
+          "source": "override",
+          "origin": "this_game",
+          "all_games_sets": true,
+          "all_games_value": ""
+        }
+      ]
+    },
+    {
+      "app_id": 9100199,
+      "file": "config/spela/profiles/9100199.yaml",
+      "exists": false,
+      "load_error": null,
+      "loaded": false,
+      "name": "",
+      "overrides_after_load": null,
+      "fields": [
+        {
+          "field": "proton.enable_hdr",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": true,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": true
+        },
+        {
+          "field": "proton.enable_wayland",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": false,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "proton.enable_ngx_updater",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": false,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "proton.vkd3d_heap",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": false,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "dlss.sr_mode",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": "performance",
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": "performance"
+        },
+        {
+          "field": "dlss.sr_preset",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": "auto",
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": "auto"
+        },
+        {
+          "field": "dlss.sr_override",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": true,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": true
+        },
+        {
+          "field": "dlss.rr_mode",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": "quality",
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": "quality"
+        },
+        {
+          "field": "dlss.rr_preset",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": "K",
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": "K"
+        },
+        {
+          "field": "dlss.rr_override",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": false,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "dlss.fg_enabled",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": false,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "dlss.fg_override",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": true,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": true
+        },
+        {
+          "field": "dlss.multi_frame",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": 2,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": 2
+        },
+        {
+          "field": "dlss.indicator",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": false,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "dlss.fg_indicator",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": false,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "gpu.clock_offset",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": 0,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": 0
+        },
+        {
+          "field": "gpu.vrr",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": "never",
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": "never"
+        },
+        {
+          "field": "gpu.memory_offset",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": 0,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": 0
+        },
+        {
+          "field": "gpu.power_limit",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": 250,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": 250
+        },
+        {
+          "field": "gpu.fan_speed",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": 0,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": 0
+        },
+        {
+          "field": "gpu.power_mizer",
+          "kept": false,
+          "stored": null,
+          "overridden": false,
+          "effective": "adaptive",
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": "adaptive"
+        },
+        {
+          "field": "gpu.shader_cache",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": false,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "gpu.shader_cache_path",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": "",
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": ""
+        },
+        {
+          "field": "gpu.threaded_optimization",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": false,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "cpu.governor",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": "schedutil",
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": "schedutil"
+        },
+        {
+          "field": "cpu.smt",
+          "kept": true,
+          "stored": null,
+          "overridden": false,
+          "effective": true,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": true
+        },
+        {
+          "field": "cpu.affinity",
+          "kept": false,
+          "stored": null,
+          "overridden": false,
+          "effective": "",
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": ""
+        },
+        {
+          "field": "overlay.enabled",
+          "kept": false,
+          "stored": null,
+          "overridden": false,
+          "effective": false,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "overlay.position",
+          "kept": false,
+          "stored": null,
+          "overridden": false,
+          "effective": "bottom-left",
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": "bottom-left"
+        },
+        {
+          "field": "overlay.show_fps",
+          "kept": false,
+          "stored": null,
+          "overridden": false,
+          "effective": true,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": true
+        },
+        {
+          "field": "overlay.show_frametime",
+          "kept": false,
+          "stored": null,
+          "overridden": false,
+          "effective": false,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "overlay.show_cpu",
+          "kept": false,
+          "stored": null,
+          "overridden": false,
+          "effective": false,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "overlay.show_gpu",
+          "kept": false,
+          "stored": null,
+          "overridden": false,
+          "effective": false,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "overlay.show_vram",
+          "kept": false,
+          "stored": null,
+          "overridden": false,
+          "effective": false,
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": false
+        },
+        {
+          "field": "overlay.toggle_key",
+          "kept": false,
+          "stored": null,
+          "overridden": false,
+          "effective": "",
+          "source": "default",
+          "origin": "all_games",
+          "all_games_sets": true,
+          "all_games_value": ""
+        }
+      ]
+    }
+  ],
+  "list": [
+    9100101
+  ],
+  "list_error": null
+}

@@ -1,0 +1,10 @@
+dlss:
+    fg_enabled: false
+    fg_override: false
+    sr_mode: balanced
+    sr_override: false
+    sr_preset: default
+proton:
+    enable_hdr: false
+    enable_ngx_updater: false
+    enable_wayland: false

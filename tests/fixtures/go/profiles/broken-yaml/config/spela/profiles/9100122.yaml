@@ -1,0 +1,5 @@
+name: Wrong Type
+gpu:
+    power_limit: high
+overrides:
+    gpu.power_limit: true

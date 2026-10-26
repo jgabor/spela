@@ -1,0 +1,9 @@
+Set CPU profile settings for a game. These are applied at game launch, unlike 'cpu governor' and 'cpu smt' which change live system state.
+
+Usage:
+  spela cpu set <game> [flags]
+
+Flags:
+      --governor string   CPU frequency governor (performance, powersave, schedutil, ondemand)
+  -h, --help              help for set
+      --smt string        SMT control (on, off, default)

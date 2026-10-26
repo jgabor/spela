@@ -1,0 +1,8 @@
+Add a game to the deny list
+
+Usage:
+  spela denylist deny <game> [flags]
+
+Flags:
+  -h, --help            help for deny
+      --reason string   Reason for denying

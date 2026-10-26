@@ -1,0 +1,9 @@
+log_level: ""
+shader_cache: ""
+check_updates: true
+rescan_on_startup: true
+auto_update_dlls: false
+auto_refresh_manifest: true
+manifest_refresh_hours: 0
+compact_mode: false
+confirm_destructive: true

@@ -1,0 +1,4 @@
+name: legacy
+gpu:
+  clock_offset: 150
+  fan_speed: 80

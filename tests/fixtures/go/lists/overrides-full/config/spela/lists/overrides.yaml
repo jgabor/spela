@@ -1,0 +1,13 @@
+allowed:
+    - 1172470
+    - 9100203
+denied:
+    - app_id: 9100201
+      name: Frostline Arena
+      reason: kernel anti-cheat, updated
+    - app_id: 9100202
+      name: "9100202"
+      reason: user-specified
+    - app_id: 9100203
+      name: Both Lists
+      reason: user-specified

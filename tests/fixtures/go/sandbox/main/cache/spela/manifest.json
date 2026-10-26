@@ -1,0 +1,71 @@
+{
+  "version": "1",
+  "updated_at": "2026-02-03T06:24:32Z",
+  "repository": "jgabor/spela-dlls",
+  "dlls": {
+    "dlss": [
+      {
+        "version": "310.5.3",
+        "filename": "nvngx_dlss.dll",
+        "url": "https://github.com/jgabor/spela/releases/download/dll-dlss-v310.5.3/nvngx_dlss.dll",
+        "sha256": "8707e53b26c68c606b98bf31c223485ff30d310a261b1a36d48b2eaabc1507ec",
+        "size": 54779504,
+        "release_date": "2026-02-03T06:24:32Z",
+        "notes": "From techpowerup.com"
+      },
+      {
+        "version": "310.5.0",
+        "filename": "nvngx_dlss.dll",
+        "url": "https://github.com/jgabor/spela-dlls/releases/download/dll-dlss-v310.5.0/nvngx_dlss.dll",
+        "sha256": "22c4660249da5b352cde0ce4d95178c3761223dd6ac096d0b88e5c03d7a5cdd1",
+        "size": 54778992,
+        "release_date": "2026-01-16T21:19:21Z",
+        "notes": "From techpowerup.com"
+      }
+    ],
+    "dlssd": [
+      {
+        "version": "310.5.3",
+        "filename": "nvngx_dlssd.dll",
+        "url": "https://github.com/jgabor/spela/releases/download/dll-dlssd-v310.5.3/nvngx_dlssd.dll",
+        "sha256": "e1d1b8d8d07e7210b5feafc42f118fe3bf0144b9e7f2768e44c6f652faa6d7b8",
+        "size": 28596848,
+        "release_date": "2026-01-31T06:16:43Z",
+        "notes": "From techpowerup.com"
+      },
+      {
+        "version": "310.5.0",
+        "filename": "nvngx_dlssd.dll",
+        "url": "https://github.com/jgabor/spela-dlls/releases/download/dll-dlssd-v310.5.0/nvngx_dlssd.dll",
+        "sha256": "4d53f6114edc61bd41fc293008aa818ab092bb8286830e61c98453da92d936d0",
+        "size": 28590704,
+        "release_date": "2026-01-17T13:58:02Z",
+        "notes": "From techpowerup.com"
+      }
+    ],
+    "dlssg": [
+      {
+        "version": "310.5.3",
+        "filename": "nvngx_dlssg.dll",
+        "url": "https://github.com/jgabor/spela/releases/download/dll-dlssg-v310.5.3/nvngx_dlssg.dll",
+        "sha256": "ddf098c04c22a058893a05f442d8836439603280a27bcf254b9b218ee640a126",
+        "size": 7518320,
+        "release_date": "2026-02-01T06:23:42Z",
+        "notes": "From techpowerup.com"
+      },
+      {
+        "version": "310.5.0",
+        "filename": "nvngx_dlssg.dll",
+        "url": "https://github.com/jgabor/spela-dlls/releases/download/dll-dlssg-v310.5.0/nvngx_dlssg.dll",
+        "sha256": "5685c065e6c048f673d70f5dda5b23570c8570642e4e284216f59c2e85583016",
+        "size": 7518320,
+        "release_date": "2026-01-17T13:56:33Z",
+        "notes": "From techpowerup.com"
+      }
+    ],
+    "fsr": [],
+    "xess": []
+  },
+  "fetched_at": "2026-10-26T17:02:10.123456789+02:00",
+  "source_url": "http://127.0.0.1:9/"
+}

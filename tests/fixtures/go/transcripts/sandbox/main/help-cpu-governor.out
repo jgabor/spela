@@ -1,0 +1,7 @@
+Get or set CPU governor
+
+Usage:
+  spela cpu governor [governor] [flags]
+
+Flags:
+  -h, --help   help for governor

@@ -1,0 +1,29 @@
+Spela is a Linux gaming optimization tool that combines DLSS/DLL management with comprehensive gaming environment setup.
+
+Usage:
+  spela [command] [flags]
+  spela [command]
+
+Available Commands:
+  completion    Generate the autocompletion script for the specified shell
+  config        Manage global configuration
+  cpu           CPU tuning and information
+  denylist      Manage the DLL swap deny list
+  dll           Manage game DLLs
+  dlss          Configure DLSS settings
+  gpu           GPU tuning and information
+  help          Help about any command
+  launch        Launch a game with its profile
+  list          List detected games
+  overlay       Overlay profile settings
+  profile       Manage game profiles
+  proton        Proton profile settings
+  scan          Scan Steam libraries for games
+  show          Show game details
+  tui           Launch interactive TUI
+
+Flags:
+  -h, --help      help for spela
+  -v, --version   version for spela
+
+Use "spela [command] --help" for more information about a command.

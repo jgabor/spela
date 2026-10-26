@@ -1,0 +1,5 @@
+allowed: []
+denied:
+    - app_id: 9100202
+      name: Pocket Raid
+      reason: user-specified

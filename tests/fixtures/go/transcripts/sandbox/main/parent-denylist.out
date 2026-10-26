@@ -1,0 +1,15 @@
+View and manage games that should not have their DLLs swapped (usually due to anti-cheat).
+
+Usage:
+  spela denylist [command]
+
+Available Commands:
+  allow       Force-allow a denied game
+  check       Check if a game is denied
+  deny        Add a game to the deny list
+  show        Show the deny list
+
+Flags:
+  -h, --help   help for denylist
+
+Use "spela denylist [command] --help" for more information about a command.

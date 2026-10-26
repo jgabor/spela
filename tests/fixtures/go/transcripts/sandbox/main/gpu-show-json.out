@@ -1,0 +1,11 @@
+{
+  "VRR": "automatic",
+  "ShaderCache": true,
+  "ShaderCachePath": "",
+  "ThreadedOptimization": false,
+  "ClockOffset": 150,
+  "MemoryOffset": 500,
+  "PowerLimit": 250,
+  "PowerMizer": "",
+  "FanSpeed": 60
+}

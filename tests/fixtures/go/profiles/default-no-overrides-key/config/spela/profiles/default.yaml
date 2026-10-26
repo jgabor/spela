@@ -1,0 +1,6 @@
+proton:
+    enable_hdr: true
+cpu:
+    smt: false
+gpu:
+    vrr: never

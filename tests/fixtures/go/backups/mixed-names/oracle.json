@@ -1,0 +1,21 @@
+{
+  "note": "both name schemes in one index",
+  "app_id": 9100403,
+  "index_path": "/fixture-root/data/spela/backups/9100403/backup.json",
+  "load_error": null,
+  "backup_exists": true,
+  "files": [
+    {
+      "original_path": "/fixture-root/library/steamapps/common/Lantern Keep/nvngx_dlss.dll",
+      "backup_path": "/fixture-root/data/spela/backups/9100403/nvngx_dlss.dll",
+      "name_scheme": "basename",
+      "backup_file_exists": true
+    },
+    {
+      "original_path": "/fixture-root/library/steamapps/common/Lantern Keep/nvngx_dlssg.dll",
+      "backup_path": "/fixture-root/data/spela/backups/9100403/d6d2f207621c8db94ea78d9d453186e8ffc08a82f0f199836a69c052c7ed5a16-nvngx_dlssg.dll",
+      "name_scheme": "sha256-basename",
+      "backup_file_exists": true
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+The e2e harness makes this folder empty.

@@ -1,0 +1,5 @@
+{
+  "Governor": "performance",
+  "SMT": false,
+  "Affinity": ""
+}

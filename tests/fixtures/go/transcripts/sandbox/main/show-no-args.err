@@ -1,0 +1,8 @@
+Error: accepts 1 arg(s), received 0
+Usage:
+  spela show <game> [flags]
+
+Flags:
+  -h, --help   help for show
+      --json   Output in JSON format
+

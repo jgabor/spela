@@ -1,0 +1,45 @@
+{
+  "note": "a broken default fails legacy game profiles only; launch resolution needs the default and fails for all",
+  "all_games": {
+    "file": "config/spela/profiles/default.yaml",
+    "exists": true,
+    "load_error": "yaml: line 1: did not find expected ',' or ']'",
+    "name": "",
+    "overrides_after_load": null
+  },
+  "games": [
+    {
+      "app_id": 9100126,
+      "file": "config/spela/profiles/9100126.yaml",
+      "exists": true,
+      "load_error": "load default profile for migration: yaml: line 1: did not find expected ',' or ']'",
+      "loaded": false,
+      "name": "",
+      "overrides_after_load": null
+    },
+    {
+      "app_id": 9100127,
+      "file": "config/spela/profiles/9100127.yaml",
+      "exists": true,
+      "load_error": null,
+      "loaded": true,
+      "name": "Own Map",
+      "overrides_after_load": {
+        "proton.enable_hdr": true
+      }
+    },
+    {
+      "app_id": 9100199,
+      "file": "config/spela/profiles/9100199.yaml",
+      "exists": false,
+      "load_error": null,
+      "loaded": false,
+      "name": "",
+      "overrides_after_load": null
+    }
+  ],
+  "list": [
+    9100127
+  ],
+  "list_error": null
+}

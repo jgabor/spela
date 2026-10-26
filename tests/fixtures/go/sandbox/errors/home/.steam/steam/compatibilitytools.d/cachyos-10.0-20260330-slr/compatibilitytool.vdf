@@ -1,0 +1,13 @@
+"compatibilitytools"
+{
+  "compat_tools"
+  {
+    "cachyos-10.0-20260330-slr" // Internal name of this tool
+    {
+      "install_path" "."
+      "display_name" "cachyos-10.0-20260330-slr"
+      "from_oslist"  "windows"
+      "to_oslist"    "linux"
+    }
+  }
+}

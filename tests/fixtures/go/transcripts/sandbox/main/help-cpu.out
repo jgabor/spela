@@ -1,0 +1,17 @@
+View CPU information and configure CPU governor, SMT, and scheduler settings.
+
+Usage:
+  spela cpu [command]
+
+Available Commands:
+  governor      Get or set CPU governor
+  info          Show CPU information
+  profile-reset Make a CPU profile field follow All games
+  set           Set CPU profile for a game
+  show          Show CPU profile for a game
+  smt           Get or set SMT status
+
+Flags:
+  -h, --help   help for cpu
+
+Use "spela cpu [command] --help" for more information about a command.

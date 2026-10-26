@@ -1,0 +1,5 @@
+name: Drift Atlas
+gpu:
+    vrr: sometimes
+overrides:
+    gpu.vrr: true

@@ -1,0 +1,3 @@
+proton:
+    vkd3d_heap: true
+overrides: {}

@@ -1,0 +1,11 @@
+dlss:
+    sr_mode: balanced
+    sr_preset: auto
+proton:
+    enable_hdr: true
+    enable_wayland: true
+gpu:
+    power_limit: 250
+cpu:
+    governor: powersave
+    smt: true

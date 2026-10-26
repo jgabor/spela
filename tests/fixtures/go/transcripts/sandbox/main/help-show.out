@@ -1,0 +1,8 @@
+Show detailed information about a game including DLLs and profile.
+
+Usage:
+  spela show <game> [flags]
+
+Flags:
+  -h, --help   help for show
+      --json   Output in JSON format

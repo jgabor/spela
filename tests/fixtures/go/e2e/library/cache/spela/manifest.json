@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "updated_at": "2026-10-26T17:02:10+02:00",
+  "repository": "jgabor/spela",
+  "dlls": {
+    "dlss": [
+      {
+        "version": "3.8.0",
+        "filename": "nvngx_dlss_3.8.0.dll",
+        "url": "http://localhost:12345/dlls/nvngx_dlss_3.8.0.dll",
+        "sha256": "abcdef1234567890",
+        "size": 1024,
+        "release_date": "2026-05-22T21:00:00Z"
+      }
+    ],
+    "dlssg": [
+      {
+        "version": "3.7.0",
+        "filename": "nvngx_dlssg_3.7.0.dll",
+        "url": "http://localhost:12345/dlls/nvngx_dlssg_3.7.0.dll",
+        "sha256": "abcdef1234567890",
+        "size": 1024,
+        "release_date": "2026-05-22T21:00:00Z"
+      }
+    ]
+  }
+}

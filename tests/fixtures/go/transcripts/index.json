@@ -1,0 +1,1938 @@
+[
+  {
+    "args": [
+      "--version"
+    ],
+    "exit_code": 0,
+    "name": "version",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/version.out"
+  },
+  {
+    "args": [
+      "-v"
+    ],
+    "exit_code": 0,
+    "name": "version-short",
+    "note": "cobra's -v",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/version-short.out"
+  },
+  {
+    "args": null,
+    "exit_code": 0,
+    "name": "root",
+    "note": "no arguments prints the root help",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/root.out"
+  },
+  {
+    "args": [
+      "--help"
+    ],
+    "exit_code": 0,
+    "name": "root-help-flag",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/root-help-flag.out"
+  },
+  {
+    "args": [
+      "help"
+    ],
+    "exit_code": 0,
+    "name": "help",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help.out"
+  },
+  {
+    "args": [
+      "help",
+      "completion"
+    ],
+    "exit_code": 0,
+    "name": "help-completion",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-completion.out"
+  },
+  {
+    "args": [
+      "help",
+      "config"
+    ],
+    "exit_code": 0,
+    "name": "help-config",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-config.out"
+  },
+  {
+    "args": [
+      "help",
+      "cpu"
+    ],
+    "exit_code": 0,
+    "name": "help-cpu",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-cpu.out"
+  },
+  {
+    "args": [
+      "help",
+      "denylist"
+    ],
+    "exit_code": 0,
+    "name": "help-denylist",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-denylist.out"
+  },
+  {
+    "args": [
+      "help",
+      "dll"
+    ],
+    "exit_code": 0,
+    "name": "help-dll",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-dll.out"
+  },
+  {
+    "args": [
+      "help",
+      "dlss"
+    ],
+    "exit_code": 0,
+    "name": "help-dlss",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-dlss.out"
+  },
+  {
+    "args": [
+      "help",
+      "gpu"
+    ],
+    "exit_code": 0,
+    "name": "help-gpu",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-gpu.out"
+  },
+  {
+    "args": [
+      "help",
+      "help"
+    ],
+    "exit_code": 0,
+    "name": "help-help",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-help.out"
+  },
+  {
+    "args": [
+      "help",
+      "launch"
+    ],
+    "exit_code": 0,
+    "name": "help-launch",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-launch.out"
+  },
+  {
+    "args": [
+      "help",
+      "list"
+    ],
+    "exit_code": 0,
+    "name": "help-list",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-list.out"
+  },
+  {
+    "args": [
+      "help",
+      "overlay"
+    ],
+    "exit_code": 0,
+    "name": "help-overlay",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-overlay.out"
+  },
+  {
+    "args": [
+      "help",
+      "profile"
+    ],
+    "exit_code": 0,
+    "name": "help-profile",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-profile.out"
+  },
+  {
+    "args": [
+      "help",
+      "proton"
+    ],
+    "exit_code": 0,
+    "name": "help-proton",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-proton.out"
+  },
+  {
+    "args": [
+      "help",
+      "scan"
+    ],
+    "exit_code": 0,
+    "name": "help-scan",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-scan.out"
+  },
+  {
+    "args": [
+      "help",
+      "show"
+    ],
+    "exit_code": 0,
+    "name": "help-show",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-show.out"
+  },
+  {
+    "args": [
+      "help",
+      "tui"
+    ],
+    "exit_code": 0,
+    "name": "help-tui",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-tui.out"
+  },
+  {
+    "args": [
+      "help",
+      "apply-profile"
+    ],
+    "exit_code": 0,
+    "name": "help-apply-profile",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-apply-profile.out"
+  },
+  {
+    "args": [
+      "help",
+      "completion",
+      "bash"
+    ],
+    "exit_code": 0,
+    "name": "help-completion-bash",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-completion-bash.out"
+  },
+  {
+    "args": [
+      "help",
+      "completion",
+      "fish"
+    ],
+    "exit_code": 0,
+    "name": "help-completion-fish",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-completion-fish.out"
+  },
+  {
+    "args": [
+      "help",
+      "completion",
+      "powershell"
+    ],
+    "exit_code": 0,
+    "name": "help-completion-powershell",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-completion-powershell.out"
+  },
+  {
+    "args": [
+      "help",
+      "completion",
+      "zsh"
+    ],
+    "exit_code": 0,
+    "name": "help-completion-zsh",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-completion-zsh.out"
+  },
+  {
+    "args": [
+      "help",
+      "config",
+      "set"
+    ],
+    "exit_code": 0,
+    "name": "help-config-set",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-config-set.out"
+  },
+  {
+    "args": [
+      "help",
+      "config",
+      "show"
+    ],
+    "exit_code": 0,
+    "name": "help-config-show",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-config-show.out"
+  },
+  {
+    "args": [
+      "help",
+      "cpu",
+      "governor"
+    ],
+    "exit_code": 0,
+    "name": "help-cpu-governor",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-cpu-governor.out"
+  },
+  {
+    "args": [
+      "help",
+      "cpu",
+      "info"
+    ],
+    "exit_code": 0,
+    "name": "help-cpu-info",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-cpu-info.out"
+  },
+  {
+    "args": [
+      "help",
+      "cpu",
+      "profile-reset"
+    ],
+    "exit_code": 0,
+    "name": "help-cpu-profile-reset",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-cpu-profile-reset.out"
+  },
+  {
+    "args": [
+      "help",
+      "cpu",
+      "set"
+    ],
+    "exit_code": 0,
+    "name": "help-cpu-set",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-cpu-set.out"
+  },
+  {
+    "args": [
+      "help",
+      "cpu",
+      "show"
+    ],
+    "exit_code": 0,
+    "name": "help-cpu-show",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-cpu-show.out"
+  },
+  {
+    "args": [
+      "help",
+      "cpu",
+      "smt"
+    ],
+    "exit_code": 0,
+    "name": "help-cpu-smt",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-cpu-smt.out"
+  },
+  {
+    "args": [
+      "help",
+      "denylist",
+      "allow"
+    ],
+    "exit_code": 0,
+    "name": "help-denylist-allow",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-denylist-allow.out"
+  },
+  {
+    "args": [
+      "help",
+      "denylist",
+      "check"
+    ],
+    "exit_code": 0,
+    "name": "help-denylist-check",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-denylist-check.out"
+  },
+  {
+    "args": [
+      "help",
+      "denylist",
+      "deny"
+    ],
+    "exit_code": 0,
+    "name": "help-denylist-deny",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-denylist-deny.out"
+  },
+  {
+    "args": [
+      "help",
+      "denylist",
+      "show"
+    ],
+    "exit_code": 0,
+    "name": "help-denylist-show",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-denylist-show.out"
+  },
+  {
+    "args": [
+      "help",
+      "dll",
+      "check-updates"
+    ],
+    "exit_code": 0,
+    "name": "help-dll-check-updates",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-dll-check-updates.out"
+  },
+  {
+    "args": [
+      "help",
+      "dll",
+      "list"
+    ],
+    "exit_code": 0,
+    "name": "help-dll-list",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-dll-list.out"
+  },
+  {
+    "args": [
+      "help",
+      "dll",
+      "restore"
+    ],
+    "exit_code": 0,
+    "name": "help-dll-restore",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-dll-restore.out"
+  },
+  {
+    "args": [
+      "help",
+      "dll",
+      "update"
+    ],
+    "exit_code": 0,
+    "name": "help-dll-update",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-dll-update.out"
+  },
+  {
+    "args": [
+      "help",
+      "dlss",
+      "reset"
+    ],
+    "exit_code": 0,
+    "name": "help-dlss-reset",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-dlss-reset.out"
+  },
+  {
+    "args": [
+      "help",
+      "dlss",
+      "set"
+    ],
+    "exit_code": 0,
+    "name": "help-dlss-set",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-dlss-set.out"
+  },
+  {
+    "args": [
+      "help",
+      "dlss",
+      "show"
+    ],
+    "exit_code": 0,
+    "name": "help-dlss-show",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-dlss-show.out"
+  },
+  {
+    "args": [
+      "help",
+      "gpu",
+      "info"
+    ],
+    "exit_code": 0,
+    "name": "help-gpu-info",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-gpu-info.out"
+  },
+  {
+    "args": [
+      "help",
+      "gpu",
+      "profile-reset"
+    ],
+    "exit_code": 0,
+    "name": "help-gpu-profile-reset",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-gpu-profile-reset.out"
+  },
+  {
+    "args": [
+      "help",
+      "gpu",
+      "reset"
+    ],
+    "exit_code": 0,
+    "name": "help-gpu-reset",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-gpu-reset.out"
+  },
+  {
+    "args": [
+      "help",
+      "gpu",
+      "set"
+    ],
+    "exit_code": 0,
+    "name": "help-gpu-set",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-gpu-set.out"
+  },
+  {
+    "args": [
+      "help",
+      "gpu",
+      "show"
+    ],
+    "exit_code": 0,
+    "name": "help-gpu-show",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-gpu-show.out"
+  },
+  {
+    "args": [
+      "help",
+      "overlay",
+      "reset"
+    ],
+    "exit_code": 0,
+    "name": "help-overlay-reset",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-overlay-reset.out"
+  },
+  {
+    "args": [
+      "help",
+      "overlay",
+      "set"
+    ],
+    "exit_code": 0,
+    "name": "help-overlay-set",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-overlay-set.out"
+  },
+  {
+    "args": [
+      "help",
+      "overlay",
+      "show"
+    ],
+    "exit_code": 0,
+    "name": "help-overlay-show",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-overlay-show.out"
+  },
+  {
+    "args": [
+      "help",
+      "profile",
+      "create"
+    ],
+    "exit_code": 0,
+    "name": "help-profile-create",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-profile-create.out"
+  },
+  {
+    "args": [
+      "help",
+      "profile",
+      "delete"
+    ],
+    "exit_code": 0,
+    "name": "help-profile-delete",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-profile-delete.out"
+  },
+  {
+    "args": [
+      "help",
+      "profile",
+      "list"
+    ],
+    "exit_code": 0,
+    "name": "help-profile-list",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-profile-list.out"
+  },
+  {
+    "args": [
+      "help",
+      "profile",
+      "reset"
+    ],
+    "exit_code": 0,
+    "name": "help-profile-reset",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-profile-reset.out"
+  },
+  {
+    "args": [
+      "help",
+      "profile",
+      "show"
+    ],
+    "exit_code": 0,
+    "name": "help-profile-show",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-profile-show.out"
+  },
+  {
+    "args": [
+      "help",
+      "proton",
+      "reset"
+    ],
+    "exit_code": 0,
+    "name": "help-proton-reset",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-proton-reset.out"
+  },
+  {
+    "args": [
+      "help",
+      "proton",
+      "set"
+    ],
+    "exit_code": 0,
+    "name": "help-proton-set",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-proton-set.out"
+  },
+  {
+    "args": [
+      "help",
+      "proton",
+      "show"
+    ],
+    "exit_code": 0,
+    "name": "help-proton-show",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/help-proton-show.out"
+  },
+  {
+    "args": [
+      "bogus"
+    ],
+    "exit_code": 1,
+    "name": "unknown-command",
+    "note": "an unknown word that is not on PATH",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stderr": "sandbox/main/unknown-command.err",
+    "stdout": "sandbox/main/unknown-command.out"
+  },
+  {
+    "args": [
+      "dll"
+    ],
+    "exit_code": 0,
+    "name": "parent-dll",
+    "note": "a parent with no subcommand prints its help",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/parent-dll.out"
+  },
+  {
+    "args": [
+      "profile"
+    ],
+    "exit_code": 0,
+    "name": "parent-profile",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/parent-profile.out"
+  },
+  {
+    "args": [
+      "denylist"
+    ],
+    "exit_code": 0,
+    "name": "parent-denylist",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/parent-denylist.out"
+  },
+  {
+    "args": [
+      "list"
+    ],
+    "exit_code": 0,
+    "name": "list",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/list.out"
+  },
+  {
+    "args": [
+      "list",
+      "--with-dlls"
+    ],
+    "exit_code": 0,
+    "name": "list-with-dlls",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/list-with-dlls.out"
+  },
+  {
+    "args": [
+      "list",
+      "--json"
+    ],
+    "exit_code": 0,
+    "name": "list-json",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/list-json.out"
+  },
+  {
+    "args": [
+      "list",
+      "--with-dlls",
+      "--json"
+    ],
+    "exit_code": 0,
+    "name": "list-with-dlls-json",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/list-with-dlls-json.out"
+  },
+  {
+    "args": [
+      "show",
+      "9100010"
+    ],
+    "exit_code": 0,
+    "name": "show-id",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/show-id.out"
+  },
+  {
+    "args": [
+      "show",
+      "Glimmer Run"
+    ],
+    "exit_code": 0,
+    "name": "show-name",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/show-name.out"
+  },
+  {
+    "args": [
+      "show",
+      "Paper Comet: Director's Cut"
+    ],
+    "exit_code": 0,
+    "name": "show-name-with-colon",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/show-name-with-colon.out"
+  },
+  {
+    "args": [
+      "show",
+      "9100030"
+    ],
+    "exit_code": 0,
+    "name": "show-no-dlls",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/show-no-dlls.out"
+  },
+  {
+    "args": [
+      "show",
+      "9100070"
+    ],
+    "exit_code": 0,
+    "name": "show-second-library",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/show-second-library.out"
+  },
+  {
+    "args": [
+      "show",
+      "--json",
+      "9100010"
+    ],
+    "exit_code": 0,
+    "name": "show-json",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/show-json.out"
+  },
+  {
+    "args": [
+      "show",
+      "9100040"
+    ],
+    "exit_code": 1,
+    "name": "show-tool",
+    "note": "a Steam tool the scan dropped",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stderr": "sandbox/main/show-tool.err",
+    "stdout": "sandbox/main/show-tool.out"
+  },
+  {
+    "args": [
+      "show",
+      "9100050"
+    ],
+    "exit_code": 1,
+    "name": "show-pending-update",
+    "note": "StateFlags 6, which the scan dropped",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stderr": "sandbox/main/show-pending-update.err",
+    "stdout": "sandbox/main/show-pending-update.out"
+  },
+  {
+    "args": [
+      "show",
+      "missing"
+    ],
+    "exit_code": 1,
+    "name": "show-missing",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stderr": "sandbox/main/show-missing.err",
+    "stdout": "sandbox/main/show-missing.out"
+  },
+  {
+    "args": [
+      "show",
+      "glimmer run"
+    ],
+    "exit_code": 1,
+    "name": "show-case-mismatch",
+    "note": "names match exactly",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stderr": "sandbox/main/show-case-mismatch.err",
+    "stdout": "sandbox/main/show-case-mismatch.out"
+  },
+  {
+    "args": [
+      "show"
+    ],
+    "exit_code": 1,
+    "name": "show-no-args",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stderr": "sandbox/main/show-no-args.err",
+    "stdout": "sandbox/main/show-no-args.out"
+  },
+  {
+    "args": [
+      "profile",
+      "list"
+    ],
+    "exit_code": 0,
+    "name": "profile-list",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/profile-list.out"
+  },
+  {
+    "args": [
+      "profile",
+      "show",
+      "9100010"
+    ],
+    "exit_code": 0,
+    "name": "profile-show",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/profile-show.out"
+  },
+  {
+    "args": [
+      "profile",
+      "show",
+      "9100020"
+    ],
+    "exit_code": 0,
+    "name": "profile-show-created",
+    "note": "a profile with only its name",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/profile-show-created.out"
+  },
+  {
+    "args": [
+      "profile",
+      "show",
+      "9100030"
+    ],
+    "exit_code": 0,
+    "name": "profile-show-none",
+    "note": "a game with no profile",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/profile-show-none.out"
+  },
+  {
+    "args": [
+      "profile",
+      "show",
+      "Frostline Arena"
+    ],
+    "exit_code": 0,
+    "name": "profile-show-by-name",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/profile-show-by-name.out"
+  },
+  {
+    "args": [
+      "profile",
+      "show",
+      "--json",
+      "9100010"
+    ],
+    "exit_code": 0,
+    "name": "profile-show-json",
+    "note": "the raw stored profile",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/profile-show-json.out"
+  },
+  {
+    "args": [
+      "profile",
+      "show",
+      "--json",
+      "9100020"
+    ],
+    "exit_code": 0,
+    "name": "profile-show-json-created",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/profile-show-json-created.out"
+  },
+  {
+    "args": [
+      "profile",
+      "show",
+      "--json",
+      "9100030"
+    ],
+    "exit_code": 1,
+    "name": "profile-show-json-none",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stderr": "sandbox/main/profile-show-json-none.err",
+    "stdout": "sandbox/main/profile-show-json-none.out"
+  },
+  {
+    "args": [
+      "profile",
+      "show",
+      "missing"
+    ],
+    "exit_code": 1,
+    "name": "profile-show-missing",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stderr": "sandbox/main/profile-show-missing.err",
+    "stdout": "sandbox/main/profile-show-missing.out"
+  },
+  {
+    "args": [
+      "config",
+      "show"
+    ],
+    "exit_code": 0,
+    "name": "config-show",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/config-show.out"
+  },
+  {
+    "args": [
+      "dlss",
+      "show",
+      "9100010"
+    ],
+    "exit_code": 0,
+    "name": "dlss-show",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/dlss-show.out"
+  },
+  {
+    "args": [
+      "dlss",
+      "show",
+      "--json",
+      "9100010"
+    ],
+    "exit_code": 0,
+    "name": "dlss-show-json",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/dlss-show-json.out"
+  },
+  {
+    "args": [
+      "dlss",
+      "show",
+      "9100030"
+    ],
+    "exit_code": 0,
+    "name": "dlss-show-none",
+    "note": "a game with no profile: All games values",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/dlss-show-none.out"
+  },
+  {
+    "args": [
+      "dlss",
+      "show",
+      "--json",
+      "9100030"
+    ],
+    "exit_code": 0,
+    "name": "dlss-show-json-none",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/dlss-show-json-none.out"
+  },
+  {
+    "args": [
+      "gpu",
+      "show",
+      "9100010"
+    ],
+    "exit_code": 0,
+    "name": "gpu-show",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/gpu-show.out"
+  },
+  {
+    "args": [
+      "gpu",
+      "show",
+      "--json",
+      "9100010"
+    ],
+    "exit_code": 0,
+    "name": "gpu-show-json",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/gpu-show-json.out"
+  },
+  {
+    "args": [
+      "gpu",
+      "show",
+      "9100030"
+    ],
+    "exit_code": 0,
+    "name": "gpu-show-none",
+    "note": "a game with no profile: All games values",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/gpu-show-none.out"
+  },
+  {
+    "args": [
+      "gpu",
+      "show",
+      "--json",
+      "9100030"
+    ],
+    "exit_code": 0,
+    "name": "gpu-show-json-none",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/gpu-show-json-none.out"
+  },
+  {
+    "args": [
+      "cpu",
+      "show",
+      "9100010"
+    ],
+    "exit_code": 0,
+    "name": "cpu-show",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/cpu-show.out"
+  },
+  {
+    "args": [
+      "cpu",
+      "show",
+      "--json",
+      "9100010"
+    ],
+    "exit_code": 0,
+    "name": "cpu-show-json",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/cpu-show-json.out"
+  },
+  {
+    "args": [
+      "cpu",
+      "show",
+      "9100030"
+    ],
+    "exit_code": 0,
+    "name": "cpu-show-none",
+    "note": "a game with no profile: All games values",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/cpu-show-none.out"
+  },
+  {
+    "args": [
+      "cpu",
+      "show",
+      "--json",
+      "9100030"
+    ],
+    "exit_code": 0,
+    "name": "cpu-show-json-none",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/cpu-show-json-none.out"
+  },
+  {
+    "args": [
+      "proton",
+      "show",
+      "9100010"
+    ],
+    "exit_code": 0,
+    "name": "proton-show",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/proton-show.out"
+  },
+  {
+    "args": [
+      "proton",
+      "show",
+      "--json",
+      "9100010"
+    ],
+    "exit_code": 0,
+    "name": "proton-show-json",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/proton-show-json.out"
+  },
+  {
+    "args": [
+      "proton",
+      "show",
+      "9100030"
+    ],
+    "exit_code": 0,
+    "name": "proton-show-none",
+    "note": "a game with no profile: All games values",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/proton-show-none.out"
+  },
+  {
+    "args": [
+      "proton",
+      "show",
+      "--json",
+      "9100030"
+    ],
+    "exit_code": 0,
+    "name": "proton-show-json-none",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/proton-show-json-none.out"
+  },
+  {
+    "args": [
+      "overlay",
+      "show",
+      "9100010"
+    ],
+    "exit_code": 0,
+    "name": "overlay-show",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/overlay-show.out"
+  },
+  {
+    "args": [
+      "overlay",
+      "show",
+      "--json",
+      "9100010"
+    ],
+    "exit_code": 0,
+    "name": "overlay-show-json",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/overlay-show-json.out"
+  },
+  {
+    "args": [
+      "overlay",
+      "show",
+      "9100030"
+    ],
+    "exit_code": 0,
+    "name": "overlay-show-none",
+    "note": "a game with no profile: All games values",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/overlay-show-none.out"
+  },
+  {
+    "args": [
+      "overlay",
+      "show",
+      "--json",
+      "9100030"
+    ],
+    "exit_code": 0,
+    "name": "overlay-show-json-none",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/overlay-show-json-none.out"
+  },
+  {
+    "args": [
+      "proton",
+      "show",
+      "9100020"
+    ],
+    "exit_code": 0,
+    "name": "proton-show-ge",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/proton-show-ge.out"
+  },
+  {
+    "args": [
+      "proton",
+      "show",
+      "9100070"
+    ],
+    "exit_code": 0,
+    "name": "proton-show-unresolved-tool",
+    "note": "descriptor_heap on with a tool name Go cannot find: an info notice",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/proton-show-unresolved-tool.out"
+  },
+  {
+    "args": [
+      "proton",
+      "show",
+      "9100060"
+    ],
+    "exit_code": 0,
+    "name": "proton-show-unsupported-tool",
+    "note": "descriptor_heap on with a GE build: a warning notice",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/proton-show-unsupported-tool.out"
+  },
+  {
+    "args": [
+      "dll",
+      "list"
+    ],
+    "exit_code": 0,
+    "name": "dll-list",
+    "note": "map order: always marked unstable",
+    "scenario": "sandbox/main",
+    "stable": false,
+    "stdout": "sandbox/main/dll-list.out"
+  },
+  {
+    "args": [
+      "dll",
+      "list",
+      "9100010"
+    ],
+    "exit_code": 0,
+    "name": "dll-list-game",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/dll-list-game.out"
+  },
+  {
+    "args": [
+      "dll",
+      "list",
+      "9100020"
+    ],
+    "exit_code": 0,
+    "name": "dll-list-game-other-families",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/dll-list-game-other-families.out"
+  },
+  {
+    "args": [
+      "dll",
+      "list",
+      "9100030"
+    ],
+    "exit_code": 0,
+    "name": "dll-list-game-none",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/dll-list-game-none.out"
+  },
+  {
+    "args": [
+      "dll",
+      "list",
+      "9100060"
+    ],
+    "exit_code": 0,
+    "name": "dll-list-unknown-version",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/dll-list-unknown-version.out"
+  },
+  {
+    "args": [
+      "dll",
+      "check-updates"
+    ],
+    "exit_code": 0,
+    "name": "dll-check-updates",
+    "note": "map order: always marked unstable; manifest cache seeded, source matches the loopback URL, so no fetch",
+    "scenario": "sandbox/main",
+    "stable": false,
+    "stdout": "sandbox/main/dll-check-updates.out"
+  },
+  {
+    "args": [
+      "denylist",
+      "show"
+    ],
+    "exit_code": 0,
+    "name": "denylist-show",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/denylist-show.out"
+  },
+  {
+    "args": [
+      "denylist",
+      "check",
+      "9100070"
+    ],
+    "exit_code": 0,
+    "name": "denylist-check-user-denied",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/denylist-check-user-denied.out"
+  },
+  {
+    "args": [
+      "denylist",
+      "check",
+      "9100010"
+    ],
+    "exit_code": 0,
+    "name": "denylist-check-allowed",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/denylist-check-allowed.out"
+  },
+  {
+    "args": [
+      "denylist",
+      "check",
+      "1172470"
+    ],
+    "exit_code": 0,
+    "name": "denylist-check-force-allowed",
+    "note": "a built-in game the user force-allowed",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/denylist-check-force-allowed.out"
+  },
+  {
+    "args": [
+      "denylist",
+      "check",
+      "252490"
+    ],
+    "exit_code": 0,
+    "name": "denylist-check-built-in",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/denylist-check-built-in.out"
+  },
+  {
+    "args": [
+      "denylist",
+      "check",
+      "9100999"
+    ],
+    "exit_code": 0,
+    "name": "denylist-check-unknown-id",
+    "note": "an id not in the game database",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/denylist-check-unknown-id.out"
+  },
+  {
+    "args": [
+      "denylist",
+      "check",
+      "nope"
+    ],
+    "exit_code": 1,
+    "name": "denylist-check-missing-name",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stderr": "sandbox/main/denylist-check-missing-name.err",
+    "stdout": "sandbox/main/denylist-check-missing-name.out"
+  },
+  {
+    "args": [
+      "launch",
+      "--dry-run",
+      "9100010"
+    ],
+    "exit_code": 0,
+    "name": "launch-dry-run",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/launch-dry-run.out"
+  },
+  {
+    "args": [
+      "launch",
+      "--dry-run",
+      "9100020"
+    ],
+    "exit_code": 0,
+    "name": "launch-dry-run-created-profile",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/launch-dry-run-created-profile.out"
+  },
+  {
+    "args": [
+      "launch",
+      "--dry-run",
+      "9100030"
+    ],
+    "exit_code": 0,
+    "name": "launch-dry-run-no-profile",
+    "note": "All games applies directly",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/launch-dry-run-no-profile.out"
+  },
+  {
+    "args": [
+      "launch",
+      "--dry-run",
+      "9100070"
+    ],
+    "exit_code": 0,
+    "name": "launch-dry-run-denied",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/launch-dry-run-denied.out"
+  },
+  {
+    "args": [
+      "launch",
+      "--dry-run",
+      "9100060"
+    ],
+    "exit_code": 0,
+    "name": "launch-dry-run-unknown-version",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/launch-dry-run-unknown-version.out"
+  },
+  {
+    "args": [
+      "launch",
+      "--dry-run",
+      "Glimmer Run"
+    ],
+    "exit_code": 0,
+    "name": "launch-dry-run-by-name",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/launch-dry-run-by-name.out"
+  },
+  {
+    "args": [
+      "launch",
+      "--dry-run",
+      "9100010",
+      "--",
+      "glimmer.exe",
+      "-dx12"
+    ],
+    "exit_code": 0,
+    "name": "launch-dry-run-with-command",
+    "note": "two or more arguments: the summary shows them as the command",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/launch-dry-run-with-command.out"
+  },
+  {
+    "args": [
+      "launch",
+      "--dry-run",
+      "9100010",
+      "glimmer.exe",
+      "-dx12"
+    ],
+    "exit_code": 1,
+    "name": "launch-dry-run-dash-argument",
+    "note": "a game argument that looks like a flag, without --",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stderr": "sandbox/main/launch-dry-run-dash-argument.err",
+    "stdout": "sandbox/main/launch-dry-run-dash-argument.out"
+  },
+  {
+    "args": [
+      "launch",
+      "--dry-run",
+      "--game-id",
+      "9100020",
+      "ignored"
+    ],
+    "exit_code": 0,
+    "name": "launch-dry-run-game-id",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stdout": "sandbox/main/launch-dry-run-game-id.out"
+  },
+  {
+    "args": [
+      "launch",
+      "--dry-run",
+      "missing"
+    ],
+    "exit_code": 1,
+    "name": "launch-dry-run-missing",
+    "scenario": "sandbox/main",
+    "stable": true,
+    "stderr": "sandbox/main/launch-dry-run-missing.err",
+    "stdout": "sandbox/main/launch-dry-run-missing.out"
+  },
+  {
+    "args": [
+      "profile",
+      "list"
+    ],
+    "exit_code": 0,
+    "name": "profile-list",
+    "note": "profile list skips the broken files",
+    "scenario": "sandbox/errors",
+    "stable": true,
+    "stdout": "sandbox/errors/profile-list.out"
+  },
+  {
+    "args": [
+      "profile",
+      "show",
+      "9100030"
+    ],
+    "exit_code": 1,
+    "name": "profile-show-broken-yaml",
+    "scenario": "sandbox/errors",
+    "stable": true,
+    "stderr": "sandbox/errors/profile-show-broken-yaml.err",
+    "stdout": "sandbox/errors/profile-show-broken-yaml.out"
+  },
+  {
+    "args": [
+      "profile",
+      "show",
+      "9100060"
+    ],
+    "exit_code": 1,
+    "name": "profile-show-invalid-vrr",
+    "scenario": "sandbox/errors",
+    "stable": true,
+    "stderr": "sandbox/errors/profile-show-invalid-vrr.err",
+    "stdout": "sandbox/errors/profile-show-invalid-vrr.out"
+  },
+  {
+    "args": [
+      "profile",
+      "show",
+      "--json",
+      "9100030"
+    ],
+    "exit_code": 1,
+    "name": "profile-show-json-broken-yaml",
+    "scenario": "sandbox/errors",
+    "stable": true,
+    "stderr": "sandbox/errors/profile-show-json-broken-yaml.err",
+    "stdout": "sandbox/errors/profile-show-json-broken-yaml.out"
+  },
+  {
+    "args": [
+      "show",
+      "9100030"
+    ],
+    "exit_code": 0,
+    "name": "show-broken-profile",
+    "scenario": "sandbox/errors",
+    "stable": true,
+    "stdout": "sandbox/errors/show-broken-profile.out"
+  },
+  {
+    "args": [
+      "dlss",
+      "show",
+      "9100060"
+    ],
+    "exit_code": 1,
+    "name": "dlss-show-invalid-vrr",
+    "scenario": "sandbox/errors",
+    "stable": true,
+    "stderr": "sandbox/errors/dlss-show-invalid-vrr.err",
+    "stdout": "sandbox/errors/dlss-show-invalid-vrr.out"
+  },
+  {
+    "args": [
+      "proton",
+      "show",
+      "9100030"
+    ],
+    "exit_code": 1,
+    "name": "proton-show-broken-yaml",
+    "scenario": "sandbox/errors",
+    "stable": true,
+    "stderr": "sandbox/errors/proton-show-broken-yaml.err",
+    "stdout": "sandbox/errors/proton-show-broken-yaml.out"
+  },
+  {
+    "args": [
+      "launch",
+      "--dry-run",
+      "9100030"
+    ],
+    "exit_code": 1,
+    "name": "launch-dry-run-broken-yaml",
+    "scenario": "sandbox/errors",
+    "stable": true,
+    "stderr": "sandbox/errors/launch-dry-run-broken-yaml.err",
+    "stdout": "sandbox/errors/launch-dry-run-broken-yaml.out"
+  },
+  {
+    "args": [
+      "launch",
+      "--dry-run",
+      "9100060"
+    ],
+    "exit_code": 1,
+    "name": "launch-dry-run-invalid-vrr",
+    "scenario": "sandbox/errors",
+    "stable": true,
+    "stderr": "sandbox/errors/launch-dry-run-invalid-vrr.err",
+    "stdout": "sandbox/errors/launch-dry-run-invalid-vrr.out"
+  },
+  {
+    "args": [
+      "launch",
+      "--dry-run",
+      "9100010"
+    ],
+    "exit_code": 0,
+    "name": "launch-dry-run-fine",
+    "note": "a game whose profile still loads",
+    "scenario": "sandbox/errors",
+    "stable": true,
+    "stdout": "sandbox/errors/launch-dry-run-fine.out"
+  },
+  {
+    "args": [
+      "list"
+    ],
+    "exit_code": 1,
+    "name": "list",
+    "note": "empty database and no Steam: list tries to scan and fails",
+    "scenario": "sandbox/empty",
+    "stable": true,
+    "stderr": "sandbox/empty/list.err",
+    "stdout": "sandbox/empty/list.out"
+  },
+  {
+    "args": [
+      "list",
+      "--json"
+    ],
+    "exit_code": 1,
+    "name": "list-json",
+    "scenario": "sandbox/empty",
+    "stable": true,
+    "stderr": "sandbox/empty/list-json.err",
+    "stdout": "sandbox/empty/list-json.out"
+  },
+  {
+    "args": [
+      "show",
+      "9100010"
+    ],
+    "exit_code": 1,
+    "name": "show",
+    "scenario": "sandbox/empty",
+    "stable": true,
+    "stderr": "sandbox/empty/show.err",
+    "stdout": "sandbox/empty/show.out"
+  },
+  {
+    "args": [
+      "profile",
+      "list"
+    ],
+    "exit_code": 0,
+    "name": "profile-list",
+    "scenario": "sandbox/empty",
+    "stable": true,
+    "stdout": "sandbox/empty/profile-list.out"
+  },
+  {
+    "args": [
+      "config",
+      "show"
+    ],
+    "exit_code": 0,
+    "name": "config-show",
+    "note": "the defaults",
+    "scenario": "sandbox/empty",
+    "stable": true,
+    "stdout": "sandbox/empty/config-show.out"
+  },
+  {
+    "args": [
+      "denylist",
+      "show"
+    ],
+    "exit_code": 0,
+    "name": "denylist-show",
+    "note": "the built-in list",
+    "scenario": "sandbox/empty",
+    "stable": true,
+    "stdout": "sandbox/empty/denylist-show.out"
+  },
+  {
+    "args": [
+      "denylist",
+      "check",
+      "1172470"
+    ],
+    "exit_code": 0,
+    "name": "denylist-check-built-in",
+    "scenario": "sandbox/empty",
+    "stable": true,
+    "stdout": "sandbox/empty/denylist-check-built-in.out"
+  },
+  {
+    "args": [
+      "dll",
+      "list"
+    ],
+    "exit_code": 0,
+    "name": "dll-list",
+    "note": "map order: always marked unstable",
+    "scenario": "sandbox/empty",
+    "stable": false,
+    "stdout": "sandbox/empty/dll-list.out"
+  },
+  {
+    "args": [
+      "launch",
+      "--dry-run",
+      "9100010"
+    ],
+    "exit_code": 1,
+    "name": "launch-dry-run",
+    "scenario": "sandbox/empty",
+    "stable": true,
+    "stderr": "sandbox/empty/launch-dry-run.err",
+    "stdout": "sandbox/empty/launch-dry-run.out"
+  },
+  {
+    "args": [
+      "list",
+      "--with-dlls"
+    ],
+    "exit_code": 0,
+    "name": "list-with-dlls",
+    "scenario": "e2e/library",
+    "stable": true,
+    "stdout": "e2e/library/list-with-dlls.out"
+  },
+  {
+    "args": [
+      "profile",
+      "list"
+    ],
+    "exit_code": 0,
+    "name": "profile-list",
+    "scenario": "e2e/library",
+    "stable": true,
+    "stdout": "e2e/library/profile-list.out"
+  },
+  {
+    "args": [
+      "profile",
+      "show",
+      "9100110"
+    ],
+    "exit_code": 0,
+    "name": "profile-show",
+    "scenario": "e2e/library",
+    "stable": true,
+    "stdout": "e2e/library/profile-show.out"
+  },
+  {
+    "args": [
+      "dlss",
+      "show",
+      "9100110"
+    ],
+    "exit_code": 0,
+    "name": "dlss-show",
+    "scenario": "e2e/library",
+    "stable": true,
+    "stdout": "e2e/library/dlss-show.out"
+  },
+  {
+    "args": [
+      "launch",
+      "--dry-run",
+      "9100110"
+    ],
+    "exit_code": 0,
+    "name": "launch-dry-run",
+    "scenario": "e2e/library",
+    "stable": true,
+    "stdout": "e2e/library/launch-dry-run.out"
+  },
+  {
+    "args": [
+      "launch",
+      "--dry-run",
+      "9100130"
+    ],
+    "exit_code": 0,
+    "name": "launch-dry-run-no-profile",
+    "scenario": "e2e/library",
+    "stable": true,
+    "stdout": "e2e/library/launch-dry-run-no-profile.out"
+  }
+]

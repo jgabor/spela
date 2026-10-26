@@ -1,0 +1,28 @@
+{
+  "AppID": 9100010,
+  "Name": "Glimmer Run",
+  "InstallDir": "/fixture-root/home/.steam/steam/steamapps/common/Glimmer Run",
+  "LibraryPath": "/fixture-root/home/.steam/steam",
+  "PrefixPath": "/fixture-root/home/.steam/steam/steamapps/compatdata/9100010",
+  "DLLs": [
+    {
+      "Path": "/fixture-root/home/.steam/steam/steamapps/common/Glimmer Run/bin/x64/nvngx_dlss.dll",
+      "Name": "nvngx_dlss.dll",
+      "Type": "dlss",
+      "Version": "310.2.1"
+    },
+    {
+      "Path": "/fixture-root/home/.steam/steam/steamapps/common/Glimmer Run/bin/x64/nvngx_dlssd.dll",
+      "Name": "nvngx_dlssd.dll",
+      "Type": "dlssd",
+      "Version": "310.5.3"
+    },
+    {
+      "Path": "/fixture-root/home/.steam/steam/steamapps/common/Glimmer Run/bin/x64/nvngx_dlssg.dll",
+      "Name": "nvngx_dlssg.dll",
+      "Type": "dlssg",
+      "Version": "310.2.1"
+    }
+  ],
+  "ScannedAt": "2026-10-26T17:02:10.123456789+02:00"
+}

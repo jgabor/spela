@@ -1,0 +1,3 @@
+gpu:
+    power_limit: 220
+overrides: {}

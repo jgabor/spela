@@ -1,0 +1,1 @@
+Fixture install folder. The e2e harness leaves it empty.

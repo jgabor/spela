@@ -1,0 +1,11 @@
+dlss:
+    sr_preset: auto
+    multi_frame: 3
+gpu:
+    vrr: always
+cpu:
+    governor: performance
+    smt: false
+proton:
+    enable_wayland: true
+overrides: {}

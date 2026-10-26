@@ -1,0 +1,19 @@
+dlss:
+    fg_enabled: true
+    fg_override: true
+    sr_mode: balanced
+    sr_override: false
+    sr_preset: quality
+overrides:
+    dlss.fg_enabled: true
+    dlss.fg_override: true
+    dlss.sr_mode: true
+    dlss.sr_override: true
+    dlss.sr_preset: true
+    proton.enable_hdr: true
+    proton.enable_ngx_updater: true
+    proton.enable_wayland: true
+proton:
+    enable_hdr: true
+    enable_ngx_updater: false
+    enable_wayland: false

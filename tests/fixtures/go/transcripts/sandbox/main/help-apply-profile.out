@@ -1,0 +1,14 @@
+Apply privileged GPU/CPU profile settings
+
+Usage:
+  spela apply-profile [flags]
+
+Flags:
+      --cpu-governor string     CPU frequency governor
+      --cpu-smt string          CPU SMT control (on/off)
+      --gpu-clock-offset int    GPU graphics clock offset (MHz)
+      --gpu-fan-speed int       GPU fan speed percentage (0=auto)
+      --gpu-memory-offset int   GPU memory clock (MHz)
+      --gpu-power-limit int     GPU power limit (watts)
+  -h, --help                    help for apply-profile
+      --reset                   Reset GPU clocks to default

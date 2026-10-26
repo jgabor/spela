@@ -1,0 +1,11 @@
+{
+  "note": "a string where Go wants an int: config.Load fails",
+  "file": "config/spela/config.yaml",
+  "exists": true,
+  "load_error": "yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `daily` into int",
+  "effective": null,
+  "validate_error": null,
+  "dll_cache_dir": "/fixture-root/cache/spela/dlls",
+  "backup_files_dir": "/fixture-root/data/spela/backups",
+  "shader_cache_dir": "/fixture-root/cache/spela/nvidia"
+}

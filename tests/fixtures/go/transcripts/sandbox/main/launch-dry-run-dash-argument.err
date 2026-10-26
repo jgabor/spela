@@ -1,0 +1,9 @@
+Error: unknown shorthand flag: 'd' in -dx12
+Usage:
+  spela launch <game> [flags]
+
+Flags:
+      --dry-run        Show what would happen without launching
+      --game-id uint   Launch by Steam App ID
+  -h, --help           help for launch
+

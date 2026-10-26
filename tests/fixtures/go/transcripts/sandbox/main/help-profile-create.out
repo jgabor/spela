@@ -1,0 +1,7 @@
+Create a profile for a game
+
+Usage:
+  spela profile create <game> [flags]
+
+Flags:
+  -h, --help   help for create

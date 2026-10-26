@@ -1,0 +1,9 @@
+Error: failed to refresh game database: could not find Steam installation
+Usage:
+  spela list [flags]
+
+Flags:
+  -h, --help        help for list
+      --json        Output in JSON format
+      --with-dlls   Show DLL information
+

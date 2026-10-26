@@ -1,0 +1,15 @@
+DLSS configuration for Quiet Orchard:
+
+No profile for Quiet Orchard; every value follows All games or the system default.
+
+[38;2;106;106;128mSuper resolution   [m  none  [38;2;106;106;128msystem default[m
+[38;2;106;106;128mResolution preset  [m  auto  [38;2;106;106;128mfrom All games[m
+[38;2;106;106;128mResolution override[m  Off   [38;2;106;106;128msystem default[m
+[38;2;106;106;128mRay reconstruction [m  none  [38;2;106;106;128msystem default[m
+[38;2;106;106;128mRay preset         [m  none  [38;2;106;106;128msystem default[m
+[38;2;106;106;128mRay override       [m  Off   [38;2;106;106;128msystem default[m
+[38;2;106;106;128mFrame generation   [m  Off   [38;2;106;106;128msystem default[m
+[38;2;106;106;128mGeneration override[m  Off   [38;2;106;106;128msystem default[m
+[38;2;106;106;128mMulti-frame        [m  none  [38;2;106;106;128msystem default[m
+[38;2;106;106;128mSR indicator       [m  Off   [38;2;106;106;128msystem default[m
+[38;2;106;106;128mFG indicator       [m  Off   [38;2;106;106;128msystem default[m

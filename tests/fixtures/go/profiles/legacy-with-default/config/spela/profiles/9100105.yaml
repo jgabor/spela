@@ -1,0 +1,21 @@
+name: Ember Coast
+dlss:
+    sr_mode: balanced
+    sr_preset: default
+    sr_override: true
+    multi_frame: 2
+gpu:
+    vrr: unset
+    clock_offset: 150
+    memory_offset: 9501
+    power_limit: 250
+    power_mizer: max
+cpu:
+    governor: performance
+    smt: false
+    affinity: 0-3
+proton:
+    enable_hdr: true
+overlay:
+    enabled: true
+    position: top-left

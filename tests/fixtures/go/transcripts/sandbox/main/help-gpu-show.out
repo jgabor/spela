@@ -1,0 +1,8 @@
+Show GPU profile for a game
+
+Usage:
+  spela gpu show <game> [flags]
+
+Flags:
+  -h, --help   help for show
+      --json   Output as JSON

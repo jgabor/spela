@@ -1,0 +1,47 @@
+Profile for [38;2;255;95;210mHarbor Lights[m:
+
+[38;2;255;95;210mProton[m
+  [38;2;106;106;128mHDR        [m  Off  [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mWayland    [m  On   [38;2;106;106;128mfrom All games[m
+  [38;2;106;106;128mNGX updater[m  Off  [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mVKD3D heap [m  Off  [38;2;106;106;128msystem default[m
+
+[38;2;255;95;210mDLSS[m
+  [38;2;106;106;128mSuper resolution   [m  none  [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mResolution preset  [m  auto  [38;2;106;106;128mfrom All games[m
+  [38;2;106;106;128mResolution override[m  Off   [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mRay reconstruction [m  none  [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mRay preset         [m  none  [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mRay override       [m  Off   [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mFrame generation   [m  Off   [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mGeneration override[m  Off   [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mMulti-frame        [m  none  [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mSR indicator       [m  Off   [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mFG indicator       [m  Off   [38;2;106;106;128msystem default[m
+
+[38;2;255;95;210mGPU[m
+  [38;2;106;106;128mClock offset         [m  none  [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mKDE VRR              [m  none  [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mMemory offset        [m  none  [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mPower limit          [m  none  [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mFan speed            [m  none  [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mPower mode           [m  none  [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mShader cache         [m  On    [38;2;106;106;128mfrom All games[m
+  [38;2;106;106;128mShader cache path    [m  none  [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mThreaded optimization[m  Off   [38;2;106;106;128msystem default[m
+
+[38;2;255;95;210mCPU[m
+  [38;2;106;106;128mGovernor[m  performance  [38;2;106;106;128mfrom All games[m
+  [38;2;106;106;128mSMT     [m  none         [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mAffinity[m  none         [38;2;106;106;128msystem default[m
+
+[38;2;255;95;210mOverlay[m
+  [38;2;106;106;128mEnabled       [m  Off   [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mPosition      [m  none  [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mShow FPS      [m  Off   [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mShow frametime[m  Off   [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mShow CPU      [m  Off   [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mShow GPU      [m  Off   [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mShow VRAM     [m  Off   [38;2;106;106;128msystem default[m
+  [38;2;106;106;128mToggle key    [m  none  [38;2;106;106;128msystem default[m
+

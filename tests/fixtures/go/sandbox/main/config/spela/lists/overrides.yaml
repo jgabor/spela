@@ -1,0 +1,6 @@
+allowed:
+    - 1172470
+denied:
+    - app_id: 9100070
+      name: Frostline Arena
+      reason: kernel anti-cheat

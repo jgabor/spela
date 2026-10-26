@@ -1,0 +1,7 @@
+Reset GPU clocks to default
+
+Usage:
+  spela gpu reset [flags]
+
+Flags:
+  -h, --help   help for reset

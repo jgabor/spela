@@ -1,0 +1,56 @@
+dlss:
+    sr_mode: performance
+    sr_preset: auto
+    sr_override: true
+    rr_mode: quality
+    rr_preset: K
+    fg_override: true
+    multi_frame: 2
+gpu:
+    vrr: never
+    power_limit: 250
+    power_mizer: adaptive
+cpu:
+    governor: schedutil
+    smt: true
+proton:
+    enable_hdr: true
+overlay:
+    position: bottom-left
+    show_fps: true
+overrides:
+    cpu.affinity: true
+    cpu.governor: true
+    cpu.smt: true
+    dlss.fg_enabled: true
+    dlss.fg_indicator: true
+    dlss.fg_override: true
+    dlss.indicator: true
+    dlss.multi_frame: true
+    dlss.rr_mode: true
+    dlss.rr_override: true
+    dlss.rr_preset: true
+    dlss.sr_mode: true
+    dlss.sr_override: true
+    dlss.sr_preset: true
+    gpu.clock_offset: true
+    gpu.fan_speed: true
+    gpu.memory_offset: true
+    gpu.power_limit: true
+    gpu.power_mizer: true
+    gpu.shader_cache: true
+    gpu.shader_cache_path: true
+    gpu.threaded_optimization: true
+    gpu.vrr: true
+    overlay.enabled: true
+    overlay.position: true
+    overlay.show_cpu: true
+    overlay.show_fps: true
+    overlay.show_frametime: true
+    overlay.show_gpu: true
+    overlay.show_vram: true
+    overlay.toggle_key: true
+    proton.enable_hdr: true
+    proton.enable_ngx_updater: true
+    proton.enable_wayland: true
+    proton.vkd3d_heap: true

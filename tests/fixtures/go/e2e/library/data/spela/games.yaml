@@ -1,0 +1,38 @@
+games:
+    9100110:
+        app_id: 9100110
+        dlls:
+            - name: nvngx_dlss.dll
+              path: /fixture-root/games/Chrome Avenue 2081/bin/x64/nvngx_dlss.dll
+              type: dlss
+              version: 3.7.0
+            - name: nvngx_dlssg.dll
+              path: /fixture-root/games/Chrome Avenue 2081/bin/x64/nvngx_dlssg.dll
+              type: dlssg
+              version: 3.7.0
+        install_dir: /fixture-root/games/Chrome Avenue 2081
+        library_path: /fixture-root/games
+        name: Chrome Avenue 2081
+        prefix_path: /fixture-root/compatdata/9100110/pfx
+        scanned_at: "2026-10-26T17:02:10+02:00"
+    9100120:
+        app_id: 9100120
+        dlls:
+            - name: nvngx_dlss.dll
+              path: /fixture-root/games/Hollow Crown 3/bin/nvngx_dlss.dll
+              type: dlss
+              version: 3.5.0
+        install_dir: /fixture-root/games/Hollow Crown 3
+        library_path: /fixture-root/games
+        name: 'Hollow Crown 3: Long Night'
+        prefix_path: /fixture-root/compatdata/9100120/pfx
+        scanned_at: "2026-10-26T17:02:10+02:00"
+    9100130:
+        app_id: 9100130
+        dlls: []
+        install_dir: /fixture-root/games/ASHEN THRONE
+        library_path: /fixture-root/games
+        name: Ashen Throne
+        prefix_path: /fixture-root/compatdata/9100130/pfx
+        scanned_at: "2026-10-26T17:02:10+02:00"
+updated_at: "2026-10-26T17:02:10+02:00"

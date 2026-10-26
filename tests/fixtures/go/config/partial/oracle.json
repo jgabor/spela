@@ -1,0 +1,25 @@
+{
+  "note": "hand-written file with two keys and 2-space indent; Go merges it over the defaults",
+  "file": "config/spela/config.yaml",
+  "exists": true,
+  "load_error": null,
+  "effective": {
+    "additional_library_paths": [
+      "/fixture-root/games"
+    ],
+    "auto_refresh_manifest": true,
+    "auto_update_dlls": false,
+    "check_updates": false,
+    "compact_mode": false,
+    "confirm_destructive": true,
+    "log_level": "info",
+    "manifest_refresh_hours": 24,
+    "rescan_on_startup": true,
+    "shader_cache": "/fixture-root/cache/spela/nvidia",
+    "theme": "default"
+  },
+  "validate_error": null,
+  "dll_cache_dir": "/fixture-root/cache/spela/dlls",
+  "backup_files_dir": "/fixture-root/data/spela/backups",
+  "shader_cache_dir": "/fixture-root/cache/spela/nvidia"
+}

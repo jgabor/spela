@@ -1,0 +1,16 @@
+Create, edit, and manage per-game configuration profiles.
+
+Usage:
+  spela profile [command]
+
+Available Commands:
+  create      Create a profile for a game
+  delete      Delete a game's profile
+  list        List all profiles
+  reset       Make a game follow All games for every setting
+  show        Show a game's profile
+
+Flags:
+  -h, --help   help for profile
+
+Use "spela profile [command] --help" for more information about a command.

@@ -1,0 +1,13 @@
+gpu:
+    clock_offset: 100
+    memory_offset: 8000
+    power_mizer: adaptive
+overlay:
+    enabled: true
+    position: bottom-right
+overrides:
+    gpu.clock_offset: true
+    gpu.memory_offset: true
+    gpu.power_mizer: true
+    overlay.enabled: true
+    overlay.position: true

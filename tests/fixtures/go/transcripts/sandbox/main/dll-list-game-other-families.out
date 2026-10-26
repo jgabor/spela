@@ -1,0 +1,7 @@
+Harbor Lights (9100020)
+  amd_fidelityfx_vk.dll: 1.0
+    /fixture-root/home/.steam/steam/steamapps/common/HarborLights/amd_fidelityfx_vk.dll
+  libxess.dll: 1.3.1.33
+    /fixture-root/home/.steam/steam/steamapps/common/HarborLights/libxess.dll
+  nvngx_dlss.dll: 3.7.10
+    /fixture-root/home/.steam/steam/steamapps/common/HarborLights/nvngx_dlss.dll

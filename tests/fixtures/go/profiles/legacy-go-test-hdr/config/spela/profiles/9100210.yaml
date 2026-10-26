@@ -1,0 +1,6 @@
+name: Glass Harbor
+proton:
+  enable_hdr: true
+  enable_wayland: true
+gpu:
+  power_limit: 400

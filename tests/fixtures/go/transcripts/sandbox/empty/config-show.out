@@ -1,0 +1,10 @@
+log_level: info
+shader_cache: /fixture-root/cache/spela/nvidia
+check_updates: true
+rescan_on_startup: true
+auto_update_dlls: false
+auto_refresh_manifest: true
+manifest_refresh_hours: 24
+theme: default
+compact_mode: false
+confirm_destructive: true

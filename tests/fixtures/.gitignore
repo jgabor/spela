@@ -1,0 +1,5 @@
+# The repository ignores *.dll and *.out. Here the .dll files are PE stubs and
+# placeholders written by tools/goref, not real DLLs, and the .out files are
+# Go command transcripts. Both are fixtures and must be committed.
+!*.dll
+!*.out

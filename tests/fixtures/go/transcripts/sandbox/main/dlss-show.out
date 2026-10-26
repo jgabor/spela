@@ -1,0 +1,13 @@
+DLSS configuration for Glimmer Run:
+
+[38;2;106;106;128mSuper resolution   [m  quality  [38;2;255;95;210mthis game · All games: none[m
+[38;2;106;106;128mResolution preset  [m  K        [38;2;255;95;210mthis game · All games: auto[m
+[38;2;106;106;128mResolution override[m  On       [38;2;255;95;210mthis game · All games: Off[m
+[38;2;106;106;128mRay reconstruction [m  none     [38;2;106;106;128msystem default[m
+[38;2;106;106;128mRay preset         [m  none     [38;2;106;106;128msystem default[m
+[38;2;106;106;128mRay override       [m  Off      [38;2;106;106;128msystem default[m
+[38;2;106;106;128mFrame generation   [m  On       [38;2;255;95;210mthis game · All games: Off[m
+[38;2;106;106;128mGeneration override[m  On       [38;2;255;95;210mthis game · All games: Off[m
+[38;2;106;106;128mMulti-frame        [m  3        [38;2;255;95;210mthis game · All games: none[m
+[38;2;106;106;128mSR indicator       [m  On       [38;2;255;95;210mthis game · All games: Off[m
+[38;2;106;106;128mFG indicator       [m  Off      [38;2;106;106;128msystem default[m

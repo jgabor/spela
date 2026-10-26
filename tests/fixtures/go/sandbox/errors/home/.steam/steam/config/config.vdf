@@ -1,0 +1,45 @@
+"InstallConfigStore"
+{
+	"Software"
+	{
+		"Valve"
+		{
+			"Steam"
+			{
+				"CompatToolMapping"
+				{
+					"0"
+					{
+						"name"		"proton_experimental"
+						"config"		""
+						"priority"		"75"
+					}
+					"9100010"
+					{
+						"name"		"cachyos-10.0-20260330-slr"
+						"config"		""
+						"priority"		"250"
+					}
+					"9100020"
+					{
+						"name"		"GE-Proton10-34"
+						"config"		""
+						"priority"		"250"
+					}
+					"9100060"
+					{
+						"name"		"GE-Proton10-34"
+						"config"		""
+						"priority"		"250"
+					}
+					"9100070"
+					{
+						"name"		"GE-Proton11-7-x86_64"
+						"config"		""
+						"priority"		"250"
+					}
+				}
+			}
+		}
+	}
+}

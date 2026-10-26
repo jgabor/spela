@@ -1,0 +1,7 @@
+Show CPU information
+
+Usage:
+  spela cpu info [flags]
+
+Flags:
+  -h, --help   help for info

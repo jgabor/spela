@@ -1,0 +1,11 @@
+Set Proton profile for a game
+
+Usage:
+  spela proton set <game> [flags]
+
+Flags:
+      --hdr string           Enable HDR (true/false)
+  -h, --help                 help for set
+      --ngx-updater string   Enable NGX auto-updater (true/false)
+      --vkd3d-heap string    Enable VKD3D descriptor heap path (true/false)
+      --wayland string       Enable native Wayland (true/false)

@@ -1,0 +1,7 @@
+Launch the interactive terminal user interface for browsing games and managing profiles.
+
+Usage:
+  spela tui [flags]
+
+Flags:
+  -h, --help   help for tui

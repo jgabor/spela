@@ -1,0 +1,8 @@
+Scan all Steam library folders for installed games and detect DLSS/FSR/XeSS DLLs.
+
+Usage:
+  spela scan [flags]
+
+Flags:
+  -h, --help   help for scan
+      --json   Output in JSON format

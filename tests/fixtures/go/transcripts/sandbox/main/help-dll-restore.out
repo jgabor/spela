@@ -1,0 +1,7 @@
+Restore original DLLs from backup
+
+Usage:
+  spela dll restore <game> [flags]
+
+Flags:
+  -h, --help   help for restore

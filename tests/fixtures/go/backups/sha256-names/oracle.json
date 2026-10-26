@@ -1,0 +1,27 @@
+{
+  "note": "Go's current backup name scheme",
+  "app_id": 9100401,
+  "index_path": "/fixture-root/data/spela/backups/9100401/backup.json",
+  "load_error": null,
+  "backup_exists": true,
+  "files": [
+    {
+      "original_path": "/fixture-root/library/steamapps/common/Glimmer Run/bin/x64/nvngx_dlss.dll",
+      "backup_path": "/fixture-root/data/spela/backups/9100401/ce81d770e3eb550899f3c38f0aeb18e2d6813faae817f37c5509e1813624d920-nvngx_dlss.dll",
+      "name_scheme": "sha256-basename",
+      "backup_file_exists": true
+    },
+    {
+      "original_path": "/fixture-root/library/steamapps/common/Glimmer Run/bin/x64/nvngx_dlssg.dll",
+      "backup_path": "/fixture-root/data/spela/backups/9100401/0cab390de79b336ffdb5b83c3fb82769ad7d96ed5cef6de3e178977cbd998e8c-nvngx_dlssg.dll",
+      "name_scheme": "sha256-basename",
+      "backup_file_exists": true
+    },
+    {
+      "original_path": "/fixture-root/library/steamapps/common/Glimmer Run/plugins/nvngx_dlss.dll",
+      "backup_path": "/fixture-root/data/spela/backups/9100401/ab6f4392b773b177879f43f3d510e54cd27974d58daa476348ceeb5f081b0d73-nvngx_dlss.dll",
+      "name_scheme": "sha256-basename",
+      "backup_file_exists": true
+    }
+  ]
+}

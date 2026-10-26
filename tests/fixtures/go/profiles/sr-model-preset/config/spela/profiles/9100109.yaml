@@ -1,0 +1,4 @@
+name: Tidal Engine
+dlss:
+    sr_model_preset: auto
+    sr_override: true

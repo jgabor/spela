@@ -1,0 +1,5 @@
+name: test
+proton:
+  vkd3d_heap: false
+overrides:
+  proton.vkd3d_heap: true

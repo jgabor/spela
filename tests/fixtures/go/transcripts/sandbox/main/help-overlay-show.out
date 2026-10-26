@@ -1,0 +1,8 @@
+Show overlay profile for a game
+
+Usage:
+  spela overlay show <game> [flags]
+
+Flags:
+  -h, --help   help for show
+      --json   Output as JSON

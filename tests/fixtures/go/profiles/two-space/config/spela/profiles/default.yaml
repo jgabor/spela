@@ -1,0 +1,7 @@
+proton:
+  enable_wayland: true
+gpu:
+  power_limit: 280
+overrides:
+  proton.enable_wayland: true
+  gpu.power_limit: true

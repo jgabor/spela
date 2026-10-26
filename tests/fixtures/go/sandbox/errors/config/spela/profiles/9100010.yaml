@@ -1,0 +1,42 @@
+name: Glimmer Run
+dlss:
+    sr_mode: quality
+    sr_preset: K
+    sr_override: true
+    fg_enabled: true
+    fg_override: true
+    multi_frame: 3
+    indicator: true
+gpu:
+    vrr: automatic
+    clock_offset: 150
+    memory_offset: 500
+    power_limit: 250
+    fan_speed: 60
+cpu:
+    smt: false
+proton:
+    enable_hdr: true
+    vkd3d_heap: true
+overlay:
+    enabled: true
+    position: top-right
+overrides:
+    cpu.smt: true
+    dlss.fg_enabled: true
+    dlss.fg_override: true
+    dlss.indicator: true
+    dlss.multi_frame: true
+    dlss.sr_mode: true
+    dlss.sr_override: true
+    dlss.sr_preset: true
+    gpu.clock_offset: true
+    gpu.fan_speed: true
+    gpu.memory_offset: true
+    gpu.power_limit: true
+    gpu.threaded_optimization: true
+    gpu.vrr: true
+    overlay.enabled: true
+    overlay.position: true
+    proton.enable_hdr: true
+    proton.vkd3d_heap: true

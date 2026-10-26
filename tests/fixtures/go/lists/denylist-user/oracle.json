@@ -1,0 +1,71 @@
+{
+  "note": "a user denylist.yaml replaces Go's built-in list, so built-in games read as allowed",
+  "overrides_load_error": null,
+  "overrides": {
+    "Allowed": [],
+    "Denied": [
+      {
+        "AppID": 9100202,
+        "Name": "Pocket Raid",
+        "Reason": "user-specified"
+      }
+    ]
+  },
+  "denylist_load_error": null,
+  "denylist": {
+    "Entries": [
+      {
+        "AppID": 9100201,
+        "Name": "Frostline Arena",
+        "Reason": "kernel anti-cheat"
+      },
+      {
+        "AppID": 9100204,
+        "Name": "Night Courier",
+        "Reason": "Easy Anti-Cheat"
+      }
+    ]
+  },
+  "is_denied": [
+    {
+      "app_id": 1172470,
+      "denied": false,
+      "reason": ""
+    },
+    {
+      "app_id": 252490,
+      "denied": false,
+      "reason": ""
+    },
+    {
+      "app_id": 1623660,
+      "denied": false,
+      "reason": ""
+    },
+    {
+      "app_id": 9100201,
+      "denied": true,
+      "reason": "kernel anti-cheat"
+    },
+    {
+      "app_id": 9100202,
+      "denied": true,
+      "reason": "user-specified"
+    },
+    {
+      "app_id": 9100203,
+      "denied": false,
+      "reason": ""
+    },
+    {
+      "app_id": 9100299,
+      "denied": false,
+      "reason": ""
+    },
+    {
+      "app_id": 9100204,
+      "denied": true,
+      "reason": "Easy Anti-Cheat"
+    }
+  ]
+}

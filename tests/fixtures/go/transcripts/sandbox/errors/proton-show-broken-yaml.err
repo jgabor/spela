@@ -1,0 +1,8 @@
+Error: yaml: line 1: did not find expected ',' or ']'
+Usage:
+  spela proton show <game> [flags]
+
+Flags:
+  -h, --help   help for show
+      --json   Output as JSON
+

@@ -1,0 +1,6 @@
+{
+  "EnableWayland": true,
+  "EnableHDR": true,
+  "EnableNGXUpdater": false,
+  "VKD3DHeap": true
+}

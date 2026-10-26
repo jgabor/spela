@@ -1,0 +1,7 @@
+List all profiles
+
+Usage:
+  spela profile list [flags]
+
+Flags:
+  -h, --help   help for list

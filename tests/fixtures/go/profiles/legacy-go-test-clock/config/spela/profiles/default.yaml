@@ -1,0 +1,6 @@
+gpu:
+    shader_cache: true
+    threaded_optimization: true
+    clock_offset: 150
+    fan_speed: 60
+overrides: {}

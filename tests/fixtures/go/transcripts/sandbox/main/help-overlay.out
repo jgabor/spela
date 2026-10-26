@@ -1,0 +1,14 @@
+Configure per-game overlay settings (position, metrics display, toggle key).
+
+Usage:
+  spela overlay [command]
+
+Available Commands:
+  reset       Make an overlay field follow All games
+  set         Set overlay profile for a game
+  show        Show overlay profile for a game
+
+Flags:
+  -h, --help   help for overlay
+
+Use "spela overlay [command] --help" for more information about a command.

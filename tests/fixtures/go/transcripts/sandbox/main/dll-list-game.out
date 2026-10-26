@@ -1,0 +1,7 @@
+Glimmer Run (9100010)
+  nvngx_dlss.dll: 310.2.1
+    /fixture-root/home/.steam/steam/steamapps/common/Glimmer Run/bin/x64/nvngx_dlss.dll
+  nvngx_dlssd.dll: 310.5.3
+    /fixture-root/home/.steam/steam/steamapps/common/Glimmer Run/bin/x64/nvngx_dlssd.dll
+  nvngx_dlssg.dll: 310.2.1
+    /fixture-root/home/.steam/steam/steamapps/common/Glimmer Run/bin/x64/nvngx_dlssg.dll

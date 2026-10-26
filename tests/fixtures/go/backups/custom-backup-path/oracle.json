@@ -1,0 +1,15 @@
+{
+  "note": "the index never moves with backup_path",
+  "app_id": 9100404,
+  "index_path": "/fixture-root/data/spela/backups/9100404/backup.json",
+  "load_error": null,
+  "backup_exists": true,
+  "files": [
+    {
+      "original_path": "/fixture-root/library/steamapps/common/Paper Comet/nvngx_dlss.dll",
+      "backup_path": "/fixture-root/dll-backups/9100404/796504aa268ef7f7f6412364b4d500552d8a4cc0fb523eb371572c26d7f40703-nvngx_dlss.dll",
+      "name_scheme": "sha256-basename",
+      "backup_file_exists": true
+    }
+  ]
+}

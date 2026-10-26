@@ -1,0 +1,10 @@
+{
+  "Enabled": false,
+  "Position": "",
+  "ShowFPS": false,
+  "ShowFrametime": false,
+  "ShowCPU": false,
+  "ShowGPU": false,
+  "ShowVRAM": false,
+  "ToggleKey": ""
+}

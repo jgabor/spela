@@ -1,0 +1,22 @@
+{
+  "note": "retired keys show_hints and preferred_dll_source, an unknown key, and an unknown log level: Go loads it and ignores the unknown keys; the log level fails Validate",
+  "file": "config/spela/config.yaml",
+  "exists": true,
+  "load_error": null,
+  "effective": {
+    "auto_refresh_manifest": true,
+    "auto_update_dlls": false,
+    "check_updates": true,
+    "compact_mode": false,
+    "confirm_destructive": true,
+    "log_level": "verbose",
+    "manifest_refresh_hours": 24,
+    "rescan_on_startup": true,
+    "shader_cache": "/fixture-root/cache/spela/nvidia",
+    "theme": "light"
+  },
+  "validate_error": "unsupported log level: verbose",
+  "dll_cache_dir": "/fixture-root/cache/spela/dlls",
+  "backup_files_dir": "/fixture-root/data/spela/backups",
+  "shader_cache_dir": "/fixture-root/cache/spela/nvidia"
+}

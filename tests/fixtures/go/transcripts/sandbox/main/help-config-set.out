@@ -1,0 +1,7 @@
+Set a configuration value
+
+Usage:
+  spela config set <key> <value> [flags]
+
+Flags:
+  -h, --help   help for set

@@ -1,0 +1,18 @@
+Set DLSS configuration for a game
+
+Usage:
+  spela dlss set <game> [flags]
+
+Flags:
+      --fg string                Frame generation (true/false)
+      --fg-indicator             Enable frame generation indicator
+      --fg-override string       Force frame generation override (true/false)
+  -h, --help                     help for set
+      --indicator                Enable DLSS indicator
+      --multi-frame int          Multi-frame count (0-4) (default -1)
+      --rr-mode string           DLSS-RR mode
+      --rr-override string       Force ray reconstruction override (true/false)
+      --rr-preset string         DLSS-RR preset (default, A, B, C, D, E, F, J, K, L, M)
+      --sr-mode string           DLSS-SR mode (off, ultra_performance, performance, balanced, quality, dlaa)
+      --sr-model-preset string   Deprecated: use --sr-preset (auto, k, l, m)
+      --sr-preset string         DLSS-SR preset (default, auto, A-M)

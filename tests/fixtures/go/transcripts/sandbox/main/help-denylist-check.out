@@ -1,0 +1,7 @@
+Check if a game is denied
+
+Usage:
+  spela denylist check <game> [flags]
+
+Flags:
+  -h, --help   help for check

@@ -1,0 +1,7 @@
+List detected DLLs
+
+Usage:
+  spela dll list [game] [flags]
+
+Flags:
+  -h, --help   help for list

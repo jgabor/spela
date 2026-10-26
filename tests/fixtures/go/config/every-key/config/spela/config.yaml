@@ -1,0 +1,17 @@
+log_level: debug
+shader_cache: /fixture-root/shader-cache
+check_updates: false
+rescan_on_startup: false
+auto_update_dlls: true
+steam_path: /fixture-root/home/.local/share/Steam
+additional_library_paths:
+    - /fixture-root/library-a
+    - /fixture-root/library b
+dll_cache_path: /fixture-root/dll-cache
+backup_path: /fixture-root/dll-backups
+dll_manifest_url: https://manifest.example.invalid/manifest.json
+auto_refresh_manifest: false
+manifest_refresh_hours: 168
+theme: dark
+compact_mode: true
+confirm_destructive: false

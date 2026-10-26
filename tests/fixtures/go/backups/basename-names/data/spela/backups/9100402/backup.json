@@ -1,0 +1,14 @@
+{
+  "app_id": 9100402,
+  "game_name": "Harbor Lights",
+  "created_at": "2026-10-26T17:02:10.123456789+02:00",
+  "backup_path": "/fixture-root/data/spela/backups/9100402",
+  "files": [
+    {
+      "original_path": "/fixture-root/library/steamapps/common/Harbor Lights/nvngx_dlss.dll",
+      "backup_path": "/fixture-root/data/spela/backups/9100402/nvngx_dlss.dll",
+      "dll_name": "nvngx_dlss.dll",
+      "version": "3.7.10"
+    }
+  ]
+}

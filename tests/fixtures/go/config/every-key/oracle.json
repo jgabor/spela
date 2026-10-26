@@ -1,0 +1,30 @@
+{
+  "note": "every key set to a non-default value, including the GUI theme and compact_mode",
+  "file": "config/spela/config.yaml",
+  "exists": true,
+  "load_error": null,
+  "effective": {
+    "additional_library_paths": [
+      "/fixture-root/library-a",
+      "/fixture-root/library b"
+    ],
+    "auto_refresh_manifest": false,
+    "auto_update_dlls": true,
+    "backup_path": "/fixture-root/dll-backups",
+    "check_updates": false,
+    "compact_mode": true,
+    "confirm_destructive": false,
+    "dll_cache_path": "/fixture-root/dll-cache",
+    "dll_manifest_url": "https://manifest.example.invalid/manifest.json",
+    "log_level": "debug",
+    "manifest_refresh_hours": 168,
+    "rescan_on_startup": false,
+    "shader_cache": "/fixture-root/shader-cache",
+    "steam_path": "/fixture-root/home/.local/share/Steam",
+    "theme": "dark"
+  },
+  "validate_error": null,
+  "dll_cache_dir": "/fixture-root/dll-cache",
+  "backup_files_dir": "/fixture-root/dll-backups",
+  "shader_cache_dir": "/fixture-root/shader-cache"
+}

@@ -1,0 +1,13 @@
+View and modify global spela configuration settings.
+
+Usage:
+  spela config [command]
+
+Available Commands:
+  set         Set a configuration value
+  show        Show current configuration
+
+Flags:
+  -h, --help   help for config
+
+Use "spela config [command] --help" for more information about a command.

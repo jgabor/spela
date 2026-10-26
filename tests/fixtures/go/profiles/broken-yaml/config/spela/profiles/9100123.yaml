@@ -1,0 +1,5 @@
+name: Duplicate Keys
+proton:
+    enable_hdr: true
+    enable_hdr: false
+overrides: {}

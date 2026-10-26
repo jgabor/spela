@@ -1,0 +1,49 @@
+{
+  "Name": "Harbor Lights",
+  "DLSS": {
+    "SRMode": "",
+    "SRPreset": "",
+    "SROverride": false,
+    "RRMode": "",
+    "RRPreset": "",
+    "RROverride": false,
+    "FGEnabled": false,
+    "FGOverride": false,
+    "MultiFrame": 0,
+    "Indicator": false,
+    "FGIndicator": false
+  },
+  "GPU": {
+    "VRR": "",
+    "ShaderCache": false,
+    "ShaderCachePath": "",
+    "ThreadedOptimization": false,
+    "ClockOffset": 0,
+    "MemoryOffset": 0,
+    "PowerLimit": 0,
+    "PowerMizer": "",
+    "FanSpeed": 0
+  },
+  "CPU": {
+    "Governor": "",
+    "SMT": null,
+    "Affinity": ""
+  },
+  "Proton": {
+    "EnableWayland": false,
+    "EnableHDR": false,
+    "EnableNGXUpdater": false,
+    "VKD3DHeap": false
+  },
+  "Overlay": {
+    "Enabled": false,
+    "Position": "",
+    "ShowFPS": false,
+    "ShowFrametime": false,
+    "ShowCPU": false,
+    "ShowGPU": false,
+    "ShowVRAM": false,
+    "ToggleKey": ""
+  },
+  "Overrides": {}
+}

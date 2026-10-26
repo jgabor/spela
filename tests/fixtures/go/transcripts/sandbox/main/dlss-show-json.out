@@ -1,0 +1,13 @@
+{
+  "SRMode": "quality",
+  "SRPreset": "K",
+  "SROverride": true,
+  "RRMode": "",
+  "RRPreset": "",
+  "RROverride": false,
+  "FGEnabled": true,
+  "FGOverride": true,
+  "MultiFrame": 3,
+  "Indicator": true,
+  "FGIndicator": false
+}

@@ -1,0 +1,5 @@
+name: Paper Comet
+dlss:
+    sr_preset: J
+overrides:
+    dlss.sr_preset: true

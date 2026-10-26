@@ -1,0 +1,15 @@
+List, update, and restore DLSS/FSR/XeSS DLLs for games.
+
+Usage:
+  spela dll [command]
+
+Available Commands:
+  check-updates Check for DLL updates
+  list          List detected DLLs
+  restore       Restore original DLLs from backup
+  update        Update a DLL to the latest version
+
+Flags:
+  -h, --help   help for dll
+
+Use "spela dll [command] --help" for more information about a command.

@@ -1,0 +1,13 @@
+"compatibilitytools"
+{
+  "compat_tools"
+  {
+    "GE-Proton10-34" // Internal name of this tool
+    {
+      "install_path" "."
+      "display_name" "GE-Proton10-34"
+      "from_oslist"  "windows"
+      "to_oslist"    "linux"
+    }
+  }
+}

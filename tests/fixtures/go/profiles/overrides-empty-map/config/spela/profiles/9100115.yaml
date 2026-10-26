@@ -1,0 +1,6 @@
+name: Hollow Bell
+gpu:
+    power_limit: 200
+proton:
+    enable_hdr: true
+overrides: {}

@@ -1,0 +1,13 @@
+name: Rook Harbor
+gpu:
+    power_limit: 180
+proton:
+    enable_wayland: true
+    enable_hdr: true
+overrides:
+    dlss.sr_model_preset: false
+    gpu.power_limit: true
+    made.up: true
+    overlay.bogus: true
+    proton.enable_hdr: false
+    proton.enable_wayland: true

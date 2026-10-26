@@ -1,0 +1,8 @@
+Error: gpu.vrr: unsupported value "sometimes" (valid: , unset, automatic, always, never)
+Usage:
+  spela profile show <game> [flags]
+
+Flags:
+  -h, --help   help for show
+      --json   Output as JSON
+

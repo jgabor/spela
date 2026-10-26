@@ -1,0 +1,7 @@
+Delete a game's profile
+
+Usage:
+  spela profile delete <game> [flags]
+
+Flags:
+  -h, --help   help for delete

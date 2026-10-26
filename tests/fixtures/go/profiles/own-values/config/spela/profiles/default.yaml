@@ -1,0 +1,15 @@
+dlss:
+    sr_preset: auto
+gpu:
+    threaded_optimization: true
+    power_limit: 300
+cpu:
+    smt: true
+proton:
+    vkd3d_heap: true
+overrides:
+    cpu.smt: true
+    dlss.sr_preset: true
+    gpu.power_limit: true
+    gpu.threaded_optimization: true
+    proton.vkd3d_heap: true

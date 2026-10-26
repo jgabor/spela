@@ -1,0 +1,15 @@
+{
+  "note": "Go's older backup name scheme",
+  "app_id": 9100402,
+  "index_path": "/fixture-root/data/spela/backups/9100402/backup.json",
+  "load_error": null,
+  "backup_exists": true,
+  "files": [
+    {
+      "original_path": "/fixture-root/library/steamapps/common/Harbor Lights/nvngx_dlss.dll",
+      "backup_path": "/fixture-root/data/spela/backups/9100402/nvngx_dlss.dll",
+      "name_scheme": "basename",
+      "backup_file_exists": true
+    }
+  ]
+}

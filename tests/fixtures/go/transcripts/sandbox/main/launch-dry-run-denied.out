@@ -1,0 +1,43 @@
+[38;2;106;106;128mGame:[m [38;2;255;95;210mFrostline Arena[m (AppID 9100070)
+
+[38;2;106;106;128mCommand:[m steam steam://rungameid/9100070
+[38;2;255;95;210mLaunch option:[m direct Steam URI launch cannot track cleanup coverage; use Steam launch options: spela %command%
+[38;2;106;106;128mProfile:[m 6 profile-specific override(s) planned
+
+[38;2;255;95;210mProfile impacts[m
+  [38;2;106;106;128mcompatibility:[m
+    proton.enable_wayland=false source=override restore=ephemeral_launch_environment
+    proton.vkd3d_heap=true source=override restore=ephemeral_launch_environment
+  [38;2;106;106;128menvironment:[m
+    dlss.sr_preset=auto source=default restore=ephemeral_launch_environment
+    dlss.rr_mode=dlaa source=override restore=ephemeral_launch_environment
+    dlss.rr_preset=D source=override restore=ephemeral_launch_environment
+    dlss.rr_override=true source=override restore=ephemeral_launch_environment
+    gpu.shader_cache=true source=default restore=ephemeral_launch_environment
+    gpu.shader_cache_path=/var/cache/fixture-shaders/frostline source=override restore=ephemeral_launch_environment
+  [38;2;106;106;128mgame_file:[m none
+  [38;2;106;106;128msystem_state:[m
+    cpu.governor=performance source=default restore=restorable_mutation
+  [38;2;106;106;128moverlay:[m none
+
+[38;2;255;95;210mEnvironment[m
+  [38;2;106;106;128mDXVK_NVAPI_DRS_NGX_DLSS_RR_MODE=dlaa[m
+  [38;2;106;106;128mDXVK_NVAPI_DRS_NGX_DLSS_RR_OVERRIDE=on[m
+  [38;2;106;106;128mDXVK_NVAPI_DRS_NGX_DLSS_RR_OVERRIDE_RENDER_PRESET_SELECTION=render_preset_d[m
+  [38;2;106;106;128mVKD3D_CONFIG=descriptor_heap[m
+  [38;2;106;106;128m__GL_SHADER_DISK_CACHE=1[m
+  [38;2;106;106;128m__GL_SHADER_DISK_CACHE_PATH=/var/cache/fixture-shaders/frostline[m
+  [38;2;106;106;128m__GL_THREADED_OPTIMIZATION=0[m
+
+[38;2;255;95;210mDLL[m
+  [38;2;106;106;128mno launch-time DLL file mutation planned[m
+  [38;2;106;106;128mdenylist:[m denied (kernel anti-cheat)
+  [38;2;106;106;128mbackup:[m not created yet
+  [38;2;106;106;128mdlss:[m nvngx_dlss.dll 310.5.3; path write: write bit present
+
+[38;2;255;95;210mHardware[m
+  [38;2;106;106;128mprivileged changes apply via pkexec and restore on cleanup[m
+  [38;2;106;106;128mCPU governor:[m  performance
+
+[38;2;255;95;210mOverlay[m
+  [38;2;106;106;128moverlay collector not planned[m

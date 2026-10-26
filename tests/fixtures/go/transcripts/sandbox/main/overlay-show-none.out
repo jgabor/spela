@@ -1,0 +1,12 @@
+Overlay profile for Quiet Orchard:
+
+No profile for Quiet Orchard; every value follows All games or the system default.
+
+[38;2;106;106;128mEnabled       [m  Off   [38;2;106;106;128msystem default[m
+[38;2;106;106;128mPosition      [m  none  [38;2;106;106;128msystem default[m
+[38;2;106;106;128mShow FPS      [m  Off   [38;2;106;106;128msystem default[m
+[38;2;106;106;128mShow frametime[m  Off   [38;2;106;106;128msystem default[m
+[38;2;106;106;128mShow CPU      [m  Off   [38;2;106;106;128msystem default[m
+[38;2;106;106;128mShow GPU      [m  Off   [38;2;106;106;128msystem default[m
+[38;2;106;106;128mShow VRAM     [m  Off   [38;2;106;106;128msystem default[m
+[38;2;106;106;128mToggle key    [m  none  [38;2;106;106;128msystem default[m

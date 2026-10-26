@@ -1,0 +1,43 @@
+{
+  "note": "Go's read side filters tool names; FindGame matches an id first, then an exact name",
+  "load_error": null,
+  "all_app_ids": [
+    9100301,
+    9100302,
+    9100303,
+    9100304,
+    9100305,
+    9100306,
+    9100307
+  ],
+  "list_names_sorted": [
+    "Glimmer Run",
+    "Harbor Lights",
+    "Paper Comet",
+    "Quiet Orchard",
+    "Signal Drift: Director's Cut"
+  ],
+  "games_with_dlss_sorted": [
+    "Glimmer Run",
+    "Harbor Lights",
+    "Paper Comet"
+  ],
+  "find_game": {
+    "9100301": 9100301,
+    "9100305": 9100305,
+    "9100399": 0,
+    "Glimmer Run": 9100301,
+    "Proton 9.0 (Fixture)": 9100305,
+    "Signal Drift: Director's Cut": 9100307,
+    "glimmer run": 0
+  },
+  "is_tool_name": {
+    "Glimmer Run": false,
+    "Harbor Lights": false,
+    "Paper Comet": false,
+    "Proton 9.0 (Fixture)": true,
+    "Quiet Orchard": false,
+    "Signal Drift: Director's Cut": false,
+    "Steam Linux Runtime 3.0 (sniper)": true
+  }
+}

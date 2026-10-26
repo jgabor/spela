@@ -1,0 +1,9 @@
+Make a Proton profile field follow All games again. Valid fields:
+  hdr, wayland, ngx_updater, vkd3d_heap.
+Subsequent 'proton show' will show the field as coming from All games.
+
+Usage:
+  spela proton reset <game> <field> [flags]
+
+Flags:
+  -h, --help   help for reset

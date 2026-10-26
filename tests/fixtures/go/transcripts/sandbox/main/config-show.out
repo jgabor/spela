@@ -1,0 +1,11 @@
+log_level: info
+shader_cache: /fixture-root/cache/spela/nvidia
+check_updates: false
+rescan_on_startup: false
+auto_update_dlls: false
+dll_manifest_url: http://127.0.0.1:9/
+auto_refresh_manifest: false
+manifest_refresh_hours: 24
+theme: default
+compact_mode: false
+confirm_destructive: true

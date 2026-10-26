@@ -1,0 +1,5 @@
+name: Leading Zero
+proton:
+    enable_hdr: true
+overrides:
+    proton.enable_hdr: true

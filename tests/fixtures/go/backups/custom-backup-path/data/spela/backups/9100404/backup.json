@@ -1,0 +1,14 @@
+{
+  "app_id": 9100404,
+  "game_name": "Paper Comet",
+  "created_at": "2026-10-26T17:02:10.123456789+02:00",
+  "backup_path": "/fixture-root/dll-backups/9100404",
+  "files": [
+    {
+      "original_path": "/fixture-root/library/steamapps/common/Paper Comet/nvngx_dlss.dll",
+      "backup_path": "/fixture-root/dll-backups/9100404/a8ec34eaff2ea5e76523f4f744b3ef9d873da89eeedbf5401e69a452ef29d732-nvngx_dlss.dll",
+      "dll_name": "nvngx_dlss.dll",
+      "version": "310.4"
+    }
+  ]
+}

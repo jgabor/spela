@@ -1,0 +1,28 @@
+[38;2;106;106;128mGame:[m [38;2;255;95;210mAshen Throne[m (AppID 9100130)
+
+[38;2;106;106;128mCommand:[m steam steam://rungameid/9100130
+[38;2;255;95;210mLaunch option:[m direct Steam URI launch cannot track cleanup coverage; use Steam launch options: spela %command%
+[38;2;106;106;128mProfile:[m no profile-specific mutation planned
+
+[38;2;255;95;210mProfile impacts[m
+  [38;2;106;106;128mcompatibility:[m none
+  [38;2;106;106;128menvironment:[m
+    dlss.sr_mode=balanced source=default restore=ephemeral_launch_environment
+    dlss.sr_preset=default source=default restore=ephemeral_launch_environment
+  [38;2;106;106;128mgame_file:[m none
+  [38;2;106;106;128msystem_state:[m none
+  [38;2;106;106;128moverlay:[m none
+
+[38;2;255;95;210mEnvironment[m
+  [38;2;106;106;128m__GL_THREADED_OPTIMIZATION=0[m
+
+[38;2;255;95;210mDLL[m
+  [38;2;106;106;128mno launch-time DLL file mutation planned[m
+  [38;2;106;106;128mdenylist:[m allowed
+  [38;2;106;106;128mbackup:[m not created yet
+
+[38;2;255;95;210mHardware[m
+  [38;2;106;106;128mno privileged hardware mutation planned[m
+
+[38;2;255;95;210mOverlay[m
+  [38;2;106;106;128moverlay collector not planned[m

@@ -1,0 +1,13 @@
+dlss:
+    sr_preset: auto
+gpu:
+    shader_cache: true
+cpu:
+    governor: performance
+proton:
+    enable_wayland: true
+overrides:
+    cpu.governor: true
+    dlss.sr_preset: true
+    gpu.shader_cache: true
+    proton.enable_wayland: true

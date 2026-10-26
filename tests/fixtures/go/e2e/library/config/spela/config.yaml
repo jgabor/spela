@@ -1,0 +1,9 @@
+auto_refresh_manifest: false
+auto_update_dlls: false
+check_updates: false
+compact_mode: false
+confirm_destructive: true
+log_level: info
+manifest_refresh_hours: 24
+rescan_on_startup: false
+shader_cache: /fixture-root/nvidia

@@ -1,0 +1,6 @@
+name: Copper Valley
+dlss:
+    sr_preset: k
+    sr_model_preset: transformer
+overrides:
+    dlss.sr_preset: true

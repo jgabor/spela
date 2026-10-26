@@ -1,0 +1,2 @@
+log_level: info
+check_updates: [not, a, bool

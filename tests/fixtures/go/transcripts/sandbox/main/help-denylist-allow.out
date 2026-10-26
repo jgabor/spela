@@ -1,0 +1,7 @@
+Force-allow a denied game
+
+Usage:
+  spela denylist allow <game> [flags]
+
+Flags:
+  -h, --help   help for allow

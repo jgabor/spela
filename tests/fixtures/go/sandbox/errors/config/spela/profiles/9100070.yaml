@@ -1,0 +1,16 @@
+name: Frostline Arena
+dlss:
+    rr_mode: dlaa
+    rr_preset: D
+    rr_override: true
+gpu:
+    shader_cache_path: /var/cache/fixture-shaders/frostline
+proton:
+    vkd3d_heap: true
+overrides:
+    dlss.rr_mode: true
+    dlss.rr_override: true
+    dlss.rr_preset: true
+    gpu.shader_cache_path: true
+    proton.enable_wayland: true
+    proton.vkd3d_heap: true

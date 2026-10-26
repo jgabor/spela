@@ -1,0 +1,8 @@
+Make an overlay profile field follow All games again. Valid fields:
+  enabled, position, show_fps, show_frametime, show_cpu, show_gpu, show_vram, toggle_key.
+
+Usage:
+  spela overlay reset <game> <field> [flags]
+
+Flags:
+  -h, --help   help for reset

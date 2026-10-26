@@ -1,0 +1,13 @@
+name: Quiet Orchard
+dlss:
+    sr_mode: quality
+    sr_override: true
+cpu:
+    smt: false
+overrides:
+    cpu.smt: true
+    dlss.sr_mode: true
+    dlss.sr_override: true
+    gpu.power_limit: true
+    gpu.threaded_optimization: true
+    proton.vkd3d_heap: true

@@ -1,0 +1,8 @@
+Error: game not found: 9100050
+Usage:
+  spela show <game> [flags]
+
+Flags:
+  -h, --help   help for show
+      --json   Output in JSON format
+

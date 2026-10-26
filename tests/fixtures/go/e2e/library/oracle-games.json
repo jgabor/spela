@@ -1,0 +1,28 @@
+{
+  "note": "the e2e game database",
+  "load_error": null,
+  "all_app_ids": [
+    9100110,
+    9100120,
+    9100130
+  ],
+  "list_names_sorted": [
+    "Ashen Throne",
+    "Chrome Avenue 2081",
+    "Hollow Crown 3: Long Night"
+  ],
+  "games_with_dlss_sorted": [
+    "Chrome Avenue 2081",
+    "Hollow Crown 3: Long Night"
+  ],
+  "find_game": {
+    "9100110": 9100110,
+    "Ashen Throne": 9100130,
+    "Hollow Crown 3: Long Night": 9100120
+  },
+  "is_tool_name": {
+    "Ashen Throne": false,
+    "Chrome Avenue 2081": false,
+    "Hollow Crown 3: Long Night": false
+  }
+}

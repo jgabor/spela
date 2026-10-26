@@ -1,0 +1,22 @@
+{
+  "note": "empty shader_cache and log_level, refresh hours 0, empty theme (omitempty drops it, so Go reads back the default theme)",
+  "file": "config/spela/config.yaml",
+  "exists": true,
+  "load_error": null,
+  "effective": {
+    "auto_refresh_manifest": true,
+    "auto_update_dlls": false,
+    "check_updates": true,
+    "compact_mode": false,
+    "confirm_destructive": true,
+    "log_level": "",
+    "manifest_refresh_hours": 0,
+    "rescan_on_startup": true,
+    "shader_cache": "",
+    "theme": "default"
+  },
+  "validate_error": "unsupported log level: ",
+  "dll_cache_dir": "/fixture-root/cache/spela/dlls",
+  "backup_files_dir": "/fixture-root/data/spela/backups",
+  "shader_cache_dir": "/fixture-root/cache/spela/nvidia"
+}

@@ -1,0 +1,6 @@
+name: Signal Drift
+dlss:
+  sr_preset: A
+  sr_model_preset: l
+overrides:
+  dlss.sr_model_preset: true

@@ -1,0 +1,14 @@
+Configure per-game Proton settings (HDR, Wayland, NGX updater, VKD3D heap).
+
+Usage:
+  spela proton [command]
+
+Available Commands:
+  reset       Make a Proton field follow All games
+  set         Set Proton profile for a game
+  show        Show Proton profile for a game
+
+Flags:
+  -h, --help   help for proton
+
+Use "spela proton [command] --help" for more information about a command.

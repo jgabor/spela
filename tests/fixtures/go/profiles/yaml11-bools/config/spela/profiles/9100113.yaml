@@ -1,0 +1,7 @@
+name: Moss Signal Upper
+dlss:
+    fg_enabled: TRUE
+    fg_override: NO
+overrides:
+    dlss.fg_enabled: true
+    dlss.fg_override: true

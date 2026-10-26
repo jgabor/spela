@@ -1,0 +1,13 @@
+"compatibilitytools"
+{
+  "compat_tools"
+  {
+    "GE-Proton11-7-x86_64" // Internal name of this tool
+    {
+      "install_path" "."
+      "display_name" "GE-Proton11-7-x86_64"
+      "from_oslist"  "windows"
+      "to_oslist"    "linux"
+    }
+  }
+}

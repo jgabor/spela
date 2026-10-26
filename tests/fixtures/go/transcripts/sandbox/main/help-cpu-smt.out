@@ -1,0 +1,7 @@
+Get or set SMT status
+
+Usage:
+  spela cpu smt [on|off] [flags]
+
+Flags:
+  -h, --help   help for smt

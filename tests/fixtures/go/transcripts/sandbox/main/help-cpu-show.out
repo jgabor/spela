@@ -1,0 +1,8 @@
+Show CPU profile for a game
+
+Usage:
+  spela cpu show <game> [flags]
+
+Flags:
+  -h, --help   help for show
+      --json   Output as JSON

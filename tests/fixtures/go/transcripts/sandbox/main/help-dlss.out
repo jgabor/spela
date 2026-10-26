@@ -1,0 +1,14 @@
+Configure DLSS Super Resolution, Ray Reconstruction, and Frame Generation settings.
+
+Usage:
+  spela dlss [command]
+
+Available Commands:
+  reset       Make a DLSS field follow All games
+  set         Set DLSS configuration for a game
+  show        Show DLSS configuration for a game
+
+Flags:
+  -h, --help   help for dlss
+
+Use "spela dlss [command] --help" for more information about a command.

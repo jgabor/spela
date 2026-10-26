@@ -1,0 +1,10 @@
+name: Lantern Keep
+dlss:
+    sr_preset: auto
+proton:
+    vkd3d_heap: true
+overrides:
+    dlss.sr_preset: true
+    gpu.fan_speed: true
+    proton.enable_hdr: true
+    proton.vkd3d_heap: true

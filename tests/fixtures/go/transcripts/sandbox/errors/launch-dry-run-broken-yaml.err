@@ -1,0 +1,9 @@
+Error: failed to load profile: yaml: line 1: did not find expected ',' or ']'
+Usage:
+  spela launch <game> [flags]
+
+Flags:
+      --dry-run        Show what would happen without launching
+      --game-id uint   Launch by Steam App ID
+  -h, --help           help for launch
+

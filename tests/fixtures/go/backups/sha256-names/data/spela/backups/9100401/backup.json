@@ -1,0 +1,26 @@
+{
+  "app_id": 9100401,
+  "game_name": "Glimmer Run",
+  "created_at": "2026-10-26T17:02:10.123456789+02:00",
+  "backup_path": "/fixture-root/data/spela/backups/9100401",
+  "files": [
+    {
+      "original_path": "/fixture-root/library/steamapps/common/Glimmer Run/bin/x64/nvngx_dlss.dll",
+      "backup_path": "/fixture-root/data/spela/backups/9100401/afc5cb0e62847ad656ff25320a53601076a1f462cf595cb603cc29e76cff26e7-nvngx_dlss.dll",
+      "dll_name": "nvngx_dlss.dll",
+      "version": "310.2.1"
+    },
+    {
+      "original_path": "/fixture-root/library/steamapps/common/Glimmer Run/bin/x64/nvngx_dlssg.dll",
+      "backup_path": "/fixture-root/data/spela/backups/9100401/8b0eff53e5535666bcc20fe6fbe61959861a137ade539405df59633199523532-nvngx_dlssg.dll",
+      "dll_name": "nvngx_dlssg.dll",
+      "version": "310.2.1"
+    },
+    {
+      "original_path": "/fixture-root/library/steamapps/common/Glimmer Run/plugins/nvngx_dlss.dll",
+      "backup_path": "/fixture-root/data/spela/backups/9100401/40a7b3e6b1f9f4bb3bc141d59225c5c81d74c6263b9cea4d08be67e9c761aabc-nvngx_dlss.dll",
+      "dll_name": "nvngx_dlss.dll",
+      "version": "3.5"
+    }
+  ]
+}

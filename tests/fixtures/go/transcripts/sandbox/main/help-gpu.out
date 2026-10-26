@@ -1,0 +1,16 @@
+View GPU information and configure NVIDIA GPU settings.
+
+Usage:
+  spela gpu [command]
+
+Available Commands:
+  info          Show GPU information
+  profile-reset Make a GPU profile field follow All games
+  reset         Reset GPU clocks to default
+  set           Set GPU profile for a game
+  show          Show GPU profile for a game
+
+Flags:
+  -h, --help   help for gpu
+
+Use "spela gpu [command] --help" for more information about a command.

@@ -1,0 +1,3 @@
+check_updates: false
+additional_library_paths:
+  - /fixture-root/games

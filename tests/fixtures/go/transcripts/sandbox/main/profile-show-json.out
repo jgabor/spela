@@ -1,0 +1,68 @@
+{
+  "Name": "Glimmer Run",
+  "DLSS": {
+    "SRMode": "quality",
+    "SRPreset": "K",
+    "SROverride": true,
+    "RRMode": "",
+    "RRPreset": "",
+    "RROverride": false,
+    "FGEnabled": true,
+    "FGOverride": true,
+    "MultiFrame": 3,
+    "Indicator": true,
+    "FGIndicator": false
+  },
+  "GPU": {
+    "VRR": "automatic",
+    "ShaderCache": false,
+    "ShaderCachePath": "",
+    "ThreadedOptimization": false,
+    "ClockOffset": 150,
+    "MemoryOffset": 500,
+    "PowerLimit": 250,
+    "PowerMizer": "",
+    "FanSpeed": 60
+  },
+  "CPU": {
+    "Governor": "",
+    "SMT": false,
+    "Affinity": ""
+  },
+  "Proton": {
+    "EnableWayland": false,
+    "EnableHDR": true,
+    "EnableNGXUpdater": false,
+    "VKD3DHeap": true
+  },
+  "Overlay": {
+    "Enabled": true,
+    "Position": "top-right",
+    "ShowFPS": false,
+    "ShowFrametime": false,
+    "ShowCPU": false,
+    "ShowGPU": false,
+    "ShowVRAM": false,
+    "ToggleKey": ""
+  },
+  "Overrides": {
+    "cpu.smt": true,
+    "dlss.fg_enabled": true,
+    "dlss.fg_override": true,
+    "dlss.indicator": true,
+    "dlss.multi_frame": true,
+    "dlss.sr_mode": true,
+    "dlss.sr_override": true,
+    "dlss.sr_preset": true,
+    "gpu.clock_offset": true,
+    "gpu.fan_speed": true,
+    "gpu.memory_offset": true,
+    "gpu.power_limit": true,
+    "gpu.threaded_optimization": true,
+    "gpu.vrr": true,
+    "overlay.enabled": true,
+    "overlay.position": true,
+    "proton.enable_hdr": true,
+    "proton.vkd3d_heap": true
+  }
+}

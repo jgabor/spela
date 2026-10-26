@@ -1,0 +1,14 @@
+{
+  "app_id": 9100407,
+  "game_name": "Empty Path",
+  "created_at": "2026-10-26T17:02:10.123456789+02:00",
+  "backup_path": "x",
+  "files": [
+    {
+      "original_path": "",
+      "backup_path": "/b",
+      "dll_name": "nvngx_dlss.dll",
+      "version": ""
+    }
+  ]
+}

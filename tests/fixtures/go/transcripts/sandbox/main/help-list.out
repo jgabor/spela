@@ -1,0 +1,9 @@
+List all games detected in the game database.
+
+Usage:
+  spela list [flags]
+
+Flags:
+  -h, --help        help for list
+      --json        Output in JSON format
+      --with-dlls   Show DLL information

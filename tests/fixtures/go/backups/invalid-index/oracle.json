@@ -1,0 +1,34 @@
+[
+  {
+    "note": "LoadBackup fails closed",
+    "app_id": 9100405,
+    "index_path": "/fixture-root/data/spela/backups/9100405/backup.json",
+    "load_error": "invalid backup metadata: app ID is 9100499, want 9100405",
+    "backup_exists": false,
+    "files": null
+  },
+  {
+    "note": "LoadBackup fails closed",
+    "app_id": 9100406,
+    "index_path": "/fixture-root/data/spela/backups/9100406/backup.json",
+    "load_error": "invalid backup metadata: no files",
+    "backup_exists": false,
+    "files": null
+  },
+  {
+    "note": "LoadBackup fails closed",
+    "app_id": 9100407,
+    "index_path": "/fixture-root/data/spela/backups/9100407/backup.json",
+    "load_error": "invalid backup metadata: file 0 has an empty path",
+    "backup_exists": false,
+    "files": null
+  },
+  {
+    "note": "LoadBackup fails closed",
+    "app_id": 9100408,
+    "index_path": "/fixture-root/data/spela/backups/9100408/backup.json",
+    "load_error": "parse backup metadata: unexpected end of JSON input",
+    "backup_exists": false,
+    "files": null
+  }
+]

@@ -1,0 +1,7 @@
+Error: game not found: nope
+Usage:
+  spela denylist check <game> [flags]
+
+Flags:
+  -h, --help   help for check
+

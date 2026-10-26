@@ -1,0 +1,10 @@
+Make a DLSS profile field follow All games again. Valid fields:
+  sr_mode, sr_preset, sr_override,
+  rr_mode, rr_preset, rr_override,
+  fg_enabled, fg_override, multi_frame, indicator, fg_indicator.
+
+Usage:
+  spela dlss reset <game> <field> [flags]
+
+Flags:
+  -h, --help   help for reset

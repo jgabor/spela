@@ -1,0 +1,15 @@
+Set GPU profile for a game
+
+Usage:
+  spela gpu set <game> [flags]
+
+Flags:
+      --clock-offset int           GPU core clock offset in MHz
+      --fan-speed int              GPU fan speed percentage (0 to clear)
+  -h, --help                       help for set
+      --memory-offset int          GPU memory clock offset in MHz
+      --power-limit int            GPU power limit in watts
+      --power-mizer string         GPU power mode (adaptive, max)
+      --shader-cache string        Enable shader caching (true/false)
+      --shader-cache-path string   Custom shader cache path (use 'default' to clear)
+      --threaded-opt string        Enable threaded optimization (true/false)

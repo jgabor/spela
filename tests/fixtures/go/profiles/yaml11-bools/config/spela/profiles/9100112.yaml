@@ -1,0 +1,5 @@
+name: Moss Signal Y
+dlss:
+    sr_override: y
+overrides:
+    dlss.sr_override: true

@@ -1,0 +1,5 @@
+name: Plain Yaml
+proton:
+    enable_hdr: true
+overrides:
+    proton.enable_hdr: true

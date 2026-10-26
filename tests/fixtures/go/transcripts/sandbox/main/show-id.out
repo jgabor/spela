@@ -1,0 +1,14 @@
+[38;2;106;106;128mName:[m  [38;2;255;95;210mGlimmer Run[m
+[38;2;106;106;128mApp ID:[m 9100010
+[38;2;106;106;128mInstall:[m  /fixture-root/home/.steam/steam/steamapps/common/Glimmer Run
+[38;2;106;106;128mPrefix:[m  /fixture-root/home/.steam/steam/steamapps/compatdata/9100010
+
+[38;2;95;240;255mDetected DLLs:[m
+  [38;2;255;95;210mnvngx_dlss.dll[m: [38;2;255;95;210m310.2.1[m
+    [38;2;106;106;128m/fixture-root/home/.steam/steam/steamapps/common/Glimmer Run/bin/x64/nvngx_dlss.dll[m
+  [38;2;255;95;210mnvngx_dlssd.dll[m: [38;2;255;95;210m310.5.3[m
+    [38;2;106;106;128m/fixture-root/home/.steam/steam/steamapps/common/Glimmer Run/bin/x64/nvngx_dlssd.dll[m
+  [38;2;255;95;210mnvngx_dlssg.dll[m: [38;2;255;95;210m310.2.1[m
+    [38;2;106;106;128m/fixture-root/home/.steam/steam/steamapps/common/Glimmer Run/bin/x64/nvngx_dlssg.dll[m
+
+[38;2;106;106;128mProfile:[m [38;2;124;227;139myes[m

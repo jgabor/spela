@@ -1,0 +1,8 @@
+Error: no profile for Quiet Orchard
+Usage:
+  spela profile show <game> [flags]
+
+Flags:
+  -h, --help   help for show
+      --json   Output as JSON
+

@@ -1,0 +1,9 @@
+Make a GPU profile field follow All games again. Valid fields:
+  clock_offset, memory_offset, power_limit, fan_speed,
+  power_mizer, shader_cache, shader_cache_path, threaded_optimization.
+
+Usage:
+  spela gpu profile-reset <game> <field> [flags]
+
+Flags:
+  -h, --help   help for profile-reset

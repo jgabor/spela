@@ -1,0 +1,5 @@
+gpu:
+    power_limit: 300
+proton:
+    enable_hdr: true
+overrides: {}

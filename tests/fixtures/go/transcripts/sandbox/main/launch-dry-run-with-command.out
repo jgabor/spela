@@ -1,0 +1,67 @@
+[38;2;106;106;128mGame:[m [38;2;255;95;210mGlimmer Run[m (AppID 9100010)
+
+[38;2;106;106;128mCommand:[m 9100010 glimmer.exe -dx12
+[38;2;106;106;128mProfile:[m 18 profile-specific override(s) planned
+
+[38;2;255;95;210mProfile impacts[m
+  [38;2;106;106;128mcompatibility:[m
+    proton.enable_hdr=true source=override restore=ephemeral_launch_environment
+    proton.enable_wayland=true source=default restore=ephemeral_launch_environment
+    proton.vkd3d_heap=true source=override restore=ephemeral_launch_environment
+  [38;2;106;106;128menvironment:[m
+    dlss.sr_mode=quality source=override restore=ephemeral_launch_environment
+    dlss.sr_preset=K source=override restore=ephemeral_launch_environment
+    dlss.sr_override=true source=override restore=ephemeral_launch_environment
+    dlss.fg_enabled=true source=override restore=ephemeral_launch_environment
+    dlss.fg_override=true source=override restore=ephemeral_launch_environment
+    dlss.multi_frame=3 source=override restore=ephemeral_launch_environment
+    dlss.indicator=true source=override restore=ephemeral_launch_environment
+    gpu.shader_cache=true source=default restore=ephemeral_launch_environment
+    gpu.threaded_optimization=false source=override restore=ephemeral_launch_environment
+  [38;2;106;106;128mgame_file:[m none
+  [38;2;106;106;128msystem_state:[m
+    gpu.clock_offset=150 source=override restore=restorable_mutation
+    gpu.vrr=automatic source=override restore=restorable_mutation
+    gpu.memory_offset=500 source=override restore=restorable_mutation
+    gpu.power_limit=250 source=override restore=restorable_mutation
+    gpu.fan_speed=60 source=override restore=restorable_mutation
+    cpu.governor=performance source=default restore=restorable_mutation
+    cpu.smt=false source=override restore=restorable_mutation
+  [38;2;106;106;128moverlay:[m
+    overlay.enabled=true source=override restore=not_applicable
+    overlay.position=top-right source=override restore=not_applicable
+
+[38;2;255;95;210mEnvironment[m
+  [38;2;106;106;128mDXVK_NVAPI_DRS_NGX_DLSSG_MULTI_FRAME_COUNT=3[m
+  [38;2;106;106;128mDXVK_NVAPI_DRS_NGX_DLSS_FG_OVERRIDE=on[m
+  [38;2;106;106;128mDXVK_NVAPI_DRS_NGX_DLSS_SR_MODE=quality[m
+  [38;2;106;106;128mDXVK_NVAPI_DRS_NGX_DLSS_SR_OVERRIDE=on[m
+  [38;2;106;106;128mDXVK_NVAPI_DRS_NGX_DLSS_SR_OVERRIDE_RENDER_PRESET_SELECTION=render_preset_k[m
+  [38;2;106;106;128mDXVK_NVAPI_SET_NGX_DEBUG_OPTIONS=DLSSIndicator=1024[m
+  [38;2;106;106;128mPROTON_ENABLE_HDR=1[m
+  [38;2;106;106;128mPROTON_ENABLE_WAYLAND=1[m
+  [38;2;106;106;128mVKD3D_CONFIG=descriptor_heap[m
+  [38;2;106;106;128m__GL_SHADER_DISK_CACHE=1[m
+  [38;2;106;106;128m__GL_SHADER_DISK_CACHE_PATH=/fixture-root/cache/spela/nvidia[m
+  [38;2;106;106;128m__GL_THREADED_OPTIMIZATION=0[m
+
+[38;2;255;95;210mDLL[m
+  [38;2;106;106;128mno launch-time DLL file mutation planned[m
+  [38;2;106;106;128mdenylist:[m allowed
+  [38;2;106;106;128mbackup:[m not created yet
+  [38;2;106;106;128mdlss:[m nvngx_dlss.dll 310.2.1; path write: write bit present
+  [38;2;106;106;128mdlssd:[m nvngx_dlssd.dll 310.5.3; path write: write bit present
+  [38;2;106;106;128mdlssg:[m nvngx_dlssg.dll 310.2.1; path write: write bit present
+
+[38;2;255;95;210mHardware[m
+  [38;2;106;106;128mprivileged changes apply via pkexec and restore on cleanup[m
+  [38;2;106;106;128mGPU clock offset:[m  150 MHz
+  [38;2;106;106;128mGPU memory offset:[m  500 MHz
+  [38;2;106;106;128mGPU power limit:[m  250 W
+  [38;2;106;106;128mGPU fan speed:[m  60%
+  [38;2;106;106;128mCPU governor:[m  performance
+  [38;2;106;106;128mCPU SMT:[m  false
+
+[38;2;255;95;210mOverlay[m
+  [38;2;106;106;128mcollector IPC will be created before launch[m
+  [38;2;106;106;128mPosition:[m  top-right

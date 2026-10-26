@@ -1,0 +1,9 @@
+Launch a game applying its profile settings. Can specify game by name or ID.
+
+Usage:
+  spela launch <game> [flags]
+
+Flags:
+      --dry-run        Show what would happen without launching
+      --game-id uint   Launch by Steam App ID
+  -h, --help           help for launch

@@ -1,0 +1,5 @@
+name: Still Fine
+proton:
+    enable_hdr: true
+overrides:
+    proton.enable_hdr: true

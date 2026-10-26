@@ -1,0 +1,5 @@
+proton:
+    enable_hdr: true
+overrides:
+    made.up: true
+    proton.enable_hdr: true

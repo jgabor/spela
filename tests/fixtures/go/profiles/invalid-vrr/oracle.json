@@ -1,0 +1,36 @@
+{
+  "note": "gpu.vrr is the only value Go validates on load",
+  "all_games": {
+    "file": "config/spela/profiles/default.yaml",
+    "exists": true,
+    "load_error": "gpu.vrr: unsupported value \"Always\" (valid: , unset, automatic, always, never)",
+    "name": "",
+    "overrides_after_load": null
+  },
+  "games": [
+    {
+      "app_id": 9100119,
+      "file": "config/spela/profiles/9100119.yaml",
+      "exists": true,
+      "load_error": "gpu.vrr: unsupported value \"sometimes\" (valid: , unset, automatic, always, never)",
+      "loaded": false,
+      "name": "",
+      "overrides_after_load": null
+    },
+    {
+      "app_id": 9100120,
+      "file": "config/spela/profiles/9100120.yaml",
+      "exists": true,
+      "load_error": null,
+      "loaded": true,
+      "name": "Drift Atlas Two",
+      "overrides_after_load": {
+        "gpu.vrr": true
+      }
+    }
+  ],
+  "list": [
+    9100120
+  ],
+  "list_error": null
+}

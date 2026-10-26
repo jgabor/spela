@@ -1,0 +1,7 @@
+Show GPU information
+
+Usage:
+  spela gpu info [flags]
+
+Flags:
+  -h, --help   help for info

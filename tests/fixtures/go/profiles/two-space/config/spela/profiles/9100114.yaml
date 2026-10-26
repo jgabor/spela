@@ -1,0 +1,15 @@
+name: Velvet Static
+dlss:
+  sr_mode: dlaa
+  sr_override: true
+gpu:
+  power_limit: 0
+  vrr: automatic
+cpu:
+  smt: false
+overrides:
+  dlss.sr_mode: true
+  dlss.sr_override: true
+  gpu.power_limit: true
+  gpu.vrr: true
+  cpu.smt: true

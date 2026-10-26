@@ -1,0 +1,15 @@
+Set overlay profile for a game
+
+Usage:
+  spela overlay set <game> [flags]
+
+Flags:
+      --enabled string          Enable performance overlay (true/false)
+  -h, --help                    help for set
+      --position string         Overlay screen position (top-left/top-right/bottom-left/bottom-right)
+      --show-cpu string         Show CPU usage (true/false)
+      --show-fps string         Show frames per second (true/false)
+      --show-frametime string   Show frame time (true/false)
+      --show-gpu string         Show GPU usage (true/false)
+      --show-vram string        Show VRAM usage (true/false)
+      --toggle-key string       Key to toggle overlay visibility

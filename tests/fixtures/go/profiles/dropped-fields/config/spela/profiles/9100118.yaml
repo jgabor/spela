@@ -1,0 +1,30 @@
+name: Kestrel Lines
+gpu:
+    clock_offset: 150
+    memory_offset: 9501
+    power_limit: 320
+    power_mizer: prefer_max_performance
+cpu:
+    affinity: 0-7,16-23
+overlay:
+    enabled: true
+    position: top-left
+    show_fps: true
+    show_frametime: true
+    show_cpu: true
+    show_vram: true
+    toggle_key: Shift+F12
+overrides:
+    cpu.affinity: true
+    gpu.clock_offset: true
+    gpu.memory_offset: true
+    gpu.power_limit: true
+    gpu.power_mizer: true
+    overlay.enabled: true
+    overlay.position: true
+    overlay.show_cpu: true
+    overlay.show_fps: true
+    overlay.show_frametime: true
+    overlay.show_gpu: true
+    overlay.show_vram: true
+    overlay.toggle_key: true
