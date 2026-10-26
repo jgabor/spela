@@ -944,6 +944,40 @@ mod tests {
     }
 
     #[test]
+    fn a_panic_still_restores() {
+        let w = world();
+        let mut backends = fake::backends();
+        backends.display = Box::new(w.display.clone());
+        backends.privilege = Box::new(w.privilege.clone());
+        let (mut out, mut err) = (Vec::new(), Vec::new());
+        let invocation = WrapperInvocation {
+            env: vec![],
+            command: vec![w.game.clone().into_os_string()],
+        };
+        let stop = StopSlot::new();
+        let mut l = Launch {
+            env: &w.env,
+            paths: &w.paths,
+            backends: &mut backends,
+            clock: &spela_core::clock::SystemClock,
+            stop: &stop,
+            out: &mut out,
+            err: &mut err,
+        };
+        let e = launch(&mut l, &invocation, &mut |_, _| {
+            panic!("a bug before the game")
+        })
+        .unwrap_err();
+        assert_eq!(e.code, exit::FAILURE);
+        assert_eq!(w.privilege.log().restores, 1);
+        assert_eq!(w.display.sets().len(), 2, "VRR is restored too");
+        assert!(
+            crate::locks::launch(&w.paths).is_ok(),
+            "the lock is released"
+        );
+    }
+
+    #[test]
     fn signals_reach_the_running_game() {
         let slot = StopSlot::new();
         let child = slot
