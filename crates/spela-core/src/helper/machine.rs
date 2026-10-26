@@ -12,9 +12,11 @@
 //!   prior cannot be read is skipped, because spela never restores a guess.
 //!   The fan is the one exception: a fan whose mode cannot be read goes back
 //!   to automatic.
-//! - A step that writes several files, the per-CPU governor, puts back the
-//!   files it wrote when a later one fails, so a failed step changed
-//!   nothing.
+//! - A step that writes several things, the per-CPU governor and the
+//!   per-fan setting, puts back the ones it wrote when a later one fails,
+//!   so a failed step changed nothing.
+//! - The power limit prior is kept in mW, exactly as read, so its restore
+//!   never writes a rounded value outside the card's range.
 
 use std::path::{Path, PathBuf};
 
@@ -37,14 +39,25 @@ pub enum Saved {
     Value(SettingValue),
     /// The governor of each CPU the step wrote, by CPU number.
     Governors(Vec<(u32, String)>),
+    /// The power limit in mW, as read.
+    PowerLimitMw(u32),
+    /// Each fan's mode, by fan index. A fan whose mode could not be read
+    /// is automatic here.
+    Fans(Vec<FanSetting>),
 }
 
 impl Saved {
     /// The prior value the report shows. For governors, each distinct name
-    /// in CPU order, joined with `, `: usually just one.
+    /// in CPU order, joined with `, `: usually just one. The power limit is
+    /// rounded to the nearest watt. For fans it is fan 0's mode, the fan
+    /// Monitor shows; the restore still puts each fan back to its own.
     pub fn shown(&self) -> SettingValue {
         match self {
             Saved::Value(v) => v.clone(),
+            Saved::PowerLimitMw(mw) => SettingValue::Watts(mw.saturating_add(500) / 1000),
+            Saved::Fans(fans) => {
+                SettingValue::Fan(fans.first().copied().unwrap_or(FanSetting::Auto))
+            }
             Saved::Governors(list) => {
                 let mut names: Vec<&str> = Vec::new();
                 for (_, g) in list {
@@ -221,11 +234,13 @@ impl SystemMachine {
             }
             (Step::ClockOffset, SettingValue::Mhz(v)) => gpu(self.gpu()?.set_clock_offset(*v)),
             (Step::MemoryOffset, SettingValue::Mhz(v)) => gpu(self.gpu()?.set_memory_offset(*v)),
-            (Step::PowerLimit, SettingValue::Watts(v)) => gpu(self.gpu()?.set_power_limit(*v)),
-            (Step::Fan, SettingValue::Fan(FanSetting::Percent(p))) => {
-                gpu(self.gpu()?.set_fan_speed(*p))
+            (Step::PowerLimit, SettingValue::Watts(v)) => {
+                let mw = v
+                    .checked_mul(1000)
+                    .ok_or_else(|| format!("{v} W is too large"))?;
+                gpu(self.gpu()?.set_power_limit_mw(mw))
             }
-            (Step::Fan, SettingValue::Fan(FanSetting::Auto)) => gpu(self.gpu()?.set_fan_auto()),
+            (Step::Fan, SettingValue::Fan(target)) => self.write_fans(*target),
             (Step::CpuGovernor, SettingValue::Governor(g)) => {
                 let cpus = self.governed_cpus()?;
                 let values: Vec<(u32, String)> = cpus.iter().map(|n| (*n, g.clone())).collect();
@@ -234,6 +249,59 @@ impl SystemMachine {
             }
             (Step::Smt, SettingValue::Smt(on)) => self.write_smt(*on),
             (step, value) => Err(mismatch(step, value)),
+        }
+    }
+
+    /// Each fan's prior mode, an unreadable one as automatic.
+    fn fan_priors(&mut self) -> Result<Vec<FanSetting>, String> {
+        let fans: Vec<FanSetting> = self
+            .gpu_prior()?
+            .fans
+            .iter()
+            .map(|f| f.known().copied().unwrap_or(FanSetting::Auto))
+            .collect();
+        if fans.is_empty() {
+            Ok(vec![FanSetting::Auto])
+        } else {
+            Ok(fans)
+        }
+    }
+
+    /// Sets every fan to `target`. When one fails, the fans already set go
+    /// back to their prior modes, so a failed step changed nothing.
+    fn write_fans(&mut self, target: FanSetting) -> Result<(), String> {
+        let priors = self.fan_priors()?;
+        let many = priors.len() > 1;
+        let gpu = self.gpu()?;
+        for fan in 0..priors.len() {
+            if let Err(e) = gpu.set_fan(fan as u32, target) {
+                for (back, old) in priors[..fan].iter().enumerate() {
+                    let _ = gpu.set_fan(back as u32, *old);
+                }
+                return Err(fan_error(many, fan, &e));
+            }
+        }
+        Ok(())
+    }
+
+    /// Puts each fan back to its own mode. Every fan is tried; the errors
+    /// are joined.
+    fn restore_fans(&mut self, fans: &[FanSetting]) -> Result<(), String> {
+        let many = fans.len() > 1;
+        let gpu = self.gpu()?;
+        let failed: Vec<String> = fans
+            .iter()
+            .enumerate()
+            .filter_map(|(fan, setting)| {
+                gpu.set_fan(fan as u32, *setting)
+                    .err()
+                    .map(|e| fan_error(many, fan, &e))
+            })
+            .collect();
+        if failed.is_empty() {
+            Ok(())
+        } else {
+            Err(failed.join("; "))
         }
     }
 
@@ -292,15 +360,12 @@ impl Machine for SystemMachine {
             Step::LockedClocks => Err("locked clocks have no prior value".into()),
             Step::ClockOffset => known(self.gpu_prior()?.clock_offset_mhz.map(SettingValue::Mhz)),
             Step::MemoryOffset => known(self.gpu_prior()?.memory_offset_mhz.map(SettingValue::Mhz)),
-            Step::PowerLimit => known(self.gpu_prior()?.power_limit_w.map(SettingValue::Watts)),
+            Step::PowerLimit => match self.gpu_prior()?.power_limit_mw {
+                Prior::Known(mw) => Ok(Saved::PowerLimitMw(mw)),
+                Prior::Unknown(why) => Err(why),
+            },
             // A fan whose mode cannot be read goes back to automatic.
-            Step::Fan => Ok(Saved::Value(SettingValue::Fan(
-                self.gpu_prior()?
-                    .fan
-                    .known()
-                    .copied()
-                    .unwrap_or(FanSetting::Auto),
-            ))),
+            Step::Fan => self.fan_priors().map(Saved::Fans),
             Step::CpuGovernor => {
                 let cpus = self.governed_cpus()?;
                 self.read_governors(&cpus).map(Saved::Governors)
@@ -318,6 +383,11 @@ impl Machine for SystemMachine {
     fn restore(&mut self, step: Step, saved: &Saved) -> Result<(), String> {
         match saved {
             Saved::Value(v) => self.set_value(step, v),
+            Saved::PowerLimitMw(mw) => self
+                .gpu()?
+                .set_power_limit_mw(*mw)
+                .map_err(|e| e.to_string()),
+            Saved::Fans(fans) => self.restore_fans(fans),
             Saved::Governors(list) => {
                 // A CPU that went offline since cannot take its governor
                 // back; the others still do.
@@ -340,6 +410,15 @@ impl Machine for SystemMachine {
 
 fn governor_file(cpu_dir: &Path, n: u32) -> PathBuf {
     cpu_dir.join(format!("cpu{n}/cpufreq/scaling_governor"))
+}
+
+/// A fan error, naming the fan when the card has more than one.
+fn fan_error(many: bool, fan: usize, e: &GpuError) -> String {
+    if many {
+        format!("fan {fan}: {e}")
+    } else {
+        e.to_string()
+    }
 }
 
 fn mismatch(step: Step, value: &SettingValue) -> String {
@@ -533,25 +612,98 @@ mod tests {
         assert!(m.read_prior(Step::PowerLimit).is_err());
         assert_eq!(
             m.read_prior(Step::Fan).unwrap(),
-            Saved::Value(SettingValue::Fan(FanSetting::Auto))
+            Saved::Fans(vec![FanSetting::Auto])
         );
         m.apply(Step::LockedClocks, &SettingValue::DriverDefault)
             .unwrap();
         m.apply(Step::Fan, &SettingValue::Fan(FanSetting::Percent(60)))
             .unwrap();
-        m.restore(
-            Step::Fan,
-            &Saved::Value(SettingValue::Fan(FanSetting::Auto)),
-        )
-        .unwrap();
+        m.restore(Step::Fan, &Saved::Fans(vec![FanSetting::Auto]))
+            .unwrap();
         assert_eq!(
             control.calls(),
             [
                 GpuCall::ResetLockedClocks,
-                GpuCall::FanSpeed(60),
-                GpuCall::FanAuto
+                GpuCall::FanSpeed(0, 60),
+                GpuCall::FanAuto(0)
             ]
         );
+    }
+
+    #[test]
+    fn each_fan_keeps_its_own_prior_and_a_failure_at_fan_1_undoes_fan_0() {
+        let control = FakeGpuControl::new();
+        control.set_fans(&[FanSetting::Auto, FanSetting::Percent(40), FanSetting::Auto]);
+        let mut m = machine(&control, None);
+        let saved = m.read_prior(Step::Fan).unwrap();
+        assert_eq!(
+            saved,
+            Saved::Fans(vec![
+                FanSetting::Auto,
+                FanSetting::Percent(40),
+                FanSetting::Auto
+            ])
+        );
+        assert_eq!(saved.shown(), SettingValue::Fan(FanSetting::Auto));
+
+        // Calls: fan 0 to 70 works, fan 1 fails, then fan 0 goes back.
+        control.fail_at_call(Some(1));
+        let e = m
+            .apply(Step::Fan, &SettingValue::Fan(FanSetting::Percent(70)))
+            .unwrap_err();
+        assert!(e.starts_with("fan 1: "), "{e}");
+        assert_eq!(
+            control.calls(),
+            [
+                GpuCall::FanSpeed(0, 70),
+                GpuCall::FanSpeed(1, 70),
+                GpuCall::FanAuto(0)
+            ]
+        );
+        assert_eq!(
+            control.fans(),
+            [FanSetting::Auto, FanSetting::Percent(40), FanSetting::Auto],
+            "a failed step changed nothing"
+        );
+
+        // A restore tries every fan, even after one fails.
+        control.fail_at_call(None);
+        m.apply(Step::Fan, &SettingValue::Fan(FanSetting::Percent(70)))
+            .unwrap();
+        let calls = control.calls().len();
+        control.fail_at_call(Some(calls));
+        let e = m.restore(Step::Fan, &saved).unwrap_err();
+        assert!(e.starts_with("fan 0: "), "{e}");
+        assert_eq!(
+            control.fans(),
+            [
+                FanSetting::Percent(70),
+                FanSetting::Percent(40),
+                FanSetting::Auto
+            ]
+        );
+    }
+
+    #[test]
+    fn the_power_limit_prior_is_restored_in_exact_milliwatts() {
+        let control = FakeGpuControl::new();
+        // At the top of the card's range, which rounds up to 321 W.
+        control.set_power_limit_now(320_500);
+        let mut m = machine(&control, None);
+        let saved = m.read_prior(Step::PowerLimit).unwrap();
+        assert_eq!(saved, Saved::PowerLimitMw(320_500));
+        assert_eq!(saved.shown(), SettingValue::Watts(321));
+        m.apply(Step::PowerLimit, &SettingValue::Watts(250))
+            .unwrap();
+        m.restore(Step::PowerLimit, &saved).unwrap();
+        assert_eq!(
+            control.calls(),
+            [
+                GpuCall::PowerLimitMw(250_000),
+                GpuCall::PowerLimitMw(320_500)
+            ]
+        );
+        assert_eq!(control.power_limit_mw(), 320_500);
     }
 
     #[test]

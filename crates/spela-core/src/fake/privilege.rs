@@ -502,7 +502,7 @@ mod tests {
             .collect();
         assert_eq!(outcomes, [true, false, true, true, true]);
         session.restore().unwrap();
-        assert!(!control.calls().contains(&GpuCall::PowerLimit(250)));
+        assert!(!control.calls().contains(&GpuCall::PowerLimitMw(250_000)));
         assert_eq!(control.current(), (0, 0, 320, FanSetting::Auto));
     }
 
@@ -531,7 +531,10 @@ mod tests {
             ]
         );
         session.restore().unwrap();
-        assert_eq!(control.calls(), [GpuCall::FanSpeed(70), GpuCall::FanAuto]);
+        assert_eq!(
+            control.calls(),
+            [GpuCall::FanSpeed(0, 70), GpuCall::FanAuto(0)]
+        );
     }
 
     #[test]
@@ -540,10 +543,23 @@ mod tests {
         control.set_prior_unreadable(true);
         let mut privilege = FakePrivilege::new(control.clone(), None);
         let report = privilege.apply_once(&HardwareRequest::gpu_reset()).unwrap();
-        assert_eq!(report.steps[0].outcome, StepOutcome::AppliedNoRestore);
-        // The offsets still need a readable prior.
-        assert!(matches!(report.steps[1].outcome, StepOutcome::Skipped(_)));
-        assert_eq!(control.calls(), [GpuCall::ResetLockedClocks]);
+        // A live change is never restored, so an unreadable prior does
+        // not stop the offsets from going to 0.
+        assert!(
+            report
+                .steps
+                .iter()
+                .all(|s| s.outcome == StepOutcome::AppliedNoRestore),
+            "{report:?}"
+        );
+        assert_eq!(
+            control.calls(),
+            [
+                GpuCall::ResetLockedClocks,
+                GpuCall::ClockOffset(0),
+                GpuCall::MemoryOffset(0)
+            ]
+        );
         assert!(report.restore_plan().steps.is_empty());
 
         let control = FakeGpuControl::new();

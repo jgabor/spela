@@ -149,19 +149,18 @@ impl NvmlControl {
     fn device(&self) -> Result<nvml_wrapper::Device<'_>, GpuError> {
         self.nvml.device_by_index(0).map_err(gpu_error)
     }
+}
 
-    /// Runs `set` on every fan, or on fan 0 when the fan count cannot be
-    /// read, as Go did (parity-inventory.md, domain 10).
-    fn each_fan(
-        &self,
-        mut set: impl FnMut(&mut nvml_wrapper::Device<'_>, u32) -> Result<(), NvmlError>,
-    ) -> Result<(), GpuError> {
-        let mut device = self.device()?;
-        let fans = device.num_fans().unwrap_or(1).max(1);
-        for fan in 0..fans {
-            set(&mut device, fan).map_err(gpu_error)?;
-        }
-        Ok(())
+/// One fan's mode: automatic, or manual at its current speed.
+fn fan_prior(device: &nvml_wrapper::Device<'_>, fan: u32) -> Prior<FanSetting> {
+    let unknown = |e: NvmlError| Prior::Unknown(gpu_error(e).to_string());
+    match device.fan_control_policy(fan) {
+        Ok(FanControlPolicy::TemperatureContinousSw) => Prior::Known(FanSetting::Auto),
+        Ok(FanControlPolicy::Manual) => match device.fan_speed(fan) {
+            Ok(p) => Prior::Known(FanSetting::Percent(p.min(100) as u8)),
+            Err(e) => unknown(e),
+        },
+        Err(e) => unknown(e),
     }
 }
 
@@ -176,8 +175,8 @@ impl GpuControl for NvmlControl {
                 return GpuPrior {
                     clock_offset_mhz: unknown(e.clone()),
                     memory_offset_mhz: unknown(e.clone()),
-                    power_limit_w: unknown(e.clone()),
-                    fan: unknown(e),
+                    power_limit_mw: unknown(e.clone()),
+                    fans: vec![unknown(e)],
                 };
             }
         };
@@ -185,23 +184,19 @@ impl GpuControl for NvmlControl {
             Ok(v) => Prior::Known(v),
             Err(e) => unknown(gpu_error(e)),
         };
-        let fan = match device.fan_control_policy(0) {
-            Ok(FanControlPolicy::TemperatureContinousSw) => Prior::Known(FanSetting::Auto),
-            Ok(FanControlPolicy::Manual) => match device.fan_speed(0) {
-                Ok(p) => Prior::Known(FanSetting::Percent(p.min(100) as u8)),
-                Err(e) => unknown(gpu_error(e)),
-            },
-            Err(e) => unknown(gpu_error(e)),
-        };
+        // Every fan, or fan 0 when the fan count cannot be read, as Go
+        // did (parity-inventory.md, domain 10).
+        let fans = device.num_fans().unwrap_or(1).max(1);
         GpuPrior {
             clock_offset_mhz: read(device.gpc_clock_vf_offset()),
             memory_offset_mhz: read(device.mem_clock_vf_offset()),
-            // Rounded to the nearest watt: the restore sets whole watts.
-            power_limit_w: match device.power_management_limit() {
-                Ok(mw) => Prior::Known((mw + 500) / 1000),
+            // Kept in mW, exactly as read: the restore writes it back as it
+            // was.
+            power_limit_mw: match device.power_management_limit() {
+                Ok(mw) => Prior::Known(mw),
                 Err(e) => unknown(gpu_error(e)),
             },
-            fan,
+            fans: (0..fans).map(|fan| fan_prior(&device, fan)).collect(),
         }
     }
 
@@ -234,21 +229,19 @@ impl GpuControl for NvmlControl {
         gpu.and(mem).map_err(gpu_error)
     }
 
-    fn set_power_limit(&mut self, watts: u32) -> Result<(), GpuError> {
-        let mw = watts
-            .checked_mul(1000)
-            .ok_or_else(|| GpuError::Failed(format!("{watts} W is too large")))?;
+    fn set_power_limit_mw(&mut self, milliwatts: u32) -> Result<(), GpuError> {
         self.device()?
-            .set_power_management_limit(mw)
+            .set_power_management_limit(milliwatts)
             .map_err(gpu_error)
     }
 
-    fn set_fan_speed(&mut self, percent: u8) -> Result<(), GpuError> {
-        self.each_fan(|d, fan| d.set_fan_speed(fan, u32::from(percent)))
-    }
-
-    fn set_fan_auto(&mut self) -> Result<(), GpuError> {
-        self.each_fan(|d, fan| d.set_default_fan_speed(fan))
+    fn set_fan(&mut self, fan: u32, setting: FanSetting) -> Result<(), GpuError> {
+        let mut device = self.device()?;
+        match setting {
+            FanSetting::Percent(p) => device.set_fan_speed(fan, u32::from(p)),
+            FanSetting::Auto => device.set_default_fan_speed(fan),
+        }
+        .map_err(gpu_error)
     }
 }
 

@@ -144,20 +144,20 @@ pub enum GpuCall {
     MemoryOffset(i32),
     /// `reset_locked_clocks`.
     ResetLockedClocks,
-    /// `set_power_limit`.
-    PowerLimit(u32),
-    /// `set_fan_speed`.
-    FanSpeed(u8),
-    /// `set_fan_auto`.
-    FanAuto,
+    /// `set_power_limit_mw`, in mW.
+    PowerLimitMw(u32),
+    /// `set_fan` with a fixed speed: the fan index and the percent.
+    FanSpeed(u32, u8),
+    /// `set_fan` back to automatic: the fan index.
+    FanAuto(u32),
 }
 
 #[derive(Debug)]
 struct ControlState {
     clock_offset_mhz: i32,
     memory_offset_mhz: i32,
-    power_limit_w: u32,
-    fan: FanSetting,
+    power_limit_mw: u32,
+    fans: Vec<FanSetting>,
     calls: Vec<GpuCall>,
     fail_at_call: Option<usize>,
     prior_unreadable: bool,
@@ -179,14 +179,14 @@ impl Default for FakeGpuControl {
 }
 
 impl FakeGpuControl {
-    /// Driver defaults: no offsets, a 320 W limit, automatic fan.
+    /// Driver defaults: no offsets, a 320 W limit, one fan on automatic.
     pub fn new() -> Self {
         FakeGpuControl {
             state: Arc::new(Mutex::new(ControlState {
                 clock_offset_mhz: 0,
                 memory_offset_mhz: 0,
-                power_limit_w: 320,
-                fan: FanSetting::Auto,
+                power_limit_mw: 320_000,
+                fans: vec![FanSetting::Auto],
                 calls: Vec::new(),
                 fail_at_call: None,
                 prior_unreadable: false,
@@ -204,20 +204,47 @@ impl FakeGpuControl {
         self.lock().prior_unreadable = unreadable;
     }
 
+    /// Gives the card these fans, each in its own mode. At least one fan
+    /// is kept.
+    pub fn set_fans(&self, fans: &[FanSetting]) {
+        let mut s = self.lock();
+        s.fans = if fans.is_empty() {
+            vec![FanSetting::Auto]
+        } else {
+            fans.to_vec()
+        };
+    }
+
+    /// Sets the power limit in force, in mW, without recording a call.
+    pub fn set_power_limit_now(&self, milliwatts: u32) {
+        self.lock().power_limit_mw = milliwatts;
+    }
+
     /// Every setter call so far, failed ones included.
     pub fn calls(&self) -> Vec<GpuCall> {
         self.lock().calls.clone()
     }
 
-    /// The current values: clock offset, memory offset, power limit, fan.
+    /// The current values: clock offset, memory offset, power limit in
+    /// whole W (rounded down), fan 0.
     pub fn current(&self) -> (i32, i32, u32, FanSetting) {
         let s = self.lock();
         (
             s.clock_offset_mhz,
             s.memory_offset_mhz,
-            s.power_limit_w,
-            s.fan,
+            s.power_limit_mw / 1000,
+            s.fans[0],
         )
+    }
+
+    /// The power limit in force, in mW.
+    pub fn power_limit_mw(&self) -> u32 {
+        self.lock().power_limit_mw
+    }
+
+    /// Every fan's current mode, by index.
+    pub fn fans(&self) -> Vec<FanSetting> {
+        self.lock().fans.clone()
     }
 
     fn lock(&self) -> MutexGuard<'_, ControlState> {
@@ -231,14 +258,21 @@ impl FakeGpuControl {
         if s.fail_at_call == Some(index) {
             return Err(GpuError::Failed(format!("fake failure at call {index}")));
         }
+        let fan = |s: &mut ControlState, n: u32, setting| match s.fans.get_mut(n as usize) {
+            Some(slot) => {
+                *slot = setting;
+                Ok(())
+            }
+            None => Err(GpuError::Failed(format!("no fan {n} (fake)"))),
+        };
         match call {
             GpuCall::ClockOffset(v) => s.clock_offset_mhz = v,
             GpuCall::MemoryOffset(v) => s.memory_offset_mhz = v,
             // The fake never locks clocks, so a reset only shows in `calls`.
             GpuCall::ResetLockedClocks => {}
-            GpuCall::PowerLimit(v) => s.power_limit_w = v,
-            GpuCall::FanSpeed(v) => s.fan = FanSetting::Percent(v),
-            GpuCall::FanAuto => s.fan = FanSetting::Auto,
+            GpuCall::PowerLimitMw(v) => s.power_limit_mw = v,
+            GpuCall::FanSpeed(n, v) => fan(&mut s, n, FanSetting::Percent(v))?,
+            GpuCall::FanAuto(n) => fan(&mut s, n, FanSetting::Auto)?,
         }
         Ok(())
     }
@@ -252,15 +286,15 @@ impl GpuControl for FakeGpuControl {
             return GpuPrior {
                 clock_offset_mhz: Prior::Unknown(why()),
                 memory_offset_mhz: Prior::Unknown(why()),
-                power_limit_w: Prior::Unknown(why()),
-                fan: Prior::Unknown(why()),
+                power_limit_mw: Prior::Unknown(why()),
+                fans: s.fans.iter().map(|_| Prior::Unknown(why())).collect(),
             };
         }
         GpuPrior {
             clock_offset_mhz: Prior::Known(s.clock_offset_mhz),
             memory_offset_mhz: Prior::Known(s.memory_offset_mhz),
-            power_limit_w: Prior::Known(s.power_limit_w),
-            fan: Prior::Known(s.fan),
+            power_limit_mw: Prior::Known(s.power_limit_mw),
+            fans: s.fans.iter().map(|f| Prior::Known(*f)).collect(),
         }
     }
 
@@ -283,16 +317,15 @@ impl GpuControl for FakeGpuControl {
         self.call(GpuCall::ResetLockedClocks)
     }
 
-    fn set_power_limit(&mut self, watts: u32) -> Result<(), GpuError> {
-        self.call(GpuCall::PowerLimit(watts))
+    fn set_power_limit_mw(&mut self, milliwatts: u32) -> Result<(), GpuError> {
+        self.call(GpuCall::PowerLimitMw(milliwatts))
     }
 
-    fn set_fan_speed(&mut self, percent: u8) -> Result<(), GpuError> {
-        self.call(GpuCall::FanSpeed(percent))
-    }
-
-    fn set_fan_auto(&mut self) -> Result<(), GpuError> {
-        self.call(GpuCall::FanAuto)
+    fn set_fan(&mut self, fan: u32, setting: FanSetting) -> Result<(), GpuError> {
+        self.call(match setting {
+            FanSetting::Percent(p) => GpuCall::FanSpeed(fan, p),
+            FanSetting::Auto => GpuCall::FanAuto(fan),
+        })
     }
 }
 
@@ -365,19 +398,21 @@ mod tests {
         let watcher = control.clone();
         control.fail_at_call(Some(1));
         control.set_clock_offset(150).unwrap();
-        assert!(control.set_power_limit(250).is_err());
-        control.set_fan_speed(70).unwrap();
+        assert!(control.set_power_limit_mw(250_000).is_err());
+        control.set_fan(0, FanSetting::Percent(70)).unwrap();
+        assert!(control.set_fan(1, FanSetting::Auto).is_err(), "one fan");
         assert_eq!(
             watcher.calls(),
             [
                 GpuCall::ClockOffset(150),
-                GpuCall::PowerLimit(250),
-                GpuCall::FanSpeed(70)
+                GpuCall::PowerLimitMw(250_000),
+                GpuCall::FanSpeed(0, 70),
+                GpuCall::FanAuto(1)
             ]
         );
         assert_eq!(watcher.current(), (150, 0, 320, FanSetting::Percent(70)));
         assert_eq!(control.read_prior().clock_offset_mhz, Prior::Known(150));
         control.set_prior_unreadable(true);
-        assert!(control.read_prior().fan.known().is_none());
+        assert!(control.read_prior().fans[0].known().is_none());
     }
 }

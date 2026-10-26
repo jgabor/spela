@@ -122,10 +122,13 @@ pub struct GpuPrior {
     pub clock_offset_mhz: Prior<i32>,
     /// The memory clock offset in MHz.
     pub memory_offset_mhz: Prior<i32>,
-    /// The power limit in W.
-    pub power_limit_w: Prior<u32>,
-    /// The fan policy.
-    pub fan: Prior<FanSetting>,
+    /// The power limit in mW, exactly as the driver reports it, so a
+    /// restore writes back what was there and never a rounded value that
+    /// may sit outside the card's range.
+    pub power_limit_mw: Prior<u32>,
+    /// Each fan's policy, by fan index: one entry per fan, and fan 0 alone
+    /// when the fan count cannot be read.
+    pub fans: Vec<Prior<FanSetting>>,
 }
 
 /// Why a GPU call failed. Nothing panics.
@@ -166,12 +169,12 @@ pub trait GpuControl: Send {
     fn set_memory_offset(&mut self, mhz: i32) -> Result<(), GpuError>;
     /// Gives the graphics clocks back to the driver, for `gpu reset`.
     fn reset_locked_clocks(&mut self) -> Result<(), GpuError>;
-    /// Sets the power limit.
-    fn set_power_limit(&mut self, watts: u32) -> Result<(), GpuError>;
-    /// Fixes the fan speed.
-    fn set_fan_speed(&mut self, percent: u8) -> Result<(), GpuError>;
-    /// Gives the fan back to the driver.
-    fn set_fan_auto(&mut self) -> Result<(), GpuError>;
+    /// Sets the power limit, in mW.
+    fn set_power_limit_mw(&mut self, milliwatts: u32) -> Result<(), GpuError>;
+    /// Sets one fan, by index: a fixed speed, or back to the driver's
+    /// automatic curve. The fans are the ones [`GpuControl::read_prior`]
+    /// lists.
+    fn set_fan(&mut self, fan: u32, setting: FanSetting) -> Result<(), GpuError>;
 }
 
 impl fmt::Display for FanSetting {

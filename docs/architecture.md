@@ -374,14 +374,13 @@ pub enum Prior<T> { Known(T), Unknown(String) }
 
 /// Used only inside the root helper.
 pub trait GpuControl {
-    fn read_prior(&mut self) -> GpuPrior; // clock and memory VF offsets, power limit, fan policy
+    fn read_prior(&mut self) -> GpuPrior; // clock and memory VF offsets, power limit in mW, each fan's policy
     fn power_limit_range(&mut self) -> Result<(u32, u32), GpuError>;  // checks a power limit (as built)
     fn set_clock_offset(&mut self, mhz: i32) -> Result<(), GpuError>;  // set_gpc_clock_vf_offset (decision 32)
     fn set_memory_offset(&mut self, mhz: i32) -> Result<(), GpuError>; // set_mem_clock_vf_offset (decision 32)
     fn reset_locked_clocks(&mut self) -> Result<(), GpuError>;         // for gpu reset
-    fn set_power_limit(&mut self, watts: u32) -> Result<(), GpuError>;
-    fn set_fan_speed(&mut self, percent: u8) -> Result<(), GpuError>;
-    fn set_fan_auto(&mut self) -> Result<(), GpuError>;
+    fn set_power_limit_mw(&mut self, milliwatts: u32) -> Result<(), GpuError>;
+    fn set_fan(&mut self, fan: u32, setting: FanSetting) -> Result<(), GpuError>; // a percent or automatic, per fan
 }
 
 pub trait Display {
@@ -417,6 +416,8 @@ Notes on the shapes (inferred unless marked):
 
 - `set_clock_offset` and `set_memory_offset` are real NVML offsets through nvml-wrapper's `set_gpc_clock_vf_offset` and `set_mem_clock_vf_offset` (verified: [rust-crates.md](rust-crates.md), NVML). The helper wires them, with `read_prior` and restore, and they are tested on fakes only (decision 32). They are live-unverified until the user's root test (decision 9; see [GPU offsets](#gpu-offsets)). There is no `set_power_mizer_mode` (decision 10).
 - `read_prior` runs as root inside the helper, right before the change, so the restore gets real values. Go reads them unprivileged beforehand and ignores read errors (verified: [parity-inventory.md](parity-inventory.md), domain 4).
+- The power limit prior is kept in mW, exactly as NVML reports it, and the restore writes that value back. A prior rounded to whole watts could land above the card's maximum, and NVML would refuse the restore. The report still shows whole watts.
+- The fan prior is read per fan, for every fan from `num_fans`, or fan 0 alone when the count cannot be read, as Go did. A fan whose mode cannot be read restores to automatic. The fan step sets each fan in turn, and when one fails it puts the fans it already set back to their own priors, so a failed step changed nothing, as the governor step does. The restore tries every fan and joins the errors. The report's `prior` shows fan 0's mode.
 - `PrivilegedSession` restores on an explicit `restore`, and also when it is dropped, because the drop closes the helper's stdin and the helper restores on EOF (decision 30). A panic or an early return in the wrapper therefore still restores (inferred).
 - `ApplyReport` lists each step as applied with its prior value, failed with its error, or skipped. The restore plan is built only from applied steps whose prior value is known (principle 4).
 - `gpu reset` sends `HardwareRequest::gpu_reset()`: a `LockedClocks` step first in apply order, then both VF offsets at 0. NVML has setters and a reset for locked clocks but no getter (inferred from the NVML API; the root test checks it), so `read_prior` does not cover them. The reset step is the one step applied without a prior value, and it is reported as applied with nothing to restore, because only the one-shot helper sends it and nothing ever restores it (as built in Phase 1).
@@ -1099,15 +1100,15 @@ The vkd3d_heap check runs only when vkd3d_heap resolves on. It logs and never bl
 
 Wrapper mode runs these steps in order (inferred, keeping today's order of effects from [parity-inventory.md](parity-inventory.md), CLI 6.1 and 6.8):
 
-1. Refuse to run as root, with an error and exit 1 (decision 35; the exit code is inferred). Install the signal watcher. SIGINT, SIGTERM and SIGHUP are caught from here on. Today they are caught only after Prepare's pkexec and VRR steps (bug: CLI 6.7).
+1. Refuse to run as root, with an error and exit 1 (decision 35; the exit code is inferred). Install the signal watcher. SIGINT, SIGTERM, SIGHUP and SIGQUIT are caught from here on (SIGQUIT as built, so Ctrl-backslash in a terminal no longer skips the restores). Today they are caught only after Prepare's pkexec and VRR steps (bug: CLI 6.7).
 2. Load the config, the game cache and the profiles, running the migration if a Go file is new. Detect the game. Build the plan. Print the summary.
 3. If the plan has privileged or VRR changes, try the launch lock without blocking (see [Launch lock](#launch-lock)). If another launch holds it, drop VRR and the privileged changes from the plan, warn, and go on with the env-only settings (decision 33).
 4. Apply KDE VRR in the user session. Push its restore onto the cleanup stack, even when the apply returns an error, as today (verified: domain 4).
 5. Push the hardware restore onto the cleanup stack, then start the `--serve` helper with one `pkexec` and send it the batch (see [Privilege model](#privilege-model) and [Protocol](#protocol)). The helper applies and reports each step, then waits.
-6. If a stop signal arrived during steps 2 to 5, do not start the game. Run cleanup, release the lock, and exit with 128 plus the signal number (inferred).
+6. If a stop signal arrived during steps 2 to 5, do not start the game. Run cleanup, release the lock, and exit with 128 plus the signal number (inferred). As built, a stop signal that is already pending also skips steps 4 and 5, so no polkit prompt shows for a launch that is already stopping.
 7. Print the launch message and spawn the child with inherited stdin, stdout and stderr (verified: CLI 6.7). The child inherits neither the lock descriptor nor the write end of the helper's stdin pipe, because std opens files and pipes with close-on-exec (inferred). That matters: if the game held the write end, the helper would never see EOF when the wrapper dies.
-8. Forward every SIGINT, SIGTERM and SIGHUP to the child, not only the first. Today later signals are swallowed and SIGHUP is not handled (bug: CLI 6.7). spela signals the direct child only, because Steam's reaper sits in `%command%` and handles the tree (inferred in CLI 6.7). process-wrap stays a later pick ([rust-crates.md](rust-crates.md), processes).
-9. Wait for the child and keep its exit status.
+8. Forward every SIGINT, SIGTERM, SIGHUP and SIGQUIT to the child, not only the first. Today later signals are swallowed and SIGHUP is not handled (bug: CLI 6.7). spela signals the direct child only, because Steam's reaper sits in `%command%` and handles the tree (inferred in CLI 6.7). process-wrap stays a later pick ([rust-crates.md](rust-crates.md), processes).
+9. Wait for the child and keep its exit status. As built, the wrapper first waits with `waitid(WNOWAIT)`, then stops forwarding, then reaps, so a signal that comes as the game exits never reaches another process that got the freed PID.
 10. Run cleanup, release the launch lock, and exit with the game's status. The hardware step of cleanup sends `restore` to the helper and reads its report lines until it exits.
 
 A failure to spawn runs cleanup and returns the error, as today (verified: CLI 6.7). A panic must not skip the restore: the launch body runs under `catch_unwind` with cleanup after it, which is why the release profile keeps `panic = "unwind"` (inferred).
@@ -1122,6 +1123,7 @@ A failure to spawn runs cleanup and returns the error, as today (verified: CLI 6
 
 Decision 29 adds a launch lock around apply and restore. It is an flock on `<state>/locks/launch.lock` (see [Locks](#locks)), with the PID written in it for the "already running (PID: N)" message (verified pattern: [mejl-study.md](mejl-study.md), binary 11; [rust-crates.md](rust-crates.md), file locking). Today no launch path takes any lock (verified: [parity-inventory.md](parity-inventory.md), CLI 5.2 and 8).
 
+- The lock is per user: it lives in the caller's own XDG state dir, while the hardware it guards is machine-wide. A second user, the same user with another `XDG_STATE_HOME`, or `sudo spela gpu reset` (which runs the helper directly as root, with root's own lock) does not see it, so those launches can still interleave. This gap is accepted. A machine-wide lock taken by the root helper, such as `/run/spela/hardware.lock`, would close it, but the helper writes no file (see [Protocol](#protocol)), and only the user's live check can show how pkexec and the helper behave with it. A `sudo -E` run can also leave root-owned files in the user's state dir, the lock among them, after which a wrapper launch cannot open the lock and goes on env-only with `cannot take the launch lock`.
 - Wrapper mode takes it before the first VRR or privileged change and holds it until the last restore step ends (inferred reading of decision 29). One gap is accepted: if the wrapper is killed with SIGKILL, the kernel drops the lock at once while the helper's EOF restore may still run, so a launch that starts in that moment can read a half-restored state (inferred). Two short holds, one around apply and one around restore, would let a second launch read the first launch's applied state as its prior state, and the restores would then undo each other in the wrong order (inferred). [parity-inventory.md](parity-inventory.md) (CLI open questions) asks the lock to stop exactly that interleaving.
 - The live hardware commands (`gpu reset`, `cpu governor <g>`, `cpu smt <v>`) take it too, so they cannot interleave with a running game's restore (inferred). If it is held, they exit 5.
 - The TUI's hardware jobs take it for the length of the job, as the CLI commands do (decision 44). If it is held, the job fails with `spela is already running (PID: N)` and changes nothing.
@@ -1152,7 +1154,8 @@ The Go flag form may change (verified: [parity-inventory.md](parity-inventory.md
 
 The waiting helper must outlive anything that could stop it before it restores (inferred):
 
-- It ignores SIGINT and SIGHUP, so Ctrl-C in a terminal or a closed session does not kill it before the wrapper asks for the restore, or before EOF.
+- It ignores SIGINT and SIGHUP, so Ctrl-C in a terminal or a closed session does not kill it before the wrapper asks for the restore, or before EOF. As built, it also ignores SIGQUIT, SIGTSTP, SIGTTIN and SIGTTOU, and right after the root check it calls `setsid()`, so the signals a terminal sends its foreground group (Ctrl-C, Ctrl-backslash, Ctrl-Z, a hangup) no longer reach it at all. pkexec has finished its prompt by then, and the helper reads only its pipes. `--once` does the same and ignores SIGINT, SIGHUP and SIGQUIT, so a Ctrl-C at the CLI cannot stop a live change halfway through the per-CPU governor writes.
+- A panic in the helper does not skip the restore: each machine call runs under `catch_unwind` while the list of applied steps stays outside it. A panic is reported as that step's failure, the batch stops there, and the steps applied so far are restored, the panicking step included when its prior was read.
 - SIGTERM makes it restore and exit, as EOF does.
 - SIGKILL cannot be caught. A root helper killed that way leaves the hardware as it is, which the next `spela gpu reset` or a reboot clears. This is the one case with no restore.
 - EOF reaches the helper whether pkexec execs it or stays as its parent, because the helper reads the same pipe either way (inferred). Which of the two pkexec does is part of the user's live check.
@@ -1160,12 +1163,12 @@ The waiting helper must outlive anything that could stop it before it restores (
 `apply-profile --once <request>`, for the live `gpu reset`, `cpu governor <g>` and `cpu smt <v>` in the CLI and the TUI:
 
 - The request is one JSON argument, of the same shape as the batch, because the TUI runs pkexec with a null stdin and the CLI leaves stdin on the terminal for pkexec's text agent (decision 44). The argument is not secret, so `ps` showing it is fine (inferred).
-- The helper validates, applies, writes the same step lines, and exits 0 when every step applied, or 1 otherwise. It never restores: a live command is meant to last, as in Go (verified: CLI 3.9 and 3.10).
+- The helper validates, applies, writes the same step lines, and exits 0 when every step applied, or 1 otherwise. It never restores: a live command is meant to last, as in Go (verified: CLI 3.9 and 3.10). So, as built, a prior that cannot be read never skips a `--once` step. It is read only for the report, and a step applied without one is reported as `applied_no_restore`. A card that cannot read its VF offsets still gets them zeroed by `gpu reset`.
 
 In both modes:
 
 - Exit code 126 or a cancel message from pkexec means the user dismissed the prompt, as today (verified: CLI 7.1). Then nothing changed and no restore is needed.
-- Any other argument form, Go's `--reset` and flag forms, `--help`, `-h` and a bare `--once` included, prints `apply-profile: this is the spela 0.7 helper; the Go helper's flags are not supported` to stderr and exits 2, with no change made (decision 34; the text is inferred). clap never sees the helper's arguments. The removed `overlay` and `gui` get the same treatment: every form, `--help` and `spela help overlay` included, prints the removal error and exits 2 (decision 45).
+- Any other argument form, Go's `--reset` and flag forms, `--help`, `-h` and a bare `--once` included, prints `apply-profile: this is the spela 0.7 helper; the Go helper's flags are not supported` to stderr and exits 2, with no change made (decision 34; the text is inferred). clap never sees the helper's arguments. The helper runs only when `apply-profile` is the first argument, the form the polkit `exec.argv1` annotation scopes. `spela help apply-profile ...` and any global flag before it, `--demo` included, get the same message and exit 2 without running it, because the helper ignores `--demo` and `SPELA_BACKEND=fake` (as built). The removed `overlay` and `gui` get the same treatment: every form, `--help` and `spela help overlay` included, prints the removal error and exits 2 (decision 45).
 - The helper writes no file and no log. The parent logs every line it reads.
 
 As built in Phase 6 (`spela-core::helper`; the binary adds root, stdin, the signals, NVML and `/sys`):

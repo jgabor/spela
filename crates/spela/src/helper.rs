@@ -14,7 +14,7 @@ use std::io::{self, Write};
 use std::sync::mpsc::{self, Sender};
 
 use clap::Args;
-use signal_hook::consts::{SIGHUP, SIGINT, SIGTERM};
+use signal_hook::consts::{SIGHUP, SIGINT, SIGQUIT, SIGTERM};
 use signal_hook::iterator::Signals;
 
 use spela_core::backend::{GpuControl, SystemRoots};
@@ -93,8 +93,9 @@ pub fn check(args: &HelperArgs) -> Option<CliError> {
 /// `error:` prefix.
 ///
 /// The order is fixed: the argument form first (exit 2), then root (exit
-/// 1), and only then stdin, the signals, NVML and `/sys`. So a run that
-/// is not root touches nothing. NVML opens only when a GPU step comes.
+/// 1), and only then the terminal, stdin, the signals, NVML and `/sys`. So
+/// a run that is not root touches nothing. NVML opens only when a GPU step
+/// comes.
 pub fn run(args: &HelperArgs, out: &mut dyn Write, err: &mut dyn Write) -> u8 {
     let Some(mode) = args.mode() else {
         let _ = writeln!(err, "{GO_FLAGS_MESSAGE}");
@@ -104,9 +105,16 @@ pub fn run(args: &HelperArgs, out: &mut dyn Write, err: &mut dyn Write) -> u8 {
         let _ = writeln!(err, "{NOT_ROOT_MESSAGE}");
         return exit::FAILURE;
     }
+    leave_the_terminal();
     let mut machine = system_machine();
     match mode {
-        Mode::Once(request) => serve::once(&request, out, &mut machine),
+        Mode::Once(request) => {
+            // A live change finishes its step: Ctrl-C mid-way through the
+            // per-CPU governor writes must not leave CPUs on mixed
+            // governors.
+            ignore(&[SIGINT, SIGHUP, SIGQUIT]);
+            serve::once(&request, out, &mut machine)
+        }
         Mode::Serve => {
             let (tx, rx) = mpsc::channel();
             if let Err(e) = watch_signals(tx.clone()) {
@@ -137,12 +145,40 @@ fn is_root() -> bool {
     unsafe { libc::geteuid() == 0 }
 }
 
-/// The signals a waiting helper outlives: SIGINT and SIGHUP are caught and
-/// ignored, so Ctrl-C in a terminal or a closed session does not stop it
-/// before the restore; SIGTERM makes it restore and exit, as the end of
-/// its input does (architecture.md, Protocol). SIGKILL cannot be caught.
+/// Moves the helper out of the caller's terminal session, so the signals a
+/// terminal sends its foreground group (Ctrl-C, Ctrl-backslash, Ctrl-Z and a
+/// hangup) no longer reach a root process that holds applied changes.
+/// pkexec has finished its prompt by now, and the helper reads only its
+/// pipes, so it needs no terminal. The job-control stops are ignored as
+/// well, for the case where `setsid` fails because the helper already leads
+/// its process group.
+fn leave_the_terminal() {
+    // SAFETY: setsid has no preconditions. Its only failure, EPERM for a
+    // process group leader, leaves the process as it was.
+    unsafe {
+        libc::setsid();
+    }
+    ignore(&[libc::SIGTSTP, libc::SIGTTIN, libc::SIGTTOU]);
+}
+
+/// Sets `signals` to be ignored.
+fn ignore(signals: &[i32]) {
+    for signal in signals {
+        // SAFETY: SIG_IGN installs no handler code, and every signal here
+        // can be ignored.
+        unsafe {
+            libc::signal(*signal, libc::SIG_IGN);
+        }
+    }
+}
+
+/// The signals a waiting helper outlives: SIGINT, SIGHUP and SIGQUIT are
+/// caught and ignored, so Ctrl-C or Ctrl-backslash in a terminal or a closed
+/// session does not stop it before the restore; SIGTERM makes it restore
+/// and exit, as the end of its input does (architecture.md, Protocol).
+/// SIGKILL cannot be caught.
 pub fn watch_signals(tx: Sender<Event>) -> io::Result<()> {
-    watch(&[SIGTERM, SIGINT, SIGHUP], &[SIGTERM], tx)
+    watch(&[SIGTERM, SIGINT, SIGHUP, SIGQUIT], &[SIGTERM], tx)
 }
 
 /// Catches `signals` on a thread; the ones in `stop` send [`Event::Stop`],

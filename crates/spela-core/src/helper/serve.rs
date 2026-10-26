@@ -8,11 +8,15 @@
 //!
 //! `--serve` restores on every way out once it has a batch: a restore
 //! request, the end of its input, a line it does not expect (a broken
-//! parent), SIGTERM, and a closed output pipe (EPIPE: the parent is gone).
-//! An event that arrives while it applies stops it before the next step.
-//! `--once` never restores: a live change is meant to last.
+//! parent), SIGTERM, a closed output pipe (EPIPE: the parent is gone), and
+//! a panic in a machine call. Each machine call runs under `catch_unwind`
+//! while the list of applied steps stays outside it, so a bug in one step
+//! is reported as that step's failure and the steps before it are still
+//! restored. An event that arrives while it applies stops it before the
+//! next step. `--once` never restores: a live change is meant to last.
 
 use std::io::{self, BufRead, Read, Write};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 
 use crate::backend::{SettingValue, Step, StepOutcome, StepReport};
@@ -104,14 +108,21 @@ pub fn serve(events: &Receiver<Event>, out: &mut dyn Write, machine: &mut dyn Ma
     let mut applied: Vec<(Step, Saved)> = Vec::new();
     let mut waiting = true;
     for (step, target) in steps {
-        let checked = machine.check(step, &target);
+        let checked = guarded(|| machine.check(step, &target));
         if interrupted(events) {
             waiting = false;
             break;
         }
-        let (report, saved) = run_step(machine, step, target, checked);
+        let (report, saved, panicked) = run_step(machine, step, target, checked);
         if let Some(saved) = saved {
             applied.push((step, saved));
+        }
+        if panicked {
+            // A bug, not a hardware answer: stop here and restore what
+            // applied, the step that panicked included.
+            let _ = send(out, &Reply::Step(report));
+            waiting = false;
+            break;
         }
         if send(out, &Reply::Step(report)).is_err() {
             // The parent is gone. The step is done; the restore below puts
@@ -129,7 +140,9 @@ pub fn serve(events: &Receiver<Event>, out: &mut dyn Write, machine: &mut dyn Ma
 }
 
 /// The `--once` loop: applies `request`, reports each step and returns 0
-/// when every step applied, 1 otherwise. It never restores.
+/// when every step applied, 1 otherwise. It never restores, so a prior that
+/// cannot be read never stops a change: it only leaves the report without a
+/// prior value.
 pub fn once(request: &str, out: &mut dyn Write, machine: &mut dyn Machine) -> u8 {
     let steps = match protocol::parse_request(request, Mode::Once) {
         Ok(steps) => steps,
@@ -140,8 +153,8 @@ pub fn once(request: &str, out: &mut dyn Write, machine: &mut dyn Machine) -> u8
     };
     let mut all_applied = true;
     for (step, target) in steps {
-        let checked = machine.check(step, &target);
-        let (report, _) = run_step(machine, step, target, checked);
+        let checked = guarded(|| machine.check(step, &target));
+        let report = once_step(machine, step, target, checked);
         all_applied &= matches!(
             report.outcome,
             StepOutcome::Applied { .. } | StepOutcome::AppliedNoRestore
@@ -155,49 +168,106 @@ pub fn once(request: &str, out: &mut dyn Write, machine: &mut dyn Machine) -> u8
     if all_applied { exit::OK } else { exit::FAILURE }
 }
 
-/// One step: the check's result, then the prior value, then the change.
-/// Returns the report line and, when the step changed something a restore
-/// can put back, what it saved.
+/// A machine call's result, or its panic.
+type Guarded<T> = Result<Result<T, String>, String>;
+
+/// Runs one machine call under `catch_unwind`. A panic becomes `Err` with
+/// its message, so the caller can still restore.
+fn guarded<T>(call: impl FnOnce() -> Result<T, String>) -> Guarded<T> {
+    catch_unwind(AssertUnwindSafe(call)).map_err(|payload| {
+        let text = payload
+            .downcast_ref::<&str>()
+            .map(|s| (*s).to_owned())
+            .or_else(|| payload.downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "no message".to_owned());
+        format!("the helper stopped on an internal error: {text}")
+    })
+}
+
+/// One `--serve` step: the check's result, then the prior value, then the
+/// change. Returns the report line, what a restore puts back when the step
+/// may have changed something, and whether a machine call panicked.
+///
+/// A panic in the change keeps the prior: the change may have been half
+/// made, and the restore puts back the value read before it.
 fn run_step(
     machine: &mut dyn Machine,
     step: Step,
     target: SettingValue,
-    checked: Result<(), String>,
-) -> (StepReport, Option<Saved>) {
+    checked: Guarded<()>,
+) -> (StepReport, Option<Saved>, bool) {
     let report = |outcome| StepReport {
         step,
         target: target.clone(),
         outcome,
     };
-    if let Err(why) = checked {
-        return (report(StepOutcome::Skipped(why)), None);
+    match checked {
+        Ok(Ok(())) => {}
+        Ok(Err(why)) => return (report(StepOutcome::Skipped(why)), None, false),
+        Err(panic) => return (report(StepOutcome::Failed(panic)), None, true),
     }
     if !step.is_restorable() {
-        let outcome = match machine.apply(step, &target) {
-            Ok(()) => StepOutcome::AppliedNoRestore,
-            Err(e) => StepOutcome::Failed(e),
+        return match guarded(|| machine.apply(step, &target)) {
+            Ok(Ok(())) => (report(StepOutcome::AppliedNoRestore), None, false),
+            Ok(Err(e)) => (report(StepOutcome::Failed(e)), None, false),
+            Err(panic) => (report(StepOutcome::Failed(panic)), None, true),
         };
-        return (report(outcome), None);
     }
-    let saved = match machine.read_prior(step) {
-        Ok(saved) => saved,
-        Err(why) => {
-            return (
-                report(StepOutcome::Skipped(format!(
-                    "prior value not readable: {why}"
-                ))),
-                None,
-            );
+    let saved = match guarded(|| machine.read_prior(step)) {
+        Ok(Ok(saved)) => saved,
+        Ok(Err(why)) => {
+            let why = format!("prior value not readable: {why}");
+            return (report(StepOutcome::Skipped(why)), None, false);
         }
+        Err(panic) => return (report(StepOutcome::Failed(panic)), None, true),
     };
-    match machine.apply(step, &target) {
-        Ok(()) => (
+    match guarded(|| machine.apply(step, &target)) {
+        Ok(Ok(())) => (
             report(StepOutcome::Applied {
                 prior: saved.shown(),
             }),
             Some(saved),
+            false,
         ),
-        Err(e) => (report(StepOutcome::Failed(e)), None),
+        Ok(Err(e)) => (report(StepOutcome::Failed(e)), None, false),
+        Err(panic) => (report(StepOutcome::Failed(panic)), Some(saved), true),
+    }
+}
+
+/// One `--once` step: the check's result, then the change. Nothing
+/// restores a live change, so the prior is read only for the report, and a
+/// prior that cannot be read leaves the step applied without one.
+fn once_step(
+    machine: &mut dyn Machine,
+    step: Step,
+    target: SettingValue,
+    checked: Guarded<()>,
+) -> StepReport {
+    let report = |outcome| StepReport {
+        step,
+        target: target.clone(),
+        outcome,
+    };
+    match checked {
+        Ok(Ok(())) => {}
+        Ok(Err(why)) => return report(StepOutcome::Skipped(why)),
+        Err(panic) => return report(StepOutcome::Failed(panic)),
+    }
+    let prior = if step.is_restorable() {
+        guarded(|| machine.read_prior(step))
+            .ok()
+            .and_then(Result::ok)
+    } else {
+        None
+    };
+    match guarded(|| machine.apply(step, &target)) {
+        Ok(Ok(())) => report(match prior {
+            Some(saved) => StepOutcome::Applied {
+                prior: saved.shown(),
+            },
+            None => StepOutcome::AppliedNoRestore,
+        }),
+        Ok(Err(e)) | Err(e) => report(StepOutcome::Failed(e)),
     }
 }
 
@@ -208,7 +278,8 @@ fn run_step(
 fn restore(applied: &[(Step, Saved)], out: &mut dyn Write, machine: &mut dyn Machine) -> u8 {
     let mut code = exit::OK;
     for (step, saved) in applied.iter().rev() {
-        let result = machine.restore(*step, saved);
+        // A panic in one restore is that step's failure; the rest still run.
+        let result = guarded(|| machine.restore(*step, saved)).and_then(|r| r);
         if result.is_err() {
             code = exit::FAILURE;
         }
@@ -536,7 +607,7 @@ mod tests {
             control
                 .calls()
                 .iter()
-                .filter(|c| matches!(c, GpuCall::PowerLimit(_)))
+                .filter(|c| matches!(c, GpuCall::PowerLimitMw(_)))
                 .count(),
             1,
             "the failed power limit is never restored"
@@ -569,7 +640,10 @@ mod tests {
                 Step::Smt
             ]
         );
-        assert_eq!(control.calls(), [GpuCall::FanSpeed(70), GpuCall::FanAuto]);
+        assert_eq!(
+            control.calls(),
+            [GpuCall::FanSpeed(0, 70), GpuCall::FanAuto(0)]
+        );
     }
 
     #[test]
@@ -604,10 +678,10 @@ mod tests {
             control.calls(),
             [
                 GpuCall::ClockOffset(150),
-                GpuCall::PowerLimit(250),
-                GpuCall::FanSpeed(70),
-                GpuCall::FanAuto,
-                GpuCall::PowerLimit(320),
+                GpuCall::PowerLimitMw(250_000),
+                GpuCall::FanSpeed(0, 70),
+                GpuCall::FanAuto(0),
+                GpuCall::PowerLimitMw(320_000),
                 GpuCall::ClockOffset(0)
             ]
         );
@@ -675,6 +749,100 @@ mod tests {
         let mut out = Vec::new();
         assert_eq!(once("{", &mut out, &mut m), exit::REFUSED);
         assert!(matches!(replies(&out).as_slice(), [Reply::Error(_)]));
+    }
+
+    #[test]
+    fn once_applies_a_change_whose_prior_cannot_be_read() {
+        // A card that cannot read its VF offsets: `gpu reset` still zeroes
+        // them, because nothing restores a live change.
+        let control = FakeGpuControl::new();
+        control.set_prior_unreadable(true);
+        let mut m = machine(&control, None);
+        let mut out = Vec::new();
+        let code = once(&batch(&HardwareRequest::gpu_reset()), &mut out, &mut m);
+        assert_eq!(code, exit::OK);
+        let outcomes: Vec<StepOutcome> = replies(&out)
+            .into_iter()
+            .filter_map(|r| match r {
+                Reply::Step(s) => Some(s.outcome),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(outcomes, vec![StepOutcome::AppliedNoRestore; 3]);
+        assert_eq!(
+            control.calls(),
+            [
+                GpuCall::ResetLockedClocks,
+                GpuCall::ClockOffset(0),
+                GpuCall::MemoryOffset(0)
+            ]
+        );
+    }
+
+    /// A machine whose `apply` panics at one step, over a real one.
+    struct PanicsAt {
+        inner: SystemMachine,
+        step: Step,
+        log: Vec<String>,
+    }
+
+    impl Machine for PanicsAt {
+        fn check(&mut self, step: Step, target: &SettingValue) -> Result<(), String> {
+            self.inner.check(step, target)
+        }
+
+        fn read_prior(&mut self, step: Step) -> Result<Saved, String> {
+            self.inner.read_prior(step)
+        }
+
+        fn apply(&mut self, step: Step, target: &SettingValue) -> Result<(), String> {
+            self.log.push(format!("apply {step}"));
+            if step == self.step {
+                panic!("a bug in the {step} step");
+            }
+            self.inner.apply(step, target)
+        }
+
+        fn restore(&mut self, step: Step, saved: &Saved) -> Result<(), String> {
+            self.log.push(format!("restore {step}"));
+            self.inner.restore(step, saved)
+        }
+    }
+
+    #[test]
+    fn a_panic_mid_batch_restores_the_steps_before_it() {
+        let sys = sysfs();
+        let control = FakeGpuControl::new();
+        let mut m = PanicsAt {
+            inner: machine(&control, Some(sys.path())),
+            step: Step::Fan,
+            log: Vec::new(),
+        };
+        // No `ready` ever comes, so nothing needs to be sent after it.
+        let (code, r) = serve_queued(vec![Event::Line(batch(&full_request()))], &mut m);
+        assert_eq!(code, exit::OK);
+        assert_eq!(
+            types(&r),
+            [
+                "step", "step", "step", "restored", "restored", "restored", "done"
+            ]
+        );
+        assert!(
+            matches!(&r[2], Reply::Step(s) if matches!(&s.outcome, StepOutcome::Failed(e) if e.contains("a bug in the fan step")))
+        );
+        assert_eq!(
+            m.log,
+            [
+                "apply clock_offset",
+                "apply power_limit",
+                "apply fan",
+                "restore fan",
+                "restore power_limit",
+                "restore clock_offset"
+            ]
+        );
+        assert_eq!(control.current(), (0, 0, 320, FanSetting::Auto));
+        assert_eq!(smt(sys.path()), "on", "the steps after the panic never ran");
     }
 
     #[test]

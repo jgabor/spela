@@ -516,8 +516,17 @@ pub fn process(
         }
         Parsed::Run(inv) => {
             // The root helper runs as root with root's environment: no
-            // XDG paths, no log file, nothing written.
+            // XDG paths, no log file, nothing written. It runs only for
+            // `apply-profile` as the first argument, the form the polkit
+            // action's argv1 annotation scopes. Every other route to it,
+            // `help apply-profile` or a global flag such as `--demo` first,
+            // is refused before anything runs, because the helper ignores
+            // `--demo` and the fake backend.
             if let Some(Command::ApplyProfile(a)) = &inv.cli.command {
+                if args.first().and_then(|a| a.to_str()) != Some("apply-profile") {
+                    let _ = writeln!(err, "{}", helper::GO_FLAGS_MESSAGE);
+                    return exit::USAGE;
+                }
                 let code = helper::run(a, out, err);
                 let _ = out.flush();
                 return code;
@@ -919,6 +928,35 @@ mod tests {
         match parse_args(&["overlay", "--json"]) {
             Parsed::Run(inv) => assert!(inv.cli.json),
             other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn the_helper_runs_only_as_the_first_argument() {
+        // Each of these used to reach the real helper, which ignores
+        // `--demo` and the fake backend. Now each is refused before any
+        // setup: no paths, no root check.
+        for args in [
+            &["help", "apply-profile", "--serve"][..],
+            &["--demo", "apply-profile", "--serve"][..],
+            &["--json", "apply-profile", "--once", "{}"][..],
+            &["--log-level", "debug", "apply-profile", "--serve"][..],
+            &["apply-profile", "--serve", "--demo"][..],
+        ] {
+            let args: Vec<OsString> = args.iter().map(OsString::from).collect();
+            let (mut out, mut err) = (Vec::new(), Vec::new());
+            let code = process(
+                &args,
+                Env::default(),
+                (false, false),
+                &|| panic!("the helper never resolves paths"),
+                &mut out,
+                &mut err,
+            );
+            let err = String::from_utf8(err).unwrap();
+            assert_eq!(code, exit::USAGE, "{args:?}: {err}");
+            assert_eq!(err, format!("{}\n", helper::GO_FLAGS_MESSAGE), "{args:?}");
+            assert!(out.is_empty(), "{args:?}");
         }
     }
 
