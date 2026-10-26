@@ -313,3 +313,47 @@ fn every_signal_is_forwarded_not_only_the_first() {
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+/// The config's `log_level` applies to wrapper runs, before their first
+/// line, as Go applied it at the start of every run (CLI 9).
+#[test]
+fn the_config_log_level_applies_to_the_log_file() {
+    let s = Sandbox::new();
+    let game = setup(&s, "exit 0");
+    s.run(&["config", "set", "log_level", "error"])
+        .expect_code(0);
+    s.run_with(&[game.to_str().unwrap()], &KDE).expect_code(0);
+    let log = log_text(&s);
+    assert!(!log.contains(" INFO "), "no INFO lines at error: {log}");
+    assert!(!log.contains("spela wrapping a game"), "{log}");
+    // SPELA_LOG still comes first.
+    s.run_with(&[game.to_str().unwrap()], &[("SPELA_LOG", "info")])
+        .expect_code(0);
+    assert!(log_text(&s).contains("spela wrapping a game"));
+}
+
+/// An unknown stored level is ignored with Go's warning, and the game keeps
+/// its profile.
+#[test]
+fn an_unknown_config_log_level_keeps_the_profile() {
+    let s = Sandbox::new();
+    let game = setup(&s, "exit 0");
+    let file = s.config_dir().join("config.toml");
+    let text = std::fs::read_to_string(&file).unwrap_or_default();
+    std::fs::write(&file, format!("{text}log_level = \"loud\"\n")).unwrap();
+    let run = s.run(&[game.to_str().unwrap()]);
+    run.expect_code(0);
+    assert!(
+        run.stderr().contains("ignoring configured log level"),
+        "{}",
+        run.stderr()
+    );
+    assert!(
+        run.stdout()
+            .ends_with("Launching Lantern Path with All games settings...\n"),
+        "{}",
+        run.stdout()
+    );
+    assert!(game_env(&s).contains("PROTON_ENABLE_HDR=1\n"));
+    assert!(log_text(&s).contains("spela wrapping a game"), "info stays");
+}

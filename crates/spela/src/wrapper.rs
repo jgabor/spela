@@ -280,6 +280,8 @@ pub struct Launch<'a> {
     pub clock: &'a dyn Clock,
     /// Where stop signals land.
     pub stop: &'a StopSlot,
+    /// The log file's level, set to the config's once it loads.
+    pub log: crate::logging::LevelHandle,
     /// The summary and the launch message.
     pub out: &'a mut dyn Write,
     /// Warnings.
@@ -433,7 +435,14 @@ fn load_store(l: &mut Launch<'_>) -> (Config, Option<Report>) {
         }
     };
     let config = match config::load(&l.paths.config_file()) {
-        Ok(loaded) => loaded.config,
+        Ok(loaded) => {
+            for warning in &loaded.warnings {
+                tracing::warn!("{}: {warning}", l.paths.config_file().display());
+            }
+            // A config the migration just wrote counts from here on.
+            l.log.apply(loaded.config.log_level.name());
+            loaded.config
+        }
         Err(e) => {
             warn(
                 l.err,
@@ -662,9 +671,10 @@ pub fn main(
     let _signals = SignalForwarder::spawn(Arc::clone(&stop))
         .map_err(|e| CliError::new(exit::FAILURE, format!("cannot watch signals: {e}")))?;
     let paths = paths().map_err(|e| CliError::new(exit::FAILURE, e.to_string()))?;
-    let _log = crate::logging::init(
+    let log = crate::logging::init(
         crate::logging::LogMode::FileAndStderr,
         None,
+        crate::logging::config_level(&paths.config_file()),
         &env,
         &paths.log_dir(),
         stderr_color,
@@ -684,6 +694,7 @@ pub fn main(
         backends: &mut backends,
         clock: &clock,
         stop: &stop,
+        log: log.level.clone(),
         out,
         err,
     };
@@ -815,6 +826,7 @@ mod tests {
                 backends: &mut backends,
                 clock: &spela_core::clock::SystemClock,
                 stop,
+                log: crate::logging::LevelHandle::default(),
                 out: &mut out,
                 err: &mut err,
             };
@@ -1010,6 +1022,7 @@ mod tests {
             backends: &mut backends,
             clock: &spela_core::clock::SystemClock,
             stop: &stop,
+            log: crate::logging::LevelHandle::default(),
             out: &mut out,
             err: &mut err,
         };
@@ -1160,6 +1173,7 @@ mod tests {
             backends: &mut backends,
             clock: &spela_core::clock::SystemClock,
             stop: &stop,
+            log: crate::logging::LevelHandle::default(),
             out: &mut out,
             err: &mut err,
         };

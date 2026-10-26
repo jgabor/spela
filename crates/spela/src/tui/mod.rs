@@ -51,7 +51,7 @@ use spela_core::backend::BackendKind;
 use spela_core::env::var;
 use spela_core::games::cache;
 use spela_core::lock::InstanceLock;
-use spela_core::migrate::{CONFIG_HINT, Report, SourceKind};
+use spela_core::migrate::{Report, SourceKind};
 use spela_core::profile::{Scope, store};
 use spela_ui::{AppState, Startup};
 
@@ -118,8 +118,7 @@ pub fn run(ctx: &mut Context, _lock: InstanceLock, err: &mut dyn Write) -> Resul
         notice = report.notice();
         ctx.migration = report;
     }
-    let loaded = spela_core::config::load(&ctx.paths.config_file())
-        .map_err(|e| CliError::new(exit::CONFIG, e.to_string()).with_hint(CONFIG_HINT))?;
+    let loaded = spela_core::config::load(&ctx.paths.config_file()).map_err(CliError::from)?;
     let warnings: Vec<String> = loaded
         .warnings
         .iter()

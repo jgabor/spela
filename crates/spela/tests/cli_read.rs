@@ -596,10 +596,27 @@ fn config_show_prints_every_key_as_toml() {
         &config_dir(&s).join("config.toml"),
         "log_level = \"loud\"\n",
     );
+    // An unknown stored level is ignored with Go's warning, not an error.
+    let run = s.run(&["config", "show"]);
+    run.expect_code(0);
+    assert!(
+        run.stderr()
+            .contains("ignoring configured log level: unsupported log level: loud"),
+        "{}",
+        run.stderr()
+    );
+    assert!(
+        run.stdout().contains("log_level = \"info\""),
+        "{}",
+        run.stdout()
+    );
+    // A value of the wrong type still fails, with the TOML hint.
+    write(&config_dir(&s).join("config.toml"), "log_level = 5\n");
     let run = s.run(&["config", "show"]);
     run.expect_code(3);
     assert!(
-        run.stderr().contains("unsupported log level: loud"),
+        run.stderr()
+            .contains("hint: Fix the TOML or remove the file to restore defaults."),
         "{}",
         run.stderr()
     );

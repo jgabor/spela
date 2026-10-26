@@ -119,10 +119,18 @@ impl From<GameNotFound> for CliError {
     }
 }
 
-/// A config that does not load exits 3, in the CLI and the TUI.
+/// A config that does not load exits 3, in the CLI and the TUI. A file
+/// with errors gets the TOML hint in every command; one that cannot be read
+/// gets none, since fixing its text would not help.
 impl From<ConfigError> for CliError {
     fn from(e: ConfigError) -> Self {
-        CliError::new(exit::CONFIG, e.to_string())
+        let hint = matches!(e, ConfigError::Invalid { .. });
+        let error = CliError::new(exit::CONFIG, e.to_string());
+        if hint {
+            error.with_hint(spela_core::config::CONFIG_HINT)
+        } else {
+            error
+        }
     }
 }
 
@@ -171,13 +179,17 @@ mod tests {
         let e = CliError::from(GameNotFound("missing".into()));
         assert_eq!((e.code, e.kind), (exit::FAILURE, "game_not_found"));
         assert_eq!(e.message, "game not found: missing");
-        let bad = spela_core::config::parse("log_level = \"loud\"\n").unwrap_err();
+        let bad = spela_core::config::parse("ui.theme = \"loud\"\n").unwrap_err();
         let e = CliError::from(bad);
         assert_eq!((e.code, e.kind), (exit::CONFIG, "config_invalid"));
         assert!(
-            e.message.contains("unsupported log level: loud"),
+            e.message.contains("unsupported theme: loud"),
             "{}",
             e.message
+        );
+        assert_eq!(
+            e.hint.as_deref(),
+            Some("Fix the TOML or remove the file to restore defaults.")
         );
     }
 }

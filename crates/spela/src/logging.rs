@@ -13,11 +13,15 @@
 //!
 //! The level comes from `--log-level`, then `SPELA_LOG` (full
 //! `tracing_subscriber::EnvFilter` syntax, such as `spela=debug`), then the
-//! default: info for the file and warn for stderr. The TUI puts the
-//! config's `log_level` between `SPELA_LOG` and the default through
-//! [`LevelHandle`]: at start and after each save in Settings, as Go applies
-//! it after each save (parity-inventory.md, TUI 10). The filter is parsed
-//! from the [`Env`] snapshot, never read from the process environment.
+//! `log_level` that `config.toml` sets, then the default: info for the file
+//! and warn for stderr. Every run reads the config's level before its first
+//! log line ([`config_level`]), as Go applied it at the start of every
+//! command (parity-inventory.md, CLI 9). The TUI and the wrapper apply the
+//! loaded config's level again through [`LevelHandle`] once the migration
+//! ran, and the TUI after each save in Settings, as Go applies it after each
+//! save (parity-inventory.md, TUI 10). The wrapper's stderr keeps showing
+//! warnings whatever the level. The filter is parsed from the [`Env`]
+//! snapshot, never read from the process environment.
 
 use std::io::Write;
 use std::path::Path;
@@ -126,6 +130,18 @@ impl LevelHandle {
     }
 }
 
+/// The `log_level` that `config.toml` sets itself, when it names a known
+/// level. A missing or broken file, or an unknown level, gives `None` and the
+/// default stays: the commands that read the config report those, as Go's
+/// `ApplyLogLevel` did. A file with no `log_level` key gives `None` too, so a
+/// CLI command's stderr keeps its warn default unless the user set a level.
+pub fn config_level(config_file: &Path) -> Option<&'static str> {
+    let text = std::fs::read_to_string(config_file).ok()?;
+    let table: toml::Table = text.parse().ok()?;
+    let name = table.get("log_level")?.as_str()?;
+    spela_core::config::LogLevel::from_name(name).map(spela_core::config::LogLevel::name)
+}
+
 /// The filter spec chosen by the precedence rules, or `None` for the
 /// default.
 pub fn chosen_spec<'a>(cli_level: Option<&'a str>, env: &'a Env) -> Option<&'a str> {
@@ -151,12 +167,14 @@ pub fn parse_filter(spec: &str) -> Result<EnvFilter, LogError> {
 pub fn init(
     mode: LogMode,
     cli_level: Option<&str>,
+    config_level: Option<&str>,
     env: &Env,
     log_dir: &Path,
     stderr_color: bool,
     err: &mut dyn Write,
 ) -> LogGuard {
-    let spec = chosen_spec(cli_level, env);
+    let explicit = chosen_spec(cli_level, env);
+    let spec = explicit.or(config_level);
     let filter_for = |default: &str, err: &mut dyn Write| match spec.map(parse_filter) {
         Some(Ok(f)) => f,
         Some(Err(e)) => {
@@ -170,8 +188,10 @@ pub fn init(
         LogMode::Stderr => (None, None, LevelHandle::default()),
         LogMode::File | LogMode::FileAndStderr => match file_writer(log_dir) {
             Ok((writer, guard)) => {
-                let (filter, level) =
-                    LevelHandle::reloadable(filter_for(DEFAULT_FILE_LEVEL, err), spec.is_some());
+                let (filter, level) = LevelHandle::reloadable(
+                    filter_for(DEFAULT_FILE_LEVEL, err),
+                    explicit.is_some(),
+                );
                 let layer = tracing_subscriber::fmt::layer()
                     .with_ansi(false)
                     .with_target(true)
@@ -259,6 +279,23 @@ mod tests {
         assert_eq!(chosen_spec(Some(" "), &Env::default()), None);
         let blank = Env::default().with(var::SPELA_LOG, "  ");
         assert_eq!(chosen_spec(None, &blank), None);
+    }
+
+    #[test]
+    fn the_config_level_counts_only_when_the_file_sets_a_known_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("config.toml");
+        assert_eq!(config_level(&file), None, "no file");
+        std::fs::write(&file, "version = 1\n").unwrap();
+        assert_eq!(config_level(&file), None, "no key");
+        std::fs::write(&file, "version = 1\nlog_level = \"error\"\n").unwrap();
+        assert_eq!(config_level(&file), Some("error"));
+        std::fs::write(&file, "log_level = \"loud\"\n").unwrap();
+        assert_eq!(config_level(&file), None, "unknown");
+        std::fs::write(&file, "log_level = 5\n").unwrap();
+        assert_eq!(config_level(&file), None, "not text");
+        std::fs::write(&file, "log_level = \"debug\"\n[[broken").unwrap();
+        assert_eq!(config_level(&file), None, "does not parse");
     }
 
     #[test]

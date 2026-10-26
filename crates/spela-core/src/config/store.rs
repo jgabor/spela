@@ -272,7 +272,7 @@ mod tests {
         );
         assert!(!paths.config_file().exists());
         std::fs::create_dir_all(&paths.config_dir).unwrap();
-        std::fs::write(paths.config_file(), "log_level = \"loud\"\n").unwrap();
+        std::fs::write(paths.config_file(), "log_level = 5\n").unwrap();
         let err = set(&paths, "check_updates", "true").unwrap_err();
         assert!(matches!(err, ConfigStoreError::Config(_)), "{err}");
         std::fs::write(paths.config_file(), "version = 2\n").unwrap();

@@ -565,6 +565,7 @@ fn setup_and_run(
     let log = logging::init(
         log_mode(inv),
         inv.cli.log_level.as_deref(),
+        logging::config_level(&paths.config_file()),
         &env,
         &paths.log_dir(),
         colors.err,

@@ -365,6 +365,15 @@ fn is_loopback(host: &str) -> bool {
             .all(|o| !o.is_empty() && o.len() <= 3 && o.parse::<u8>().is_ok())
 }
 
+/// The advice that goes with a `config.toml` that does not load. A Go
+/// `config.yaml` that does not migrate keeps Go's YAML wording
+/// (`migrate::CONFIG_HINT`).
+pub const CONFIG_HINT: &str = "Fix the TOML or remove the file to restore defaults.";
+
+/// The warning for a stored `log_level` that is not a known level, Go's
+/// wording.
+pub const IGNORED_LOG_LEVEL: &str = "ignoring configured log level";
+
 fn log_level_error(value: &str) -> String {
     format!("unsupported log level: {value}")
 }
@@ -774,11 +783,14 @@ pub fn parse(text: &str) -> Result<Loaded, ConfigError> {
             CONFIG_VERSION
         }
     };
+    // An unknown stored level is ignored with a warning and the default
+    // stays, as Go's ApplyLogLevel did, so a typo never costs a launch its
+    // profile. `config set` still refuses it.
     let log_level = LogLevel::from_name(&raw.log_level).unwrap_or_else(|| {
-        errors.push(at(
+        warnings.push(at(
             text,
             span_of(doc, &["log_level"]),
-            log_level_error(&raw.log_level),
+            format!("{IGNORED_LOG_LEVEL}: {}", log_level_error(&raw.log_level)),
         ));
         LogLevel::default()
     });
@@ -1032,13 +1044,12 @@ mod tests {
 
     #[test]
     fn bad_values_report_line_and_column_with_go_s_text() {
-        let text = "log_level = \"verbose\"\nshader_cache = \"cache\"\n\n[ui]\ntheme = \"dark\"\n";
+        let text = "shader_cache = \"cache\"\n\n[ui]\ntheme = \"dark\"\n";
         assert_eq!(
             errors(text),
             [
-                "line 1, column 13: unsupported log level: verbose",
-                "line 2, column 16: shader_cache must be an absolute path: cache",
-                "line 5, column 9: unsupported theme: dark (use terminal, neon or mono)",
+                "line 1, column 16: shader_cache must be an absolute path: cache",
+                "line 4, column 9: unsupported theme: dark (use terminal, neon or mono)",
             ]
         );
         assert_eq!(
@@ -1058,6 +1069,20 @@ mod tests {
         );
         let broken = errors("log_level = \n");
         assert!(broken[0].starts_with("line 1"), "{broken:?}");
+    }
+
+    #[test]
+    fn an_unknown_stored_log_level_is_ignored_with_go_s_warning() {
+        let loaded = parse("log_level = \"verbose\"\ncheck_updates = false\n").unwrap();
+        assert_eq!(loaded.config.log_level, LogLevel::Info, "the default stays");
+        assert!(!loaded.config.check_updates, "the rest still loads");
+        let w: Vec<String> = loaded.warnings.iter().map(ToString::to_string).collect();
+        assert_eq!(
+            w,
+            ["line 1, column 13: ignoring configured log level: unsupported log level: verbose"]
+        );
+        // A value that is not text is still an error.
+        assert!(errors("log_level = 5\n")[0].starts_with("line 1, column 13: "));
     }
 
     #[test]
@@ -1093,7 +1118,7 @@ mod tests {
         let path = dir.path().join("config.toml");
         let loaded = load(&path).unwrap();
         assert!(!loaded.from_file);
-        std::fs::write(&path, "log_level = \"loud\"\n").unwrap();
+        std::fs::write(&path, "log_level = 5\n").unwrap();
         let e = load(&path).unwrap_err().to_string();
         assert!(
             e.starts_with(&format!("config file {} has errors:", path.display())),
