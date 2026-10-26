@@ -116,6 +116,17 @@ fn value_name(field: &Field) -> &'static str {
     }
 }
 
+/// The help heading over a section's flags, so they never interleave with
+/// the global flags.
+fn heading(section: Section) -> &'static str {
+    match section {
+        Section::Proton => "Proton settings",
+        Section::Dlss => "DLSS settings",
+        Section::Gpu => "GPU settings",
+        Section::Cpu => "CPU settings",
+    }
+}
+
 fn flag_help(field: &Field) -> String {
     let mut help = field.description.to_owned();
     let choices: Vec<&str> = field
@@ -173,6 +184,7 @@ impl<const S: u8> Args for SetArgs<S> {
             let mut arg = Arg::new(field.key)
                 .long(flag)
                 .value_name(value_name(field))
+                .help_heading(heading(section(S)))
                 .help(flag_help(field))
                 .value_parser(move |raw: &str| parse_setting(key, raw));
             if field.kind == Kind::Int {

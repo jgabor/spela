@@ -75,10 +75,6 @@ Environment:
   SPELA_LOG  log filter, such as debug or spela=trace
   NO_COLOR   turn colour off";
 
-/// Where the global flags go in each command's help: after the command's
-/// own flags, so they never interleave with them.
-const GLOBAL_ORDER: usize = 1000;
-
 /// spela's arguments.
 #[derive(Debug, Clone, Parser)]
 #[command(
@@ -95,18 +91,17 @@ pub struct Cli {
     version: Option<bool>,
 
     /// Print results as JSON (schema version 1).
-    #[arg(long, global = true, display_order = GLOBAL_ORDER)]
+    #[arg(long, global = true)]
     pub json: bool,
 
     /// Run on built-in fictional data. Your files are never written.
-    #[arg(long, global = true, display_order = GLOBAL_ORDER + 1)]
+    #[arg(long, global = true)]
     pub demo: bool,
 
     /// Log level. Overrides SPELA_LOG.
     #[arg(
         long,
         global = true,
-        display_order = GLOBAL_ORDER + 2,
         value_name = "LEVEL",
         value_parser = ["off", "error", "warn", "info", "debug", "trace"]
     )]

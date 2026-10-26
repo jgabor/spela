@@ -798,3 +798,47 @@ fn every_write_run_twice_changes_nothing_the_second_time() {
     assert_eq!(case.files(), before);
     assert_eq!(case.go_files(), go, "the Go files stay byte-identical");
 }
+
+#[test]
+fn a_go_file_that_keeps_failing_is_retried_without_rewriting_anything() {
+    let case = Case::new("sandbox/errors");
+    let args = ["gpu", "set", "9100010", "--fan-speed", "1"];
+    case.ok(&args);
+    let before = case.files();
+    assert!(before.contains_key(Path::new("data/spela/migration.toml")));
+    let again = case.run(&args);
+    again.expect_code(0);
+    assert!(
+        !again.stderr().contains("Migrated"),
+        "no notice: {}",
+        again.stderr()
+    );
+    assert_eq!(
+        case.files(),
+        before,
+        "the record and the files stay as they are"
+    );
+}
+
+#[test]
+fn yml_and_other_names_go_never_loaded_are_skipped() {
+    let case = Case::new("profiles/file-names");
+    let go = case.go_files();
+    let out = case.ok(&["profile", "follow", "gpu.fan_speed"]);
+    assert_eq!(out, "Fan speed: 0 games follow All games\n");
+    let profiles: Vec<String> = std::fs::read_dir(case.config().join("profiles"))
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .filter(|n| n.ends_with(".toml"))
+        .collect();
+    assert_eq!(profiles, ["9100128.toml"], "only <appid>.yaml migrates");
+    let record = case.read(&case.root.join("data/spela/migration.toml"));
+    for name in ["9100129.yml", "default.yml", "09100130.yaml", "notes.yaml"] {
+        let entry = record
+            .split("[[source]]")
+            .find(|e| e.contains(&format!("/{name}\"")))
+            .unwrap_or_else(|| panic!("{name} is not in the record: {record}"));
+        assert!(entry.contains("result = \"skipped\""), "{name}: {entry}");
+    }
+    assert_eq!(case.go_files(), go, "the Go files stay byte-identical");
+}
