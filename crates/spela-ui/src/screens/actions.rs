@@ -5,7 +5,7 @@
 //! An unavailable row stays, dimmed, with its reason after a dot. The
 //! cursor starts on the first available row, Up and Down wrap, Enter runs
 //! an available row, Tab moves to Close, Esc closes (terminal-ux.md,
-//! popups). The rows come from the screens' `actions` through
+//! popups). A key shown on a row, such as `Q` on Quit, runs that row. The rows come from the screens' `actions` through
 //! [`crate::screens::actions`].
 
 use ratatui::Frame;
@@ -83,7 +83,7 @@ pub fn bindings(_state: &AppState, popup: &State) -> Vec<Binding> {
         Some(row) if !popup.on_close => row.unavailable.clone().map_or(Ok(()), Err),
         _ => Ok(()),
     };
-    vec![
+    let mut out = vec![
         Binding::new(Key::UP, act(Action::Up), "Choose").hint_as("Up/Down", 100),
         Binding::new(Key::DOWN, act(Action::Down), "Next row"),
         Binding::new(Key::ENTER, act(Action::Run), run_label)
@@ -93,7 +93,20 @@ pub fn bindings(_state: &AppState, popup: &State) -> Vec<Binding> {
             .also(Key::BACK_TAB)
             .hint(50),
         Binding::new(Key::ESC, act(Action::Close), "Close").hint(40),
-    ]
+    ];
+    // A key shown on a row runs that row here too, so `Q` quits and `?`
+    // opens Help from inside the popup, as everywhere else.
+    for (i, row) in popup.rows.iter().enumerate() {
+        let Some(key) = row.key else { continue };
+        if out.iter().any(|b| b.keys.contains(&key)) {
+            continue;
+        }
+        out.push(
+            Binding::new(key, act(Action::RunRow(i)), row.label.clone())
+                .when(row.unavailable.clone().map_or(Ok(()), Err)),
+        );
+    }
+    out
 }
 
 /// Runs a popup action.

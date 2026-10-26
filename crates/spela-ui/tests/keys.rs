@@ -292,3 +292,28 @@ fn q_quits_from_every_list_with_nothing_to_back_out_of() {
         assert_eq!(update(&mut s, key("q")), vec![Cmd::Quit], "dest {dest}");
     }
 }
+
+#[test]
+fn a_key_shown_in_the_actions_popup_runs_its_row() {
+    // `Q` quits from inside the popup, as everywhere (terminal-ux.md).
+    for dest in ["1", "2", "3", "4"] {
+        let mut s = state_with_games(120, 40, 12);
+        update(&mut s, key(dest));
+        update(&mut s, key("0"));
+        assert!(
+            matches!(s.popup, Some(screens::Popup::Actions(_))),
+            "dest {dest}"
+        );
+        assert_eq!(update(&mut s, key("Q")), vec![Cmd::Quit], "dest {dest}");
+    }
+    // `?` opens Help from the popup.
+    let mut s = state_with_games(80, 24, 12);
+    update(&mut s, key("0"));
+    update(&mut s, key("?"));
+    assert!(matches!(s.popup, Some(screens::Popup::Help(_))));
+    // Lower-case `q` is not a row's key, so it does nothing there.
+    let mut s = state_with_games(80, 24, 12);
+    update(&mut s, key("0"));
+    assert!(update(&mut s, key("q")).is_empty());
+    assert!(matches!(s.popup, Some(screens::Popup::Actions(_))));
+}

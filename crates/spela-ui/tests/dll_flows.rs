@@ -740,3 +740,51 @@ fn ascii_glyphs_reach_the_section_the_pickers_and_the_confirmations() {
         assert!(text.is_ascii(), "{w}x{h} confirmation:\n{text}");
     }
 }
+
+#[test]
+fn the_version_picker_keeps_the_versions_in_view_at_80x24() {
+    let mut s = section(80, 24, &[]);
+    update(&mut s, key("enter"));
+    update(&mut s, key("enter"));
+    let text = render_text(&mut s);
+    assert!(text.contains("Select DLSS version"), "{text}");
+    assert!(text.contains("DLL versions"), "{text}");
+    assert!(text.contains("latest 310.5.3"), "{text}");
+    assert!(text.contains("[ Apply ]"), "{text}");
+    insta::assert_snapshot!("install_versions_80x24", text);
+
+    // A long version list shrinks to a window on its choices instead.
+    let mut m = Manifest::default();
+    let versions: Vec<ManifestEntry> = (0..30)
+        .map(|n| entry(&format!("310.{n}.0")))
+        .chain([entry("310.4.0"), entry("310.5.3")])
+        .collect();
+    m.dlls.insert("dlss".into(), versions);
+    let mut s = section(80, 24, &[]);
+    let cmds = dlls::reload(&mut s);
+    let Cmd::Dlls(dlls::Cmd::Load { request }) = cmds[0] else {
+        panic!("{cmds:?}")
+    };
+    update(
+        &mut s,
+        Event::Msg(Msg::Dlls(dlls::Msg::Loaded {
+            request,
+            result: Ok(dlls::Catalog {
+                manifest: Ok(Some(CachedManifest {
+                    manifest: m,
+                    ..CachedManifest::default()
+                })),
+                ..catalog()
+            }),
+        })),
+    );
+    update(&mut s, key("enter"));
+    update(&mut s, key("enter"));
+    let text = render_text(&mut s);
+    assert!(text.contains("Select DLSS version"), "{text}");
+    assert!(text.contains("DLL versions"), "{text}");
+    assert!(text.contains("[ Apply ]"), "{text}");
+    update(&mut s, key("up"));
+    let text = render_text(&mut s);
+    assert!(text.contains("DLL versions"), "{text}");
+}

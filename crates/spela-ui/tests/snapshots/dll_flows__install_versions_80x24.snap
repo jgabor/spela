@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/dll_flows.rs
+expression: text
+---
+ spela   ▸ Library  DLL Catalog  Monitor  Settings
+┌─ ▸ Detail ───────────────────────────────────────────────────────────────────┐
+│ Ashfall Courier · App ID 9100010 · DLLs: DLSS 310.4.0 · Saved at once        │
+│ Own settings (4): Super resolution quality · Resolution override On · Ray o⋯ │
+│ Proton  DLSS  GPU  CPU  [DLLs]                                               │
+│                                                                              │
+│ DLL versions                                                                 │
+│ DLSS    310.4.0       stale    latest 310.5.3    nvngx_dlss.dll              │
+│                                                                              │
+│ DLL actions: Ashfall Courier                                                 │
+│   Install DLL                                                                │
+│     ┌─ Select DLSS version ────────────────────────────────┐                 │
+│     │ Value before edit: 310.4.0                           │                 │
+│     │                                                      │                 │
+│     │ ▸ 310.5.3 (latest)                                   │                 │
+│     │   310.4.0  ✓                                         │                 │
+│     │                                                      │                 │
+│     │   [ Apply ]  [ Cancel ]                              │                 │
+│     └──────────────────────────────────────────────────────┘                 │
+│   Update DLLs (1 file)                                                       │
+│   Restore originals (0 files)                                                │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+ Type to jump  Up/Down choose  Tab control  Enter apply  Esc cancel

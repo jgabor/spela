@@ -239,7 +239,8 @@ pub struct Row {
     pub action: Action,
     /// Why it cannot run now. The row stays, dimmed, with the reason.
     pub unavailable: Option<String>,
-    /// The key that runs it outside the popup, shown on the right.
+    /// The key that runs it, shown on the right. It runs the row inside
+    /// the Actions popup too.
     pub key: Option<Key>,
     /// What it is, for the palette.
     pub kind: RowKind,

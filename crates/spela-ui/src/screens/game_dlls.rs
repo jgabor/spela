@@ -549,6 +549,10 @@ fn spans(text: impl Into<String>, role: Role) -> Line {
     Line::Spans(vec![(text.into(), role)])
 }
 
+/// The shortest picker box: its frame, the value before the edit and a
+/// blank, one choice, a blank and the buttons.
+const MIN_PICKER_H: u16 = 7;
+
 fn picker_width(w: u16) -> u16 {
     PICKER_W.min(w.saturating_sub(4))
 }
@@ -655,15 +659,33 @@ pub fn render(
         return;
     };
     let h = usize::from(area.height);
-    let bottom = controls(state, game);
-    let bottom_h: usize = bottom
-        .iter()
-        .map(|l| match l {
-            Line::Picker(n) => usize::from(*n),
-            _ => 1,
-        })
-        .sum();
+    let mut bottom = controls(state, game);
+    let height = |lines: &[Line]| -> usize {
+        lines
+            .iter()
+            .map(|l| match l {
+                Line::Picker(n) => usize::from(*n),
+                _ => 1,
+            })
+            .sum()
+    };
     let mut top = versions(state, game, usize::from(w));
+    // While a picker is open, the versions it chooses between stay in view:
+    // the rows under the picker give way first, then the picker shrinks to
+    // a window on its choices, down to a box with one choice.
+    let picker_at = bottom.iter().position(|l| matches!(l, Line::Picker(_)));
+    if let Some(at) = picker_at
+        && let Line::Picker(rows) = bottom[at]
+    {
+        let fit = h.saturating_sub(top.len() + 1 + height(&bottom[..at]));
+        let fit = u16::try_from(fit).unwrap_or(u16::MAX);
+        bottom[at] = Line::Picker(rows.min(fit.max(MIN_PICKER_H)));
+    }
+    let bottom_h = height(&bottom);
+    let keep_h = match picker_at {
+        Some(at) => height(&bottom[..=at]),
+        None => bottom_h,
+    };
     // The game's facts lead when there is room for them too; on a short
     // terminal the versions win, as in Go.
     let mut facts = vec![spans(
@@ -683,7 +705,7 @@ pub fn render(
         top = facts;
     }
     // The controls are kept first; the versions give way.
-    let room = h.saturating_sub(bottom_h + 1);
+    let room = h.saturating_sub(keep_h + 1);
     if top.len() > room {
         top.truncate(room);
         if room > 0 {

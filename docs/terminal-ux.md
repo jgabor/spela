@@ -97,7 +97,7 @@ Everything in option A, plus mejl's habits:
 | `:` / `Ctrl-K` | Browse | A fuzzy command palette over every Actions row, game and setting. Each row shows its key |
 | `/` | Browse | Find in the current list |
 | `q` | Browse | Back one level, then quit at the top level. It waits for pending saves, as Quit does today |
-| `Q` | Browse | Quit now, after pending saves |
+| `Q` | Browse, and the Actions popup | Quit now, after pending saves |
 
 Letters never act while a text input, search or picker has focus, because there they type. Prefixes and which-key popups are not needed at spela's size. This reverses the basic-key rule from 2026-10-14 (docs/design/tui-profile-settings-ux-review-plan.md:110-114), by the user's decision on 2026-10-25.
 
@@ -105,10 +105,10 @@ Not in either option: mejl's key presets, custom presets, key editor and macros.
 
 ## Popups and in-pane flows
 
-- **Actions** (`0`): a bordered popup titled `Actions · <destination> · <pane>`, anchored to the right half of the workspace, with the screen behind it dimmed. The rows are today's, without the three Layout rows (decision 3), plus the denylist, hardware and Preview launch rows set below. An unavailable row is dim and shows its reason. The cursor starts on the first available row. `Enter` runs the row and `Esc` closes. The Close button stays, so Tab users keep their path.
+- **Actions** (`0`): a bordered popup titled `Actions · <destination> · <pane>`, anchored to the right half of the workspace, with the screen behind it dimmed. The rows are today's, without the three Layout rows (decision 3), plus the denylist, hardware and Preview launch rows set below. An unavailable row is dim and shows its reason. The cursor starts on the first available row. `Enter` runs the row and `Esc` closes. A key shown on a row runs that row inside the popup too, so `Q` quits and `?` opens Help from there. The Close button stays, so Tab users keep their path.
 - **Help**: a large popup from Actions. It shows "Keys here" for the context it was opened from, then a reference table per mode, all from the keymap. It fixes today's bug where an available key shows an "unavailable" reason.
 - **Decision and DLL confirmation**: a popup with a body, a target list and `[ Cancel ]  [ Confirm ]`. Cancel has focus first, and Esc cancels. The text stays the same ("1 DLL target(s)", "Backup: …"). The denylist allow and the hardware actions use the same popup.
-- **Editors and pickers** stay inside Detail, under the field they edit, as today. They keep "Value before edit", type-to-jump and "Typing replaces the value". The one picker with no Detail field to sit under, `Set CPU governor`, opens inside the Actions popup instead (see [Hardware actions](#hardware-actions)).
+- **Editors and pickers** stay inside Detail, under the field they edit, as today. They keep "Value before edit", type-to-jump and "Typing replaces the value". The one picker with no Detail field to sit under, `Set CPU governor`, opens inside the Actions popup instead (see [Hardware actions](#hardware-actions)). In the game's DLLs section an open DLL picker keeps the `DLL versions` block in view at 80x24: the rows under the picker give way first, then the picker shows a window on its choices.
 - **Progress and results** for DLL work stay inside Detail. Progress uses a word ("Work is running. Controls return when it finishes.") and no spinner.
 
 ## Profile page details
