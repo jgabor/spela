@@ -459,8 +459,10 @@ fn steam(env: &Env, config: &Config) -> SteamInstall {
     SteamInstall::discover(&config.steam_path, &config.additional_library_paths, home)
 }
 
-/// The game, from the cache when there is one, else from Steam's own
-/// files without a scan (decision 49).
+/// The game, from the cache when it knows the game, else from the Steam
+/// AppID in the environment or arguments, or Steam's own files, without a
+/// scan (decision 49). A cache that lacks the game, such as one written
+/// before the game was installed, must not cost it its profile.
 fn find_game(l: &mut Launch<'_>, config: &Config, invocation: &WrapperInvocation) -> Option<Game> {
     let mut args: Vec<OsString> = invocation
         .env
@@ -469,13 +471,16 @@ fn find_game(l: &mut Launch<'_>, config: &Config, invocation: &WrapperInvocation
         .collect();
     args.extend(invocation.command.iter().cloned());
     let games = cache::load(l.paths);
-    if !games.is_empty() {
-        return detect::from_cache(&games, l.env, &args).cloned();
+    if games.is_empty() {
+        warn(
+            l.err,
+            "the game cache is empty or unreadable; finding the game from Steam's files",
+        );
+    } else if let Some(game) = detect::from_cache(&games, l.env, &args) {
+        return Some(game.clone());
+    } else {
+        tracing::info!("the game is not in the game cache; finding it from Steam's files");
     }
-    warn(
-        l.err,
-        "the game cache is empty or unreadable; finding the game from Steam's files",
-    );
     detect::without_cache(&steam(l.env, config), l.env, &args)
 }
 
@@ -1053,6 +1058,66 @@ mod tests {
         );
         assert!(!ran.err.contains("All games settings"), "{}", ran.err);
         assert!(ran.out.contains("(no profile)"), "{}", ran.out);
+    }
+
+    #[test]
+    fn a_cache_that_lacks_the_game_still_loads_its_profile_by_app_id() {
+        // The cache knows only Glimmer Run. Steam starts another game, newer
+        // than the last scan, whose own profile sets HDR off.
+        const OTHER: u64 = 9100020;
+        let mut w = world();
+        let script = w.root.join("other.sh");
+        write_script(
+            &script,
+            format!(
+                "#!/bin/sh\n/usr/bin/env > '{}'\n",
+                w.root.join("game-env").display()
+            ),
+        );
+        w.game = script;
+        let mut own = OwnValues::new();
+        own.set(FieldKey::ProtonEnableHdr, Value::Bool(false))
+            .unwrap();
+        save(&w.paths, Scope::Game(OTHER), &own);
+        let base = w.env.clone();
+        for (name, value) in [
+            (var::STEAM_APP_ID, "9100020"),
+            (var::STEAM_GAME_ID, "9100020"),
+        ] {
+            w.env = base.clone().with(name, value);
+            let ran = run(&w, &[], &StopSlot::new());
+            assert_eq!(ran.code.unwrap(), 0, "{}", ran.err);
+            assert!(!ran.err.contains(NOT_DETECTED), "{name}: {}", ran.err);
+            assert!(
+                !ran.err.contains("the game cache is empty"),
+                "the cache is not empty: {}",
+                ran.err
+            );
+            assert!(
+                ran.out.contains("Game: 9100020 (AppID 9100020)"),
+                "{name}: {}",
+                ran.out
+            );
+            assert!(
+                ran.out.ends_with("Launching 9100020 with profile...\n"),
+                "{name}: {}",
+                ran.out
+            );
+            // All games turns HDR on; the game's own profile turns it off.
+            assert!(
+                !game_env(&w).contains("PROTON_ENABLE_HDR=1\n"),
+                "{name}: the game's own value applies"
+            );
+        }
+
+        // The reaper's AppId argument works the same way.
+        w.env = base;
+        let ran = run(&w, &[("AppId", "9100020")], &StopSlot::new());
+        assert!(
+            ran.out.contains("Game: 9100020 (AppID 9100020)"),
+            "{}",
+            ran.out
+        );
     }
 
     #[test]

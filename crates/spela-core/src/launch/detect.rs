@@ -15,6 +15,9 @@
 //! With a game cache, steps 1 and 2 count only an AppID the cache knows.
 //! Without one (decision 49), an AppID is taken as it is, and step 3 reads
 //! the app manifests of the library the path names, in place, with no scan.
+//! The wrapper also takes the second way when the cache is not empty but
+//! does not know the game, so a game newer than the last scan still gets
+//! its profile.
 
 use std::ffi::OsString;
 use std::path::{Component, Path, PathBuf};
