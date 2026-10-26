@@ -16,8 +16,8 @@
 //! | [`backends`] | The `SPELA_BACKEND` selector and the real backends |
 //! | [`privilege`] | The real privilege backend, the only code that names its program |
 //! | [`helper`] | The hidden `apply-profile` root helper |
+//! | [`migration`] | The migration from Go spela, run before a command reads the store |
 //! | [`demo`] | `--demo`: a private temp dir and the fake backends |
-//! | [`startup`] | The migration from Go spela before a command reads the store |
 //! | [`text`] | Colour roles for command output |
 
 #![warn(missing_docs)]
@@ -30,8 +30,8 @@ pub mod error;
 pub mod helper;
 pub mod locks;
 pub mod logging;
+pub mod migration;
 pub mod output;
 pub mod privilege;
 pub mod router;
-pub mod startup;
 pub mod text;

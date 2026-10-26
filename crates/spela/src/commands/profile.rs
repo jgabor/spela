@@ -1,15 +1,15 @@
 //! `spela profile`: manage per-game profiles and All games.
 //!
-//! The read subcommands are in [`super::profile_read`]. The others still
-//! take a placeholder [`Rest`] and say they are not built yet until their
-//! phase declares their arguments here.
+//! `list` and `show` are in [`super::profile_read`], and the writes in
+//! [`super::profile_write`].
 
 use std::io::Write;
 
 use clap::Subcommand;
 
 use super::profile_read::{self, ShowArgs};
-use crate::cli::{Context, Invocation, Rest};
+use crate::cli::{Context, Invocation};
+use crate::commands::profile_write;
 use crate::error::CliError;
 
 /// `profile` subcommands.
@@ -18,15 +18,15 @@ pub enum ProfileCommand {
     /// List games with their own profile.
     List,
     /// Create a profile for a game.
-    Create(Rest),
+    Create(profile_write::CreateArgs),
     /// Show a game's or All games' settings.
     Show(ShowArgs),
     /// Make every setting follow All games, or reset All games.
-    Reset(Rest),
+    Reset(profile_write::ResetArgs),
     /// Delete a game's profile.
-    Delete(Rest),
+    Delete(profile_write::DeleteArgs),
     /// Make games that set a field follow All games for it.
-    Follow(Rest),
+    Follow(profile_write::FollowArgs),
 }
 
 /// Runs one `profile` subcommand.
@@ -39,10 +39,10 @@ pub fn run(
 ) -> Result<(), CliError> {
     match command {
         ProfileCommand::List => profile_read::list(inv, ctx, out, err),
-        ProfileCommand::Create(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
+        ProfileCommand::Create(a) => profile_write::create(a, ctx, out),
         ProfileCommand::Show(args) => profile_read::show(args, inv, ctx, out, err),
-        ProfileCommand::Reset(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
-        ProfileCommand::Delete(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
-        ProfileCommand::Follow(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
+        ProfileCommand::Reset(a) => profile_write::reset(a, ctx, out),
+        ProfileCommand::Delete(a) => profile_write::delete(a, ctx, out),
+        ProfileCommand::Follow(a) => profile_write::follow(a, ctx, out),
     }
 }

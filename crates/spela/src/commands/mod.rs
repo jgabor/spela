@@ -22,16 +22,20 @@
 //! | [`tui`] | `tui`, and `--demo` with no command |
 //! | [`completion`] | `completion <shell>` |
 //! | [`removed`] | the reserved `overlay` and `gui` (decision 45) |
+//! | [`profile_write`], [`section_write`], [`config_write`], [`denylist_write`] | the stored-profile, config and deny list writes |
+//! | [`target`] | what the writes share: `<game>` or `--all-games`, exit codes |
 //!
 //! The hidden `apply-profile` root helper is [`crate::helper`].
 
 pub mod completion;
 pub mod config;
 pub mod config_read;
+pub mod config_write;
 pub mod cpu;
 pub mod cpu_read;
 pub mod denylist;
 pub mod denylist_read;
+pub mod denylist_write;
 pub mod dll;
 pub mod dll_read;
 pub mod dlss;
@@ -40,9 +44,12 @@ pub mod launch;
 pub mod list;
 pub mod profile;
 pub mod profile_read;
+pub mod profile_write;
 pub mod proton;
 pub mod read;
 pub mod removed;
 pub mod scan;
+pub mod section_write;
 pub mod show;
+pub mod target;
 pub mod tui;

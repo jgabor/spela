@@ -1,15 +1,14 @@
 //! `spela config`: show or change spela's settings.
 //!
-//! The read subcommands are in [`super::config_read`]. The others still
-//! take a placeholder [`Rest`] and say they are not built yet until their
-//! phase declares their arguments here.
+//! `show` is in [`super::config_read`] and `set` in [`super::config_write`].
 
 use std::io::Write;
 
 use clap::Subcommand;
 
 use super::config_read;
-use crate::cli::{Context, Invocation, Rest};
+use crate::cli::{Context, Invocation};
+use crate::commands::config_write;
 use crate::error::CliError;
 
 /// `config` subcommands.
@@ -18,7 +17,7 @@ pub enum ConfigCommand {
     /// Print the config.
     Show,
     /// Change one setting.
-    Set(Rest),
+    Set(config_write::SetArgs),
 }
 
 /// Runs one `config` subcommand.
@@ -31,6 +30,6 @@ pub fn run(
 ) -> Result<(), CliError> {
     match command {
         ConfigCommand::Show => config_read::show(inv, ctx, out, err),
-        ConfigCommand::Set(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
+        ConfigCommand::Set(a) => config_write::set(a, ctx, out),
     }
 }

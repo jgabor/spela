@@ -772,6 +772,63 @@ pub fn set(
     })
 }
 
+/// Sets some own values and makes other fields follow, in one write, as a
+/// `set` command with several flags does. The file is created only when
+/// there is a value to set; following alone never creates one. A game's
+/// `name` is filled with `name` when empty. Every value is checked first;
+/// on an error nothing is written. A key in both lists ends up following.
+pub fn edit(
+    paths: &Paths,
+    scope: Scope,
+    name: &str,
+    values: &[(FieldKey, Value)],
+    follow: &[FieldKey],
+) -> Result<Written, ProfileError> {
+    let _lock = lock(paths)?;
+    let path = scope_path(paths, scope);
+    let existed = path.exists();
+    let game = match scope {
+        Scope::Game(app_id) => Some((app_id, name)),
+        Scope::AllGames => None,
+    };
+    let done = transact(&path, game, !values.is_empty(), |editor| {
+        let mut previous: Vec<(FieldKey, Option<Value>)> = Vec::new();
+        let mut note = |key: FieldKey, before: Option<Value>| {
+            if !previous.iter().any(|(k, _)| *k == key) {
+                previous.push((key, before));
+            }
+        };
+        for (key, value) in values {
+            let before = editor.values.get(*key).cloned();
+            if before.as_ref() != Some(value) {
+                editor.set(*key, value.clone())?;
+                note(*key, before);
+            }
+        }
+        for key in follow {
+            if let Some(before) = editor.follow(*key) {
+                note(*key, Some(before));
+            }
+        }
+        // A key set and then followed in one call did not change.
+        let after = editor.values.clone();
+        previous.retain(|(key, before)| after.get(*key) != before.as_ref());
+        Ok(previous)
+    })?;
+    Ok(match done {
+        Some((previous, written)) => Written {
+            created: !existed && written,
+            written,
+            previous,
+        },
+        None => Written {
+            created: false,
+            written: false,
+            previous: Vec::new(),
+        },
+    })
+}
+
 /// Makes fields follow in one write: on a game they follow All games, on
 /// All games the system default. Never creates a file: `None` when the
 /// scope has no file. Returns the own values that were removed.
@@ -1247,6 +1304,84 @@ mod tests {
         assert!(!paths.game_profile(5).exists());
         let zeta = load_game(&paths, 1).unwrap().unwrap();
         assert!(!zeta.profile.values.contains(key));
+    }
+
+    #[test]
+    fn edit_sets_and_follows_in_one_write_and_never_creates_to_follow() {
+        let (_base, paths) = paths();
+        let scope = Scope::Game(9100010);
+        let w = edit(
+            &paths,
+            scope,
+            "Chrome Avenue 2081",
+            &[],
+            &[FieldKey::CpuSmt],
+        )
+        .unwrap();
+        assert_eq!(
+            w,
+            Written {
+                created: false,
+                written: false,
+                previous: Vec::new()
+            }
+        );
+        assert!(
+            !paths.game_profile(9100010).exists(),
+            "follow never creates"
+        );
+        let w = edit(
+            &paths,
+            scope,
+            "Chrome Avenue 2081",
+            &[
+                (FieldKey::GpuFanSpeed, Value::Int(0)),
+                (FieldKey::CpuSmt, Value::OptionalBool(Some(true))),
+            ],
+            &[],
+        )
+        .unwrap();
+        assert!(w.created && w.written);
+        let w = edit(
+            &paths,
+            scope,
+            "Other",
+            &[(FieldKey::GpuPowerLimit, Value::Int(200))],
+            &[FieldKey::GpuFanSpeed, FieldKey::CpuGovernor],
+        )
+        .unwrap();
+        assert!(!w.created && w.written);
+        assert_eq!(
+            w.previous,
+            [
+                (FieldKey::GpuPowerLimit, None),
+                (FieldKey::GpuFanSpeed, Some(Value::Int(0))),
+            ]
+        );
+        let loaded = load_game(&paths, 9100010).unwrap().unwrap().profile;
+        assert_eq!(loaded.name, "Chrome Avenue 2081");
+        assert!(!loaded.values.contains(FieldKey::GpuFanSpeed));
+        assert_eq!(
+            loaded.values.get(FieldKey::GpuPowerLimit),
+            Some(&Value::Int(200))
+        );
+        let before = read(&paths.game_profile(9100010));
+        let err = edit(
+            &paths,
+            scope,
+            "",
+            &[(FieldKey::GpuVrr, Value::Text("sometimes".into()))],
+            &[FieldKey::GpuPowerLimit],
+        )
+        .unwrap_err();
+        assert!(matches!(err, ProfileError::Field(_)), "{err}");
+        assert_eq!(
+            read(&paths.game_profile(9100010)),
+            before,
+            "nothing written"
+        );
+        let w = edit(&paths, scope, "", &[], &[FieldKey::GpuFanSpeed]).unwrap();
+        assert!(!w.written && w.previous.is_empty(), "nothing to follow");
     }
 
     #[test]

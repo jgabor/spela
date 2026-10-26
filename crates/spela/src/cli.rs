@@ -52,7 +52,7 @@ use crate::helper::{self, HelperArgs};
 use crate::logging::{self, LogMode};
 use crate::output::{self, Colors};
 use crate::router::{self, Route, WrapperInvocation};
-use crate::{backends, locks, startup};
+use crate::{backends, locks, migration};
 
 const ABOUT: &str = "Linux gaming optimization tool";
 
@@ -246,8 +246,9 @@ pub struct Context {
     pub colors: Colors,
     /// The clock: the system clock, a manual one in tests.
     pub clock: Arc<dyn Clock>,
-    /// What the migration from Go spela did at startup. Empty under
-    /// `--demo` and for commands that never read the store.
+    /// What this run's migration from Go spela did. Empty under `--demo`,
+    /// when the command reads no store, or when there was nothing to
+    /// migrate.
     pub migration: Report,
     /// Whether this run is `--demo`, which never reads the user's Steam.
     pub demo: bool,
@@ -517,16 +518,23 @@ fn setup_and_run(
         backend = ?backends.kind,
         "spela starting"
     );
+    let clock: Arc<dyn Clock> = Arc::new(SystemClock);
+    let migration = if migration::needs_store(inv.cli.command.as_ref(), inv.cli.demo) {
+        let notice = log_mode(inv) == LogMode::Stderr;
+        migration::run(&paths, clock.as_ref(), err, notice)?
+    } else {
+        Report::default()
+    };
     let mut ctx = Context {
         env,
         paths,
         backends,
         colors,
-        clock: Arc::new(SystemClock),
-        migration: Report::default(),
+        clock,
+        migration,
         demo: inv.cli.demo,
     };
-    let result = startup::migrate(inv, &mut ctx, err).and_then(|()| run(inv, &mut ctx, out, err));
+    let result = run(inv, &mut ctx, out, err);
     if let Err(e) = &result
         && !e.is_broken_pipe()
     {

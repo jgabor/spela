@@ -4,7 +4,8 @@
 //! The write reads the file fresh under the lock and refuses when it does
 //! not load or has a newer `version`. The value is checked by
 //! [`Config::set`], so the texts are Go's. The new text is parsed again
-//! before it replaces the file atomically with fsync.
+//! before it replaces the file atomically with fsync. A set that changes
+//! nothing writes nothing.
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -67,10 +68,13 @@ fn set_unlocked(path: &Path, key: &str, raw: &str) -> Result<Config, ConfigStore
     config.set(key, raw)?;
     let option = option(key).expect("set checked the key");
 
-    let mut doc: DocumentMut = if loaded.from_file {
-        std::fs::read_to_string(path)
-            .map_err(io_error)?
-            .parse()
+    let old = if loaded.from_file {
+        Some(std::fs::read_to_string(path).map_err(io_error)?)
+    } else {
+        None
+    };
+    let mut doc: DocumentMut = if let Some(old) = &old {
+        old.parse()
             .map_err(|e: toml_edit::TomlError| ConfigError::Invalid {
                 path: Some(path.to_owned()),
                 errors: vec![super::Diagnostic {
@@ -118,6 +122,10 @@ fn set_unlocked(path: &Path, key: &str, raw: &str) -> Result<Config, ConfigStore
         },
         other => other,
     })?;
+    // A value that is already set writes nothing.
+    if old.as_deref() == Some(text.as_str()) {
+        return Ok(saved.config);
+    }
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(io_error)?;
     }
@@ -201,6 +209,10 @@ mod tests {
         let saved = set(&paths, "log_level", "debug").unwrap();
         assert_eq!(saved.log_level, LogLevel::Debug);
         set(&paths, "ui.mouse", "no").unwrap();
+        let inode = |p: &Path| std::os::unix::fs::MetadataExt::ino(&std::fs::metadata(p).unwrap());
+        let before = inode(&paths.config_file());
+        set(&paths, "ui.mouse", "off").unwrap();
+        assert_eq!(inode(&paths.config_file()), before, "no change, no write");
         assert_eq!(
             std::fs::read_to_string(paths.config_file()).unwrap(),
             lines(&[

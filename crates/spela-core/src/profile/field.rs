@@ -574,8 +574,9 @@ pub static FIELDS: [Field; 25] = [
         editor: Editor::Toggle,
         unit: None,
         range: None,
-        // Go has no flag: --sr-mode and --sr-preset turn it on.
-        flag: None,
+        // Go had no flag: --sr-mode and --sr-preset turn it on. The flag
+        // lets the CLI turn it off, as the TUI can (decision 20).
+        flag: Some("sr-override"),
         aliases: &[],
         impact: Impact::Environment,
         effect: Effect::Environment,
@@ -933,7 +934,7 @@ mod tests {
             Some("threaded-opt")
         );
         assert_eq!(flag(FieldKey::GpuVrr), Some("vrr"));
-        assert_eq!(flag(FieldKey::DlssSrOverride), None);
+        assert_eq!(flag(FieldKey::DlssSrOverride), Some("sr-override"));
         let look = |s: Section, n: &str| s.lookup(n).map(|f| f.id);
         assert_eq!(
             look(Section::Proton, "hdr"),
