@@ -565,6 +565,11 @@ fn a_record_that_cannot_be_saved_keeps_what_was_dropped_for_the_next_run() {
     std::fs::create_dir_all(data).unwrap();
     let mode = std::fs::Permissions::from_mode;
     std::fs::set_permissions(data, mode(0o555)).unwrap();
+    if std::fs::write(data.join("probe"), b"").is_ok() {
+        // Root ignores the mode, so the save cannot be made to fail here.
+        eprintln!("skipped: a read-only folder is writable for this user");
+        return;
+    }
     let e = migrate::run(&case.paths, &clock()).unwrap_err();
     std::fs::set_permissions(data, mode(0o755)).unwrap();
     assert!(matches!(e, migrate::MigrateError::Record(_)), "{e}");
