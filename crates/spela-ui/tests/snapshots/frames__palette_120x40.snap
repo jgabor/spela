@@ -9,19 +9,19 @@ expression: render_text(&mut s)
 │ ▸ Ashfall Courie┌─ Commands ───────────────────────────────────────────────────────── : or Ctrl-K ─┐                 │
 │   Brightwater Ke│ > dl                                                                             │                 │
 │   Cinder Valley ├──────────────────────────────────────────────────────────────────────────────────┤                 │
-│   Deepline Salva│ ▸ Go to DLL Catalog                               2         destination          │                 │
-│   Ember Tide    │   Sort: DLLs first                                          action               │                 │
-│   Game 1 Remaste│   Toggle DLL filter                                         action               │                 │
-│   Glasshouse Det├──────────────────────────────────────────────────────────────────────────────────┤                 │
-│   Hollow Crown T│ Type to filter. Enter runs, Esc closes.                                          │                 │
-│   Ironleaf Exped│ A row shows its key when it has one. Actions rows are reached with 0.            │                 │
-│   Lantern Drift │                                                                                  │                 │
-│   Moonwell Farms└──────────────────────────────────────────────────────────────────────────────────┘                 │
-│   Nightglass Protocol          │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
+│   Deepline Salva│ ▸ DLL cache path                                            setting              │                 │
+│   Ember Tide    │   DLL manifest URL                                          setting              │                 │
+│   Game 1 Remaste│   Deny DLL swaps: Ashfall Courier · wait for the⋯           action               │                 │
+│   Glasshouse Det│   Go to DLL Catalog                               2         destination          │                 │
+│   Hollow Crown T│   Sort: DLLs first                                          action               │                 │
+│   Ironleaf Exped│   Allow DLL swaps: Ashfall Courier · wait for th⋯           action               │                 │
+│   Lantern Drift │   Toggle DLL filter                                         action               │                 │
+│   Moonwell Farms│   Auto-update DLLs                                          setting              │                 │
+│   Nightglass Pro├──────────────────────────────────────────────────────────────────────────────────┤                 │
+│                 │ Type to filter. Enter runs, Esc closes.                                          │                 │
+│                 │ A row shows its key when it has one. Actions rows are reached with 0.            │                 │
+│                 │                                                                                  │                 │
+│                 └──────────────────────────────────────────────────────────────────────────────────┘                 │
 │                                │                                                                                     │
 │                                │                                                                                     │
 │                                │                                                                                     │
@@ -40,5 +40,5 @@ expression: render_text(&mut s)
 │                                │                                                                                     │
 │                                │                                                                                     │
 └─ ▪ DLLs  ⚑ profile ────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
- 3 best matches for "dl"
+ 8 best matches for "dl"
  Up/Down Move  Enter Run  Esc Close

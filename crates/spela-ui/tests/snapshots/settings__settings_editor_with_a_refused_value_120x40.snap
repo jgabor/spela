@@ -1,0 +1,44 @@
+---
+source: crates/spela-ui/tests/settings.rs
+expression: text
+---
+ spela   Library  DLL Catalog  Monitor  ▸ Settings
+┌─ Settings · Paths ─────────────┬─ Backup path ───────────────────────────────────────────────────────────────────────┐
+│ Display                        │ Backup path                                                                         │
+│ Startup                        │ none                                                                                │
+│ Paths                          │ Saved at once                                                                       │
+│   Steam path                   │                                                                                     │
+│   Additional library paths     │ ┌─ Edit Backup path ──────────────────────────────────────────────────────────────┐ │
+│   DLL cache path               │ │ Value before edit: none                                                         │ │
+│ ▸ Backup path                  │ │                                                                                 │ │
+│   Default shader cache path    │ │ backups                                                                         │ │
+│ DLL policy                     │ │ An absolute folder. Empty uses the default.                                     │ │
+│ Logging                        │ │ Invalid value: backup_path must be an absolute path: backups                    │ │
+│                                │ │                                                                                 │ │
+│                                │ │ [ Apply ]  [ Cancel ]                                                           │ │
+│                                │ └─────────────────────────────────────────────────────────────────────────────────┘ │
+│                                │                                                                                     │
+│                                │ Folder for new DLL backup files. Empty uses spela's data folder. Earlier backups    │
+│                                │ stay restorable.                                                                    │
+│                                │                                                                                     │
+│                                │ Default: none                                                                       │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+└────────────────────────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
+
+ Type text  Enter apply  Tab control  Esc cancel

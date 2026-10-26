@@ -18,7 +18,8 @@
 //! ```
 //!
 //! Confirm closes the popup and runs `action` through
-//! [`crate::update::run`].
+//! [`crate::update::run`]. [`asks`] says which changes ask first: only the
+//! DLL update follows `confirm_destructive`.
 
 use ratatui::Frame;
 use ratatui::layout::Rect;
@@ -94,6 +95,41 @@ impl State {
     pub fn cancel_message(mut self, text: impl Into<String>) -> State {
         self.cancelled = Some(text.into());
         self
+    }
+}
+
+/// What a confirmation guards, for [`asks`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Guard {
+    /// A DLL update, one game's or a batch.
+    DllUpdate,
+    /// A DLL install.
+    DllInstall,
+    /// A DLL restore.
+    DllRestore,
+    /// A whole-page "for all settings" reset.
+    PageReset,
+    /// Apply to games with their own value.
+    ApplyToGames,
+    /// GPU reset, CPU governor or SMT.
+    Hardware,
+    /// Allowing DLL swaps for a game on a deny list.
+    AllowDllSwaps,
+}
+
+/// Whether a change asks first. `confirm_destructive = false` skips only
+/// the DLL update confirmation, as in Go (TUI 10). Install, restore, the
+/// whole-page resets, Apply to games with their own value, the hardware
+/// actions and the deny list allow always ask (decisions 4 and 44).
+pub fn asks(state: &AppState, guard: Guard) -> bool {
+    match guard {
+        Guard::DllUpdate => state.config.confirm_destructive,
+        Guard::DllInstall
+        | Guard::DllRestore
+        | Guard::PageReset
+        | Guard::ApplyToGames
+        | Guard::Hardware
+        | Guard::AllowDllSwaps => true,
     }
 }
 
@@ -278,6 +314,25 @@ mod tests {
     use super::*;
     use crate::testing::{key, state_with_games};
     use crate::update::update as step;
+
+    #[test]
+    fn only_a_dll_update_follows_confirm_destructive() {
+        let mut s = state_with_games(120, 40, 1);
+        let mut cfg = s.config.clone();
+        cfg.confirm_destructive = false;
+        s.set_config(cfg);
+        assert!(!asks(&s, Guard::DllUpdate));
+        for g in [
+            Guard::DllInstall,
+            Guard::DllRestore,
+            Guard::PageReset,
+            Guard::ApplyToGames,
+            Guard::Hardware,
+            Guard::AllowDllSwaps,
+        ] {
+            assert!(asks(&s, g), "{g:?}");
+        }
+    }
 
     #[test]
     fn focus_starts_on_cancel_and_esc_never_confirms() {

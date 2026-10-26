@@ -109,7 +109,7 @@ pub fn check_keys(name: &str, state: &AppState) {
     }
     // Help is built from the same list `?` reads.
     if state.popup.is_none() && state.browsing() {
-        let h = help::State::new(String::new(), &bindings);
+        let h = help::State::new(state, "", &bindings, &[]);
         for b in bindings.iter().filter(|b| !b.label.is_empty()) {
             let listed = h
                 .lines

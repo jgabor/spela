@@ -16,11 +16,11 @@ expression: render_text(&mut s)
 │   Hollow│  Space          Select game                                                                      ┃         │
 │   Ironle│  PgUp           Page up                                                                          ┃         │
 │   Lanter│  PgDn           Page down                                                                        ┃         │
-│   Moonwe│  Home           First game                                                                       ┃         │
-│   Nightg│  End            Last game                                                                        ┃         │
-│         │  1              Library                                                                          ┃         │
-│         │  2              DLL Catalog                                                                      ┃         │
-│         │  3              Monitor                                                                          ┃         │
+│   Moonwe│  Home           First game                                                                       │         │
+│   Nightg│  End            Last game                                                                        │         │
+│         │  1              Library                                                                          │         │
+│         │  2              DLL Catalog                                                                      │         │
+│         │  3              Monitor                                                                          │         │
 │         │  4              Settings                                                                         │         │
 │         │  Tab            Pane                                                                             │         │
 │         │  Shift-Tab      Previous pane                                                                    │         │
@@ -32,10 +32,10 @@ expression: render_text(&mut s)
 │         │  Q              Quit now                                                                         │         │
 │         │  Ctrl-Z         Suspend to the shell                                                             │         │
 │         │                                                                                                  │         │
-│         │  Everywhere                                                                                      │         │
-│         │  0              Actions for this context                                                         │         │
-│         │  1 to 4         Library, DLL Catalog, Monitor, Settings                                          │         │
-│         │  Tab            Next pane                                                                        │         │
+│         │  Actions here: open them with 0 after closing Help                                               │         │
+│         │  /              Search games                                                                     │         │
+│         │                 Toggle DLL filter                                                                │         │
+│         │                 Toggle profile filter                                                            │         │
 │         │                                                                                                  │         │
 │         │   Close                                                                                          │         │
 │         └──────────────────────────────────────────────────────────────────────────────────────────────────┘         │

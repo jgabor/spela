@@ -1,0 +1,44 @@
+---
+source: crates/spela-ui/tests/settings.rs
+expression: render_text(&mut s)
+---
+ spela   ▸ Library  DLL Catalog  Monitor  Settings
+┌─ Scope ────────────────────────┬─ Ashfall Courier ───────────────────────────────────────────────────────────────────┐
+│ / Find games                   │ Ashfall Courier · App ID 9100010 · DLLs: DLSS 310.4.0 · Saved at once               │
+│   All games                    │                                                                                     │
+│ ▸ Ashfall Courier          ▪ ⚑ │ [Proton]  DLSS  GPU  CPU  DLLs                                                      │
+│   Brightwater Keep             │                                                                                     │
+│   Cinder Valley Racing     ▪   │ Loading profiles...                                                                 │
+│   Deepline Salvage           ⚑ │                                                                                     │
+│   Ember Tide               ▪   │                                                                                     │
+│   Game 1 Remastered            │                                                                                     │
+│   Glasshouse Detective     ▪ ⚑ │                                                                                     │
+│   Hollow Crown Tactics: D⋯     │                                                                                     │
+│   Ironleaf Expedition      ▪   │                                                                                     │
+│   Lantern Drift              ⚑ │                                                                                     │
+│   Moonwell Far┌─ Allow DLL swaps ────────────────────────────────────────────────────────────────────┐               │
+│   Nightglass P│                                                                                      │               │
+│               │  Ashfall Courier · App ID 9100010                                                    │               │
+│               │                                                                                      │               │
+│               │  DLL install and update will run for this game.                                      │               │
+│               │  WARNING: Swapping DLLs in anti-cheat games may result in bans!                      │               │
+│               │                                                                                      │               │
+│               │                                                               [ Cancel ]  [ Allow ]  │               │
+│               │                                                                                      │               │
+│               └──────────────────────────────────────────────────────────────────────────────────────┘               │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+└─ ▪ DLLs  ⚑ profile ────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
+
+ Left/Right Choose  Enter Activate  Tab Details  Esc Cancel

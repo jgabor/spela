@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/settings.rs
+expression: render_text(&mut s)
+---
+ spela   1 Library  2 DLL Catalog  3 Monitor  ▸ 4 Settings
+┌─ ▸ Detail ───────────────────────────────────────────────────────────────────┐
+│ DLL cache path                                                               │
+│ none                                                                         │
+│ Saved at once                                                                │
+│                                                                              │
+│ Folder for downloaded DLLs. Empty uses spela's cache folder. Earlier         │
+│ downloads are not moved.                                                     │
+│                                                                              │
+│ Default: none                                                                │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+ 0 Actions  Enter Edit value  Tab List  Esc List  ? Help
