@@ -133,26 +133,10 @@ pub fn run(ctx: &mut Context, _lock: InstanceLock, err: &mut dyn Write) -> Resul
     ctx.log.apply(config.log_level.name());
     let broken = broken_profiles(&ctx.migration);
 
-    // The demo scans its own fictional library.
+    // The demo scans its own fictional library, which its session wrote,
+    // and its hardware actions change only its fictional sysfs tree.
     let steam = if ctx.demo {
-        let root = ctx.paths.cache_dir.join("demo-steam");
-        spela_core::fake::library::write(&root).map_err(|e| {
-            CliError::new(
-                exit::FAILURE,
-                format!("cannot set up the demo library: {e}"),
-            )
-        })?;
-        // A fictional sysfs tree, so the hardware actions change only it.
-        let (cpu, privilege) = exec::monitor::demo_hardware(&ctx.paths.cache_dir.join("demo-sys"))
-            .map_err(|e| {
-                CliError::new(
-                    exit::FAILURE,
-                    format!("cannot set up the demo hardware: {e}"),
-                )
-            })?;
-        ctx.backends.cpu = cpu;
-        ctx.backends.privilege = privilege;
-        SteamSource::Demo(root.join("SteamLibrary"))
+        SteamSource::Demo(crate::demo::library_dir(&ctx.paths))
     } else {
         SteamSource::System {
             home: ctx.env.non_empty(var::HOME).map(Into::into),

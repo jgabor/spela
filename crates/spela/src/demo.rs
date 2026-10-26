@@ -11,12 +11,19 @@
 //! Its network is [`spela_core::fake::dlls`]: a manifest, payloads that
 //! match it and a tag list, so DLL flows run end to end and no request
 //! leaves the process.
+//!
+//! The session also writes the fictional Steam library and a fictional
+//! sysfs tree into the temp dir, so the TUI and every CLI command (`scan`,
+//! `list`, `show`, `launch --dry-run`, the `dll` commands and the live CPU
+//! commands) run on the same built-in games and the same fake hardware.
 
 use std::io;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use spela_core::backend::Http;
+use spela_core::backend::{Backends, Cpu, Http, Privilege, SysfsCpu};
 use spela_core::dll::manifest::RefreshPolicy;
+use spela_core::fake::{FakeGpuControl, FakePrivilege};
 use spela_core::paths::Paths;
 
 /// A demo run's private directories. Dropping it removes them.
@@ -47,6 +54,8 @@ impl DemoSession {
                 .map_err(io::Error::other)?;
             }
         }
+        spela_core::fake::library::write(&paths.cache_dir.join("demo-steam"))?;
+        spela_core::fake::cpu::write_sysfs(&sys_dir(&paths))?;
         Ok(DemoSession { dir, paths })
     }
 
@@ -59,6 +68,48 @@ impl DemoSession {
     pub fn root(&self) -> &std::path::Path {
         self.dir.path()
     }
+
+    /// Scans the fictional library into the demo's game cache, so a CLI
+    /// command that never scans, such as `dll list`, still sees the demo
+    /// games. The TUI scans on its own at startup, so it does not call this.
+    pub fn scan(&self) -> Result<(), String> {
+        let install = spela_core::fake::library::install(&library_dir(&self.paths));
+        spela_core::games::scan::rescan(&self.paths, &install, &spela_core::clock::SystemClock)
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    }
+}
+
+/// The demo's fictional Steam library under its paths.
+pub fn library_dir(paths: &Paths) -> PathBuf {
+    paths.cache_dir.join("demo-steam").join("SteamLibrary")
+}
+
+/// The demo's fictional sysfs tree under its paths.
+pub fn sys_dir(paths: &Paths) -> PathBuf {
+    paths.cache_dir.join("demo-sys")
+}
+
+/// Points `backends` at the demo: its network, and a CPU reader and
+/// privilege runner over the fictional sysfs tree, so a governor or SMT
+/// change shows at the next read and nothing on the machine changes.
+pub fn use_demo_backends(backends: &mut Backends, paths: &Paths) {
+    let (cpu, privilege) = hardware(&sys_dir(paths));
+    backends.cpu = cpu;
+    backends.privilege = privilege;
+    backends.http = http(paths);
+}
+
+/// The CPU reader and privilege runner over the sysfs tree at `root`: the
+/// real sysfs reader, and the fake runner that writes the tree.
+fn hardware(root: &Path) -> (Box<dyn Cpu>, Box<dyn Privilege>) {
+    (
+        Box::new(SysfsCpu::new(root)),
+        Box::new(FakePrivilege::new(
+            FakeGpuControl::new(),
+            Some(root.to_owned()),
+        )),
+    )
 }
 
 /// The demo's network: the demo manifest at the URL the copied config
@@ -124,5 +175,34 @@ mod tests {
         let base = tempfile::tempdir().unwrap();
         let session = DemoSession::start(&Paths::under(base.path())).unwrap();
         assert!(!session.paths().config_file().exists());
+    }
+
+    #[test]
+    fn the_session_writes_the_library_and_the_hardware_changes_only_its_tree() {
+        use spela_core::backend::HardwareRequest;
+        let base = tempfile::tempdir().unwrap();
+        let session = DemoSession::start(&Paths::under(base.path())).unwrap();
+        let library = library_dir(session.paths());
+        assert!(library.starts_with(session.root()));
+        assert!(library.join("steamapps").is_dir(), "{}", library.display());
+
+        let (mut cpu, mut privilege) = hardware(&sys_dir(session.paths()));
+        assert_eq!(cpu.governor().unwrap(), "powersave");
+        let report = privilege
+            .apply_once(&HardwareRequest {
+                cpu_governor: Some("performance".into()),
+                ..HardwareRequest::default()
+            })
+            .unwrap();
+        assert!(report.all_applied());
+        assert_eq!(cpu.governor().unwrap(), "performance");
+        let report = privilege
+            .apply_once(&HardwareRequest {
+                smt: Some(false),
+                ..HardwareRequest::default()
+            })
+            .unwrap();
+        assert!(report.all_applied());
+        assert!(!cpu.smt_active().unwrap());
     }
 }

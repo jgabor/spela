@@ -87,9 +87,10 @@ fn dry_run_plan(args: &LaunchArgs, ctx: &mut Context) -> Result<LaunchPlan, CliE
         game_file: view.has_profile,
         all_games_file: view.all_games_file,
     };
-    let (env, demo) = (&ctx.env, ctx.demo);
+    let demo_library = read::demo_library(ctx);
+    let env = &ctx.env;
     let gpu = &mut ctx.backends.gpu;
-    let mut install = || read::steam_install(env, demo, &config);
+    let mut install = || read::steam_install(env, demo_library.as_deref(), &config);
     let mut driver = || crate::plan::driver_version(gpu.as_mut());
     let mut probes = SystemProbes {
         install: &mut install,

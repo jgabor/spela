@@ -14,13 +14,11 @@
 //! prompts on the TUI's tty, and stdout and stderr on pipes, so nothing is
 //! written over the frame (decision 44).
 
-use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use spela_core::backend::{
-    ApplyReport, Cpu, HardwareRequest, Privilege, PrivilegeError, PrivilegedSession, SysfsCpu,
+    ApplyReport, HardwareRequest, Privilege, PrivilegeError, PrivilegedSession,
 };
-use spela_core::fake::{FakeGpuControl, FakePrivilege};
 use spela_core::paths::Paths;
 use spela_ui::Msg;
 use spela_ui::event::HardwareOp;
@@ -128,21 +126,6 @@ pub fn apply(
     report
 }
 
-/// The CPU reader and privilege runner for `spela --demo`: a fictional
-/// sysfs tree under `root`, read by the real sysfs reader and written by
-/// the fake runner, so a governor or SMT change shows at the next tick.
-/// `root` is inside the demo's private temp dir.
-pub fn demo_hardware(root: &Path) -> std::io::Result<(Box<dyn Cpu>, Box<dyn Privilege>)> {
-    spela_core::fake::cpu::write_sysfs(root)?;
-    Ok((
-        Box::new(SysfsCpu::new(root)),
-        Box::new(FakePrivilege::new(
-            FakeGpuControl::new(),
-            Some(root.to_owned()),
-        )),
-    ))
-}
-
 /// Runs one of the screen's commands. It has none of its own: hardware
 /// jobs come as the shell's `Cmd::Hardware`.
 pub fn run(_w: &mut Workers, cmd: Cmd) {
@@ -152,6 +135,7 @@ pub fn run(_w: &mut Workers, cmd: Cmd) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use spela_core::fake::{FakeGpuControl, FakePrivilege};
 
     #[test]
     fn each_command_sends_its_cli_request() {
@@ -188,22 +172,5 @@ mod tests {
         assert_eq!(fake.log().prompts, 1);
         // The job let the lock go.
         assert!(crate::locks::launch(&paths).is_ok());
-    }
-
-    #[test]
-    fn the_demo_hardware_changes_only_its_temp_tree() {
-        let dir = tempfile::tempdir().unwrap();
-        let (mut cpu, mut privilege) = demo_hardware(dir.path()).unwrap();
-        assert_eq!(cpu.governor().unwrap(), "powersave");
-        let report = privilege
-            .apply_once(&request(&HardwareOp::Governor("performance".into())))
-            .unwrap();
-        assert!(report.all_applied());
-        assert_eq!(cpu.governor().unwrap(), "performance");
-        let report = privilege
-            .apply_once(&request(&HardwareOp::Smt(false)))
-            .unwrap();
-        assert!(report.all_applied());
-        assert!(!cpu.smt_active().unwrap());
     }
 }

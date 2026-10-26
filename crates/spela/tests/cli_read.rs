@@ -525,6 +525,38 @@ fn demo_never_migrates_or_reads_the_user_s_steam() {
 }
 
 #[test]
+fn demo_cli_commands_run_on_the_built_in_games_and_hardware() {
+    let s = Sandbox::new();
+    let run = s.run(&["--demo", "list"]);
+    run.expect_code(0);
+    assert!(
+        run.stdout().contains("Ashfall Courier (9100110)"),
+        "{}",
+        run.stdout()
+    );
+    // `dll list` never scans, so the demo's own cache must hold its games.
+    let run = s.run(&["--demo", "dll", "list"]);
+    run.expect_code(0);
+    assert!(run.stdout().contains("nvngx_dlss.dll"), "{}", run.stdout());
+    let run = s.run(&["--demo", "launch", "--dry-run", "Ashfall Courier"]);
+    run.expect_code(0);
+    assert!(
+        run.stdout()
+            .contains("Game: Ashfall Courier (AppID 9100110)"),
+        "{}",
+        run.stdout()
+    );
+    // The live CPU commands change only the demo's fictional sysfs tree.
+    let run = s.run(&["--demo", "cpu", "governor", "performance"]);
+    run.expect_code(0);
+    assert!(
+        run.stdout().contains("Governor set to performance"),
+        "{}",
+        run.stdout()
+    );
+}
+
+#[test]
 fn config_show_prints_every_key_as_toml() {
     let s = Sandbox::new();
     write(

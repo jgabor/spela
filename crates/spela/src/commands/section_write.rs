@@ -81,6 +81,11 @@ const NO_CHANGES: &str = "No changes specified. Use --help to see available opti
 
 const DEFAULT_HELP: &str = "\
 Every flag also takes `default`, which makes the setting follow All games
+(with --all-games, the system default).";
+
+/// `dlss set`'s note: its two preset flags read `default` as a preset.
+const DLSS_HELP: &str = "\
+Every flag also takes `default`, which makes the setting follow All games
 (with --all-games, the system default). For --sr-preset and --rr-preset,
 `default` is a preset; use reset to follow All games.";
 
@@ -213,7 +218,11 @@ impl<const S: u8> Args for SetArgs<S> {
             .override_usage(usage)
             .arg(game_arg())
             .arg(all_games_arg("Change").conflicts_with("game"))
-            .after_help(DEFAULT_HELP);
+            .after_help(if matches!(section(S), Section::Dlss) {
+                DLSS_HELP
+            } else {
+                DEFAULT_HELP
+            });
         for field in section(S).fields() {
             let Some(flag) = field.flag else { continue };
             let key = field.id;

@@ -56,16 +56,21 @@ pub fn config(ctx: &Context) -> Result<Config, CliError> {
 }
 
 /// The Steam install the config and `HOME` point at. `--demo` never looks
-/// at the user's Steam, so it gets no install.
+/// at the user's Steam: it gets its own fictional library.
 pub fn steam(ctx: &Context, config: &Config) -> SteamInstall {
-    steam_install(&ctx.env, ctx.demo, config)
+    steam_install(&ctx.env, demo_library(ctx).as_deref(), config)
+}
+
+/// The demo's fictional library, under `--demo` only.
+pub fn demo_library(ctx: &Context) -> Option<std::path::PathBuf> {
+    ctx.demo.then(|| crate::demo::library_dir(&ctx.paths))
 }
 
 /// [`steam`] from its parts, for a caller that lends the rest of the
 /// context elsewhere.
-pub fn steam_install(env: &Env, demo: bool, config: &Config) -> SteamInstall {
-    if demo {
-        return SteamInstall::default();
+pub fn steam_install(env: &Env, demo_library: Option<&Path>, config: &Config) -> SteamInstall {
+    if let Some(library) = demo_library {
+        return spela_core::fake::library::install(library);
     }
     let home = env.non_empty(var::HOME).map(Path::new);
     let install =
@@ -121,16 +126,7 @@ pub fn games(ctx: &Context, rescan: Rescan) -> Result<GameCache, CliError> {
 }
 
 /// Go's error when there is no Steam library to scan, after `context`.
-/// `--demo` never reads the user's Steam and has no fictional library yet,
-/// so it says that instead.
-pub fn no_steam(ctx: &Context, context: &str) -> CliError {
-    if ctx.demo {
-        return CliError::new(
-            exit::FAILURE,
-            format!("{context}: the demo has no Steam library yet"),
-        )
-        .with_kind("no_steam");
-    }
+pub fn no_steam(_ctx: &Context, context: &str) -> CliError {
     CliError::new(exit::FAILURE, format!("{context}: {}", scan::NO_STEAM))
         .with_hint("set steam_path with 'spela config set steam_path <folder>'")
         .with_kind("no_steam")

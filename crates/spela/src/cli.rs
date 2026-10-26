@@ -90,18 +90,21 @@ pub struct Cli {
     #[arg(short = 'v', short_alias = 'V', long = "version", action = ArgAction::Version)]
     version: Option<bool>,
 
+    // The global flags sort after every command's own flags, so each help
+    // page lists them together at the end.
     /// Print results as JSON (schema version 1).
-    #[arg(long, global = true)]
+    #[arg(long, global = true, display_order = 900)]
     pub json: bool,
 
     /// Run on built-in fictional data. Your files are never written.
-    #[arg(long, global = true)]
+    #[arg(long, global = true, display_order = 901)]
     pub demo: bool,
 
     /// Log level. Overrides SPELA_LOG.
     #[arg(
         long,
         global = true,
+        display_order = 902,
         value_name = "LEVEL",
         value_parser = ["off", "error", "warn", "info", "debug", "trace"]
     )]
@@ -568,8 +571,15 @@ fn setup_and_run(
         err,
     );
     let mut backends = backends::select(&env, inv.cli.demo)?;
-    if inv.cli.demo {
-        backends.http = crate::demo::http(&paths);
+    if let Some(demo) = &demo {
+        crate::demo::use_demo_backends(&mut backends, &paths);
+        // The TUI scans at startup; every other command starts from the
+        // demo games already in its cache.
+        if !matches!(inv.cli.command, None | Some(Command::Tui)) {
+            demo.scan().map_err(|e| {
+                CliError::new(exit::FAILURE, format!("cannot set up the demo: {e}"))
+            })?;
+        }
     }
     tracing::info!(
         version = spela_core::VERSION,
