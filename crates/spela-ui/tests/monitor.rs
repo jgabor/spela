@@ -459,6 +459,17 @@ fn smt_rows_name_the_opposite_state_and_failures_use_the_spec_s_words() {
         ),
         "spela is already running (PID: 42)"
     );
+    // Any other helper failure keeps its text and points to the CLI.
+    assert_eq!(
+        words(
+            HardwareOp::Governor("performance".into()),
+            Err(PrivilegeError::Helper(
+                "Error executing command as another user: Not authorized.\n".into()
+            ))
+        ),
+        "Error executing command as another user: Not authorized. \
+         Run 'spela cpu governor performance' in a terminal"
+    );
     let skipped = ApplyReport {
         steps: vec![StepReport {
             step: Step::Smt,
