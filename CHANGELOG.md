@@ -22,6 +22,17 @@ spela is rewritten in Rust. One binary keeps the command line and the terminal U
 - `gpu.clock_offset` and `gpu.memory_offset` are now real NVML clock offsets. Go used them as a clock lock and a maximum memory clock, so their values are not carried over; the migration record keeps them.
 - DLL backups made by Go stay where they are and restore as before. The DLL cache folder is shared, and the cached manifest and the release check move to `manifest-v1.json` and `release-check.json`.
 
+### Added
+
+- KDE Wayland VRR per game: `spela gpu set <game> --vrr automatic|always|never` sets the primary display's VRR policy for the launch and puts the old one back when the game exits. It needs `kscreen-doctor` (the AUR package lists `libkscreen` as an optional dependency).
+- The TUI's Preview launch on a game's page shows what a launch would apply, the same text as `spela launch --dry-run`, without changing anything.
+- The TUI's Monitor has Reset GPU clocks, Set CPU governor and SMT actions, each behind a confirmation that opens on Cancel.
+- `spela dll cache [type]` lists the DLL versions in the DLL cache.
+- `spela dll check-updates --refresh` fetches the manifest even when the cached one is current.
+- `spela dll update --cached-only` updates from the DLL cache with no network, and `spela dll update --all --type <type>` limits an update of every game to one DLL family.
+- `spela cpu set <game> --smt unchanged` leaves SMT as it is for a game, even when All games sets it.
+- `spela --demo` runs the TUI and every CLI command on built-in fictional games and fake hardware.
+
 ### Changed
 
 - `--json` output has a new schema: one object per command, snake_case keys, and `schema_version: 1` first.
@@ -35,7 +46,7 @@ spela is rewritten in Rust. One binary keeps the command line and the terminal U
 - The command line and the TUI offer the same operations: DLL install, version pinning and update all in the CLI, `profile follow` and `denylist clear`, and denylist management, GPU reset, CPU governor and SMT in the TUI.
 - The TUI keeps its digit, arrow, Tab, Enter and Space keys, and adds `?` for help, `:` for a palette of actions, games and settings, `/` to find, and `q` to quit. Esc goes back one level and never quits. The mouse works, and `ui.mouse = false` turns it off. Themes are `terminal`, `neon` and `mono`, and `NO_COLOR` forces `mono`. ⚑ marks a setting a game sets itself.
 - Logs go to a daily file in `~/.local/state/spela/log/` for TUI and wrapper runs, with seven kept. CLI warnings stay on stderr. `SPELA_LOG` and `--log-level` set the level.
-- `spela --demo` runs on built-in fictional games and never touches your GPU, Steam library or files.
+- `spela --demo` never touches your GPU, Steam library or files.
 - Building from source needs Rust 1.89 or newer: `just build-release`, then `sudo just install`.
 
 ### Removed

@@ -139,14 +139,16 @@ of its page, or its Actions), on the Library's batch actions for selected games,
 and on the DLL Catalog's Deployment group as `Update all stale deployments`.
 Each one asks first, with Cancel focused. With `auto_update_dlls` on, the TUI
 updates stale DLLs at start, skipping running and deny-listed games, and with
-`check_updates` on it says when a newer spela is released.
+`check_updates` on it says when a newer spela is released. Only release
+binaries check: the `spela-linux-amd64` download from GitHub Releases does,
+while AUR `spela-git` and source builds never do.
 
 Use `spela --help` or `spela <command> --help` for the full command reference.
 
 ## Profiles and inheritance
 
-Game profiles live in `~/.config/spela/profiles/<app-id>.yaml`. The file
-`profiles/default.yaml` holds the All games profile. A game follows All games
+Game profiles live in `~/.config/spela/profiles/<app-id>.toml`. The file
+`profiles/all-games.toml` holds the All games profile. A game follows All games
 for every setting it does not set itself. CLI setters give a game its own
 value; reset commands make it follow All games again. The `show` commands print
 each setting with its value and its source: `from All games`, `system default`,
@@ -154,45 +156,64 @@ each setting with its value and its source: `from All games`, `system default`,
 `this game · same as All games` for one that will not follow later changes to
 All games. `--json` prints the stored values only.
 
-For example, `~/.config/spela/profiles/1091500.yaml` can request DLSS Quality
-with the default preset and enable shader caching, without choosing hardware
-clocks or enabling frame generation:
+A profile file stores only the values its scope sets itself: a key that is
+present is the game's own value, and a key that is absent follows All games.
+For example, after `spela dlss set 1091500 --sr-mode quality` and
+`spela gpu set 1091500 --shader-cache true`,
+`~/.config/spela/profiles/1091500.toml` reads:
 
-```yaml
-name: Cyberpunk 2077 — Quality
-dlss:
-  sr_mode: quality
-  sr_preset: default
-  sr_override: true
-gpu:
-  shader_cache: true
-overrides:
-  dlss.sr_mode: true
-  dlss.sr_preset: true
-  dlss.sr_override: true
-  gpu.shader_cache: true
+```toml
+version = 1
+name = "Cyberpunk 2077"
+
+[dlss]
+sr_mode = "quality"
+sr_override = true
+
+[gpu]
+shader_cache = true
 ```
 
-`dlss.sr_override` activates the DLSS override. The top-level `overrides` map
-has a different purpose: it pins each chosen field against changes to defaults.
-Unlisted fields still inherit, and a profile with nothing pinned is saved as
-`overrides: {}`. Review the effective settings and dry-run output before
-launching, especially if you have customized defaults. See the
-[profile field reference](docs/profile-fields.md) for settings and their effects.
+`dlss.sr_override` activates the DLSS override. An explicit Off or 0 is written
+as it is, such as `threaded_optimization = false`, and still counts as the
+game's own value. spela edits these files in place, keeping comments and key
+order, so they can also be edited by hand. Review the effective settings and
+dry-run output before launching, especially if you have customized All games.
+The profile fields and their effects are described in the
+[architecture's profile section](docs/architecture.md#profiles-and-inheritance);
+[docs/profile-fields.md](docs/profile-fields.md) still describes Go spela 0.6.
+
+### Coming from Go spela 0.6
+
+The first time it runs, spela migrates Go's YAML files to TOML once:
+`config.yaml`, `profiles/*.yaml` (with `default.yaml` becoming
+`all-games.toml`), `lists/*.yaml` and the game database. The originals stay in
+place as backups and are never read again. A value that has no place in the new
+files, such as the removed overlay settings, is recorded in
+`~/.local/share/spela/migration.toml` and in the header of the migrated file.
+DLL backups written by Go are used where they are.
 
 ## Launch and cleanup limits
 
-Environment settings apply to the child process. Restorable hardware settings
-are restored after the tracked process exits or on handled termination, where
-the prior state could be captured and the change applied. Unsupported settings
-may be skipped with warnings, and restoration can fail. SIGKILL, a crash, or
-power loss cannot run cleanup.
+Environment settings apply to the child process. Hardware settings (GPU clocks,
+power limit and fan, CPU governor and SMT) are applied by a root helper that
+reads each prior value first and stays running while the game runs. It restores
+them when the game exits, on a handled stop signal, and also when the wrapper
+itself is killed, because the helper sees its input close. This last case is
+tested on fakes but not yet confirmed on real hardware. A setting whose prior
+value cannot be read is skipped, unsupported settings are skipped with
+warnings, and a restore can fail; each case is logged. KDE VRR and the
+environment settings need the wrapper itself, so a killed wrapper leaves VRR as
+the game had it. Power loss, or killing the root helper with SIGKILL, skips
+every restore; a reboot clears the hardware settings, and `spela gpu reset`
+resets the GPU clocks.
 
 A direct Steam URI launch cannot track the real game lifetime or provide the
-same cleanup coverage. A normal direct `spela launch 1091500` is rejected when
-cleanup cannot be tracked; use Steam with `spela %command%` for play and
-`spela launch --dry-run 1091500` for inspection. Launch preparation reports DLL
-denylist, backup, and path write-state information without planning a DLL swap.
+same cleanup coverage. `spela launch <game>` without `--dry-run` always exits
+with code 2 and points to `spela %command%`: use Steam with `spela %command%`
+for play and `spela launch --dry-run 1091500` for inspection. Launch
+preparation reports DLL denylist, backup, and path write-state information
+without planning a DLL swap.
 
 ## Configuration locations
 
@@ -201,13 +222,21 @@ locations; XDG environment variables can move them.
 
 | Default path | Contents |
 |---|---|
-| `~/.config/spela/config.yaml` | Global configuration |
-| `~/.config/spela/profiles/` | Default and per-game profiles |
-| `~/.local/share/spela/games.yaml` | Scanned game database |
+| `~/.config/spela/config.toml` | Global configuration |
+| `~/.config/spela/profiles/all-games.toml` | The All games profile |
+| `~/.config/spela/profiles/<app-id>.toml` | Per-game profiles |
+| `~/.config/spela/lists/` | Deny list overrides and your own deny list |
 | `~/.local/share/spela/backups/` | DLL backups per game |
-| `~/.cache/spela/` | Downloaded DLLs and version manifest |
+| `~/.local/share/spela/migration.toml` | What the one-time migration from Go spela did |
+| `~/.cache/spela/games.json` | Scanned game database |
+| `~/.cache/spela/` | Downloaded DLLs, the version manifest and the release check |
+| `~/.local/state/spela/log/` | Log files |
+| `~/.local/state/spela/locks/` | The TUI, launch and store locks |
 
-See the [global configuration reference](docs/configuration.md) for keys and defaults.
+`spela config show` prints every key with its value, and
+`spela config set <key> <value>` changes one. The keys and their defaults are
+listed in the [architecture's config.toml section](docs/architecture.md#configtoml);
+[docs/configuration.md](docs/configuration.md) still describes Go spela 0.6.
 
 ## License
 

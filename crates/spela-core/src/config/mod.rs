@@ -509,7 +509,7 @@ pub static OPTIONS: [ConfigOption; 16] = [
         key: "check_updates",
         section: SettingsSection::Startup,
         label: "Check for updates",
-        description: "At startup, ask GitHub once a day whether a newer spela release exists and show a notice. Development builds never ask.",
+        description: "At startup, ask GitHub once a day whether a newer spela release exists and show a notice. Only release binaries ask: AUR -git and source builds never do.",
         kind: OptionKind::Bool,
     },
     ConfigOption {

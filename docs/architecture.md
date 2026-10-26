@@ -1,8 +1,8 @@
 # spela architecture and product direction
 
-Date: 2026-10-26. This doc synthesizes the research docs in this folder, the 29 decisions the user answered on 2026-10-25, and decisions 30 to 65, which Claude made on the user's delegation on 2026-10-26. It adds no new research. Claims carried over from a research doc keep the label they had there, (verified: <doc or path:line>), (inferred) or (unverified), and link the doc they came from. Design choices made here are (inferred) unless a decision in [README.md](README.md) makes them. A decision is cited as "decision N". The sources are:
+Date: 2026-10-26. This doc synthesizes the research docs in this folder, the 29 decisions the user answered on 2026-10-25, and decisions 30 to 66, which Claude made on the user's delegation on 2026-10-26. It adds no new research. Claims carried over from a research doc keep the label they had there, (verified: <doc or path:line>), (inferred) or (unverified), and link the doc they came from. Design choices made here are (inferred) unless a decision in [README.md](README.md) makes them. A decision is cited as "decision N". The sources are:
 
-- [README.md](README.md): the summary, the top findings and decisions 1 to 66. The decisions are binding. Decisions 30 to 65 override any proposal or open question in this doc that they contradict.
+- [README.md](README.md): the summary, the top findings and decisions 1 to 66. The decisions are binding. Decisions 30 to 66 override any proposal or open question in this doc that they contradict.
 - [terminal-ux.md](terminal-ux.md): the decided TUI spec, with [mockups.html](mockups.html) for the screens.
 - [mejl-study.md](mejl-study.md): mejl's method, mejl-ui and the mejl binary as built, and where mejl's docs and code disagree. mejl's code facts are the reference, not its docs.
 - [parity-inventory.md](parity-inventory.md): the Go behaviour contract. The corrections block at the top overrides its body, and this doc follows the corrections.
@@ -1371,6 +1371,12 @@ Restore keeps today's preflight, atomic replace, no denylist guard and `PartialF
 
 One proposed change: `is_new` means newer by the shared version compare, not "the strings differ" (inferred fix, DLL 7 and DLL conflicts, "Meaning of 'latest'"). Its tests use saved HTML pages served on loopback, never the network ([../AGENTS.md](../AGENTS.md) hard rule).
 
+As built in Phase 7, three smaller differences from Go's tool, compared against Go's `run()` on the same loopback fake and manifests:
+
+- The manifest's current version is the highest valid one, with one leading `v` dropped first as Go did, so `v310.5.3` equal to the listed version is up to date, not new.
+- Words after the flags, or after `--`, are a usage error with exit 2. Go ignored them, so `-type nope extra` exited 1 in Go and exits 2 here: a mistyped command should not run a check.
+- When the manifest already has a version newer than the one TechPowerUp lists, the text says so: `X is up to date: the manifest has A, newer than the listed B`. The JSON line is the same, apart from Go's escaping of `&`, which parses to the same value.
+
 `dll-manifest.yml` builds the Rust tool, which removes the Go 1.22 against go.mod 1.25.5 mismatch (verified: DLL conflicts, "CI Go version vs go.mod"). `dll-release.yml` writes the real in-game filename (verified bug: DLL conflicts). The manifest's last bot commit was 2026-02-03, so the scraper may be failing (unverified: DLL 7). The user checks the workflow runs in Phase 0.
 
 ## Terminal UI
@@ -1457,7 +1463,7 @@ How the gate stays honest on shared CI runners (decision 55):
 
 ## CI
 
-Phase 1 added the Rust gate as its own workflow, `.github/workflows/rust.yml`, and cut `.github/workflows/ci.yml` down to the Go reference build and tests (step 8). The Go lint, coverage and e2e jobs, and the Wails, bun and Playwright steps, are gone. `release.yml` still builds the Go binary on `v*` tags and becomes the Rust release in Phase 7, and `ci.yml` goes in the final step (decision 62) (verified: `.github/workflows/rust.yml`, `ci.yml`, `release.yml`). Every push and pull request is gated (decision 17), unlike mejl, which runs tests only on release tags (verified: [mejl-study.md](mejl-study.md), binary 13.4).
+Phase 1 added the Rust gate as its own workflow, `.github/workflows/rust.yml`, and cut `.github/workflows/ci.yml` down to the Go reference build and tests (step 8). The Go lint, coverage and e2e jobs, and the Wails, bun and Playwright steps, are gone. Phase 7 made `release.yml` the Rust release: on a `v*` tag it validates the tag, calls `rust.yml` for the full gate, builds with `SPELA_VERSION` set, and publishes `spela-linux-amd64` and `checksums.txt` with the changelog section as the notes. Only its build job has `contents: write`. `ci.yml` goes in the final step (decision 62) (verified: `.github/workflows/rust.yml`, `ci.yml`, `release.yml`). Every push and pull request is gated (decision 17), unlike mejl, which runs tests only on release tags (verified: [mejl-study.md](mejl-study.md), binary 13.4).
 
 On every push and pull request:
 
@@ -1467,7 +1473,7 @@ On every push and pull request:
 4. The perf tests in a release build: `cargo test --release --locked -p spela --test perf -- --ignored`, and the pty first-frame scenario. The counters gate, and the wall-clock tests report (decision 55; see [Performance budgets](#performance-budgets)).
 5. The MSRV check: `cargo +1.89 check --workspace --all-targets --locked`. The MSRV is 1.89 (decision 16). No 1.89 toolchain was installed during research (verified: [rust-crates.md](rust-crates.md), open questions). It is installed with rustup for this check, locally and in CI (decision 64). mejl's justfile passes `--all-targets` and its AGENTS.md does not (verified: [mejl-study.md](mejl-study.md), binary 13.3). spela uses `--all-targets`, so test code also builds on 1.89 (inferred).
 6. The safety grep gates from [Hard safety rules as tests](#hard-safety-rules-as-tests), and the `spela-ui` no-I/O grep from [Cargo workspace](#cargo-workspace).
-7. `cargo deny check licenses advisories`, which enforces decision 15 (MIT, unmodified MPL-2.0 allowed, no GPL or LGPL) and the RustSec traps in [rust-crates.md](rust-crates.md) (decision 56). Its `deny.toml` lists the allowed licences.
+7. `cargo deny check`, all four checks (licenses, bans, sources and advisories), which enforces decision 15 (MIT, unmodified MPL-2.0 allowed, no GPL or LGPL) and the RustSec traps in [rust-crates.md](rust-crates.md) (decision 56). Its `deny.toml` lists the allowed licences.
 8. While Go code remains: `go build ./...` and `go test ./...` in `ci.yml`, so the parity reference stays green. Nothing else runs on the Go code: its lint, its 90% coverage gate and its e2e job left CI in Phase 1, because the Go code is frozen and decision 54 drops the e2e oracle. The Go job goes in the final step with the Go tree (decision 62).
 
 There is no CodeQL job in v1 (decision 56). The Go e2e oracle is not kept (decision 54), so no CI job runs Go's termctrl 0.3.1 any more: Phase 1 removed the e2e job that installed it from `ci.yml`. Any CI job that runs termctrl uses 1.2.1 or newer.
@@ -1482,7 +1488,7 @@ On tags matching `vX.Y.Z`:
 4. `cargo build --release --locked` for x86_64-unknown-linux-gnu only, with the tag's version embedded (see [Release check](#release-check)). spela is Linux and NVIDIA only, so mejl's aarch64 and macOS targets are not needed (inferred).
 5. Publish `spela-linux-amd64` and `checksums.txt`, with notes from the CHANGELOG section (verified intent: [parity-inventory.md](parity-inventory.md), CLI 13.4).
 
-Not on every push: the daily `dll-manifest.yml`, which keeps feeding the manifest URL. Phase 7 switches it to the Rust updater. The inline-tests-last rule stays, even without CodeQL, because it keeps the door open for mejl's filter later (inferred; the filter's reliance on it is verified: [mejl-study.md](mejl-study.md), method 5.3 and binary 13.4).
+Not on every push: the daily `dll-manifest.yml`, which keeps feeding the manifest URL. Since Phase 7 it builds and runs the Rust `dlss-updater` (`cargo build --locked -p dlss-updater`). The inline-tests-last rule stays, even without CodeQL, because it keeps the door open for mejl's filter later (inferred; the filter's reliance on it is verified: [mejl-study.md](mejl-study.md), method 5.3 and binary 13.4).
 
 ## Phased roadmap
 
@@ -1653,6 +1659,7 @@ Go code is deleted by decision 62, which replaces the per-phase deletions this r
 - Closes: CLI 13.2 to 13.4, DLL 7 and DLL 8 (coverage-inventory is replaced or dropped).
 - Go deleted: nothing (decision 62).
 - Proves: a tag builds the release artifact, and the updater passes its fixture tests. The manifest workflow also runs on GitHub with the Rust tool, which only the user can watch, because no test reaches the network.
+- As built: `crates/dlss-updater` is the updater (`scrape.rs`, `fetch.rs`, `flags.rs`, `add.rs`), tested in `crates/dlss-updater/tests/fetch.rs` against saved pages on loopback, `tests/release.rs` (the release, manifest and DLL release workflows, tag validation, the notes script and the PKGBUILD and `just install` layout) and `tests/aur_submit.rs` (the dry-run-first AUR submit). `release.yml` and `dll-manifest.yml` run the Rust builds. `scripts/release-notes.sh` refuses a section whose heading is not dated, so a tag cannot publish an `Unreleased` section. The PKGBUILD and `just install` put `/usr/bin/spela` and the polkit policy in place.
 
 ### Final step: remove the Go tree
 

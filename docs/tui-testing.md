@@ -19,12 +19,25 @@ the game changes.
 
 The game's DLLs section lists the DLL versions with the Catalog's stale marks,
 the deny list line when a list names the game, and in Actions the Allow, Deny
-and Clear deny list rows. From Phase 5 it also has the Install DLL, Update DLLs
-and Restore originals rows: use them directly with Up/Down and Enter, verify
+and Clear deny list rows. It also has the Install DLL, Update DLLs and Restore
+originals rows: use them directly with Up/Down and Enter, verify
 disabled reasons and that Enter is absent for an unavailable selection, review
 both pane focus states and both sizes, and confirm fixture file contents after
 Update and Restore originals. Merely opening a dialog does not verify the
 mutation.
+
+Monitor has the Reset GPU clocks, Set CPU governor and SMT rows. Review them
+only under `spela --demo tui` or with `SPELA_BACKEND=fake` and isolated XDG
+dirs, never on the real backend. Each opens a confirmation focused on Cancel:
+check that focus, then press Enter on Cancel and check the status line says
+nothing changed. Confirm only under the fake, then check that the next metrics
+sample shows the fake governor or SMT state.
+
+Preview launch on a game's page shows the dry-run summary in a large popup. Use
+Up/Down to scroll to the end, check that the last line starts with
+`Read only. To launch with these settings`, use Tab to reach Close and Enter to
+close it, and check Esc closes it too. At 80x24 the body wraps and nothing is
+cut.
 
 ## Terminal Control version
 
@@ -140,7 +153,9 @@ The keys are option B (decision 1): digits 0 to 4, arrows, Tab and Shift-Tab,
 Enter and Space, plus `?` Help, `:` or Ctrl-K the palette, `/` Find, `q` back
 then quit, and `Q` quit now. Esc backs out one level: it closes a popup, an
 editor or a search, then moves Detail to List, and it never quits (decision 2).
-Ctrl-C quits at once and Ctrl-Z suspends, anywhere. Send a command only when
+Ctrl-C quits at once and Ctrl-Z suspends, anywhere; during a DLL job Ctrl-C
+first finishes the current step and says `Quitting after this DLL step...`, and
+a second Ctrl-C quits at once. Send a command only when
 its key is visible in the current frame or listed in Help.
 Text entry is distinct: a focused input accepts ordinary text, including digits,
 letters such as `q`, spaces, non-ASCII characters, and punctuation.
@@ -192,8 +207,9 @@ reachable at both sizes.
 
 Confirmations start on Cancel. Inspect target paths and backup policy, use Tab
 to reach scrollable details when needed, then return to the buttons. Confirm
-requires an explicit selection. Results have a selectable Close control. With
-Confirm destructive actions off, DLL updates start without a confirmation;
+requires an explicit selection. A DLL job's result shows as a line under the
+game's DLL versions, or under the Catalog's update-all row, and on the status
+line; there is no result dialog to close. With Confirm destructive actions off, DLL updates start without a confirmation;
 restore and install still ask.
 
 ## Resize and inspect

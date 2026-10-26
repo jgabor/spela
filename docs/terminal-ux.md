@@ -80,7 +80,7 @@ Every empty, loading, error and unavailable state keeps its current wording (ver
 | `Space` | List | Select or clear a game |
 | `Space` | Detail | Switch the field between its own value and following All games. In Settings, the next value |
 | `Esc` | Anywhere | Back one level: close the popup, editor or search, then Detail to List. In Browse on List it does nothing. It never quits and never confirms |
-| `Ctrl-C` | Anywhere | Quit at once, even below the minimum size |
+| `Ctrl-C` | Anywhere | Quit at once, even below the minimum size. During a DLL job it first finishes the job's current step, with `Quitting after this DLL step...` on the status line; a second Ctrl-C quits at once |
 | `Ctrl-Z` | Anywhere | Suspend to the shell, redraw on resume (from mejl) |
 
 Inside a text input every printable key, Space and the digits type, as today. Search and the editors keep their Input, Apply, Cancel controls with Tab between them. Every editor box (the profile page's numbers and path, Settings, the deny reason) is one shared editor and draws its buttons as the mockups do, `[ Apply ]  [ Cancel ]`, with the hint `Type to edit  Tab control  Enter apply  Backspace delete  Esc cancel`. Ctrl-U clears the input and Ctrl-W deletes a word there and in Find. Find keeps its compact `Apply  Clear search  Cancel` row, because the bracketed buttons do not fit the 30-cell List.
