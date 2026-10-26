@@ -25,14 +25,24 @@
 //! `dlss.rr_override` on, and `--fg` and `--multi-frame` turn
 //! `dlss.fg_override` on, unless the same run sets that override itself.
 //!
+//! An empty value, as in `--governor ""`, counts as a flag that was not
+//! given, as Go's string flags did, so a script that passes an unset
+//! variable changes nothing. The number flags and `--indicator` and
+//! `--fg-indicator` were typed flags in Go, so an empty value is an error
+//! there, as it was.
+//!
+//! `cpu set --governor <g>` checks `<g>` against the governors sysfs lists,
+//! through the CPU backend, after the game is found and before anything is
+//! written, with Go's texts: an unlisted one is a usage error, and a list
+//! that cannot be read fails.
+//!
 //! `reset <game> [field]...` makes the named fields follow, or every field
-//! of the section when none is named. `cpu set --governor` is not checked
-//! against the system's governors yet: there is no sysfs seam for the CLI,
-//! and the field accepts any governor (`Rule::SystemList`).
+//! of the section when none is named.
 
 use std::io::Write;
 
 use clap::{Arg, ArgAction, ArgMatches, Args, Command, FromArgMatches};
+use spela_core::backend::Cpu;
 use spela_core::profile::field::Rule;
 use spela_core::profile::store;
 use spela_core::profile::{Field, FieldKey, Kind, Section, Value, parse_bool};
@@ -85,12 +95,26 @@ pub enum Setting {
     Follow,
     /// An own value.
     Store(Value),
+    /// An empty value: the flag counts as not given, as in Go.
+    Absent,
 }
 
-/// Reads one flag's text for a field: `default` follows, except for the two
-/// presets, where it is a stored value; anything else is the field's value,
-/// checked. The texts are Go's, such as `invalid bool "x" (use true/false)`.
+/// Whether an empty value means "not given" for a field's flag: Go's string
+/// flags. Go's number flags and its two plain bool flags refused an empty
+/// value.
+fn empty_is_absent(key: FieldKey) -> bool {
+    key.field().kind != Kind::Int
+        && !matches!(key, FieldKey::DlssIndicator | FieldKey::DlssFgIndicator)
+}
+
+/// Reads one flag's text for a field: empty is no flag at all, `default`
+/// follows, except for the two presets, where it is a stored value; anything
+/// else is the field's value, checked. The texts are Go's, such as
+/// `invalid bool "x" (use true/false)`.
 pub fn parse_setting(key: FieldKey, raw: &str) -> Result<Setting, String> {
+    if raw.is_empty() && empty_is_absent(key) {
+        return Ok(Setting::Absent);
+    }
     let preset = matches!(key, FieldKey::DlssSrPreset | FieldKey::DlssRrPreset);
     if !preset && raw.trim().eq_ignore_ascii_case("default") {
         return Ok(Setting::Follow);
@@ -213,6 +237,7 @@ impl<const S: u8> FromArgMatches for SetArgs<S> {
             .fields()
             .filter(|f| f.flag.is_some())
             .filter_map(|f| matches.get_one::<Setting>(f.key).map(|s| (f.id, s.clone())))
+            .filter(|(_, s)| *s != Setting::Absent)
             .collect();
         Ok(SetArgs {
             game: matches.get_one::<String>("game").cloned(),
@@ -246,6 +271,7 @@ pub fn changes(settings: &[(FieldKey, Setting)]) -> (Vec<(FieldKey, Value)>, Vec
         match setting {
             Setting::Follow => follow.push(*key),
             Setting::Store(value) => values.push((*key, value.clone())),
+            Setting::Absent => {}
         }
     }
     for (key, setting) in settings {
@@ -279,9 +305,41 @@ pub fn set<const S: u8>(
     if args.settings.is_empty() {
         return line(out, NO_CHANGES);
     }
+    for (key, setting) in &args.settings {
+        if let (FieldKey::CpuGovernor, Setting::Store(Value::Text(governor))) = (key, setting) {
+            check_governor(ctx.backends.cpu.as_mut(), governor)?;
+        }
+    }
     let (values, follow) = changes(&args.settings);
     store::edit(&ctx.paths, target.scope, &target.name, &values, &follow).map_err(profile_error)?;
     line(out, &updated_message(section(S), target.label()))
+}
+
+/// Go's `validateCPUGovernorFlag`: a governor is valid when sysfs lists it
+/// (architecture, CPU). An empty one leaves the governor unchanged and is
+/// not checked.
+fn check_governor(cpu: &mut dyn Cpu, governor: &str) -> Result<(), CliError> {
+    if governor.is_empty() {
+        return Ok(());
+    }
+    let available = cpu.available_governors().map_err(|e| {
+        CliError::new(
+            exit::FAILURE,
+            format!("--governor: read available CPU governors: {e}"),
+        )
+    })?;
+    if available.iter().any(|g| g == governor) {
+        return Ok(());
+    }
+    let listed = if available.is_empty() {
+        "none".to_owned()
+    } else {
+        available.join(", ")
+    };
+    Err(CliError::new(
+        exit::USAGE,
+        format!("--governor: CPU governor {governor:?} is not available (available: {listed})"),
+    ))
 }
 
 /// `<section> reset <game> [field]...` or `--all-games [field]...`.
@@ -533,6 +591,14 @@ mod tests {
         );
         let a: CpuSetArgs = parse(&["x"]).unwrap();
         assert!(a.settings.is_empty());
+        // Go's string flags took an empty value as not given; its typed
+        // flags refused it.
+        let a: CpuSetArgs = parse(&["x", "--governor", "", "--smt", ""]).unwrap();
+        assert!(a.settings.is_empty());
+        let a: GpuSetArgs = parse(&["x", "--shader-cache-path", "", "--vrr", ""]).unwrap();
+        assert!(a.settings.is_empty());
+        assert!(parse::<GpuSetArgs>(&["x", "--fan-speed", ""]).is_err());
+        assert!(parse::<DlssSetArgs>(&["x", "--indicator="]).is_err());
     }
 
     #[test]

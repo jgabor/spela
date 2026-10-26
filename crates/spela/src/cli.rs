@@ -283,17 +283,22 @@ pub fn parse(args: &[OsString], env: &Env, colors: Colors) -> Parsed {
     if let Some(inv) = raw_command(args) {
         return Parsed::Run(Box::new(inv));
     }
-    let argv = std::iter::once(OsString::from("spela")).chain(hoist_globals(args));
+    let hoisted = hoist_globals(args);
+    let json = hoisted
+        .iter()
+        .take_while(|a| *a != "--")
+        .any(|a| a == "--json");
+    let argv = std::iter::once(OsString::from("spela")).chain(hoisted);
     let matches = match Cli::command().try_get_matches_from(argv) {
         Ok(m) => m,
-        Err(e) => return clap_exit(&e, colors),
+        Err(e) => return clap_exit(&e, colors, json),
     };
     match Cli::from_arg_matches(&matches) {
         Ok(cli) => Parsed::Run(Box::new(Invocation {
             cli,
             path: command_path(&matches),
         })),
-        Err(e) => clap_exit(&e, colors),
+        Err(e) => clap_exit(&e, colors, json),
     }
 }
 
@@ -366,7 +371,23 @@ pub fn hoist_globals(args: &[OsString]) -> Vec<OsString> {
     globals
 }
 
-fn clap_exit(e: &clap::Error, colors: Colors) -> Parsed {
+/// What a clap error prints. A value that one of spela's own value parsers
+/// refuses, such as `--sr-mode bogus`, is spela's check, so under `--json`
+/// it is the JSON error object on stdout, exit 2. clap's own usage errors,
+/// help and version keep clap's format.
+fn clap_exit(e: &clap::Error, colors: Colors, json: bool) -> Parsed {
+    if json && e.kind() == clap::error::ErrorKind::ValueValidation {
+        let rendered = e.render().to_string();
+        let first = rendered.lines().next().unwrap_or_default();
+        let message = first.strip_prefix("error: ").unwrap_or(first);
+        let mut text = Vec::new();
+        let _ = output::write_json_error(&mut text, &CliError::new(exit::USAGE, message));
+        return Parsed::Exit {
+            code: exit::USAGE,
+            text: String::from_utf8_lossy(&text).into_owned(),
+            to_stdout: true,
+        };
+    }
     let to_stdout = !e.use_stderr();
     let color = if to_stdout { colors.out } else { colors.err };
     let rendered = e.render();

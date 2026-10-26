@@ -214,6 +214,72 @@ fn a_tui_first_run_does_not_swallow_the_notice() {
 }
 
 #[test]
+fn empty_flag_values_count_as_not_given_as_in_go() {
+    let case = Case::new("sandbox/main");
+    case.ok(&["gpu", "set", "9100010"]);
+    let before = case.files();
+    for args in [
+        &["cpu", "set", "9100010", "--governor", ""][..],
+        &["dlss", "set", "9100010", "--sr-mode", "", "--rr-preset", ""][..],
+        &[
+            "gpu",
+            "set",
+            "9100010",
+            "--shader-cache-path",
+            "",
+            "--vrr",
+            "",
+        ][..],
+        &["proton", "set", "9100010", "--hdr", ""][..],
+        &["cpu", "set", "--all-games", "--smt", ""][..],
+    ] {
+        assert_eq!(
+            case.ok(args),
+            "No changes specified. Use --help to see available options.\n",
+            "{args:?}"
+        );
+    }
+    assert_eq!(case.files(), before, "nothing written");
+    let out = case.ok(&["cpu", "set", "9100010", "--governor", "", "--smt", "on"]);
+    assert_eq!(out, "Updated CPU profile for Glimmer Run\n");
+    let text = case.read(&case.profile(9100010));
+    assert!(!text.contains("governor"), "{text}");
+    case.ok(&["cpu", "set", "9100010", "--governor", "performance"]);
+    assert!(
+        case.read(&case.profile(9100010))
+            .contains("governor = \"performance\""),
+        "a listed governor is stored"
+    );
+}
+
+#[test]
+fn a_bad_setter_value_under_json_prints_the_error_object() {
+    let case = Case::new("sandbox/main");
+    let run = case.run(&["--json", "dlss", "set", "9100010", "--sr-mode", "bogus"]);
+    run.expect_code(2);
+    assert_eq!(run.stderr(), "");
+    let json: serde_json::Value = serde_json::from_str(&run.stdout()).unwrap();
+    assert_eq!(json["schema_version"], 1);
+    assert_eq!(json["error"]["code"], "usage");
+    let message = json["error"]["message"].as_str().unwrap();
+    assert!(
+        message.starts_with(
+            "invalid value 'bogus' for '--sr-mode <VALUE>': dlss.sr_mode: unsupported value"
+        ),
+        "{message}"
+    );
+    // clap's own usage errors keep clap's format.
+    let run = case.run(&["--json", "dlss", "set", "9100010", "--nope"]);
+    run.expect_code(2);
+    assert!(
+        run.stderr().starts_with("error: unexpected argument"),
+        "{}",
+        run.stderr()
+    );
+    assert_eq!(run.stdout(), "");
+}
+
+#[test]
 fn set_flags_store_values_follow_on_default_and_imply_overrides() {
     let case = Case::new("sandbox/main");
     // Quiet Orchard has no profile: setting creates one with its name.
@@ -283,7 +349,7 @@ fn set_flags_store_values_follow_on_default_and_imply_overrides() {
         "--smt",
         "off",
         "--governor",
-        "schedutil",
+        "powersave",
     ]);
     case.ok(&[
         "proton",
@@ -300,7 +366,7 @@ fn set_flags_store_values_follow_on_default_and_imply_overrides() {
         "vrr = \"always\"",
         "shader_cache_path = \"/games/cache\"",
         "threaded_optimization = false",
-        "governor = \"schedutil\"",
+        "governor = \"powersave\"",
         "smt = false",
         "enable_hdr = true",
         "vkd3d_heap = true",
@@ -557,6 +623,18 @@ fn bad_values_are_usage_errors_that_write_nothing() {
         (
             &["dlss", "set", "9100010", "--multi-frame", "5"][..],
             "dlss.multi_frame: unsupported value \"5\"",
+        ),
+        (
+            &["cpu", "set", "9100010", "--governor", "turbo"][..],
+            "error: --governor: CPU governor \"turbo\" is not available (available: performance, powersave)\n",
+        ),
+        (
+            &["cpu", "set", "--all-games", "--governor", "conservative"][..],
+            "error: --governor: CPU governor \"conservative\" is not available (available: performance, powersave)\n",
+        ),
+        (
+            &["gpu", "set", "9100010", "--power-limit", ""][..],
+            "gpu.power_limit: invalid integer \"\"",
         ),
         (
             &["config", "set", "check_updates", "perhaps"][..],
