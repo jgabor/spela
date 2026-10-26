@@ -17,6 +17,7 @@
 //! | [`backends`] | The `SPELA_BACKEND` selector and the real backends |
 //! | [`privilege`] | The real privilege backend, the only code that names its program |
 //! | [`helper`] | The hidden `apply-profile` root helper |
+//! | [`plan`] | What the dry run, the wrapper and Preview launch share to build a launch plan |
 //! | [`migration`] | The migration from Go spela, run before a command reads the store |
 //! | [`demo`] | `--demo`: a private temp dir and the fake backends |
 //! | [`text`] | Colour roles for command output |
@@ -35,6 +36,7 @@ pub mod locks;
 pub mod logging;
 pub mod migration;
 pub mod output;
+pub mod plan;
 pub mod privilege;
 pub mod router;
 pub mod text;

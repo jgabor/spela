@@ -28,6 +28,8 @@
 //! | [`migrate`] | Reading Go spela's YAML and migrating it |
 //! | [`metrics`] | CPU and memory metrics from procfs text |
 //! | [`alerts`] | The GPU alert evaluator |
+//! | [`launch`] | Launch planning: the environment, the hardware request, the dry-run summary, game detection and KDE VRR |
+//! | [`kscreen`] | Reading `kscreen-doctor -o` |
 
 #![warn(missing_docs)]
 
@@ -42,6 +44,8 @@ pub mod fake;
 pub mod fs;
 pub mod games;
 pub mod hex;
+pub mod kscreen;
+pub mod launch;
 pub mod lock;
 pub mod metrics;
 pub mod migrate;

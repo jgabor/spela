@@ -17,7 +17,6 @@ use std::fmt::Write as _;
 use std::io::Write;
 
 use clap::{ArgGroup, Args};
-use spela_core::backend::GpuError;
 use spela_core::profile::store;
 use spela_core::profile::words::{self, ALL_GAMES};
 use spela_core::profile::{FieldKey, Origin, Scope, Section, Value};
@@ -235,18 +234,6 @@ fn heap_notice(ctx: &mut Context, view: &ProfileView) -> Result<Option<String>, 
     let config = read::config(ctx)?;
     let install = read::steam(ctx, &config);
     let build = proton::resolve(&install, app_id);
-    // NVML missing takes Go's no-driver path; any other failure means the
-    // driver could not be asked.
-    let driver = match ctx.backends.gpu.info() {
-        Ok(info) => Some(info.driver_version),
-        Err(GpuError::Unavailable(why)) => {
-            tracing::info!("no NVIDIA driver for the descriptor heap check: {why}");
-            Some(String::new())
-        }
-        Err(e) => {
-            tracing::info!("the NVIDIA driver could not be asked: {e}");
-            None
-        }
-    };
+    let driver = crate::plan::driver_version(ctx.backends.gpu.as_mut());
     Ok(proton::check(&build, driver.as_deref()).notice())
 }
