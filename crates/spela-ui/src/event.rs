@@ -114,6 +114,9 @@ pub enum Write {
         name: String,
         /// The changes, by field.
         changes: BTreeMap<FieldKey, Option<Value>>,
+        /// Deletes the game's profile file first, as `spela profile
+        /// delete` does. The changes, if any, then go to a new file.
+        delete: bool,
     },
     /// Settings, by `config set` key, with the raw value text.
     Config {
@@ -147,15 +150,26 @@ impl Write {
     pub fn merge(&mut self, newer: Write) -> Result<(), Write> {
         match (self, newer) {
             (
-                Write::Profile { scope, changes, .. },
+                Write::Profile {
+                    scope,
+                    changes,
+                    delete,
+                    ..
+                },
                 Write::Profile {
                     scope: s,
                     changes: c,
-                    name,
+                    delete: d,
+                    ..
                 },
             ) if *scope == s => {
+                // A newer delete drops the changes before it; changes after
+                // a delete go to the new file.
+                if d {
+                    changes.clear();
+                    *delete = true;
+                }
                 changes.extend(c);
-                let _ = name;
                 Ok(())
             }
             (Write::Config { changes }, Write::Config { changes: c }) => {

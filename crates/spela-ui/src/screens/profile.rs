@@ -22,7 +22,9 @@
 //!   the remembered value back, and opens the editor otherwise.
 //! - Actions: the one-field reset, the whole-page reset and Apply to games
 //!   with their own value, each whole-page change behind a confirmation that
-//!   opens on Cancel (decision 4), and Preview launch, which is read only.
+//!   opens on Cancel (decision 4), Delete profile on a game, which removes
+//!   its file as `spela profile delete` does, behind the same confirmation,
+//!   and Preview launch, which is read only.
 //! - The VKD3D notice: when VKD3D heap resolves On for a game, Go's
 //!   compatibility line shows under that row. It is resolved on a worker,
 //!   so it appears when the answer arrives.
@@ -148,6 +150,8 @@ pub struct Pending {
     pub summary: String,
     /// The Apply to games with their own value it belongs to.
     pub group: Option<u64>,
+    /// It deletes the game's profile file.
+    pub delete: bool,
 }
 
 /// An Apply to games with their own value on its way: one save per game.
@@ -311,6 +315,10 @@ pub enum Action {
     /// The games that set this field follow All games, after the
     /// confirmation.
     ApplyToOwnConfirmed(FieldKey),
+    /// Asks before the game's profile file is deleted.
+    DeleteProfile,
+    /// Deletes the game's profile file, after the confirmation.
+    DeleteProfileConfirmed(u64),
     /// Opens Preview launch for the game.
     Preview,
     /// A picker key.
@@ -636,6 +644,44 @@ fn preview_row(state: &AppState) -> Row {
     }
 }
 
+/// Whether a game's profile can be deleted: the profiles are loaded and
+/// its Go file did not fail to migrate. A file that does not load, or that
+/// a newer spela wrote, can be deleted, as with `spela profile delete`.
+fn deletable(state: &AppState, app_id: u64) -> Result<(), String> {
+    if state.profile.profiles.is_none() {
+        return Err("loading profiles".into());
+    }
+    if state.broken_profiles.contains_key(&Scope::Game(app_id)) {
+        return Err("the profile did not migrate".into());
+    }
+    Ok(())
+}
+
+/// Whether the game has a profile file, or a save on its way makes one.
+fn has_file(state: &AppState, app_id: u64) -> bool {
+    let scope = Scope::Game(app_id);
+    library::has_profile(state, app_id)
+        || state
+            .profile
+            .profiles
+            .as_ref()
+            .is_some_and(|p| p.broken.contains_key(&scope))
+        || state
+            .profile
+            .pending
+            .values()
+            .any(|p| p.scope == scope && p.changes.values().any(Option::is_some))
+}
+
+/// The Delete profile row of the game the page shows.
+fn delete_row(state: &AppState) -> Option<Row> {
+    let Some(Scope::Game(id)) = scope(state) else {
+        return None;
+    };
+    let label = format!("Delete profile: {}", game_name(state, Scope::Game(id)));
+    Some(Row::new(label, act(Action::DeleteProfile)).when(deletable(state, id)))
+}
+
 /// The Actions rows of the page.
 pub fn actions(state: &AppState, pane: Pane) -> Vec<Row> {
     if pane != Pane::Detail {
@@ -684,6 +730,7 @@ fn page_rows(state: &AppState) -> Vec<Row> {
             .key(Key::ENTER)
             .when(edit),
     );
+    rows.extend(delete_row(state));
     rows.push(preview_row(state));
     rows
 }
@@ -718,6 +765,7 @@ pub fn palette(state: &AppState) -> Vec<Row> {
         );
         rows.push(Row::new(label, act(Action::ResetAll)).when(editable(state, scope)));
     }
+    rows.extend(delete_row(state));
     rows
 }
 
@@ -875,6 +923,8 @@ fn run(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
         Action::ResetAllConfirmed(scope) => return reset_all(state, scope),
         Action::ApplyToOwn => ask_apply_to_own(state),
         Action::ApplyToOwnConfirmed(key) => return apply_to_own(state, key),
+        Action::DeleteProfile => ask_delete(state),
+        Action::DeleteProfileConfirmed(app_id) => return delete_profile(state, app_id),
         Action::Preview => return preview(state),
         Action::Pick(input) => return pick_input(state, input),
         Action::Text(input) => return text_input(state, input),
@@ -949,6 +999,7 @@ fn change(
             scope,
             name,
             changes: changes.clone(),
+            delete: false,
         },
     );
     state.profile.pending.insert(
@@ -958,6 +1009,7 @@ fn change(
             changes,
             summary,
             group,
+            delete: false,
         },
     );
     if let Some(g) = group.and_then(|g| state.profile.groups.get_mut(&g)) {
@@ -1139,6 +1191,83 @@ fn apply_to_own(state: &mut AppState, key: FieldKey) -> Vec<AnyCmd> {
         state.profile.groups.remove(&id);
     }
     cmds
+}
+
+fn ask_delete(state: &mut AppState) {
+    let Some(Scope::Game(app_id)) = scope(state) else {
+        return;
+    };
+    if deletable(state, app_id).is_err() {
+        return;
+    }
+    let scope = Scope::Game(app_id);
+    let name = game_name(state, scope);
+    if !has_file(state, app_id) {
+        state.say(Level::Info, format!("No profile for {name}"));
+        return;
+    }
+    let count = own_keys(state, scope).len();
+    let text = format!(
+        "This deletes the profile file. {count} own {} {} cleared, and every setting follows {}.",
+        if count == 1 { "setting" } else { "settings" },
+        if count == 1 { "is" } else { "are" },
+        words::ALL_GAMES
+    );
+    let mut body = vec![vec![(name, Role::Strong)], Vec::new()];
+    for line in wrap(&text, 80) {
+        body.push(vec![(line, Role::Text)]);
+    }
+    state.confirm(
+        confirm::State::new(
+            DELETE_PROFILE,
+            body,
+            act(Action::DeleteProfileConfirmed(app_id)),
+        )
+        .confirm_label(DELETE_PROFILE),
+    );
+}
+
+/// The Delete profile title and button.
+const DELETE_PROFILE: &str = "Delete profile";
+
+/// Deletes the game's profile file through the write queue. The page shows
+/// the game following All games at once; a failed delete puts the stored
+/// values back.
+fn delete_profile(state: &mut AppState, app_id: u64) -> Vec<AnyCmd> {
+    let scope = Scope::Game(app_id);
+    if deletable(state, app_id).is_err() {
+        return Vec::new();
+    }
+    let changes: BTreeMap<FieldKey, Option<Value>> = own_keys(state, scope)
+        .into_iter()
+        .map(|k| (k, None))
+        .collect();
+    if let Some(layer) = layer_mut(state, scope) {
+        layer.shown = OwnValues::new();
+    }
+    state.profile.last_own.retain(|(s, _), _| *s != scope);
+    state.profile.save_errors.remove(&scope);
+    let name = game_name(state, scope);
+    let (token, cmd) = state.save(
+        Owner::Profile,
+        Write::Profile {
+            scope,
+            name: name.clone(),
+            changes: BTreeMap::new(),
+            delete: true,
+        },
+    );
+    state.profile.pending.insert(
+        token,
+        Pending {
+            scope,
+            changes,
+            summary: format!("Deleted profile for {name}"),
+            group: None,
+            delete: true,
+        },
+    );
+    vec![cmd]
 }
 
 fn preview(state: &mut AppState) -> Vec<AnyCmd> {
@@ -1462,6 +1591,18 @@ pub fn saved(state: &mut AppState, token: u64, result: Result<(), String>) -> Ve
     };
     let name = game_name(state, p.scope);
     match &result {
+        Ok(()) if p.delete => {
+            if let Some(layer) = layer_mut(state, p.scope) {
+                layer.stored = OwnValues::new();
+                layer.read_only = false;
+            }
+            if let Some(profiles) = state.profile.profiles.as_mut() {
+                profiles.broken.remove(&p.scope);
+            }
+            if let Scope::Game(id) = p.scope {
+                state.library.profiles.remove(&id);
+            }
+        }
         Ok(()) => {
             if let Some(layer) = layer_mut(state, p.scope) {
                 let _ = apply_changes(&mut layer.stored, &p.changes);
@@ -1499,6 +1640,11 @@ pub fn saved(state: &mut AppState, token: u64, result: Result<(), String>) -> Ve
         group_done(state, id, token, name, result);
     } else {
         match result {
+            Ok(()) if p.delete => state.say(Level::Ok, p.summary),
+            Err(e) if p.delete => state.say(
+                Level::Error,
+                format!("Not deleted: profile for {name}: {e}"),
+            ),
             Ok(()) => state.say(Level::Ok, format!("Saved: {prefix}{}", p.summary)),
             Err(e) => state.say(
                 Level::Error,
@@ -2271,6 +2417,104 @@ mod tests {
             }),
         );
         assert!(library::has_profile(&s, id));
+    }
+
+    #[test]
+    fn delete_profile_asks_first_and_deletes_the_file() {
+        let mut s = loaded_state();
+        s.focus = Pane::Detail;
+        let Some(Scope::Game(id)) = scope(&s) else {
+            panic!("a game")
+        };
+        let name = game_name(&s, Scope::Game(id));
+        assert!(library::has_profile(&s, id));
+        let label = format!("Delete profile: {name}");
+        let row = |s: &AppState| {
+            actions(s, Pane::Detail)
+                .into_iter()
+                .find(|r| r.label == label)
+                .expect("the Delete profile row")
+        };
+        assert_eq!(row(&s).unavailable, None);
+        assert!(palette(&s).iter().any(|r| r.label == label));
+        update(&mut s, Action::DeleteProfile);
+        let Some(Popup::Confirm(c)) = &s.popup else {
+            panic!("a confirmation")
+        };
+        assert_eq!(c.focus, confirm::Focus::Cancel);
+        assert_eq!(c.title, "Delete profile");
+        let body: String = c.body.iter().flatten().map(|(t, _)| t.as_str()).collect();
+        assert!(body.contains("1 own setting is cleared"), "{body}");
+        assert!(step(&mut s, key("enter")).is_empty(), "Enter on Cancel");
+        update(&mut s, Action::DeleteProfile);
+        step(&mut s, key("right"));
+        let cmds = step(&mut s, key("enter"));
+        let AnyCmd::Save { token, write } = &cmds[0] else {
+            panic!("{cmds:?}")
+        };
+        let Write::Profile {
+            changes, delete, ..
+        } = write
+        else {
+            panic!("{write:?}")
+        };
+        assert!(*delete);
+        assert!(changes.is_empty(), "a delete writes no values");
+        let scope = Scope::Game(id);
+        assert!(own_keys(&s, scope).is_empty(), "shows at once");
+        step(
+            &mut s,
+            crate::event::Event::Msg(AnyMsg::Saved {
+                token: *token,
+                result: Ok(()),
+            }),
+        );
+        assert_eq!(
+            s.status.as_ref().unwrap().text,
+            format!("Deleted profile for {name}")
+        );
+        assert!(!library::has_profile(&s, id), "the ⚑ goes");
+        // With no file left, the row answers at once and asks nothing.
+        update(&mut s, Action::DeleteProfile);
+        assert!(s.popup.is_none());
+        assert_eq!(
+            s.status.as_ref().unwrap().text,
+            format!("No profile for {name}")
+        );
+    }
+
+    #[test]
+    fn a_failed_delete_puts_the_values_back() {
+        let mut s = loaded_state();
+        s.focus = Pane::Detail;
+        let Some(Scope::Game(id)) = scope(&s) else {
+            panic!("a game")
+        };
+        let cmds = update(&mut s, Action::DeleteProfileConfirmed(id));
+        let token = save_token(&cmds);
+        step(
+            &mut s,
+            crate::event::Event::Msg(AnyMsg::Saved {
+                token,
+                result: Err("permission denied".into()),
+            }),
+        );
+        assert_eq!(own_keys(&s, Scope::Game(id)), vec![FieldKey::DlssSrMode]);
+        assert!(library::has_profile(&s, id));
+        let text = &s.status.as_ref().unwrap().text;
+        assert!(text.starts_with("Not deleted: profile for "), "{text}");
+    }
+
+    #[test]
+    fn all_games_has_no_delete_row() {
+        let mut s = loaded_state();
+        s.library.cursor = 0;
+        assert_eq!(scope(&s), Some(Scope::AllGames));
+        assert!(
+            !actions(&s, Pane::Detail)
+                .iter()
+                .any(|r| r.label.starts_with("Delete profile"))
+        );
     }
 
     #[test]

@@ -143,7 +143,17 @@ pub fn apply(paths: &Paths, write: &Write) -> Result<(), String> {
             scope,
             name,
             changes,
+            delete,
         } => {
+            if *delete {
+                let Scope::Game(app_id) = scope else {
+                    return Err("All games has no profile to delete".into());
+                };
+                store::delete(paths, *app_id).map_err(|e| e.to_string())?;
+            }
+            if changes.is_empty() {
+                return Ok(());
+            }
             let values: Vec<(FieldKey, Value)> = changes
                 .iter()
                 .filter_map(|(k, v)| v.clone().map(|v| (*k, v)))
@@ -212,6 +222,47 @@ mod tests {
         assert_eq!(merged.len(), 2);
         assert_eq!(merged[0].0, vec![1, 3]);
         assert_eq!(merged[0].1, config("ui.mouse", "true"));
+    }
+
+    fn profile(id: u64, changes: &[(FieldKey, Option<Value>)], delete: bool) -> Write {
+        Write::Profile {
+            scope: Scope::Game(id),
+            name: "Ashfall Courier".into(),
+            changes: changes.iter().cloned().collect(),
+            delete,
+        }
+    }
+
+    #[test]
+    fn a_delete_drops_the_changes_before_it_and_keeps_the_ones_after() {
+        let hdr = |on: bool| (FieldKey::ProtonEnableHdr, Some(Value::Bool(on)));
+        let merged = merge(vec![
+            (1, profile(9, &[hdr(true)], false)),
+            (2, profile(9, &[], true)),
+            (3, profile(9, &[hdr(false)], false)),
+        ]);
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].0, vec![1, 2, 3]);
+        assert_eq!(merged[0].1, profile(9, &[hdr(false)], true));
+    }
+
+    #[test]
+    fn a_profile_delete_removes_the_file_and_a_missing_file_is_no_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::under(dir.path());
+        let hdr = (FieldKey::ProtonEnableHdr, Some(Value::Bool(true)));
+        apply(&paths, &profile(9100010, std::slice::from_ref(&hdr), false)).unwrap();
+        let file = paths.game_profile(9100010);
+        assert!(file.exists());
+        apply(&paths, &profile(9100010, &[], true)).unwrap();
+        assert!(!file.exists());
+        apply(&paths, &profile(9100010, &[], true)).unwrap();
+        // Changes after a delete go to a new file; a follow alone makes none.
+        let follow = (FieldKey::ProtonEnableHdr, None);
+        apply(&paths, &profile(9100010, &[follow], true)).unwrap();
+        assert!(!file.exists());
+        apply(&paths, &profile(9100010, &[hdr], true)).unwrap();
+        assert!(file.exists());
     }
 
     fn wait_saved(rx: &crate::tui::events::LoopReceiver<Msg>) -> (u64, Result<(), String>) {

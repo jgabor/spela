@@ -217,6 +217,7 @@ fn the_detail_actions_follow_go_s_order() {
             "Follow All games",
             "Follow All games for all settings",
             "Edit value",
+            "Delete profile: Ashfall Courier",
             "Preview launch: Ashfall Courier",
             "Rescan games",
             "Help",
