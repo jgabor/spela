@@ -71,7 +71,7 @@ Main findings and what they mean for the rewrite:
 | cobra CLI: about 16 command groups, `Changed()` semantics, the default `completion` command | `cmd/spela/main.go:31-48`, `cmd/spela/commands/*.go`, Go cache `cobra@v1.10.2/completions.go:745`, `command.go:1113` | clap derive, clap_complete |
 | CLI colors (lipgloss styles) | `internal/tui/styles.go:291-317` | anstyle plus anstream |
 | Profile field access by dot-path through reflection (35 keys) | `internal/profile/inheritance.go:84-107`, `internal/profile/storage.go:156` | no crate; a `macro_rules!` table (inferred) |
-| Archives (zip, tar) | none at runtime. Only `tests/contracts/release_contract_test.go:4` uses `archive/tar` | not needed |
+| Archives (zip, tar) | none at runtime. Only Go's release contract test read a tar, and its Rust port does not | not needed |
 | D-Bus | none. VRR goes through the `kscreen-doctor` CLI (`internal/display/vrr.go:27`) and polkit through the `pkexec` CLI (`internal/privilege/privilege.go:53`) | not needed |
 
 ## NVML and GPU control
@@ -192,7 +192,7 @@ Agreement (verified: probe `compare pe`): all three methods (pelite, goblin, and
 
 ## Archives
 
-Not needed at runtime. The manifest points at raw `.dll` files (verified: `data/manifest.json`, `internal/dll/download.go:58-86`). Only a release contract test reads a tar (verified: `tests/contracts/release_contract_test.go:4`). If that test is ported: [tar](https://crates.io/crates/tar) 0.4.46 (2026-05-18, MIT OR Apache-2.0, MSRV 1.63; RUSTSEC-2026-0067 and -0068 exist, check them against the version used) and [flate2](https://crates.io/crates/flate2) 1.1.10 (2026-08-28). [zip](https://crates.io/crates/zip) 9.1.0 (2026-10-24, MIT, MSRV 1.88) has four advisories, the latest RUSTSEC-2026-0369. Avoid unless needed.
+Not needed at runtime. The manifest points at raw `.dll` files (verified: `data/manifest.json`, `internal/dll/download.go:58-86`). Only Go's release contract test read a tar, to build from `git archive`. Phase 7 ported that test's intents to `crates/dlss-updater/tests/release.rs` without a tar reader, and removed the Go test. If a Rust test ever needs one: [tar](https://crates.io/crates/tar) 0.4.46 (2026-05-18, MIT OR Apache-2.0, MSRV 1.63; RUSTSEC-2026-0067 and -0068 exist, check them against the version used) and [flate2](https://crates.io/crates/flate2) 1.1.10 (2026-08-28). [zip](https://crates.io/crates/zip) 9.1.0 (2026-10-24, MIT, MSRV 1.88) has four advisories, the latest RUSTSEC-2026-0369. Avoid unless needed.
 
 ## Hashing and hex
 

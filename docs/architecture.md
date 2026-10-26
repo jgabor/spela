@@ -1665,7 +1665,7 @@ Go code is deleted by decision 62, which replaces the per-phase deletions this r
 
 Decision 62 gates this on the user's live launch checks, the last proof of Phase 6, and it comes after Phase 7 so the manifest feeder never runs without an updater.
 
-- One commit deletes the rest of the Go tree: `cmd/spela`; every package under `internal/`; `tools/dlss-updater`, `tools/coverage-inventory` and any other Go tool; `tests/e2e` and `tests/contracts`; the Phase 0 fixture generator in `tools/goref`; `magefile.go`, `go.mod`, `go.sum` and `.golangci.yml`; the coverage scripts and their Python test; and the Go jobs in `ci.yml`. The committed fixtures, the value oracle and the transcripts stay, because the Rust tests read them.
+- One commit deletes the rest of the Go tree: `cmd/spela`; every package under `internal/`; `tools/dlss-updater`, `tools/coverage-inventory` and any other Go tool; `tests/e2e` (`tests/contracts` already went in Phase 7, ported to `crates/dlss-updater/tests`); the Phase 0 fixture generator in `tools/goref`; `magefile.go`, `go.mod`, `go.sum` and `.golangci.yml`; the coverage scripts and their Python test; and the Go jobs in `ci.yml`. The committed fixtures, the value oracle and the transcripts stay, because the Rust tests read them.
 - Nothing in the Rust workspace imports Go, so the order inside the commit does not matter (inferred). After it, `cargo` is the only build, and the [../AGENTS.md](../AGENTS.md) layout row and Go reference test command are updated in the same commit.
 - Proves: `just check` and CI pass with no Go toolchain installed.
 

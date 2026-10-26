@@ -39,10 +39,11 @@ denominator. The gate and this file go with the Go tree in the final step.
 - **Go production:** working-tree `.go` files in `cmd/`, `internal/`, and `tools/`.
   Tests use `-coverpkg=./cmd/...,./internal/...,./tools/...`, so packages with
   no local tests remain in the denominator.
-- **Go tests:** `*_test.go` files and the contract-test package under
-  `tests/contracts/`. The tagged TUI tests in `tests/e2e/` remain end-to-end
-  verification and are not production code or part of the headless unit
-  coverage run.
+- **Go tests:** `*_test.go` files. The tagged TUI tests in `tests/e2e/`
+  remain end-to-end verification and are not production code or part of the
+  headless unit coverage run. The Go release contract tests that lived in
+  `tests/contracts/` were ported to `crates/dlss-updater/tests/release.rs` and
+  `crates/dlss-updater/tests/aur_submit.rs` in Phase 7, and are gone.
 - **Build tags:** two package graphs are measured and merged by source line:
   the default graph and the `e2e` graph of `internal/tui`, which holds the
   tagged E2E hooks. A Go AST inventory scans every non-test source under the
@@ -98,16 +99,13 @@ than the duplicated implementation that those epics will remove.
   keys.
 - **Centralize DLL mutation operations:** the GUI boundary tests that covered
   this were deleted with the GUI in Phase 1 of the Rust rewrite.
-- **Make GitHub Actions the sole release publisher:**
-  `TestReleaseWorkflowArtifactContract` parses the actual release workflow and
-  pins its `v*` tag trigger, `contents: write` permission, canonical build,
-  binary rename, checksum command, changelog body extraction, release action
-  inputs, and both stable and development AUR publications.
-  `TestReleaseArtifactContractBuildsFromCleanArchiveAndVerifiesChecksum`
-  complements it by executing the artifact path from a clean tracked-source
-  snapshot. `TestReleaseBuildInputsContract` keeps tool pins, the absence of
-  the GUI build inputs, PKGBUILD outputs, and the absence of local publishing helpers in
-  the same nonpublishing contract.
+- **Make GitHub Actions the sole release publisher:** the Go contract tests
+  for this were ported to Rust in Phase 7. `crates/dlss-updater/tests/release.rs`
+  parses the release workflows and pins the `v*` tag trigger, the tag
+  validation, the scoped `contents: write` permission, the build with
+  `SPELA_VERSION`, the binary and checksum, the changelog notes and the AUR
+  package. `crates/dlss-updater/tests/aur_submit.rs` covers the dry-run-first
+  AUR submit.
 - **Unify profile fields and field-level mutations:** `TestProfileYAMLContract`,
   `TestOverrides_YAMLRoundTrip`, `TestMigration_LegacyProfileRoundTrip`,
   and `TestProfileCLITextJSONAndErrorContract` preserve profile persistence
