@@ -7,7 +7,7 @@ pkgdesc="Linux gaming configuration tool for NVIDIA GPUs with DLSS/DLL managemen
 arch=('x86_64')
 url="https://github.com/jgabor/spela"
 license=('MIT')
-depends=('gcc-libs' 'glibc' 'nvidia-utils')
+depends=('glibc' 'libgcc' 'nvidia-utils')
 makedepends=('cargo' 'git')
 optdepends=(
     'polkit: GPU and CPU tuning around game launches'
