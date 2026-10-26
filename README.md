@@ -27,15 +27,19 @@ yay -S spela-git
 
 ### Build from source
 
-Build prerequisites are Git, Go 1.25.5 or newer, and a C toolchain.
-Installation also uses `sudo`.
+Build prerequisites are Git, Rust 1.89 or newer, and
+[just](https://github.com/casey/just).
 
 ```bash
 git clone https://github.com/jgabor/spela.git
 cd spela
-go tool mage build     # builds ./spela
-go tool mage install   # installs to GOPATH/bin, then copies to /usr/bin with sudo
+just build-release     # builds target/release/spela
+sudo just install      # installs /usr/bin/spela and the polkit policy
 ```
+
+Steam runs launch options with `PATH=/usr/bin:/bin`, so `spela %command%` needs
+the binary in `/usr/bin`. The polkit policy describes the action spela asks for
+when it tunes the GPU and CPU around a launch.
 
 ## First use
 

@@ -60,7 +60,8 @@ install -Dm644 "$pkgbuild" "$preparation_directory/PKGBUILD"
     "PKGDEST=$preparation_directory" "SRCPKGDEST=$preparation_directory"
     "LOGDEST=$preparation_directory"
   )
-  makepkg --nobuild --nodeps "${makepkg_directories[@]}"
+  # --noprepare: prepare() fetches crates, and only pkgver() is needed here.
+  makepkg --nobuild --noprepare --nodeps "${makepkg_directories[@]}"
   makepkg --printsrcinfo "${makepkg_directories[@]}" >.SRCINFO
 )
 install -m644 "$preparation_directory/PKGBUILD" "$preparation_directory/.SRCINFO" "$work_directory/"

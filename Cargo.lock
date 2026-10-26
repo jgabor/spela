@@ -714,7 +714,15 @@ dependencies = [
 name = "dlss-updater"
 version = "0.7.0"
 dependencies = [
+ "jiff",
+ "regex-lite",
+ "serde",
+ "serde-saphyr",
+ "serde_json",
  "spela-core",
+ "tempfile",
+ "thiserror 2.0.21",
+ "ureq",
 ]
 
 [[package]]

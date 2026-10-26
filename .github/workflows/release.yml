@@ -1,5 +1,11 @@
 name: Release
 
+# A pushed vX.Y.Z tag publishes spela-linux-amd64 and checksums.txt, with the
+# CHANGELOG section as the notes (docs/releasing.md). Rust releases must stay
+# above v0.6.2, the last Go release, or Go users never see the release notice.
+# The tag text is untrusted: only validate-tag reads it, through env, and the
+# other jobs use its validated output.
+
 on:
   push:
     tags:
@@ -25,24 +31,44 @@ jobs:
           fi
           printf 'release_tag=%s\n' "$RELEASE_TAG" >> "$GITHUB_OUTPUT"
 
-  build:
+  # fmt, clippy, the tests, the release perf report, MSRV and cargo-deny.
+  gate:
     needs: validate-tag
+    uses: ./.github/workflows/rust.yml
+
+  build:
+    needs: [validate-tag, gate]
     runs-on: ubuntu-24.04
     env:
       RELEASE_TAG: ${{ needs.validate-tag.outputs.release_tag }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Build unified binary
+      - name: Install Rust
         run: |
-          go tool mage build
-          mv spela spela-linux-amd64
+          rustup toolchain install stable --profile minimal --target x86_64-unknown-linux-gnu
+          rustup default stable
+
+      - name: Check the version against the tag
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "spela") | .version')
+          if [ "v$version" != "$RELEASE_TAG" ]; then
+            printf 'The tag %s does not match the Cargo version %s\n' "$RELEASE_TAG" "$version" >&2
+            exit 1
+          fi
+          newest=$(printf '0.6.2\n%s\n' "$version" | sort -V | tail -n 1)
+          if [ "$version" = 0.6.2 ] || [ "$newest" != "$version" ]; then
+            printf 'A Rust release must be newer than v0.6.2, the last Go release, not %s\n' "$RELEASE_TAG" >&2
+            exit 1
+          fi
+
+      # SPELA_VERSION marks a release build for the release check, which reads
+      # it with option_env! (docs/architecture.md, Release check). The binary's
+      # own version is the Cargo version, which the step above tied to the tag.
+      - name: Build the release binary
+        run: |
+          SPELA_VERSION="${RELEASE_TAG#v}" cargo build --release --locked -p spela --target x86_64-unknown-linux-gnu
+          cp target/x86_64-unknown-linux-gnu/release/spela spela-linux-amd64
 
       - name: Create checksums
         run: sha256sum spela-linux-amd64 > checksums.txt

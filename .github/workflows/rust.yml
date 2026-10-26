@@ -2,11 +2,14 @@ name: Rust
 
 # The Rust gate, on every push and pull request (decision 17). The safety
 # rules from AGENTS.md run as tests (crates/spela/tests/safety.rs), so the
-# test step is also the grep gate.
+# test step is also the grep gate. Branch pushes only: a release tag runs the
+# gate through release.yml, and the bot's dll-* tags need none.
 
 on:
   push:
+    branches: ['**']
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read

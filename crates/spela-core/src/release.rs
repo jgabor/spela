@@ -13,7 +13,7 @@
 //!   a success changes `latest`. A state file that cannot be read counts as
 //!   never checked.
 //! - Only a release build checks: one whose version came from release CI
-//!   through `SPELA_RELEASE_VERSION` at build time. Every other build reports
+//!   through `SPELA_VERSION` at build time. Every other build reports
 //!   `<crate version>-dev` and never asks.
 //! - Only the TUI checks, gated by `check_updates`; the CLI stays quiet
 //!   (decision 39). The URL is a parameter, so tests point it at the fake.
@@ -55,7 +55,7 @@ pub fn is_release(version: &str) -> bool {
 /// The running version: the release version CI built in, or
 /// `<crate version>-dev`.
 pub fn running_version() -> String {
-    match option_env!("SPELA_RELEASE_VERSION") {
+    match option_env!("SPELA_VERSION") {
         Some(v) if is_release(v) => v.to_owned(),
         _ => format!("{}-dev", crate::VERSION),
     }

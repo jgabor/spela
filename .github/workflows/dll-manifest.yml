@@ -1,5 +1,11 @@
 name: Check DLSS Updates
 
+# Feeds data/manifest.json, which every installed spela fetches from main
+# (decision 14). For each DLSS family, the Rust dlss-updater reads the
+# TechPowerUp page. A newer version is downloaded, released as
+# dll-<type>-v<version> in this repository and added to the manifest.
+# Scraped values reach the shell only through env, never as ${{ }} in a script.
+
 on:
   schedule:
     - cron: '0 6 * * *'
@@ -13,182 +19,156 @@ permissions:
 
 jobs:
   check-updates:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
-        dll_type: [dlss, dlssg, dlssd]
         include:
           - dll_type: dlss
-            filename: nvngx_dlss.dll
             name: DLSS
           - dll_type: dlssg
-            filename: nvngx_dlssg.dll
             name: DLSS Frame Generation
           - dll_type: dlssd
-            filename: nvngx_dlssd.dll
             name: DLSS Ray Reconstruction
+    env:
+      DLL_TYPE: ${{ matrix.dll_type }}
+      NAME: ${{ matrix.name }}
+      USER_AGENT: 'Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Cache cargo
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          go-version: '1.22'
-          cache: false
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: dlss-updater-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: dlss-updater-${{ runner.os }}-
 
-      - name: Build checker tool
-        run: go build -o dlss-updater ./tools/dlss-updater
+      - name: Build the updater
+        run: cargo build --locked -p dlss-updater
 
+      # Exit 0 is a new version and 2 is up to date. Anything else fails the
+      # job, so a broken scraper shows up as a failed run.
       - name: Check for ${{ matrix.name }} updates
         id: check
         run: |
           set +e
-          OUTPUT=$(./dlss-updater -json -type ${{ matrix.dll_type }} -manifest data/manifest.json 2>&1)
-          EXIT_CODE=$?
+          ./target/debug/dlss-updater -json -type "$DLL_TYPE" -manifest data/manifest.json > check.json
+          code=$?
           set -e
-
-          JSON_OUTPUT=$(echo "$OUTPUT" | grep -E '^\{' | head -1)
-          if [ -z "$JSON_OUTPUT" ]; then
-            JSON_OUTPUT="$OUTPUT"
+          case $code in
+            0) has_update=true ;;
+            2) has_update=false ;;
+            *)
+              echo "dlss-updater failed with exit code $code" >&2
+              exit 1
+              ;;
+          esac
+          cat check.json
+          version=$(jq -r .version check.json)
+          download_url=$(jq -r .download_url check.json)
+          filename=$(jq -r .filename check.json)
+          source=$(jq -r .source check.json)
+          if ! [[ $version =~ ^[0-9]+(\.[0-9]+){0,3}$ && $filename =~ ^[a-z_]+\.dll$ && $source =~ ^[a-z.]+$ ]]; then
+            echo "dlss-updater printed unexpected values" >&2
+            exit 1
           fi
-
-          echo "output<<EOF" >> $GITHUB_OUTPUT
-          echo "$JSON_OUTPUT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-          if [ $EXIT_CODE -eq 0 ]; then
-            echo "has_update=true" >> $GITHUB_OUTPUT
-            VERSION=$(echo "$JSON_OUTPUT" | jq -r '.version')
-            DOWNLOAD_URL=$(echo "$JSON_OUTPUT" | jq -r '.download_url')
-            FILENAME=$(echo "$JSON_OUTPUT" | jq -r '.filename')
-            SOURCE=$(echo "$JSON_OUTPUT" | jq -r '.source')
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
-            echo "download_url=$DOWNLOAD_URL" >> $GITHUB_OUTPUT
-            echo "filename=$FILENAME" >> $GITHUB_OUTPUT
-            echo "source=$SOURCE" >> $GITHUB_OUTPUT
-          else
-            echo "has_update=false" >> $GITHUB_OUTPUT
+          # The URL is TechPowerUp's redirect, used only for a download.
+          if [[ $has_update == true && ! $download_url =~ ^https://[^[:space:]]+$ ]]; then
+            echo "The download URL is not https: $download_url" >&2
+            exit 1
           fi
+          {
+            echo "has_update=$has_update"
+            echo "version=$version"
+            echo "download_url=$download_url"
+            echo "filename=$filename"
+            echo "source=$source"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Download ${{ matrix.name }}
         if: steps.check.outputs.has_update == 'true'
+        env:
+          DOWNLOAD_URL: ${{ steps.check.outputs.download_url }}
+          FILENAME: ${{ steps.check.outputs.filename }}
         run: |
-          mkdir -p dist
-
-          curl -L -A "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0" \
-            -o dist/dll_download.zip "${{ steps.check.outputs.download_url }}"
-
-          cd dist
-          unzip dll_download.zip
-
-          FILENAME="${{ steps.check.outputs.filename }}"
-          find . -name "$FILENAME" -exec cp {} downloaded.dll \;
-
-          if [ ! -f downloaded.dll ]; then
-            echo "ERROR: Could not find $FILENAME in downloaded archive"
+          mkdir -p dist/unpacked
+          curl --fail --location -A "$USER_AGENT" -o dist/dll_download.zip "$DOWNLOAD_URL"
+          unzip -q dist/dll_download.zip -d dist/unpacked
+          found=$(find dist/unpacked -type f -iname "$FILENAME" | head -n 1)
+          if [ -z "$found" ]; then
+            echo "ERROR: Could not find $FILENAME in downloaded archive" >&2
             exit 1
           fi
+          cp "$found" "dist/$FILENAME"
+          ls -la "dist/$FILENAME"
 
-          ls -la downloaded.dll
-
-      - name: Calculate checksums
-        if: steps.check.outputs.has_update == 'true'
-        id: sha
-        run: |
-          SHA256=$(sha256sum dist/downloaded.dll | cut -d' ' -f1)
-          SIZE=$(stat -c%s dist/downloaded.dll)
-          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
-          echo "size=$SIZE" >> $GITHUB_OUTPUT
-
-      - name: Create release and update manifest
+      - name: Create the release
         if: steps.check.outputs.has_update == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.check.outputs.version }}
+          FILENAME: ${{ steps.check.outputs.filename }}
+          SOURCE: ${{ steps.check.outputs.source }}
         run: |
-          VERSION="${{ steps.check.outputs.version }}"
-          DLL_TYPE="${{ matrix.dll_type }}"
-          FILENAME="${{ matrix.filename }}"
           TAG="dll-${DLL_TYPE}-v${VERSION}"
-          SHA256="${{ steps.sha.outputs.sha256 }}"
-          SIZE="${{ steps.sha.outputs.size }}"
-          SOURCE="${{ steps.check.outputs.source }}"
-          NAME="${{ matrix.name }}"
+          SHA256=$(sha256sum "dist/$FILENAME" | cut -d' ' -f1)
+          SIZE=$(stat -c%s "dist/$FILENAME")
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Create tag if it doesn't exist
-          if ! git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
             git tag -a "$TAG" -m "$NAME $VERSION"
             git push origin "$TAG"
           fi
 
-          # Create release if it doesn't exist
-          if ! gh release view "$TAG" &>/dev/null; then
-            cp dist/downloaded.dll "dist/$FILENAME"
-            gh release create "$TAG" "dist/$FILENAME" \
-              --title "$NAME v$VERSION" \
-              --notes "$NAME $VERSION
-
-          **Source:** $SOURCE
-          **SHA256:** \`$SHA256\`
-          **Size:** $SIZE bytes"
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            NOTES=$(printf '%s %s\n\n**Source:** %s\n**SHA256:** `%s`\n**Size:** %s bytes\n' \
+              "$NAME" "$VERSION" "$SOURCE" "$SHA256" "$SIZE")
+            gh release create "$TAG" "dist/$FILENAME" --title "$NAME v$VERSION" --notes "$NOTES"
           fi
 
-          # Update manifest
-          python3 << EOF
-          import json
-          from datetime import datetime, timezone
-
-          with open('data/manifest.json', 'r') as f:
-              manifest = json.load(f)
-
-          new_dll = {
-              'version': '$VERSION',
-              'filename': '$FILENAME',
-              'url': 'https://github.com/${{ github.repository }}/releases/download/$TAG/$FILENAME',
-              'sha256': '$SHA256',
-              'size': int('$SIZE'),
-              'release_date': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-              'notes': 'From $SOURCE'
-          }
-
-          if '$DLL_TYPE' not in manifest['dlls']:
-              manifest['dlls']['$DLL_TYPE'] = []
-
-          manifest['dlls']['$DLL_TYPE'] = [d for d in manifest['dlls']['$DLL_TYPE'] if d['version'] != '$VERSION']
-          manifest['dlls']['$DLL_TYPE'].insert(0, new_dll)
-          manifest['updated_at'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-
-          with open('data/manifest.json', 'w') as f:
-              json.dump(manifest, f, indent=2)
-          EOF
-
-      - name: Commit manifest update
+      # The updater keeps each family newest first, so an older release never
+      # becomes the first entry Go clients take as the latest. A push that
+      # loses a race with another family's job starts again from main.
+      - name: Add ${{ matrix.name }} to the manifest
         if: steps.check.outputs.has_update == 'true'
+        env:
+          REPOSITORY: ${{ github.repository }}
+          VERSION: ${{ steps.check.outputs.version }}
+          FILENAME: ${{ steps.check.outputs.filename }}
+          SOURCE: ${{ steps.check.outputs.source }}
         run: |
-          VERSION="${{ steps.check.outputs.version }}"
-          DLL_TYPE="${{ matrix.dll_type }}"
-          NAME="${{ matrix.name }}"
-
-          git add data/manifest.json
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-            exit 0
-          fi
-
-          git commit -m "chore: add $NAME $VERSION to manifest"
-
-          # Retry push with rebase up to 5 times to handle parallel job races
-          for i in 1 2 3 4 5; do
+          TAG="dll-${DLL_TYPE}-v${VERSION}"
+          for attempt in 1 2 3 4 5; do
+            git fetch --depth=1 origin main
+            git checkout -B main FETCH_HEAD
+            ./target/debug/dlss-updater add -type "$DLL_TYPE" -version "$VERSION" \
+              -file "dist/$FILENAME" \
+              -url "https://github.com/$REPOSITORY/releases/download/$TAG/$FILENAME" \
+              -notes "From $SOURCE" -manifest data/manifest.json
+            git add data/manifest.json
+            if git diff --staged --quiet; then
+              echo "No changes to commit"
+              exit 0
+            fi
+            git commit -m "chore: add $NAME $VERSION to manifest"
             if git push origin main; then
               echo "Push succeeded"
               exit 0
             fi
-            echo "Push failed, retrying with rebase (attempt $i)..."
-            git fetch origin main
-            git rebase origin/main
+            echo "Push failed, starting again from main (attempt $attempt)"
+            sleep $((attempt * 2))
           done
-
-          echo "Failed to push after 5 attempts"
+          echo "Failed to push after 5 attempts" >&2
           exit 1
