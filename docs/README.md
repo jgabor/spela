@@ -2,7 +2,7 @@
 
 ## Summary
 
-spela is being rewritten in Rust: a clean rewrite with full feature parity for the CLI and the TUI, and no GUI. The architecture and terminal UX follow mejl (`~/git/mejl`) wherever that fits. This folder holds the research done on 2026-10-25 and the architecture built on it. The decisions are recorded below: 1 to 29 by the user, and 30 to 65 by Claude on the user's delegation.
+spela is being rewritten in Rust: a clean rewrite with full feature parity for the CLI and the TUI, and no GUI. The architecture and terminal UX follow mejl (`~/git/mejl`) wherever that fits. This folder holds the research done on 2026-10-25 and the architecture built on it. The decisions are recorded below: 1 to 29 by the user, and 30 to 66 by Claude on the user's delegation.
 
 The short version:
 
@@ -158,6 +158,7 @@ The user delegated every open question in [architecture.md](architecture.md) to 
 | 63 | Read-only Phase 0 checks | Proton tool dirs, `config.vdf` key casing, StateFlags, `kscreen-doctor -o` and the PE versions of installed DLLs are run by Claude and recorded in [phase0-checks.md](phase0-checks.md). Checks that change hardware or launch games stay with the user |
 | 64 | MSRV toolchain | The 1.89 toolchain is installed with rustup for the MSRV check |
 | 65 | Go profile values with no stored form that launches the same (the migration's known gap) | (a) A game may own `cpu.smt` with no value, which leaves SMT unchanged even when All games sets it. It is stored as `cpu.smt = "unchanged"`, `OwnValues` accepts it, resolve and the shared words show it as `unchanged`, and the migration turns Go's `smt` mark with no value into it. (b) A relative `gpu.shader_cache_path`, and an `sr_mode`, `rr_mode` or `multi_frame` outside the field's list, are dropped, so the field follows. Each one is recorded in `migration.toml` with reason `invalid_in_go` and named on its own line in the migration notice |
+| 66 | TUI details accepted as built in Phase 4 | Search games is unavailable in select mode; a palette jump to a game clears filters and selection; the batch row reports its reason; an empty number is refused; Apply to games with their own value writes each game; multi-frame uses a picker; the migration notice is a popup; info alerts stay out of the top bar; failures read 'Not applied: ...' |
 
 ## What is not done yet
 
