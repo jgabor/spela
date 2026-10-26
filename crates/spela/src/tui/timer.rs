@@ -3,12 +3,13 @@
 //! Adopted from mejl's `timer.rs`. An idle spela does no work: a single
 //! thread sleeps on a condvar until the earliest deadline. It sends
 //! [`LoopEvent::Tick`] every period while ticking is on (the 2 s metrics
-//! tick) and [`LoopEvent::Wake`] at each asked-for instant (a status
-//! message that is due to clear). Asking twice for the same instant gives
-//! one wake-up. The loop asks for a wall-clock deadline only when it
-//! changes, which fixes mejl's many instants for one deadline.
+//! tick) and [`LoopEvent::Wake`] at the one asked-for instant (a status
+//! message that is due to clear). There is one wake-up slot: a new deadline
+//! replaces the one before, so a status message that replaces another
+//! never leaves the old one's wake-up queued. The loop asks for a
+//! wall-clock deadline only when it changes, which fixes mejl's many
+//! instants for one deadline.
 
-use std::collections::BTreeSet;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
@@ -22,7 +23,7 @@ pub const METRICS_EVERY: Duration = Duration::from_secs(2);
 struct State {
     ticking: bool,
     next_tick: Option<Instant>,
-    wakes: BTreeSet<Instant>,
+    wake: Option<Instant>,
     stop: bool,
 }
 
@@ -48,7 +49,7 @@ impl Timer {
             state: Mutex::new(State {
                 ticking: false,
                 next_tick: None,
-                wakes: BTreeSet::new(),
+                wake: None,
                 stop: false,
             }),
             changed: Condvar::new(),
@@ -89,10 +90,10 @@ impl Timer {
         self.lock().ticking
     }
 
-    /// Asks for one wake-up at `deadline`. A deadline in the past fires at
-    /// once.
+    /// Asks for one wake-up at `deadline`, in place of any one not yet
+    /// sent. A deadline in the past fires at once.
     pub fn wake_at(&self, deadline: Instant) {
-        self.lock().wakes.insert(deadline);
+        self.lock().wake = Some(deadline);
         self.shared.changed.notify_one();
     }
 
@@ -107,9 +108,9 @@ impl Timer {
         self.wake_at(Instant::now() + delay);
     }
 
-    /// Pending wake-ups.
+    /// Pending wake-ups: zero or one.
     pub fn pending_wakes(&self) -> usize {
-        self.lock().wakes.len()
+        usize::from(self.lock().wake.is_some())
     }
 }
 
@@ -131,12 +132,11 @@ fn run<M>(shared: &Shared, tx: &LoopSender<M>, period: Duration) {
         }
         let now = Instant::now();
         let mut due = Vec::new();
-        while let Some(&first) = state.wakes.first() {
-            if first > now {
-                break;
-            }
-            state.wakes.pop_first();
-            due.push(LoopEvent::Wake(first));
+        if let Some(at) = state.wake
+            && at <= now
+        {
+            state.wake = None;
+            due.push(LoopEvent::Wake(at));
         }
         if let Some(tick) = state.next_tick
             && tick <= now
@@ -159,10 +159,7 @@ fn run<M>(shared: &Shared, tx: &LoopSender<M>, period: Duration) {
             state = shared.state.lock().unwrap_or_else(PoisonError::into_inner);
             continue;
         }
-        let next = [state.next_tick, state.wakes.first().copied()]
-            .into_iter()
-            .flatten()
-            .min();
+        let next = [state.next_tick, state.wake].into_iter().flatten().min();
         state = match next {
             Some(at) => {
                 let wait = at.saturating_duration_since(Instant::now());
@@ -192,20 +189,20 @@ mod tests {
     }
 
     #[test]
-    fn wakes_fire_in_order_and_once() {
+    fn a_new_wake_replaces_the_pending_one_and_fires_once() {
         let (tx, rx) = channel::<()>();
         let timer = Timer::spawn(tx, METRICS_EVERY).unwrap();
         let now = Instant::now();
         let (a, b) = (
-            now + Duration::from_millis(40),
             now + Duration::from_millis(20),
+            now + Duration::from_millis(40),
         );
         timer.wake_at(a);
         timer.wake_at(b);
         timer.wake_at(b);
-        assert_eq!(timer.pending_wakes(), 2);
+        assert_eq!(timer.pending_wakes(), 1, "b replaced a");
         assert!(matches!(next(&rx, Duration::from_secs(5)), Some(LoopEvent::Wake(at)) if at == b));
-        assert!(matches!(next(&rx, Duration::from_secs(5)), Some(LoopEvent::Wake(at)) if at == a));
+        assert_eq!(timer.pending_wakes(), 0);
         assert!(next(&rx, Duration::from_millis(60)).is_none());
     }
 

@@ -5,7 +5,8 @@
 //! key, so these come from `kill`, a closed terminal or a resumed job. The
 //! first stop signal goes to the main loop, which quits cleanly. If a
 //! second one comes, the terminal is restored at once and the process
-//! exits with `128 + signal`. SIGCONT goes to the loop too, which repaints.
+//! exits with `128 + signal`, with raw mode off even when the capability
+//! probe had it on. SIGCONT goes to the loop too, which repaints.
 //! Wrapper mode has its own policy and does not use this.
 
 /// A signal the TUI reacts to.
@@ -94,6 +95,10 @@ impl SignalWatcher {
                         SignalAction::Forward => forward(kind),
                         SignalAction::ExitNow(code) => {
                             let _ = super::terminal::restore();
+                            // The probe turns raw mode on before TUI mode
+                            // is recorded, so restore cannot know of it.
+                            // This is a no-op when raw mode is off.
+                            let _ = crossterm::terminal::disable_raw_mode();
                             std::process::exit(code);
                         }
                     }

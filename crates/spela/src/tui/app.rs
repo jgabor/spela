@@ -13,9 +13,12 @@
 //!    per new deadline from `next_wakeup`.
 //! 6. Draw at most once, and only when the turn changed something visible
 //!    (`state.dirty`). mejl draws after every batch, ticks included.
-//! 7. Draw into the backend's BufWriter, with the synchronized-output
-//!    markers through the same writer when the probe found support, then
-//!    flush. Nothing else writes to stdout while the TUI runs.
+//! 7. Render into ratatui's buffer while the backend's BufWriter is empty,
+//!    then write the diff into it, with the synchronized-output markers
+//!    through the same writer when the probe found support, and flush.
+//!    So a panic inside render leaves no bytes behind that a later drop
+//!    could flush after the panic hook restored the screen. Nothing else
+//!    writes to stdout while the TUI runs.
 //! 8. Record one key-to-flush sample per input event of the batch.
 //!
 //! [`App`] is generic over the backend and the command runner, so the
@@ -73,6 +76,9 @@ pub struct Counters {
     pub wakes: u64,
 }
 
+/// What draws one frame: [`spela_ui::render`], or a test's own.
+pub type Render = fn(&mut AppState, &mut ratatui::Frame);
+
 /// The loop: the UI state, the terminal, and what runs commands.
 pub struct App<B: Backend + Markers> {
     /// The UI state.
@@ -91,6 +97,8 @@ pub struct App<B: Backend + Markers> {
     pub counters: Counters,
     /// Why the loop stopped on its own, for a line after the restore.
     pub exit_note: Option<String>,
+    /// Draws a frame. Tests swap it to check a render that panics.
+    pub render: Render,
     quit: bool,
     last_wake: Option<jiff::Timestamp>,
 }
@@ -112,6 +120,7 @@ impl<B: Backend + Markers> App<B> {
             synchronized: false,
             counters: Counters::default(),
             exit_note: None,
+            render: spela_ui::render,
             quit: false,
             last_wake: None,
         }
@@ -260,17 +269,25 @@ impl<B: Backend + Markers> App<B> {
     }
 
     fn draw(&mut self, stamps: &[Instant]) -> io::Result<()> {
+        // ratatui's own `draw` with the steps split, so that nothing sits
+        // in the BufWriter while the render code runs: a resize's clear is
+        // flushed first, and the markers go in only after render returns.
+        self.terminal.autoresize().map_err(backend_error)?;
+        Backend::flush(self.terminal.backend_mut()).map_err(backend_error)?;
+        {
+            let mut frame = self.terminal.get_frame();
+            (self.render)(&mut self.state, &mut frame);
+        }
         if self.synchronized {
             self.terminal.backend_mut().write_raw(SYNC_BEGIN)?;
         }
-        let state = &mut self.state;
-        self.terminal
-            .draw(|f| spela_ui::render(state, f))
-            .map_err(backend_error)?;
+        self.terminal.flush().map_err(backend_error)?;
+        self.terminal.hide_cursor().map_err(backend_error)?;
+        self.terminal.swap_buffers();
         if self.synchronized {
             self.terminal.backend_mut().write_raw(SYNC_END)?;
         }
-        self.terminal.backend_mut().flush().map_err(backend_error)?;
+        Backend::flush(self.terminal.backend_mut()).map_err(backend_error)?;
         self.counters.draws += 1;
         self.state.dirty = false;
         for at in stamps {
@@ -411,6 +428,217 @@ mod tests {
         }
         assert_eq!(app.counters.draws, before, "no draw when nothing changed");
         assert_eq!(app.counters.ticks, 40);
+    }
+
+    fn idle_window(app: &mut App<TestBackend>) {
+        // 30 ticks, each answered with the same sample: a 60 s idle window,
+        // after the 20-sample rings are full.
+        for _ in 0..30 {
+            app.handle_batch(vec![LoopEvent::Tick]).unwrap();
+            app.handle_batch(vec![LoopEvent::Done(steady())]).unwrap();
+        }
+    }
+
+    #[test]
+    fn idle_ticks_on_monitor_draw_nothing_once_the_rings_are_full() {
+        let (mut app, _) = app();
+        app.handle_batch(vec![key('3')]).unwrap();
+        assert_eq!(app.state.dest, spela_ui::screens::Dest::Monitor);
+        idle_window(&mut app);
+        let before = app.counters.draws;
+        idle_window(&mut app);
+        assert_eq!(
+            app.counters.draws, before,
+            "no draw when Monitor shows the same"
+        );
+        // A changed value draws.
+        let mut hot = steady();
+        if let Msg::Metrics(s) = &mut hot
+            && let Ok(g) = &mut s.gpu
+        {
+            g.temperature_c = 80;
+        }
+        app.handle_batch(vec![LoopEvent::Done(hot)]).unwrap();
+        assert_eq!(app.counters.draws, before + 1);
+    }
+
+    #[test]
+    fn below_80x24_nothing_but_a_resize_draws() {
+        let rec = Recorder::default();
+        let terminal = Terminal::new(TestBackend::new(72, 20)).unwrap();
+        let mut app = App::new(
+            state_with_games(72, 20, 12),
+            terminal,
+            Box::new(RecordingHost::default()),
+            Box::new(rec.clone()),
+        );
+        app.start().unwrap();
+        assert_eq!(app.counters.draws, 1, "the resize prompt");
+        assert!(!app.state.wants_metrics(), "no tick below 80x24");
+        // A late sample, a status wake, keys and a scan result change
+        // nothing on the prompt.
+        app.handle_batch(vec![LoopEvent::Done(steady())]).unwrap();
+        app.state
+            .say(spela_ui::state::Level::Info, "Rescan complete");
+        app.state.dirty = false;
+        app.handle_batch(vec![LoopEvent::Wake(Instant::now())])
+            .unwrap();
+        app.handle_batch(vec![key('q'), key('0')]).unwrap();
+        assert_eq!(app.counters.draws, 1, "{:?}", app.counters);
+        assert_eq!(app.counters.ticks, 0);
+        assert!(
+            !rec.cmds.lock().unwrap().contains(&Cmd::PollMetrics),
+            "no poll below 80x24"
+        );
+        // A resize draws.
+        app.terminal.backend_mut().resize(120, 40);
+        app.handle_batch(vec![LoopEvent::Input(vec![TimedEvent {
+            event: TermEvent::Resize(120, 40),
+            at: Instant::now(),
+        }])])
+        .unwrap();
+        assert_eq!(app.counters.draws, 2);
+    }
+
+    #[test]
+    fn a_replaced_status_message_keeps_one_wake_queued() {
+        use spela_ui::state::Level;
+        let (tx, _rx) = crate::tui::events::channel::<Msg>();
+        let (mut app, _) = app();
+        app.timer = Some(Timer::spawn(tx, crate::tui::timer::METRICS_EVERY).unwrap());
+        let pending = |app: &App<TestBackend>| app.timer.as_ref().unwrap().pending_wakes();
+        app.state.say(Level::Info, "A");
+        app.handle_batch(Vec::new()).unwrap();
+        assert_eq!(pending(&app), 1);
+        app.state.say(Level::Info, "B");
+        app.handle_batch(Vec::new()).unwrap();
+        assert_eq!(pending(&app), 1, "B's deadline replaced A's");
+        // A wake that comes before B is due re-arms B's deadline once.
+        app.handle_batch(vec![LoopEvent::Wake(Instant::now())])
+            .unwrap();
+        assert_eq!(pending(&app), 1);
+    }
+
+    /// A slow fake GPU and CPU reader that note every thread they run on.
+    #[derive(Clone, Default)]
+    struct Witness(std::sync::Arc<std::sync::Mutex<Vec<std::thread::ThreadId>>>);
+
+    impl Witness {
+        fn see(&self) {
+            self.0.lock().unwrap().push(std::thread::current().id());
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+    }
+
+    struct SlowGpu(spela_core::fake::FakeGpu, Witness);
+
+    impl spela_core::backend::Gpu for SlowGpu {
+        fn info(&mut self) -> Result<spela_core::backend::GpuInfo, spela_core::backend::GpuError> {
+            self.1.see();
+            self.0.info()
+        }
+
+        fn metrics(&mut self) -> Result<GpuMetrics, spela_core::backend::GpuError> {
+            self.1.see();
+            self.0.metrics()
+        }
+    }
+
+    struct SlowCpu(spela_core::fake::FakeCpu, Witness);
+
+    impl spela_core::backend::Cpu for SlowCpu {
+        fn governor(&mut self) -> Result<String, spela_core::backend::CpuError> {
+            self.1.see();
+            self.0.governor()
+        }
+
+        fn available_governors(&mut self) -> Result<Vec<String>, spela_core::backend::CpuError> {
+            self.1.see();
+            self.0.available_governors()
+        }
+
+        fn smt_active(&mut self) -> Result<bool, spela_core::backend::CpuError> {
+            self.1.see();
+            self.0.smt_active()
+        }
+    }
+
+    #[test]
+    fn slow_backends_never_run_on_the_loop_thread() {
+        use crate::tui::exec::{SteamSource, Workers, monitor, profile};
+        use crate::tui::metrics::{FakeCpuLoad, MetricsThread};
+        use spela_core::fake::{FakeCpu, FakeGpu};
+
+        let dir = tempfile::tempdir().unwrap();
+        let paths = spela_core::paths::Paths::under(dir.path());
+        let library = dir.path().join("steam");
+        spela_core::fake::library::write(&library).unwrap();
+        let (tx, rx) = crate::tui::events::channel::<Msg>();
+        let seen = Witness::default();
+        let gpu = SlowGpu(FakeGpu::demo(), seen.clone());
+        let reader = profile::CpuReader::new(Box::new(SlowCpu(FakeCpu::demo(), seen.clone())));
+        let metrics = MetricsThread::spawn(
+            Box::new(gpu),
+            Box::new(FakeCpuLoad::default()),
+            Box::new(SlowCpu(FakeCpu::demo(), seen.clone())),
+            tx.clone(),
+        )
+        .unwrap();
+        let driver = metrics.driver();
+        let writes = crate::tui::writes::WriteQueue::spawn(
+            paths.clone(),
+            std::collections::BTreeMap::new(),
+            tx.clone(),
+        )
+        .unwrap();
+        let workers = Workers {
+            paths: paths.clone(),
+            tx: tx.clone(),
+            metrics,
+            jobs: crate::tui::jobs::Pool::spawn(crate::tui::jobs::THREADS).unwrap(),
+            writes: writes.sender(),
+            clock: std::sync::Arc::new(spela_core::clock::SystemClock),
+            steam: SteamSource::Demo(library.join("SteamLibrary")),
+            cpu: reader,
+            driver,
+            privilege: monitor::SharedPrivilege::new(Box::new(monitor::NoPrivilege)),
+        };
+        drop(tx);
+        let terminal = Terminal::new(TestBackend::new(120, 40)).unwrap();
+        let mut app = App::new(
+            state_with_games(120, 40, 12),
+            terminal,
+            Box::new(RecordingHost::default()),
+            Box::new(workers),
+        );
+        app.start().unwrap();
+        // The loop asks for the metrics, the governors and a scan; each
+        // answer comes back on the channel.
+        let deadline = Instant::now() + std::time::Duration::from_secs(20);
+        while Instant::now() < deadline
+            && !(app.state.metrics.gpu.is_some()
+                && app.state.profile.governors.is_some()
+                && app.state.jobs.scan.is_none())
+        {
+            let batch = rx.recv_batch_until(Instant::now() + std::time::Duration::from_millis(50));
+            if !batch.is_empty() {
+                app.handle_batch(batch).unwrap();
+            }
+        }
+        assert!(app.state.metrics.gpu.is_some(), "a metrics sample arrived");
+        assert!(
+            app.state.profile.governors.is_some(),
+            "the governors arrived"
+        );
+        let me = std::thread::current().id();
+        let threads = seen.0.lock().unwrap().clone();
+        assert!(!threads.is_empty());
+        assert!(
+            threads.iter().all(|t| *t != me),
+            "a slow backend ran on the loop thread"
+        );
+        drop(app);
+        writes.finish();
     }
 
     #[test]

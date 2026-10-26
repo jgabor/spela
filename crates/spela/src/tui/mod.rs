@@ -179,6 +179,7 @@ pub fn run(ctx: &mut Context, _lock: InstanceLock, err: &mut dyn Write) -> Resul
         mouse: config.ui.mouse,
         bracketed_paste: true,
         kitty_keyboard: caps.kitty_keyboard == Support::Yes,
+        synchronized_output: caps.synchronized_output == Support::Yes,
     })
     .map_err(|e| CliError::new(exit::FAILURE, format!("cannot set up the terminal: {e}")))?;
     let backend = CrosstermBackend::new(BufWriter::new(io::stdout()));

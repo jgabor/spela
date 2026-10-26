@@ -782,6 +782,17 @@ fn alert_lines(state: &AppState) -> Vec<Line> {
     lines
 }
 
+/// What Monitor draws from the metrics, as text: the Detail lines and the
+/// alert badge in the List. A sample that leaves it the same is not drawn.
+pub fn view_key(state: &AppState) -> String {
+    let badge = alerts::highest(&state.metrics.alerts).map(|a| a.severity);
+    format!(
+        "{:?}{badge:?}{}",
+        detail_lines(state),
+        state.metrics.alerts.len()
+    )
+}
+
 /// The glyph and role of a severity: ✗ critical, ⚠ warning, ⚠ muted info.
 pub fn severity_look(severity: Severity, g: &Glyphs) -> (&'static str, Role) {
     match severity {

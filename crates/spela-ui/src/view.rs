@@ -149,7 +149,15 @@ pub fn metrics_parts(state: &AppState, room: usize) -> Vec<(String, Role)> {
                 Role::Thermal(step),
             ));
             util = Some(format!(" {}%", gpu.utilization_percent));
-            power = Some(format!(" {}W", gpu.power_draw_w));
+            // Draw over limit on the thermal scale, as Monitor's Power row;
+            // plain when the limit is unknown.
+            let power_role = match gpu.power_limit_w.filter(|l| *l > 0) {
+                Some(limit) => {
+                    Role::Thermal(thermal_step(f64::from(gpu.power_draw_w) / f64::from(limit)))
+                }
+                None => Role::Text,
+            };
+            power = Some((format!(" {}W", gpu.power_draw_w), power_role));
             for t in m.temperature.last(5) {
                 let r = temperature_ratio(t);
                 spark.push((g.spark_for(r).to_owned(), Role::Thermal(thermal_step(r))));
@@ -179,7 +187,7 @@ pub fn metrics_parts(state: &AppState, room: usize) -> Vec<(String, Role)> {
             if level < 3
                 && let Some(pw) = &power
             {
-                parts.push((pw.clone(), Role::Text));
+                parts.push(pw.clone());
             }
             if level < 1 && !spark.is_empty() {
                 parts.push((" ".into(), Role::Text));

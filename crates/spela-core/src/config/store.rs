@@ -49,11 +49,19 @@ pub enum ConfigStoreError {
 /// `ui.theme`, and saves it. Returns the config as saved. A missing file is
 /// created with `version = 1` and the one key.
 pub fn set(paths: &Paths, key: &str, raw: &str) -> Result<Config, ConfigStoreError> {
-    let _lock = StoreLock::acquire(&paths.config_lock())?;
-    set_unlocked(&paths.config_file(), key, raw)
+    set_many(paths, &[(key, raw)])
 }
 
-fn set_unlocked(path: &Path, key: &str, raw: &str) -> Result<Config, ConfigStoreError> {
+/// Sets several settings in one write: every value is checked first, then
+/// all of them go into one document under one `config.lock` and replace
+/// the file once, atomically. Either every key is saved or none is. Later
+/// pairs win over earlier ones for the same key.
+pub fn set_many(paths: &Paths, changes: &[(&str, &str)]) -> Result<Config, ConfigStoreError> {
+    let _lock = StoreLock::acquire(&paths.config_lock())?;
+    set_unlocked(&paths.config_file(), changes)
+}
+
+fn set_unlocked(path: &Path, changes: &[(&str, &str)]) -> Result<Config, ConfigStoreError> {
     let io_error = |source| ConfigStoreError::Io {
         path: path.to_owned(),
         source,
@@ -65,8 +73,9 @@ fn set_unlocked(path: &Path, key: &str, raw: &str) -> Result<Config, ConfigStore
         });
     }
     let mut config = loaded.config;
-    config.set(key, raw)?;
-    let option = option(key).expect("set checked the key");
+    for (key, raw) in changes {
+        config.set(key, raw)?;
+    }
 
     let old = if loaded.from_file {
         Some(std::fs::read_to_string(path).map_err(io_error)?)
@@ -89,29 +98,9 @@ fn set_unlocked(path: &Path, key: &str, raw: &str) -> Result<Config, ConfigStore
     if !doc.contains_key("version") {
         doc.insert("version", toml_edit::value(i64::from(CONFIG_VERSION)));
     }
-    let new = toml_value(&config, option.key);
-    let (table, leaf): (&mut dyn TableLike, &str) = match option.key.split_once('.') {
-        Some((table, leaf)) => {
-            if doc.get(table).and_then(Item::as_table_like).is_none() {
-                doc.insert(table, Item::Table(Table::new()));
-            }
-            let table = doc
-                .get_mut(table)
-                .and_then(Item::as_table_like_mut)
-                .expect("the table was just made");
-            (table, leaf)
-        }
-        None => (doc.as_table_mut(), option.key),
-    };
-    match table.get_mut(leaf).and_then(Item::as_value_mut) {
-        Some(old) => {
-            let decor = old.decor().clone();
-            *old = new;
-            *old.decor_mut() = decor;
-        }
-        None => {
-            table.insert(leaf, Item::Value(new));
-        }
+    for (key, _) in changes {
+        let option = option(key).expect("set checked the key");
+        put(&mut doc, option.key, toml_value(&config, option.key));
     }
 
     let text = doc.to_string();
@@ -131,6 +120,33 @@ fn set_unlocked(path: &Path, key: &str, raw: &str) -> Result<Config, ConfigStore
     }
     write_atomic(path, text.as_bytes(), Durability::Durable).map_err(io_error)?;
     Ok(saved.config)
+}
+
+/// Puts one value at its dotted key, keeping the old value's comments.
+fn put(doc: &mut DocumentMut, key: &str, new: Value) {
+    let (table, leaf): (&mut dyn TableLike, &str) = match key.split_once('.') {
+        Some((table, leaf)) => {
+            if doc.get(table).and_then(Item::as_table_like).is_none() {
+                doc.insert(table, Item::Table(Table::new()));
+            }
+            let table = doc
+                .get_mut(table)
+                .and_then(Item::as_table_like_mut)
+                .expect("the table was just made");
+            (table, leaf)
+        }
+        None => (doc.as_table_mut(), key),
+    };
+    match table.get_mut(leaf).and_then(Item::as_value_mut) {
+        Some(old) => {
+            let decor = old.decor().clone();
+            *old = new;
+            *old.decor_mut() = decor;
+        }
+        None => {
+            table.insert(leaf, Item::Value(new));
+        }
+    }
 }
 
 /// The TOML value of one setting, by its `config set` key.
@@ -227,6 +243,20 @@ mod tests {
                 "mouse = false",
             ])
         );
+    }
+
+    #[test]
+    fn set_many_writes_every_key_once_or_none() {
+        let (_base, paths) = paths();
+        let saved = set_many(&paths, &[("ui.mouse", "false"), ("check_updates", "off")]).unwrap();
+        assert!(!saved.ui.mouse && !saved.check_updates);
+        let text = std::fs::read_to_string(paths.config_file()).unwrap();
+        assert!(text.contains("check_updates = false"), "{text}");
+        assert!(text.contains("mouse = false"), "{text}");
+        // One bad value: nothing of the batch is written.
+        let err = set_many(&paths, &[("ui.mouse", "true"), ("backup_path", "rel")]).unwrap_err();
+        assert_eq!(err.to_string(), "backup_path must be an absolute path: rel");
+        assert_eq!(std::fs::read_to_string(paths.config_file()).unwrap(), text);
     }
 
     #[test]

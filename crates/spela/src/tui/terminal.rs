@@ -40,6 +40,9 @@ pub struct TerminalOptions {
     pub bracketed_paste: bool,
     /// Push kitty keyboard flags. Only when the probe found support.
     pub kitty_keyboard: bool,
+    /// Frames use synchronized output (mode 2026), so the way out ends it
+    /// in case a frame stopped halfway.
+    pub synchronized_output: bool,
 }
 
 impl Default for TerminalOptions {
@@ -48,6 +51,7 @@ impl Default for TerminalOptions {
             mouse: true,
             bracketed_paste: true,
             kitty_keyboard: false,
+            synchronized_output: false,
         }
     }
 }
@@ -135,6 +139,7 @@ fn restore_after_panic() {
             mouse: true,
             bracketed_paste: true,
             kitty_keyboard: true,
+            synchronized_output: true,
         }),
     };
     if let Some(options) = options {
@@ -152,6 +157,11 @@ fn switch_off(options: TerminalOptions) -> io::Result<()> {
             first = Some(e);
         }
     };
+    if options.synchronized_output {
+        // A frame cut short by a panic or an error may have begun a
+        // synchronized update and never ended it.
+        keep(out.write_all(b"\x1b[?2026l"));
+    }
     if options.kitty_keyboard {
         keep(execute!(out, PopKeyboardEnhancementFlags));
     }

@@ -23,6 +23,19 @@ pub const DOUBLE_CLICK: SignedDuration = SignedDuration::from_millis(400);
 
 /// Applies one event and returns what the shell should do.
 pub fn update(state: &mut AppState, event: Event) -> Vec<Cmd> {
+    // Below 80x24 the resize prompt shows only the size, so nothing but a
+    // resize changes what is drawn. State still changes under it, and the
+    // next resize draws it.
+    let was_dirty = state.dirty;
+    let resize = matches!(event, Event::Resize(..));
+    let cmds = apply(state, event);
+    if !resize && state.layout().mode == Mode::TooSmall {
+        state.dirty = was_dirty;
+    }
+    cmds
+}
+
+fn apply(state: &mut AppState, event: Event) -> Vec<Cmd> {
     match event {
         Event::Resize(w, h) => {
             state.size = (w, h);
@@ -47,7 +60,11 @@ pub fn update(state: &mut AppState, event: Event) -> Vec<Cmd> {
             let now = state.clock.now();
             if state.status.as_ref().is_some_and(|m| m.until <= now) {
                 state.status = None;
-                state.dirty = true;
+                // A popup covers the status line, so its message clears
+                // without a draw.
+                if state.popup.is_none() {
+                    state.dirty = true;
+                }
             }
             Vec::new()
         }
@@ -245,7 +262,7 @@ fn on_msg(state: &mut AppState, msg: Msg) -> Vec<Cmd> {
         Msg::Metrics(sample) => {
             let before = metrics_view(state);
             state.metrics.record(*sample);
-            if state.dest == Dest::Monitor || metrics_view(state) != before {
+            if metrics_view(state) != before {
                 state.dirty = true;
             }
             Vec::new()
@@ -288,13 +305,18 @@ fn on_msg(state: &mut AppState, msg: Msg) -> Vec<Cmd> {
     }
 }
 
-/// What the top bar shows of the metrics, at display precision. A sample
-/// that leaves it the same is not drawn.
+/// What the frame shows of the metrics, at display precision and with
+/// each part's role: the top bar, and on Monitor its panes. A sample that
+/// leaves it the same is not drawn.
 fn metrics_view(state: &AppState) -> String {
-    crate::view::metrics_parts(state, usize::MAX)
+    let mut key: String = crate::view::metrics_parts(state, usize::MAX)
         .into_iter()
-        .map(|(t, _)| t)
-        .collect()
+        .map(|(t, r)| format!("{t}\u{0}{r:?}\u{0}"))
+        .collect();
+    if state.dest == Dest::Monitor {
+        key.push_str(&screens::monitor::view_key(state));
+    }
+    key
 }
 
 #[cfg(test)]

@@ -14,7 +14,6 @@ use std::collections::BTreeMap;
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 
-use spela_core::config::Config;
 use spela_core::denylist;
 use spela_core::paths::Paths;
 use spela_core::profile::{FieldKey, Scope, Value, store};
@@ -159,19 +158,16 @@ pub fn apply(paths: &Paths, write: &Write) -> Result<(), String> {
                 .map_err(|e| e.to_string())
         }
         Write::Config { changes } => {
-            // Check every value on a copy first, so a bad value writes
-            // nothing and the UI's put-back matches the disk.
-            let mut check: Config = spela_core::config::load(&paths.config_file())
-                .map(|l| l.config)
-                .map_err(|e| e.to_string())?;
-            for (key, raw) in changes {
-                check.set(key, raw).map_err(|e| e.to_string())?;
-            }
-            let ordered: BTreeMap<&String, &String> = changes.iter().collect();
-            for (key, raw) in ordered {
-                spela_core::config::store::set(paths, key, raw).map_err(|e| e.to_string())?;
-            }
-            Ok(())
+            // One write for every merged key: a bad value or a failed
+            // write saves none of them, so the UI's put-back of every
+            // merged token matches the disk.
+            let pairs: Vec<(&str, &str)> = changes
+                .iter()
+                .map(|(k, v)| (k.as_str(), v.as_str()))
+                .collect();
+            spela_core::config::store::set_many(paths, &pairs)
+                .map(|_| ())
+                .map_err(|e| e.to_string())
         }
         Write::Deny {
             app_id,

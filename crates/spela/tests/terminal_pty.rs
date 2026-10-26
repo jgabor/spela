@@ -16,7 +16,10 @@
 //!   with its time reported;
 //! - a child of this test binary (`pty_child`) for Ctrl-Z: spela's blocking
 //!   input thread survives a stop and a resume, and the next key arrives
-//!   once with no ghost keys (architecture.md, the event loop).
+//!   once with no ghost keys (architecture.md, the event loop);
+//! - a child of this test binary for restore on panic: the real loop with a
+//!   render that panics, synchronized output on, restores every mode and
+//!   exits with 101, with no byte of the dead frame after the restore.
 //!
 //! The harness answers the DA1 probe at once, so timings do not include a
 //! probe timeout.
@@ -635,6 +638,42 @@ fn a_blocking_read_survives_ctrl_z_and_resume() {
     run.finish();
 }
 
+#[test]
+fn a_panic_in_render_restores_the_terminal_and_exits_101() {
+    let mut run = Running::start("render_panic");
+    let mut child = run.child.take().unwrap();
+    let code = wait(&mut child);
+    run.wait_for("render failed on purpose");
+    // The child is gone; take what the reader has once it stops growing.
+    let mut raw = run.output.raw();
+    loop {
+        std::thread::sleep(Duration::from_millis(50));
+        let now = run.output.raw();
+        if now.len() == raw.len() {
+            break;
+        }
+        raw = now;
+    }
+    let out = String::from_utf8_lossy(&raw).into_owned();
+    assert_eq!(code, Some(101), "{out:?}");
+    in_order(
+        &out,
+        &[
+            "\x1b[?1049h",
+            "\x1b[?2026l",
+            "\x1b[?2004l",
+            "\x1b[?1049l",
+            "render failed on purpose",
+        ],
+    );
+    let restored = out.rfind("\x1b[?1049l").unwrap();
+    assert!(
+        !out[restored..].contains("\x1b[?2026h"),
+        "a synchronized update began after the restore: {out:?}"
+    );
+    assert!(!run.raw_mode(), "the shell gets a cooked terminal back");
+}
+
 /// Runs the scenario the parent named; does nothing in a normal run.
 #[test]
 fn pty_child() {
@@ -688,6 +727,44 @@ fn pty_child() {
             );
             drop(guard);
             say("<done>");
+        }
+        "render_panic" => {
+            use std::io::BufWriter;
+
+            use ratatui::Terminal;
+            use ratatui::backend::CrosstermBackend;
+            use spela::tui::app::App;
+            use spela::tui::exec::Recorder;
+            use spela::tui::host::RecordingHost;
+            use spela::tui::terminal;
+
+            terminal::install_panic_hook();
+            // The binary's loop runs on the thread named main, where the
+            // hook leaves the unwinding to Rust, so the loop's drops run
+            // after the restore. This thread does the same.
+            let loop_thread = std::thread::Builder::new()
+                .name("main".into())
+                .spawn(|| {
+                    let _guard = terminal::enter(terminal::TerminalOptions {
+                        mouse: false,
+                        synchronized_output: true,
+                        ..terminal::TerminalOptions::default()
+                    })
+                    .unwrap();
+                    let backend = CrosstermBackend::new(BufWriter::new(std::io::stdout()));
+                    let mut app = App::new(
+                        spela_ui::testing::state_with_games(COLS, ROWS, 3),
+                        Terminal::new(backend).unwrap(),
+                        Box::new(RecordingHost::default()),
+                        Box::new(Recorder::default()),
+                    );
+                    app.synchronized = true;
+                    app.render = |_, _| panic!("render failed on purpose");
+                    let _ = app.start();
+                })
+                .unwrap();
+            assert!(loop_thread.join().is_err());
+            std::process::exit(101);
         }
         other => panic!("unknown scenario {other:?}"),
     }
