@@ -1,0 +1,14 @@
+name: Lamp Circuit
+dlss:
+    sr_mode: ultra
+    sr_override: true
+    rr_mode: Quality
+    multi_frame: 3
+gpu:
+    shader_cache_path: shaders
+overrides:
+    dlss.multi_frame: true
+    dlss.rr_mode: true
+    dlss.sr_mode: true
+    dlss.sr_override: true
+    gpu.shader_cache_path: true

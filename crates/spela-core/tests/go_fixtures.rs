@@ -200,13 +200,40 @@ fn go_preset_env(preset: &str) -> String {
 }
 
 /// The drops a value Go applied at launch may take although the effective
-/// value then differs from Go's. Each one is a known gap, open until a
-/// decision permits it or spela gets a way to store the value. Any other
-/// drop of a value Go applied fails the test.
-const KNOWN_GAPS: &[(&str, &str)] = &[(
-    "cpu.smt",
-    "a game marks SMT with no value, which left SMT unchanged in Go; TOML has no stored form for it, so the game follows All games",
-)];
+/// value then differs from Go's, and no decision permits it. Each one is a
+/// known gap, open until a decision permits it or spela gets a way to store
+/// the value. Any other drop of a value Go applied fails the test. Decision
+/// 65 closed the last ones: SMT marked with no value is stored as
+/// `"unchanged"`, and values outside Go's own rules are `invalid_in_go`.
+const KNOWN_GAPS: &[(&str, &str)] = &[];
+
+/// A recorded value, JSON-like as the record writes it, read back as a
+/// value of `key`'s kind.
+fn recorded(key: FieldKey, value: &str) -> spela_core::profile::Value {
+    use spela_core::profile::Value;
+    match serde_json::from_str::<Json>(value).unwrap() {
+        Json::String(s) => Value::Text(s),
+        Json::Number(n) => Value::Int(n.as_i64().unwrap()),
+        Json::Bool(b) if key == FieldKey::CpuSmt => Value::OptionalBool(Some(b)),
+        Json::Bool(b) => Value::Bool(b),
+        other => panic!("{key}: unexpected recorded value {other}"),
+    }
+}
+
+/// Whether a value dropped as `invalid_in_go` really is outside the
+/// field's rules, and is one of the fields decision 65 names.
+fn invalid_in_go(d: &Dropped) -> bool {
+    let Some(key) = FieldKey::from_key(&d.key) else {
+        return false;
+    };
+    matches!(
+        key,
+        FieldKey::DlssSrMode
+            | FieldKey::DlssRrMode
+            | FieldKey::DlssMultiFrame
+            | FieldKey::GpuShaderCachePath
+    ) && key.field().check(&recorded(key, &d.value)).is_err()
+}
 
 /// Checks a profile case against its oracle: every field's effective value
 /// and origin, in All games and in every game, including a game with no
@@ -253,7 +280,12 @@ fn check_profiles(case: &Case, report: &Report) {
                 }
                 continue;
             }
-            if dropped.is_some() {
+            if let Some(d) = dropped {
+                if d.why == Why::InvalidInGo {
+                    assert!(invalid_in_go(d), "All games: {d}");
+                    let k = FieldKey::from_key(key).unwrap();
+                    assert!(!values.contains(k), "All games {key} uses the default");
+                }
                 continue;
             }
             let r = resolve_all_games(Some(values), FieldKey::from_key(key).unwrap());
@@ -352,6 +384,14 @@ fn check_profiles(case: &Case, report: &Report) {
                     );
                     continue;
                 }
+                Some(Why::InvalidInGo) => {
+                    // Decision 65: dropped, so the game follows.
+                    let d = here.unwrap();
+                    assert!(invalid_in_go(d), "{app_id}: {d}");
+                    assert!(!r.is_own(), "{app_id} {key} follows");
+                    assert_eq!(d.value, shown(stored), "{app_id} {key}");
+                    continue;
+                }
                 Some(why) => {
                     assert!(
                         KNOWN_GAPS.iter().any(|(gap, _)| *gap == key),
@@ -359,6 +399,14 @@ fn check_profiles(case: &Case, report: &Report) {
                     );
                     continue;
                 }
+            }
+            let all_invalid = find(&all_dropped, key).is_some_and(|d| d.why == Why::InvalidInGo);
+            if all_invalid && !r.is_own() {
+                // All games' value was dropped (decision 65), so a game
+                // that follows it gets the system default.
+                assert_eq!(r.origin.as_str(), "system_default", "{app_id} {key}");
+                assert_eq!(r.value, k.field().default_value(), "{app_id} {key}");
+                continue;
             }
             assert_eq!(
                 serde_json::to_value(&r.value).unwrap(),
@@ -386,9 +434,8 @@ fn check_profiles(case: &Case, report: &Report) {
                 | Why::UnknownMarker
                 | Why::UnknownKey
                 | Why::AllGamesName => true,
-                Why::NotSupported => {
-                    KNOWN_GAPS.iter().any(|(gap, _)| *gap == d.key) && game && d.value == "none"
-                }
+                Why::NotSupported => KNOWN_GAPS.iter().any(|(gap, _)| *gap == d.key) && game,
+                Why::InvalidInGo => invalid_in_go(d),
                 // Go checked only gpu.vrr, so a file can hold a preset no
                 // field allows, such as the e2e fixture's sr_preset
                 // "quality". The field must really refuse it.
@@ -424,7 +471,7 @@ fn every_profile_case_matches_its_oracle() {
         .map(|e| e.unwrap().file_name().into_string().unwrap())
         .collect();
     names.sort();
-    assert_eq!(names.len(), 21, "{names:?}");
+    assert_eq!(names.len(), 22, "{names:?}");
     for name in names
         .iter()
         .map(|n| format!("profiles/{n}"))
@@ -496,19 +543,106 @@ fn a_migrated_game_profile_reads_as_documented() {
 }
 
 #[test]
-fn explicit_zeros_keep_own_zero_values_and_record_the_nil_smt() {
+fn explicit_zeros_keep_own_zero_values_and_leave_smt_unchanged() {
     let case = case("profiles/explicit-zeros");
-    case.migrate();
+    let report = case.migrate();
     let game = store::load_game(&case.paths, 9100102).unwrap().unwrap();
-    // 25 kept fields, minus the two offsets and SMT's nil.
-    assert_eq!(game.profile.values.len(), 22);
+    // 25 kept fields, minus the two offsets.
+    assert_eq!(game.profile.values.len(), 23);
     assert!(game.profile.values.iter().all(|(_, v)| v.is_zero()));
+    // Go left SMT unchanged for this game although All games sets it, and
+    // so does spela (decision 65).
+    let smt = FieldKey::CpuSmt;
+    assert_eq!(
+        game.profile.values.get(smt),
+        Some(&spela_core::profile::Value::OptionalBool(None))
+    );
+    let text = std::fs::read_to_string(case.paths.game_profile(9100102)).unwrap();
+    assert!(text.ends_with("smt = \"unchanged\"\n"), "{text}");
+    let all = store::load_all_games(&case.paths).unwrap().unwrap();
+    let r = resolve(Some(&game.profile.values), Some(&all.profile.values), smt);
+    assert_eq!(r.value, spela_core::profile::Value::OptionalBool(None));
+    assert_eq!(r.origin.as_str(), "this_game");
+    assert!(r.all_games.is_some());
     let dropped = case.dropped(&case.paths.go().game_profile(9100102));
-    let smt = find(&dropped, "cpu.smt").unwrap();
-    assert_eq!((smt.value.as_str(), smt.why), ("none", Why::NotSupported));
+    assert!(find(&dropped, "cpu.smt").is_none(), "{dropped:?}");
     assert!(
-        !smt.default,
-        "the notice counts it: SMT now follows All games"
+        report.notable_dropped().all(|d| d.key != "cpu.smt"),
+        "{:?}",
+        report.notice()
+    );
+}
+
+#[test]
+fn values_invalid_in_go_are_dropped_recorded_and_named_in_the_notice() {
+    let case = case("profiles/invalid-in-go");
+    let report = case.migrate();
+    let go = case.paths.go();
+    let keys = |source: &Path| -> Vec<(String, String, Why)> {
+        case.dropped(source)
+            .into_iter()
+            .map(|d| (d.key, d.value, d.why))
+            .collect()
+    };
+    let entry = |k: &str, v: &str| (k.to_owned(), v.to_owned(), Why::InvalidInGo);
+    assert_eq!(
+        keys(&go.all_games_profile()),
+        [
+            entry("dlss.multi_frame", "6"),
+            entry("gpu.shader_cache_path", "\"cache/all-games\""),
+        ]
+    );
+    assert_eq!(
+        keys(&go.game_profile(9100133)),
+        [
+            entry("dlss.sr_mode", "\"ultra\""),
+            entry("dlss.rr_mode", "\"Quality\""),
+            entry("gpu.shader_cache_path", "\"shaders\""),
+        ]
+    );
+    assert_eq!(
+        keys(&go.game_profile(9100134)),
+        [entry("dlss.multi_frame", "8")]
+    );
+
+    // The fields follow: the game gets All games' value, and All games
+    // the system default.
+    let all = store::load_all_games(&case.paths).unwrap().unwrap();
+    let lamp = store::load_game(&case.paths, 9100133).unwrap().unwrap();
+    let all = Some(&all.profile.values);
+    let value =
+        |game: &OwnValues, key| serde_json::to_value(resolve(Some(game), all, key).value).unwrap();
+    assert_eq!(value(&lamp.profile.values, FieldKey::DlssSrMode), "quality");
+    assert_eq!(value(&lamp.profile.values, FieldKey::DlssRrMode), "dlaa");
+    assert_eq!(value(&lamp.profile.values, FieldKey::DlssMultiFrame), 3);
+    assert_eq!(
+        value(&lamp.profile.values, FieldKey::GpuShaderCachePath),
+        ""
+    );
+    let glass = store::load_game(&case.paths, 9100134).unwrap().unwrap();
+    assert_eq!(value(&glass.profile.values, FieldKey::DlssMultiFrame), 0);
+
+    let text = std::fs::read_to_string(case.paths.game_profile(9100133)).unwrap();
+    assert!(
+        text.contains("#   dlss.sr_mode = \"ultra\" (not a valid value in Go spela either: "),
+        "{text}"
+    );
+
+    let record = case.paths.migration_record();
+    assert_eq!(
+        report.notice(),
+        [
+            format!(
+                "Migrated 3 files from Go spela, kept as backups only. Dropped 6 settings. See {}",
+                record.display()
+            ),
+            "dlss.multi_frame in default.yaml was not carried over: 6 is not valid in Go spela either, so the field now uses the system default.".to_owned(),
+            "gpu.shader_cache_path in default.yaml was not carried over: \"cache/all-games\" is not valid in Go spela either, so the field now uses the system default.".to_owned(),
+            "dlss.sr_mode in 9100133.yaml was not carried over: \"ultra\" is not valid in Go spela either, so the field now follows All games.".to_owned(),
+            "dlss.rr_mode in 9100133.yaml was not carried over: \"Quality\" is not valid in Go spela either, so the field now follows All games.".to_owned(),
+            "gpu.shader_cache_path in 9100133.yaml was not carried over: \"shaders\" is not valid in Go spela either, so the field now follows All games.".to_owned(),
+            "dlss.multi_frame in 9100134.yaml was not carried over: 8 is not valid in Go spela either, so the field now follows All games.".to_owned(),
+        ]
     );
 }
 

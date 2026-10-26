@@ -88,8 +88,18 @@ pub enum Why {
     /// A config value equal to Go's default, which carries no choice
     /// (decision 43).
     Default,
-    /// A value spela cannot hold, such as SMT marked with no value.
+    /// A value spela cannot hold. Since decision 65 the migration writes
+    /// this only for a value of the wrong kind, which Go's loader does not
+    /// produce. Records from earlier builds hold it for SMT marked with no
+    /// value, so it still reads.
     NotSupported,
+    /// A value outside the rules of Go spela itself: an `sr_mode`,
+    /// `rr_mode` or `multi_frame` that Go's setters refuse, or a relative
+    /// `gpu.shader_cache_path`, where Go's docs ask for an absolute folder.
+    /// Go's loader did not check them and passed them on at launch. They
+    /// are dropped, so the field follows, and the notice names each one on
+    /// its own line (decision 65).
+    InvalidInGo,
     /// A DLSS preset Go did not know, such as `quality`. Go exported
     /// `render_preset_default` for it, so it is stored as `default`, which
     /// exports the same. Nothing changes at launch, so the notice does not
@@ -116,6 +126,7 @@ impl Why {
             Why::IgnoredByGo => "Go spela ignored it and used the default",
             Why::Default => "Go spela's default",
             Why::NotSupported => "spela cannot store it",
+            Why::InvalidInGo => "not a valid value in Go spela either",
             Why::StoredAsDefault => "Go applied the default preset for it; stored as default",
             Why::AllGamesName => "All games has no name",
             Why::AllowedAndDenied => "the game is also allowed, and allow wins",
@@ -337,7 +348,7 @@ mod tests {
             error: error.into(),
             dropped: vec![
                 Dropped::new("gpu.clock_offset", "150", Why::OffsetMeaningChanged, false),
-                Dropped::new("cpu.smt", "none", Why::NotSupported, false).with_note("why"),
+                Dropped::new("dlss.sr_mode", "\"fast\"", Why::InvalidInGo, false).with_note("why"),
             ],
         }
     }
@@ -360,6 +371,7 @@ mod tests {
             text.contains("why = \"offset_meaning_changed\"\n"),
             "{text}"
         );
+        assert!(text.contains("why = \"invalid_in_go\"\n"), "{text}");
         let back = Record::load(&path).unwrap();
         assert_eq!(back, record);
         assert!(back.is_done(Path::new("/c/profiles/1.yaml")));
@@ -377,6 +389,28 @@ mod tests {
         assert!(record.put(source("/a.yaml", Outcome::Migrated, "")));
         assert_eq!(record.sources.len(), 1);
         assert!(record.is_done(Path::new("/a.yaml")));
+    }
+
+    #[test]
+    fn a_record_from_before_decision_65_still_loads() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("migration.toml");
+        let text = [
+            "version = 1",
+            "[[source]]",
+            "path = \"/c/profiles/9100102.yaml\"",
+            "result = \"migrated\"",
+            "at = 2026-10-26T17:04:11Z",
+            "by = \"spela 0.7.0\"",
+            "[[source.dropped]]",
+            "key = \"cpu.smt\"",
+            "value = \"none\"",
+            "why = \"not_supported\"",
+        ]
+        .join("\n");
+        std::fs::write(&path, text).unwrap();
+        let record = Record::load(&path).unwrap();
+        assert_eq!(record.sources[0].dropped[0].why, Why::NotSupported);
     }
 
     #[test]

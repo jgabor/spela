@@ -6,7 +6,7 @@ GPU and CPU tuning around Steam launches. The rewrite covers the CLI and the TUI
 with full feature parity. There is no GUI.
 
 Research and architecture for the rewrite live in `docs/` (start with
-`docs/README.md`, which records decisions 1 to 64, and `docs/architecture.md`).
+`docs/README.md`, which records decisions 1 to 65, and `docs/architecture.md`).
 The architecture and terminal UX follow mejl (`~/git/mejl`) wherever that fits.
 
 ## Layout
@@ -35,7 +35,7 @@ early, in Phase 1.
 - No test writes to real game files or Steam libraries. Use fixture libraries in temp dirs.
 - No test or tool call contacts a remote host (DLL manifest and downloads, release checks). Tests use fixtures or a loopback fake.
 - Tests never touch the real XDG config, data, cache or state dirs. Use temp dirs.
-- Files written by the Go version (`config.yaml`, `profiles/*.yaml`, `lists/*.yaml`, `games.yaml`) are migrated to the rewrite's own shape the first time they are read. A migration keeps every value the user set, or, where decisions 10, 31 and 46 drop it, records it in `migration.toml` and the migrated file's header. It leaves the original file in place as a backup, and is tested against fixtures written by the Go version.
+- Files written by the Go version (`config.yaml`, `profiles/*.yaml`, `lists/*.yaml`, `games.yaml`) are migrated to the rewrite's own shape the first time they are read. A migration keeps every value the user set, or, where decisions 10, 31, 46 and 65 drop it, records it in `migration.toml` and the migrated file's header. It leaves the original file in place as a backup, and is tested against fixtures written by the Go version.
 - DLL backups written by the Go version (`backup.json` and both backup file name schemes) are read in place and never moved or reshaped. New data goes in new top-level keys that Go ignores, never in `files[]`.
 - Privileged changes go through one batched `pkexec` round trip, and each applied change registers its restore before the game starts.
 - The UI thread never awaits and never blocks on NVML, `nvidia-smi`, `pkexec`, the network or a Steam scan.

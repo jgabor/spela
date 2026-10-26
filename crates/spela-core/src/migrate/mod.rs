@@ -196,7 +196,8 @@ impl Report {
     /// migrated. Adopted sources count, so the notice of a run that wrote
     /// its targets but not the record is shown on the next run. A second
     /// line says when Go clock or memory offsets were not carried over
-    /// (decision 31).
+    /// (decision 31). Then each value outside Go's own rules gets a line
+    /// that names its file, key and value (decision 65).
     pub fn notice(&self) -> Vec<String> {
         let files = self.settled().count();
         if files == 0 {
@@ -230,6 +231,22 @@ impl Report {
                 "GPU clock and memory offsets from Go spela were not carried over. See {}",
                 self.record.display()
             ));
+        }
+        for h in self.settled() {
+            let follows = match h.kind {
+                SourceKind::AllGames => "uses the system default",
+                _ => "follows All games",
+            };
+            for d in &h.entry.dropped {
+                if d.why == Why::InvalidInGo && !d.default {
+                    lines.push(format!(
+                        "{} in {} was not carried over: {} is not valid in Go spela either, so the field now {follows}.",
+                        d.key,
+                        file_name(&h.entry.path),
+                        d.value
+                    ));
+                }
+            }
         }
         lines
     }
@@ -878,6 +895,44 @@ mod tests {
         assert_eq!(report.failed_profile(1), None);
         report.handled.remove(0);
         assert!(report.notice().is_empty());
+    }
+
+    #[test]
+    fn the_notice_names_each_value_invalid_in_go_on_its_own_line() {
+        let mut game = handled(
+            SourceKind::Game(9100140),
+            Outcome::Migrated,
+            vec![
+                Dropped::new("dlss.sr_mode", "\"fast\"", Why::InvalidInGo, false),
+                Dropped::new("overlay.enabled", "true", Why::Retired, false),
+                Dropped::new("dlss.multi_frame", "7", Why::InvalidInGo, false),
+            ],
+        );
+        game.entry.path = PathBuf::from("/c/profiles/9100140.yaml");
+        let mut all = handled(
+            SourceKind::AllGames,
+            Outcome::Migrated,
+            vec![Dropped::new(
+                "gpu.shader_cache_path",
+                "\"cache\"",
+                Why::InvalidInGo,
+                false,
+            )],
+        );
+        all.entry.path = PathBuf::from("/c/profiles/default.yaml");
+        let report = Report {
+            handled: vec![all, game],
+            record: PathBuf::from("/d/migration.toml"),
+        };
+        assert_eq!(
+            report.notice(),
+            [
+                "Migrated 2 files from Go spela, kept as backups only. Dropped 4 settings. See /d/migration.toml",
+                "gpu.shader_cache_path in default.yaml was not carried over: \"cache\" is not valid in Go spela either, so the field now uses the system default.",
+                "dlss.sr_mode in 9100140.yaml was not carried over: \"fast\" is not valid in Go spela either, so the field now follows All games.",
+                "dlss.multi_frame in 9100140.yaml was not carried over: 7 is not valid in Go spela either, so the field now follows All games.",
+            ]
+        );
     }
 
     #[test]

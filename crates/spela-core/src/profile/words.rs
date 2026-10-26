@@ -34,6 +34,9 @@ pub const ON: &str = "On";
 pub const OFF: &str = "Off";
 /// An empty text, SMT's none, or a number nothing sets.
 pub const NONE: &str = "none";
+/// SMT's none when a scope stores it: SMT is left as it is at launch, even
+/// when All games sets it (decision 65).
+pub const UNCHANGED: &str = "unchanged";
 
 /// Words no surface may print any more. Surface tests check that none of
 /// them appears.
@@ -69,12 +72,25 @@ pub fn display_value(field: &Field, value: &Value) -> String {
 }
 
 /// The effective value of a resolved field. A number that nothing sets
-/// reads none, not 0, because zero means "leave it alone".
+/// reads none, not 0, because zero means "leave it alone". SMT's none that
+/// a scope stores reads unchanged, so it is not taken for "nothing sets it".
 pub fn value_text(field: &Field, resolved: &Resolved) -> String {
-    if resolved.origin == Origin::SystemDefault && field.kind == Kind::Int {
-        return NONE.to_owned();
+    if resolved.origin == Origin::SystemDefault {
+        if field.kind == Kind::Int {
+            return NONE.to_owned();
+        }
+        return display_value(field, &resolved.value);
     }
-    display_value(field, &resolved.value)
+    stored_value_text(field, &resolved.value)
+}
+
+/// A value a scope stores: as [`display_value`], except that SMT's none
+/// reads unchanged.
+fn stored_value_text(field: &Field, value: &Value) -> String {
+    match value {
+        Value::OptionalBool(None) => UNCHANGED.to_owned(),
+        other => display_value(field, other),
+    }
 }
 
 /// Where a value comes from. A game's own value also shows the All games
@@ -94,7 +110,7 @@ pub fn source_text(field: &Field, resolved: &Resolved) -> String {
 
 fn all_games_value_text(field: &Field, resolved: &Resolved) -> String {
     match &resolved.all_games {
-        Some(v) => display_value(field, v),
+        Some(v) => stored_value_text(field, v),
         None if field.kind == Kind::Int => NONE.to_owned(),
         None => display_value(field, &field.default_value()),
     }
@@ -286,6 +302,34 @@ mod tests {
         );
         let sr = r(FieldKey::DlssSrMode);
         assert!(!source_text(f(FieldKey::DlssSrMode), &sr).contains('\u{2014}'));
+    }
+
+    #[test]
+    fn smt_left_unchanged_reads_unchanged_where_a_scope_stores_it() {
+        let smt = f(FieldKey::CpuSmt);
+        let mut all = OwnValues::new();
+        all.set(FieldKey::CpuSmt, Value::OptionalBool(Some(true)))
+            .unwrap();
+        let mut game = OwnValues::new();
+        game.set(FieldKey::CpuSmt, Value::OptionalBool(None))
+            .unwrap();
+        let own = resolve(Some(&game), Some(&all), FieldKey::CpuSmt);
+        assert_eq!(value_text(smt, &own), "unchanged");
+        assert_eq!(source_text(smt, &own), "this game · All games: On");
+        // A game that follows an All games "unchanged".
+        let follows = resolve(None, Some(&game), FieldKey::CpuSmt);
+        assert_eq!(value_text(smt, &follows), "unchanged");
+        assert_eq!(source_text(smt, &follows), "from All games");
+        // All games On against a game that leaves it unchanged.
+        let reverse = resolve(Some(&all), Some(&game), FieldKey::CpuSmt);
+        assert_eq!(
+            source_text(smt, &reverse),
+            "this game · All games: unchanged"
+        );
+        // Nothing sets it: still none.
+        let nothing = resolve(None, None, FieldKey::CpuSmt);
+        assert_eq!(value_text(smt, &nothing), "none");
+        assert!(!RETIRED.contains(&UNCHANGED));
     }
 
     #[test]

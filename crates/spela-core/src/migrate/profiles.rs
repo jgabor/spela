@@ -7,8 +7,12 @@
 //!   `setsField`), so a non-nil `smt: false` counts.
 //!
 //! A set field is kept as an own value, except that decision 10 drops the
-//! retired fields, decision 31 drops Go's clock and memory offsets, and a
-//! value spela cannot hold is dropped with a note. Each drop is recorded.
+//! retired fields, decision 31 drops Go's clock and memory offsets, and
+//! decision 65 drops a value outside Go's own rules: an `sr_mode`,
+//! `rr_mode` or `multi_frame` not in the field's list, or a relative
+//! `gpu.shader_cache_path`. Each drop is recorded. SMT marked with no value
+//! is kept: it is stored as `smt = "unchanged"` (decision 65), so the game
+//! still leaves SMT alone when All games sets it.
 //!
 //! A DLSS preset that is not one of spela's, such as `quality`, is not
 //! dropped: Go's `dlssPresetToEnv` exported `render_preset_default` for any
@@ -16,7 +20,7 @@
 //! `default`, which exports the same, and the rewrite is recorded. The
 //! launch then stays as it was, whatever All games sets.
 
-use crate::profile::{FieldKey, Kind, OwnValues, Value};
+use crate::profile::{FieldError, FieldKey, Kind, OwnValues, Value};
 
 use super::go::{GO_FIELDS, GoProfile, GoValue, is_go_field};
 use super::record::{Dropped, Why};
@@ -96,25 +100,35 @@ pub fn convert(go: &GoProfile, scope: GoScope, unknown_keys: &[(String, String)]
                 continue;
             }
             Some(value) => values.set(field, value).map(|_| ()),
-            None => Err(crate::profile::FieldError::WrongKind {
+            None => Err(FieldError::WrongKind {
                 key: field.as_str(),
                 expected: field.field().kind,
             }),
         };
         if let Err(e) = result {
-            let note = match (field, scope) {
-                (FieldKey::CpuSmt, GoScope::Game) => {
-                    "Go left SMT unchanged for this game; it now follows All games".to_owned()
+            let (why, note) = match e {
+                FieldError::Unsupported { valid, .. } => {
+                    let mut listed: Vec<&str> =
+                        valid.iter().copied().filter(|v| !v.is_empty()).collect();
+                    if valid.contains(&"") {
+                        listed.push("empty");
+                    }
+                    (
+                        Why::InvalidInGo,
+                        format!(
+                            "Go's setters accept only {}; Go passed it on at launch as it was",
+                            listed.join(", ")
+                        ),
+                    )
                 }
-                (FieldKey::CpuSmt, GoScope::AllGames) => {
-                    "none is the default, so nothing changes".to_owned()
-                }
-                _ => e.to_string(),
+                FieldError::NotAbsolute { .. } => (
+                    Why::InvalidInGo,
+                    "a relative folder, where Go's docs ask for an absolute one; Go passed it on at launch as it was".to_owned(),
+                ),
+                other => (Why::NotSupported, other.to_string()),
             };
             let default = scope == GoScope::AllGames && leaf.is_zero();
-            dropped.push(
-                Dropped::new(key, leaf.display(), Why::NotSupported, default).with_note(note),
-            );
+            dropped.push(Dropped::new(key, leaf.display(), why, default).with_note(note));
         }
     }
     for (marker, on) in go.overrides.iter().flatten() {
@@ -249,12 +263,69 @@ mod tests {
     }
 
     #[test]
-    fn values_spela_cannot_hold_are_recorded() {
+    fn smt_marked_with_no_value_is_kept_as_unchanged() {
         let go = parse_profile(&lines(&["overrides:", "    cpu.smt: true"])).unwrap();
-        let c = convert(&go, GoScope::Game, &[]);
-        assert!(c.values.is_empty());
-        assert_eq!(keys(&c.dropped), [("cpu.smt", Why::NotSupported)]);
-        assert_eq!(c.dropped[0].value, "none");
+        for scope in [GoScope::Game, GoScope::AllGames] {
+            let c = convert(&go, scope, &[]);
+            assert_eq!(
+                c.values.get(FieldKey::CpuSmt),
+                Some(&Value::OptionalBool(None)),
+                "{scope:?}"
+            );
+            assert!(c.dropped.is_empty(), "{scope:?}: {:?}", c.dropped);
+        }
+    }
+
+    #[test]
+    fn values_outside_go_s_own_rules_are_dropped_as_invalid_in_go() {
+        let text = lines(&[
+            "dlss:",
+            "    sr_mode: fast",
+            "    rr_mode: Quality",
+            "    multi_frame: 7",
+            "gpu:",
+            "    shader_cache: true",
+            "    shader_cache_path: shaders/cache",
+            "overrides:",
+            "    dlss.sr_mode: true",
+            "    dlss.rr_mode: true",
+            "    dlss.multi_frame: true",
+            "    gpu.shader_cache: true",
+            "    gpu.shader_cache_path: true",
+        ]);
+        let go = parse_profile(&text).unwrap();
+        for scope in [GoScope::Game, GoScope::AllGames] {
+            let c = convert(&go, scope, &[]);
+            let own: Vec<FieldKey> = c.values.iter().map(|(k, _)| k).collect();
+            assert_eq!(own, [FieldKey::GpuShaderCache], "{scope:?}");
+            assert_eq!(
+                keys(&c.dropped),
+                [
+                    ("dlss.sr_mode", Why::InvalidInGo),
+                    ("dlss.rr_mode", Why::InvalidInGo),
+                    ("dlss.multi_frame", Why::InvalidInGo),
+                    ("gpu.shader_cache_path", Why::InvalidInGo),
+                ],
+                "{scope:?}"
+            );
+            let values: Vec<&str> = c.dropped.iter().map(|d| d.value.as_str()).collect();
+            assert_eq!(
+                values,
+                ["\"fast\"", "\"Quality\"", "7", "\"shaders/cache\""]
+            );
+            assert!(
+                c.dropped.iter().all(|d| !d.default),
+                "the notice counts them"
+            );
+            assert_eq!(
+                c.dropped[2].note,
+                "Go's setters accept only 0, 1, 2, 3, 4; Go passed it on at launch as it was"
+            );
+            assert_eq!(
+                c.dropped[0].note,
+                "Go's setters accept only off, ultra_performance, performance, balanced, quality, dlaa, empty; Go passed it on at launch as it was"
+            );
+        }
     }
 
     #[test]

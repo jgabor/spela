@@ -73,7 +73,8 @@ pub struct Resolved {
     /// The effective value.
     pub value: Value,
     /// The scope's own value, or `None` when it follows. On All games, the
-    /// value set there.
+    /// value set there. SMT left unchanged on purpose is
+    /// `Some(Value::OptionalBool(None))` (decision 65).
     pub own: Option<Value>,
     /// The All games value, or `None` when All games does not set it.
     /// Always `None` on the All games scope itself.
@@ -276,6 +277,32 @@ mod tests {
         assert_eq!(
             resolve(Some(&on), None, FieldKey::CpuSmt).origin,
             Origin::ThisGame
+        );
+    }
+
+    #[test]
+    fn a_game_can_leave_smt_unchanged_against_all_games() {
+        // explicit-zeros game 9100102: SMT marked with no value, All games
+        // false. Go applied no SMT step and reported this_game.
+        let all = own(&[(FieldKey::CpuSmt, Value::OptionalBool(Some(false)))]);
+        let game = own(&[(FieldKey::CpuSmt, Value::OptionalBool(None))]);
+        let r = resolve(Some(&game), Some(&all), FieldKey::CpuSmt);
+        assert_eq!(r.value, Value::OptionalBool(None));
+        assert_eq!(r.own, Some(Value::OptionalBool(None)));
+        assert!(r.is_own());
+        assert_eq!(r.origin, Origin::ThisGame);
+        let e = Effective::of_game(9100102, Some(&game), Some(&all));
+        assert!(e.is_set(FieldKey::CpuSmt));
+        assert_eq!(e.own_count(), 1);
+        // With All games not setting it, it equals the zero: same.
+        assert_eq!(
+            resolve(Some(&game), None, FieldKey::CpuSmt).origin,
+            Origin::ThisGameSame
+        );
+        let r = resolve_all_games(Some(&game), FieldKey::CpuSmt);
+        assert_eq!(
+            (r.value, r.origin),
+            (Value::OptionalBool(None), Origin::SetHere)
         );
     }
 
