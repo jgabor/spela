@@ -533,7 +533,10 @@ fn setup_and_run(
         colors.err,
         err,
     );
-    let backends = backends::select(&env, inv.cli.demo)?;
+    let mut backends = backends::select(&env, inv.cli.demo)?;
+    if inv.cli.demo {
+        backends.http = crate::demo::http(&paths);
+    }
     tracing::info!(
         version = spela_core::VERSION,
         command = inv.path.join(" "),

@@ -11,9 +11,11 @@
 
 pub mod cpu;
 pub mod display;
+pub mod dlls;
 pub mod gpu;
 pub mod http;
 pub mod library;
+pub mod pe;
 pub mod privilege;
 
 use std::sync::Arc;

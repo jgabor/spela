@@ -30,6 +30,7 @@ pub mod commands;
 pub mod demo;
 pub mod error;
 pub mod helper;
+pub mod http;
 pub mod json;
 pub mod locks;
 pub mod logging;

@@ -45,6 +45,19 @@ pub mod var {
     /// Set in an SSH session with a terminal.
     pub const SSH_TTY: &str = "SSH_TTY";
 
+    /// The proxy variables, in the order ureq reads them: the first one
+    /// set to a proxy URL wins (decision 41).
+    pub const PROXIES: &[&str] = &[
+        "ALL_PROXY",
+        "all_proxy",
+        "HTTPS_PROXY",
+        "https_proxy",
+        "HTTP_PROXY",
+        "http_proxy",
+    ];
+    /// Hosts that skip the proxy, comma separated. The upper-case name wins.
+    pub const NO_PROXY: &[&str] = &["NO_PROXY", "no_proxy"];
+
     /// Every name above, for [`super::Env::from_process`].
     pub const ALL: &[&str] = &[
         SPELA_BACKEND,
@@ -62,6 +75,14 @@ pub mod var {
         ZELLIJ,
         STY,
         SSH_TTY,
+        "ALL_PROXY",
+        "all_proxy",
+        "HTTPS_PROXY",
+        "https_proxy",
+        "HTTP_PROXY",
+        "http_proxy",
+        "NO_PROXY",
+        "no_proxy",
     ];
 }
 

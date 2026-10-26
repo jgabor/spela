@@ -69,6 +69,7 @@ fn apply(state: &mut AppState, event: Event) -> Vec<Cmd> {
             Vec::new()
         }
         Event::Msg(msg) => on_msg(state, msg),
+        Event::Stop => crate::dll_jobs::stop(state),
     }
 }
 
@@ -161,6 +162,7 @@ pub fn run(state: &mut AppState, action: Action) -> Vec<Cmd> {
         Action::Suspend => vec![Cmd::Suspend],
         Action::Popup(a) => screens::run_popup(state, a),
         Action::Screen(a) => screens::run(state, a),
+        Action::Dll(start) => crate::dll_jobs::start(state, start),
     }
 }
 
@@ -290,10 +292,11 @@ fn on_msg(state: &mut AppState, msg: Msg) -> Vec<Cmd> {
             state.dirty = true;
             Vec::new()
         }
-        Msg::AutoUpdateNotice(text) => {
-            state.say(Level::Info, text);
+        Msg::DllProgress { token, event } => {
+            crate::dll_jobs::progress(state, token, event);
             Vec::new()
         }
+        Msg::DllDone { token, done } => crate::dll_jobs::done(state, token, *done),
         Msg::HardwareDone { token, result } => {
             screens::monitor::hardware_done(state, token, result)
         }

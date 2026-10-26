@@ -1,5 +1,5 @@
-//! 2 DLL Catalog, read only, and the DLL rows the profile page's DLLs
-//! section can reuse ([`game_dll_lines`]).
+//! 2 DLL Catalog, and the DLL rows the profile page's DLLs section reuses
+//! ([`game_dll_lines`]).
 //!
 //! List has two groups, Library and Deployment, switched with Left and
 //! Right as in Go (TUI 3):
@@ -18,32 +18,42 @@
 //! no manifest at all read "unknown", never "current".
 //!
 //! The manifest comes from the cache (`manifest-v1.json`) and the cached
-//! versions from the DLL cache folder. Both are read once at start, on the
-//! shell's job pool ([`Cmd::Load`]); this crate never reads a file.
-//! Nothing here fetches, installs, updates or restores: those come with
-//! the DLL operations, so `Update all stale deployments` is listed but
-//! unavailable.
+//! versions from the DLL cache folder, read on the shell's job pool at
+//! start and after every DLL job ([`Cmd::Load`]); this crate never reads a
+//! file. A second job fetches the manifest under its refresh policy
+//! ([`Cmd::Refresh`]), after the local reads on the pool's queue, so Install
+//! has versions to offer on a first start; a failed fetch keeps the cache
+//! and says so.
+//!
+//! In Deployment, Actions has `Update all stale deployments (N DLLs)`: every
+//! stale DLL of every game no deny list names, to the manifest's latest,
+//! downloading as needed, as `dll update --all` does. Go updated only to
+//! the newest cached version, because its stale test compared with the DLL
+//! cache; stale now compares with the manifest (decision 38). The job is
+//! [`crate::dll_jobs`]'s; Detail shows its last result.
+//!
+//! The Catalog's jobs also read a game's backup index for the DLLs section
+//! ([`Cmd::Backup`]).
 
 use std::collections::BTreeMap;
 
 use ratatui::Frame;
 use ratatui::layout::Rect;
+use spela_core::dll::backup::RestoreTarget;
 use spela_core::dll::detect::{CATALOGUE, Family, family};
 use spela_core::dll::manifest::{CachedManifest, Manifest};
 use spela_core::dll::stale::{self, Freshness};
 use spela_core::games::{DetectedDll, DllType, Game};
 
-use super::{Action as AnyAction, Row, ScreenAction};
+use super::{Action as AnyAction, Row, ScreenAction, confirm};
+use crate::dll_jobs::{self, DllOp, Origin};
 use crate::event::Cmd as AnyCmd;
 use crate::hit::{HitMap, HitTarget};
 use crate::keymap::{Binding, Key};
 use crate::layout::{Pane, PaneArea};
 use crate::paint::{Painter, fit};
-use crate::state::AppState;
+use crate::state::{AppState, Level};
 use crate::theme::{Glyphs, Role};
-
-/// Why `Update all stale deployments` cannot run in this build.
-pub const NOT_BUILT: &str = "not built yet";
 
 /// A group of the List.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -81,6 +91,8 @@ pub struct Catalog {
     /// The versions in the DLL cache by family, newest first, or why the
     /// folder could not be read.
     pub cached: BTreeMap<DllType, Result<Vec<String>, String>>,
+    /// Why the cache stands in for a fetch that failed, when it does.
+    pub note: Option<String>,
 }
 
 /// The Catalog's state.
@@ -100,6 +112,8 @@ pub struct State {
     pub catalog: Option<Catalog>,
     /// The load in flight.
     pub request: Option<u64>,
+    /// The manifest fetch in flight.
+    pub refresh: Option<u64>,
 }
 
 /// What the Catalog's keys and rows run.
@@ -119,7 +133,7 @@ pub enum Action {
     ScrollUp,
     /// Scrolls Detail down a line.
     ScrollDown,
-    /// `Update all stale deployments`: listed, not built.
+    /// `Update all stale deployments`: asks, then updates.
     UpdateAll,
 }
 
@@ -133,6 +147,23 @@ pub enum Msg {
         /// What it found, or why the job failed.
         result: Result<Catalog, String>,
     },
+    /// The manifest fetch finished, with the cached versions read again.
+    Refreshed {
+        /// The [`Cmd::Refresh`] this answers.
+        request: u64,
+        /// What it found, or why the job failed.
+        result: Result<Catalog, String>,
+    },
+    /// A game's backup index was read.
+    Backup {
+        /// The [`Cmd::Backup`] this answers.
+        request: u64,
+        /// The game.
+        app_id: u64,
+        /// What a restore would change, empty for no backup, or why the
+        /// index cannot be read.
+        result: Result<Vec<RestoreTarget>, String>,
+    },
 }
 
 /// The Catalog's requests, run in the binary's `tui/exec/dlls.rs`.
@@ -143,6 +174,19 @@ pub enum Cmd {
         /// The id the result carries.
         request: u64,
     },
+    /// Fetch the manifest under its refresh policy, then read the DLL
+    /// cache folder.
+    Refresh {
+        /// The id the result carries.
+        request: u64,
+    },
+    /// Read a game's backup index.
+    Backup {
+        /// The id the result carries.
+        request: u64,
+        /// The game.
+        app_id: u64,
+    },
 }
 
 fn act(a: Action) -> AnyAction {
@@ -151,9 +195,23 @@ fn act(a: Action) -> AnyAction {
 
 /// The first load, from [`AppState::start`].
 pub fn start(state: &mut AppState) -> Vec<AnyCmd> {
+    reload(state)
+}
+
+/// Reads the caches again, after a DLL job. An older load's answer is
+/// dropped.
+pub fn reload(state: &mut AppState) -> Vec<AnyCmd> {
     let request = state.request();
     state.dlls.request = Some(request);
     vec![AnyCmd::Dlls(Cmd::Load { request })]
+}
+
+/// Fetches the manifest under its refresh policy, from
+/// [`AppState::start`].
+pub fn refresh(state: &mut AppState) -> Vec<AnyCmd> {
+    let request = state.request();
+    state.dlls.refresh = Some(request);
+    vec![AnyCmd::Dlls(Cmd::Refresh { request })]
 }
 
 /// The cached manifest, when the load found one.
@@ -256,19 +314,61 @@ pub fn stale_count(state: &AppState) -> usize {
         .count()
 }
 
+/// The stale DLLs update-all changes: those of every deployment no deny
+/// list names, as `dll update --all` skips denied games. While the deny
+/// list loads, or when it does not load, it cannot run (fails closed).
+fn update_all_targets(state: &AppState) -> (Vec<dll_jobs::Target>, Result<(), String>) {
+    let mut lists = Ok(());
+    let mut allowed: Vec<&Game> = Vec::new();
+    for i in deployments(state) {
+        let g = &state.games.games[i];
+        match super::denylist::swap_allowed(state, g.app_id) {
+            Ok(()) => allowed.push(g),
+            Err(_) if super::denylist::is_denied(state, g.app_id) => {}
+            Err(e) => {
+                lists = Err(e);
+                allowed.push(g);
+            }
+        }
+    }
+    (dll_jobs::stale_targets(state, allowed), lists)
+}
+
 fn update_all_row(state: &AppState) -> Row {
-    let n = stale_count(state);
+    let (targets, lists) = update_all_targets(state);
+    let n = targets.len();
     let unit = if n == 1 { "DLL" } else { "DLLs" };
-    let reason = if n == 0 {
-        "no stale deployments"
-    } else {
-        NOT_BUILT
-    };
+    let available = dll_jobs::can_start(state).and(lists).and_then(|()| {
+        if targets.is_empty() {
+            Err("no stale deployments".to_owned())
+        } else {
+            Ok(())
+        }
+    });
     Row::new(
         format!("Update all stale deployments ({n} {unit})"),
         act(Action::UpdateAll),
     )
-    .when(Err(reason.to_owned()))
+    .when(available)
+}
+
+fn update_all(state: &mut AppState) -> Vec<AnyCmd> {
+    if update_all_row(state).unavailable.is_some() {
+        return Vec::new();
+    }
+    let (targets, _) = update_all_targets(state);
+    let items = dll_jobs::update_items(state, &targets);
+    dll_jobs::ask(
+        state,
+        confirm::Guard::DllUpdate,
+        "Confirm all stale DLL updates",
+        dll_jobs::body(&items, "each current DLL is backed up before replacement"),
+        "DLL update",
+        DllOp::Update {
+            requests: dll_jobs::update_requests(&targets),
+        },
+        Origin::Catalog,
+    )
 }
 
 /// The selected family, in Library.
@@ -400,8 +500,7 @@ pub fn update(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
             let max = max_scroll(state);
             state.dlls.scroll = (state.dlls.scroll + 1).min(max);
         }
-        // Unavailable everywhere it is listed, so it never runs.
-        Action::UpdateAll => {}
+        Action::UpdateAll => return update_all(state),
     }
     keep_cursor_visible(state, list_h);
     Vec::new()
@@ -419,6 +518,17 @@ fn keep_cursor_visible(state: &mut AppState, height: usize) {
     d.list_scroll = d.list_scroll.min(n.saturating_sub(height));
 }
 
+fn failed_catalog(e: String) -> Catalog {
+    Catalog {
+        manifest: Err(e.clone()),
+        cached: CATALOGUE
+            .iter()
+            .map(|f| (f.dll_type, Err(e.clone())))
+            .collect(),
+        note: None,
+    }
+}
+
 /// Takes a worker result. A stale load is dropped.
 pub fn on_msg(state: &mut AppState, msg: Msg) -> Vec<AnyCmd> {
     match msg {
@@ -427,17 +537,48 @@ pub fn on_msg(state: &mut AppState, msg: Msg) -> Vec<AnyCmd> {
                 return Vec::new();
             }
             state.dlls.request = None;
-            state.dlls.catalog = Some(result.unwrap_or_else(|e| {
-                Catalog {
-                    manifest: Err(e.clone()),
-                    cached: CATALOGUE
-                        .iter()
-                        .map(|f| (f.dll_type, Err(e.clone())))
-                        .collect(),
-                }
-            }));
+            let mut loaded = result.unwrap_or_else(failed_catalog);
+            // A fetch's note stays until the next fetch.
+            if let Some(old) = &state.dlls.catalog {
+                loaded.note = old.note.clone();
+            }
+            state.dlls.catalog = Some(loaded);
             state.dirty = true;
         }
+        Msg::Refreshed { request, result } => {
+            if state.dlls.refresh != Some(request) {
+                return Vec::new();
+            }
+            state.dlls.refresh = None;
+            match result {
+                Ok(c) => {
+                    // A failed fetch with a cache already shown keeps it.
+                    let keep = c.manifest.is_err()
+                        && matches!(
+                            state.dlls.catalog.as_ref().map(|c| &c.manifest),
+                            Some(Ok(Some(_)))
+                        );
+                    if keep {
+                        if let (Some(shown), Err(e)) = (&mut state.dlls.catalog, c.manifest) {
+                            shown.note = Some(e);
+                        }
+                    } else {
+                        state.dlls.catalog = Some(c);
+                    }
+                }
+                Err(e) => {
+                    if let Some(shown) = &mut state.dlls.catalog {
+                        shown.note = Some(e);
+                    }
+                }
+            }
+            state.dirty = true;
+        }
+        Msg::Backup {
+            request,
+            app_id,
+            result,
+        } => dll_jobs::backup_read(state, request, app_id, result),
     }
     Vec::new()
 }
@@ -549,6 +690,9 @@ fn library_lines(state: &AppState, width: usize) -> Vec<Line> {
         Some(Err(e)) => lines.push(plain(e.clone(), Role::Error)),
         _ => {}
     }
+    if let Some(note) = catalog.and_then(|c| c.note.as_ref()) {
+        lines.push(plain(note.clone(), Role::Warn));
+    }
     if let Some(Err(e)) = catalog.and_then(|c| c.cached.get(&fam.dll_type)) {
         lines.push(plain(e.clone(), Role::Error));
     }
@@ -575,7 +719,7 @@ fn library_lines(state: &AppState, width: usize) -> Vec<Line> {
     lines
 }
 
-fn deployment_lines(state: &AppState) -> Vec<Line> {
+fn deployment_lines(state: &AppState, width: usize) -> Vec<Line> {
     let Some(game) = selected_game(state) else {
         return vec![plain("No deployed DLL selected", Role::Muted)];
     };
@@ -602,7 +746,45 @@ fn deployment_lines(state: &AppState) -> Vec<Line> {
         };
         lines.push(plain(why, Role::Muted));
     }
+    lines.extend(job_lines(state, width));
     lines
+}
+
+/// The update-all job while it runs, or its last result.
+fn job_lines(state: &AppState, width: usize) -> Vec<Line> {
+    if let Some(r) = state
+        .dll_jobs
+        .running
+        .as_ref()
+        .filter(|r| r.origin == Origin::Catalog)
+    {
+        return vec![
+            Vec::new(),
+            plain("DLL update-all", Role::Title),
+            plain(dll_jobs::words(r), Role::Warn),
+            plain(
+                "Work is running. Controls return when it finishes.",
+                Role::Muted,
+            ),
+        ];
+    }
+    match &state.dll_jobs.catalog_result {
+        Some((text, level)) => {
+            let role = match level {
+                Level::Ok => Role::Ok,
+                Level::Error => Role::Error,
+                Level::Info => Role::Muted,
+            };
+            let mut out = vec![Vec::new()];
+            out.extend(
+                crate::text::wrap(text, width.max(20))
+                    .into_iter()
+                    .map(|l| plain(l, role)),
+            );
+            out
+        }
+        None => Vec::new(),
+    }
 }
 
 /// The Detail lines for the selection.
@@ -617,7 +799,7 @@ pub fn detail_lines(state: &AppState) -> Vec<Line> {
     );
     match state.dlls.group {
         Group::Library => library_lines(state, width),
-        Group::Deployment => deployment_lines(state),
+        Group::Deployment => deployment_lines(state, width),
     }
 }
 
@@ -824,6 +1006,7 @@ mod tests {
                 ..CachedManifest::default()
             })),
             cached: BTreeMap::from([(DllType::Dlss, Ok(vec!["310.5.3".to_owned()]))]),
+            note: None,
         }
     }
 

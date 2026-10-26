@@ -23,6 +23,7 @@
 //! | [`completion`] | `completion <shell>` |
 //! | [`removed`] | the reserved `overlay` and `gui` (decision 45) |
 //! | [`profile_write`], [`section_write`], [`config_write`], [`denylist_write`] | the stored-profile, config and deny list writes |
+//! | [`dll_write`] | `dll install`, `update` and `restore` |
 //! | [`target`] | what the writes share: `<game>` or `--all-games`, exit codes |
 //!
 //! The hidden `apply-profile` root helper is [`crate::helper`].
@@ -38,6 +39,7 @@ pub mod denylist_read;
 pub mod denylist_write;
 pub mod dll;
 pub mod dll_read;
+pub mod dll_write;
 pub mod dlss;
 pub mod gpu;
 pub mod launch;

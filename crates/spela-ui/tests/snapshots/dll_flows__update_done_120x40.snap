@@ -1,0 +1,44 @@
+---
+source: crates/spela-ui/tests/dll_flows.rs
+expression: text
+---
+ spela   ▸ 1 Library  2 DLL Catalog  3 Monitor  4 Settings
+┌─ Scope ────────────────────────┬─ Ashfall Courier ───────────────────────────────────────────────────────────────────┐
+│ / Find games                   │ Ashfall Courier · App ID 9100010 · DLLs: DLSS 310.5.3 · Saved at once               │
+│   All games                    │ Own settings (4): Super resolution quality · Resolution override On · Ray override⋯ │
+│ ▸ Ashfall Courier          ▪ ⚑ │ Proton  DLSS  GPU  CPU  [DLLs]                                                      │
+│   Brightwater Keep             │                                                                                     │
+│   Cinder Valley Racing     ▪   │ Install directory: /fixture/steamapps/common/Ashfall Courier                        │
+│   Deepline Salvage           ⚑ │ Steam launch option: spela %command%                                                │
+│   Ember Tide               ▪   │                                                                                     │
+│   Game 1 Remastered            │ DLL versions                                                                        │
+│   Glasshouse Detective     ▪ ⚑ │ DLSS    310.5.3       current  nvngx_dlss.dll                                       │
+│   Hollow Crown Tactics: D⋯     │ Backup available                                                                    │
+│   Ironleaf Expedition      ▪   │ DLL update: 1 updated, 0 current, 0 failed                                          │
+│   Lantern Drift              ⚑ │                                                                                     │
+│   Moonwell Farmstead       ▪   │ DLL actions: Ashfall Courier                                                        │
+│   Nightglass Protocol          │   Install DLL                                                                       │
+│                                │ ▸ Update DLLs (0 files)                                                             │
+│                                │     Unavailable: no stale DLLs for this game                                        │
+│                                │   Restore originals (1 file)                                                        │
+│                                │ Review each detected stale DLL before updating.                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+└─ ▪ DLLs  ⚑ profile ────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
+ ✓ DLL update: 1 updated, 0 current, 0 failed
+ 0 Actions  Up/Down Action  Left/Right Section  Tab Pane  Esc List  ? Help

@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/dll_flows.rs
+expression: render_text(&mut s)
+---
+ spela   ▸ Library  DLL Catalog  Monitor  Settings
+┌─ ▸ Detail ───────────────────────────────────────────────────────────────────┐
+│ Ashfall Courier · App ID 9100010 · DLLs: DLSS 310.4.0 · Saved at once        │
+│ Own settings (4): Super resolution quality · Resolution override On · Ray o⋯ │
+│ Proton  DLSS  GPU  CPU  [DLLs]                                               │
+│ ┌─ Confirm DLL restore ────────────────────────────────────────────────────┐ │
+│ │                                                                          │ │
+│ │  1 DLL target(s)                                                         │ │
+│ │                                                                          │ │
+│ │  Ashfall Courier · DLSS · 310.4.0 -> backup 310.1                        │ │
+│ │  /fixture/steamapps/common/Ashfall Courier/nvngx_dlss.dll                │ │
+│ │                                                                          │ │
+│ │  Backup: existing backup is restored; current DLL is not backed up       │ │
+│ │  again                                                                   │ │
+│ │                                                                          │ │
+│ │                                                 [ Cancel ]  [ Confirm ]  │ │
+│ │                                                                          │ │
+│ └──────────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+ Left/Right Choose  Enter Activate  Tab Details  Esc Cancel

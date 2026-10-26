@@ -63,8 +63,6 @@ fn unbuilt_commands_say_so_and_exit_1() {
     let s = Sandbox::new();
     for (args, name) in [
         (&["gpu", "info"][..], "gpu info"),
-        (&["dll", "restore", "Some Game"][..], "dll restore"),
-        (&["dll", "update", "--all"][..], "dll update"),
         (&["launch", "x", "--dry-run"][..], "launch --dry-run"),
     ] {
         let run = s.run(args);

@@ -19,12 +19,14 @@ use spela_core::games::GameCache;
 use spela_core::metrics::CpuMetrics;
 use spela_core::profile::Scope;
 
+use crate::dll_jobs;
 use crate::event::{Cmd, MetricsSample, Write};
 use crate::hit::{HitMap, HitTarget};
 use crate::layout::{Layout, Mode, Pane};
 use crate::perf::PerfStats;
 use crate::screens::{
-    self, Dest, Owner, Popup, confirm, denylist, dlls, library, monitor, notice, profile, settings,
+    self, Dest, Owner, Popup, confirm, denylist, dlls, game_dlls, library, monitor, notice,
+    profile, settings,
 };
 use crate::theme::{Glyphs, Theme};
 
@@ -251,6 +253,10 @@ pub struct AppState {
     pub dlls: dlls::State,
     /// [`denylist`]'s state.
     pub denylist: denylist::State,
+    /// [`game_dlls`]'s state.
+    pub game_dlls: game_dlls::State,
+    /// The DLL jobs' state.
+    pub dll_jobs: dll_jobs::State,
 }
 
 impl std::fmt::Debug for AppState {
@@ -300,6 +306,8 @@ impl AppState {
             monitor: monitor::State::default(),
             dlls: dlls::State::default(),
             denylist: denylist::State::default(),
+            game_dlls: game_dlls::State::default(),
+            dll_jobs: dll_jobs::State::default(),
         };
         library::set_profiles(&mut state, startup.profiles);
         library::games_changed(&mut state);
@@ -319,9 +327,13 @@ impl AppState {
     }
 
     /// The first commands: the metrics poll, one background scan when
-    /// `rescan_on_startup` is on or the cache is empty (decision 24), and
-    /// the profile page's read of every profile, the deny list load and
-    /// the DLL Catalog's read of the manifest and DLL caches.
+    /// `rescan_on_startup` is on or the cache is empty (decision 24), the
+    /// profile page's read of every profile, the deny list load and the
+    /// DLL Catalog's read of the manifest and DLL caches. Then the network
+    /// jobs, after the local ones on the pool's queue: the manifest under
+    /// its refresh policy, the release check when `check_updates` is on,
+    /// and the DLL auto-update when `auto_update_dlls` is on, after the
+    /// startup scan if one runs (decision 39).
     pub fn start(&mut self) -> Vec<Cmd> {
         let mut cmds = Vec::new();
         if self.wants_metrics() {
@@ -334,6 +346,13 @@ impl AppState {
         cmds.extend(profile::start(self));
         cmds.extend(denylist::start(self));
         cmds.extend(dlls::start(self));
+        cmds.extend(dlls::refresh(self));
+        if self.config.check_updates {
+            cmds.push(Cmd::CheckRelease);
+        }
+        if self.config.auto_update_dlls {
+            cmds.extend(dll_jobs::start_auto(self));
+        }
         cmds
     }
 

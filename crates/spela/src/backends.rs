@@ -1,29 +1,31 @@
 //! Picks the backends for a run: the fake for `--demo` and for
 //! `SPELA_BACKEND=fake`, otherwise the real ones.
 //!
-//! The real CPU reads are built: [`SysfsCpu`] over `/sys`. The real GPU,
-//! display and HTTP backends arrive in later phases (NVML in Phase 2,
-//! `kscreen-doctor` and polkit in Phase 6, ureq with the manifest in Phase
-//! 5). Until then they report that they are not built. They open
+//! The real CPU reads are built: [`SysfsCpu`] over `/sys`, and so is HTTP:
+//! [`UreqHttp`], with the proxy from the environment snapshot. The real GPU
+//! and display backends arrive in later phases (NVML in Phase 2,
+//! `kscreen-doctor` and polkit in Phase 6). Until then they report that they
+//! are not built. They open
 //! nothing when built, so a command that never asks pays nothing; NVML in
 //! particular stays lazy (it costs 4 to 17 ms per process).
 
 use std::sync::Arc;
 
 use spela_core::backend::{
-    BackendKind, Backends, Display, DisplayError, Gpu, GpuError, GpuInfo, GpuMetrics, Http,
-    HttpError, HttpRequest, HttpResponse, Output, SysfsCpu, VrrPolicy,
+    BackendKind, Backends, Display, DisplayError, Gpu, GpuError, GpuInfo, GpuMetrics, Output,
+    SysfsCpu, VrrPolicy,
 };
 use spela_core::env::Env;
 
 use crate::error::{CliError, exit};
+use crate::http::UreqHttp;
 use crate::privilege::PolkitPrivilege;
 
 /// The backends for this run. `--demo` always gets the fake.
 pub fn select(env: &Env, demo: bool) -> Result<Backends, CliError> {
     Ok(match kind(env, demo)? {
         BackendKind::Fake => spela_core::fake::backends(),
-        BackendKind::Real => real(),
+        BackendKind::Real => real(env),
     })
 }
 
@@ -43,7 +45,7 @@ pub fn kind(env: &Env, demo: bool) -> Result<BackendKind, CliError> {
 /// NVML, `kscreen-doctor`, polkit or the network. Binary tests run with
 /// `SPELA_BACKEND=fake`, and `tests/safety.rs` checks every command logs
 /// `backend=Fake`.
-pub fn real() -> Backends {
+pub fn real(env: &Env) -> Backends {
     if cfg!(test) {
         panic!("a unit test built the real backends; use the fake");
     }
@@ -53,7 +55,7 @@ pub fn real() -> Backends {
         cpu: Box::new(SysfsCpu::system()),
         display: Box::new(KscreenDisplay),
         privilege: Box::new(PolkitPrivilege),
-        http: Arc::new(UreqHttp),
+        http: Arc::new(UreqHttp::from_env(env)),
     }
 }
 
@@ -93,23 +95,6 @@ impl Display for KscreenDisplay {
     }
 }
 
-/// Blocking HTTP through ureq. Not built yet, so nothing leaves the machine.
-#[derive(Debug)]
-pub struct UreqHttp;
-
-impl Http for UreqHttp {
-    fn get(
-        &self,
-        _request: &HttpRequest,
-        _body: &mut dyn std::io::Write,
-        _progress: &mut dyn FnMut(u64, Option<u64>),
-    ) -> Result<HttpResponse, HttpError> {
-        Err(HttpError::Network(
-            "HTTP is not yet implemented in this build".into(),
-        ))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -132,13 +117,13 @@ mod tests {
     #[test]
     fn nothing_set_means_real_but_a_test_never_builds_them() {
         assert_eq!(kind(&Env::default(), false).unwrap(), BackendKind::Real);
-        let built = std::panic::catch_unwind(real);
+        let built = std::panic::catch_unwind(|| real(&Env::default()));
         assert!(built.is_err(), "real() refuses to run in a unit test");
     }
 
     /// The stubs' read paths only. Remove each check when its backend is
-    /// built: a real `NvmlGpu` would open NVML here. `set_vrr` and
-    /// `UreqHttp::get` are never called from a test.
+    /// built: a real `NvmlGpu` would open NVML here. `set_vrr` is never
+    /// called from a test.
     #[test]
     fn unbuilt_stubs_report_unavailable() {
         assert!(matches!(NvmlGpu.info(), Err(GpuError::Unavailable(_))));

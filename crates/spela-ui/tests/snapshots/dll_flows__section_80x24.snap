@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/dll_flows.rs
+expression: text
+---
+ spela   ▸ 1 Library  2 DLL Catalog  3 Monitor  4 Settings
+┌─ ▸ Detail ───────────────────────────────────────────────────────────────────┐
+│ Ashfall Courier · App ID 9100010 · DLLs: DLSS 310.4.0 · Saved at once        │
+│ Own settings (4): Super resolution quality · Resolution override On · Ray o⋯ │
+│ Proton  DLSS  GPU  CPU  [DLLs]                                               │
+│                                                                              │
+│ Install directory: /fixture/steamapps/common/Ashfall Courier                 │
+│ Steam launch option: spela %command%                                         │
+│                                                                              │
+│ DLL versions                                                                 │
+│ DLSS    310.4.0       stale    latest 310.5.3    nvngx_dlss.dll              │
+│ Backup available                                                             │
+│                                                                              │
+│ DLL actions: Ashfall Courier                                                 │
+│ ▸ Install DLL                                                                │
+│   Update DLLs (1 file)                                                       │
+│   Restore originals (1 file)                                                 │
+│ Choose a family and version, then review the target.                         │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+ 0 Actions  Up/Down Action  Enter Install DLL  Left/Right Section  Tab List

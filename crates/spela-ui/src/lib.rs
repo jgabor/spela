@@ -14,6 +14,7 @@
 //! | [`update`] | [`update()`]: the one place state changes |
 //! | [`view`] | [`render`]: the frame, the top bar, the status line and the hint bar |
 //! | [`screens`] | One file per destination and popup, registered in one place |
+//! | [`dll_jobs`] | DLL install, update, restore and auto-update jobs, shared by three screens |
 //! | [`keymap`] | Keys, bindings and the resolver the hint bar and Help read too |
 //! | [`layout`] | The frame's geometry: the 80x24 floor and the 100x30 breakpoint |
 //! | [`hit`] | Click regions recorded while drawing |
@@ -29,6 +30,7 @@
 
 #![warn(missing_docs)]
 
+pub mod dll_jobs;
 pub mod editor;
 pub mod event;
 pub mod fuzzy;

@@ -595,14 +595,15 @@ fn dll_list_shows_every_family_and_one_game() {
 }
 
 #[test]
-fn dll_check_updates_reads_the_cached_manifest() {
+fn dll_check_updates_falls_back_to_the_cached_manifest() {
     let s = Sandbox::new();
     three_games(&s);
     s.run(&["scan"]).expect_code(0);
+    // The fake network has nothing, and there is no cache to fall back to.
     let run = s.run(&["dll", "check-updates"]);
     run.expect_code(1);
     assert!(
-        run.stderr().contains("no DLL manifest in the cache"),
+        run.stderr().contains("error: failed to fetch the DLL manifest from https://raw.githubusercontent.com/jgabor/spela/main/data/manifest.json: "),
         "{}",
         run.stderr()
     );
@@ -613,6 +614,8 @@ fn dll_check_updates_reads_the_cached_manifest() {
             "xess":[{"version":"1.3.1","url":"https://example.invalid/b","sha256":"bb","filename":"libxess.dll"}]
         },"fetched_at":"2026-10-26T15:00:00Z","source_url":"http://127.0.0.1:9/"}"#,
     );
+    // The cache came from another URL, so the policy fetches; the fetch
+    // fails and the cache stands in, with a warning.
     let run = s.run(&["dll", "check-updates"]);
     run.expect_code(0);
     assert_eq!(
@@ -620,6 +623,12 @@ fn dll_check_updates_reads_the_cached_manifest() {
         "Amber Reach (9100410)\n  nvngx_dlss.dll: unknown -> 310.5.3\n\
          Cobalt Drift (9100420)\n  libxess.dll: unknown -> 1.3.1\n",
         "XeSS counts; FSR has no manifest entry"
+    );
+    assert!(
+        run.stderr()
+            .contains("using the cached DLL manifest: cannot fetch"),
+        "{}",
+        run.stderr()
     );
 }
 

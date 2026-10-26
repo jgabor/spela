@@ -4,7 +4,7 @@
 //!
 //! | Destination | List | Detail |
 //! |---|---|---|
-//! | 1 Library | [`library`] | [`profile`] (its DLLs section draws [`dlls`] and [`denylist`]) |
+//! | 1 Library | [`library`] | [`profile`] (its DLLs section is [`game_dlls`], which draws [`dlls`] and [`denylist`]) |
 //! | 2 DLL Catalog | [`dlls`] | [`dlls`] |
 //! | 3 Monitor | [`monitor`] | [`monitor`] |
 //! | 4 Settings | [`settings`] | [`settings`] |
@@ -38,6 +38,7 @@ pub mod actions;
 pub mod confirm;
 pub mod denylist;
 pub mod dlls;
+pub mod game_dlls;
 pub mod help;
 pub mod library;
 pub mod monitor;
@@ -125,6 +126,8 @@ pub enum Action {
     Popup(PopupAction),
     /// A screen's own action.
     Screen(ScreenAction),
+    /// Starts a DLL job, from Confirm on a DLL confirmation.
+    Dll(crate::dll_jobs::Start),
 }
 
 /// A screen's action, by screen.
@@ -142,6 +145,8 @@ pub enum ScreenAction {
     Dlls(dlls::Action),
     /// [`denylist`].
     Denylist(denylist::Action),
+    /// [`game_dlls`].
+    GameDlls(game_dlls::Action),
 }
 
 /// A popup's action, by popup.
@@ -326,6 +331,8 @@ pub fn editing(state: &AppState, pane: Pane) -> bool {
 enum Lock {
     /// The deny list's reason editor, in Detail.
     Deny,
+    /// The DLLs section's install picker, in Detail.
+    GameDlls,
     /// The profile page's editor or picker, in Detail.
     Profile,
     /// The Find row, in the List.
@@ -341,6 +348,8 @@ fn library_lock(state: &AppState) -> Option<Lock> {
     }
     if denylist::editing(state, Pane::Detail) {
         Some(Lock::Deny)
+    } else if game_dlls::editing(state) {
+        Some(Lock::GameDlls)
     } else if profile::editing(state, Pane::Detail) {
         Some(Lock::Profile)
     } else if library::editing(state, Pane::List) {
@@ -365,6 +374,7 @@ pub fn browsing(state: &AppState) -> bool {
 pub fn screen_bindings(state: &AppState, pane: Pane) -> Vec<Binding> {
     match library_lock(state) {
         Some(Lock::Deny) => denylist::bindings(state, Pane::Detail),
+        Some(Lock::GameDlls) => game_dlls::bindings(state),
         Some(Lock::Profile) => profile::bindings(state, Pane::Detail),
         Some(Lock::Find) => library::bindings(state, Pane::List),
         None => by_owner!(owner(state.dest, pane), bindings(state, pane)),
@@ -514,6 +524,7 @@ pub fn palette(state: &AppState) -> Vec<Row> {
         .collect();
     rows.extend(library::palette(state));
     rows.extend(profile::palette(state));
+    rows.extend(game_dlls::rows(state));
     rows.extend(dlls::palette(state));
     rows.extend(monitor::palette(state));
     rows.extend(settings::palette(state));
@@ -536,6 +547,7 @@ pub fn run(state: &mut AppState, action: ScreenAction) -> Vec<Cmd> {
         ScreenAction::Monitor(a) => monitor::update(state, a),
         ScreenAction::Dlls(a) => dlls::update(state, a),
         ScreenAction::Denylist(a) => denylist::update(state, a),
+        ScreenAction::GameDlls(a) => game_dlls::update(state, a),
     }
 }
 

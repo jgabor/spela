@@ -14,6 +14,13 @@ pub const HEADER_TIMEOUT: Duration = Duration::from_secs(30);
 pub const TOTAL_TIMEOUT: Duration = Duration::from_secs(120);
 /// The default body cap. A DLL is tens of MiB.
 pub const DEFAULT_BODY_CAP: u64 = 256 * 1024 * 1024;
+/// The manifest's body cap. Go read it without one; today's manifest is a
+/// few KiB.
+pub const MANIFEST_BODY_CAP: u64 = 4 * 1024 * 1024;
+/// The release check's timeout, for the header and the whole request, as Go.
+pub const RELEASE_TIMEOUT: Duration = Duration::from_secs(5);
+/// The release check's body cap, as Go.
+pub const RELEASE_BODY_CAP: u64 = 1024 * 1024;
 
 /// One GET.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -69,6 +76,9 @@ pub struct HttpResponse {
     pub status: u16,
     /// Body bytes written.
     pub bytes: u64,
+    /// The raw `Link` header, if the server sent one. The release check
+    /// follows its `next` page.
+    pub link: Option<String>,
 }
 
 /// Why a request failed.

@@ -16,8 +16,9 @@ expression: render_text(&mut s)
 │   Hollow Crown T│   Sort: DLLs first                                          action               │                 │
 │   Ironleaf Exped│   Allow DLL swaps: Ashfall Courier · wait for th⋯           action               │                 │
 │   Lantern Drift │   Toggle DLL filter                                         action               │                 │
-│   Moonwell Farms│   Auto-update DLLs                                          setting              │                 │
-│   Nightglass Pro│   Update all stale deployments (0 DLLs) · no sta⋯           action               │                 │
+│   Moonwell Farms│   Install DLL: Ashfall Courier · wait for the de⋯           action               │                 │
+│   Nightglass Pro│   Auto-update DLLs                                          setting              │                 │
+│                 │   Update stale DLLs: Ashfall Courier (0) · wait ⋯           action               │                 │
 │                 ├──────────────────────────────────────────────────────────────────────────────────┤                 │
 │                 │ Type to filter. Enter runs, Esc closes.                                          │                 │
 │                 │ A row shows its key when it has one. Actions rows are reached with 0.            │                 │
@@ -38,7 +39,6 @@ expression: render_text(&mut s)
 │                                │                                                                                     │
 │                                │                                                                                     │
 │                                │                                                                                     │
-│                                │                                                                                     │
 └─ ▪ DLLs  ⚑ profile ────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
- 9 best matches for "dl"
+ 10 best matches for "dl"
  Up/Down Move  Enter Run  Esc Close

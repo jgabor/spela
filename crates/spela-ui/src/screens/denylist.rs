@@ -3,8 +3,8 @@
 //!
 //! It draws no pane of its own. The game's DLLs section shows
 //! [`state_line`] under "DLL versions" and lists [`actions`] in its Actions
-//! popup, after the DLL rows once Phase 5 adds them; the palette lists
-//! them too. Phase 5's Install and Update rows dim with [`swap_allowed`].
+//! popup, after the DLL rows; the palette lists them too. The DLL Install
+//! and Update rows dim with [`swap_allowed`].
 //!
 //! - The lists load on the job pool ([`Cmd::Load`]) at start and again
 //!   after every change, because spela-ui reads no files. A list that does
@@ -201,6 +201,11 @@ pub fn swap_allowed(state: &AppState, app_id: u64) -> Result<(), String> {
         Status::Denied(listed) => Err(format!("DLL swaps denied ({})", listed.entry.reason)),
         _ => Ok(()),
     }
+}
+
+/// Whether a loaded deny list denies the game.
+pub fn is_denied(state: &AppState, app_id: u64) -> bool {
+    lists(state).is_ok_and(|l| l.check(app_id).is_denied())
 }
 
 /// The three rows for a game, with their reasons when they cannot run.

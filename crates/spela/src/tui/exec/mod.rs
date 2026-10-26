@@ -3,13 +3,13 @@
 //!
 //! | File | Commands |
 //! |---|---|
-//! | this file | the shell's: metrics polls, saves, and the Phase 5 and 6 placeholders |
+//! | this file | the shell's: metrics polls, saves, the DLL job's stop flag, and the Phase 6 placeholder |
 //! | [`monitor`] | also `Cmd::Hardware`, the hardware jobs |
 //! | [`library`] | `Cmd::Scan` and `library::Cmd` |
 //! | [`profile`] | `profile::Cmd` |
 //! | [`settings`] | `settings::Cmd` |
 //! | [`monitor`] | `monitor::Cmd` |
-//! | [`dlls`] | `dlls::Cmd` |
+//! | [`dlls`] | `dlls::Cmd`, and also `Cmd::Dll` and `Cmd::CheckRelease` |
 //! | [`denylist`] | `denylist::Cmd` |
 //!
 //! A command never blocks the UI thread: polls go to the metrics thread,
@@ -23,8 +23,11 @@ pub mod monitor;
 pub mod profile;
 pub mod settings;
 
+use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
+use spela_core::backend::Http;
 use spela_core::clock::Clock;
 use spela_core::paths::Paths;
 use spela_core::steam::library::SteamInstall;
@@ -75,7 +78,6 @@ impl SteamSource {
 }
 
 /// The real workers.
-#[derive(Debug)]
 pub struct Workers {
     /// spela's directories.
     pub paths: Paths,
@@ -101,6 +103,27 @@ pub struct Workers {
     pub privilege: monitor::SharedPrivilege,
     /// Sets the log file's level after `log_level` was saved.
     pub log: crate::logging::LevelHandle,
+    /// The network: ureq, or the fake (the demo's under `--demo`).
+    pub http: Arc<dyn Http>,
+    /// Set when spela quits during a DLL job, which then stops at its next
+    /// safe point.
+    pub stop: Arc<AtomicBool>,
+    /// Where the auto-update looks for running games: `/proc`, or `None`
+    /// under the fake backend, where no game runs.
+    pub proc_root: Option<PathBuf>,
+    /// `--demo`: the release check asks the demo's fake as a release.
+    pub demo: bool,
+}
+
+impl std::fmt::Debug for Workers {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Workers")
+            .field("paths", &self.paths)
+            .field("steam", &self.steam)
+            .field("proc_root", &self.proc_root)
+            .field("demo", &self.demo)
+            .finish_non_exhaustive()
+    }
 }
 
 impl Exec for Workers {
@@ -109,9 +132,9 @@ impl Exec for Workers {
             Cmd::PollMetrics => self.metrics.poll(),
             Cmd::Scan { request } => library::scan(self, request),
             Cmd::Save { token, write } => self.writes.submit(token, write),
-            // The release check and the startup auto-update come with
-            // Phase 5.
-            Cmd::CheckRelease | Cmd::AutoUpdate => {}
+            Cmd::CheckRelease => dlls::check_release(self),
+            Cmd::Dll { token, op } => dlls::job(self, token, op),
+            Cmd::StopDll => self.stop.store(true, Ordering::SeqCst),
             Cmd::Hardware { token, op } => monitor::hardware(self, token, op),
             Cmd::Preview { request, .. } => {
                 let _ = self.tx.done(Msg::PreviewReady {

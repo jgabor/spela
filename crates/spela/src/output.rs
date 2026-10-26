@@ -64,6 +64,9 @@ struct JsonError<'a> {
 struct JsonErrorBody<'a> {
     code: &'a str,
     message: &'a str,
+    /// Only for failures that carry more, such as a DLL batch's items.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    details: Option<&'a serde_json::Value>,
 }
 
 /// Writes the `--json` error object, schema version 1, with a newline.
@@ -73,6 +76,7 @@ pub fn write_json_error(out: &mut dyn Write, e: &CliError) -> io::Result<()> {
         error: JsonErrorBody {
             code: e.kind,
             message: &e.message,
+            details: e.details.as_ref(),
         },
     };
     serde_json::to_writer_pretty(&mut *out, &value).map_err(io::Error::other)?;
