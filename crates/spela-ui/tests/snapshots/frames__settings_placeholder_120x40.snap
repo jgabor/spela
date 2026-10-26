@@ -3,17 +3,17 @@ source: crates/spela-ui/tests/frames.rs
 expression: render_text(&mut s)
 ---
  spela   1 Library  2 DLL Catalog  3 Monitor  ▸ 4 Settings
-┌─ Settings ─────────────────────┬─ Setting ───────────────────────────────────────────────────────────────────────────┐
-│ Settings comes here: Display,  │ The option's value, description and save state come here.                           │
-│ Startup, Paths, DLL policy and │                                                                                     │
-│ Logging.                       │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
+┌─ Settings · Display ───────────┬─ Theme ─────────────────────────────────────────────────────────────────────────────┐
+│ Display                        │ Theme                                                                               │
+│ ▸ Theme                        │ terminal                                                                            │
+│   Mouse                        │ Saved at once                                                                       │
+│   ASCII glyphs                 │                                                                                     │
+│   Confirm destructive actions  │ Colours. terminal uses your terminal's palette, neon is spela's own, mono uses      │
+│ Startup                        │ none.                                                                               │
+│ Paths                          │                                                                                     │
+│ DLL policy                     │ Choices: [terminal]  neon  mono                                                     │
+│ Logging                        │                                                                                     │
+│                                │ Default: terminal                                                                   │
 │                                │                                                                                     │
 │                                │                                                                                     │
 │                                │                                                                                     │
@@ -41,4 +41,4 @@ expression: render_text(&mut s)
 │                                │                                                                                     │
 └────────────────────────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
 
- 0 Actions  Tab Pane  ? Help
+ 0 Actions  Up/Down Option  Left/Right Group  Enter Open  Tab Pane  ? Help

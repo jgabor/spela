@@ -21,6 +21,7 @@
 //! | [`paint`] | Drawing helpers the screens share |
 //! | [`text`] | Display width, sanitising, truncation and wrapping |
 //! | [`input`] | [`input::LineInput`], one line of editable text |
+//! | [`editor`] | [`editor::Editor`], a one-line editor with Apply and Cancel, for Settings and the deny reason |
 //! | [`fuzzy`] | The palette's matcher |
 //! | [`picker`] | The choice picker with type-to-jump, for editors and Settings |
 //! | [`perf`] | The key-to-flush ring |
@@ -28,6 +29,7 @@
 
 #![warn(missing_docs)]
 
+pub mod editor;
 pub mod event;
 pub mod fuzzy;
 pub mod hit;

@@ -1,0 +1,44 @@
+---
+source: crates/spela-ui/tests/settings.rs
+expression: render_text(&mut s)
+---
+ spela   1 Library  2 DLL Catalog  3 Monitor  ▸ 4 Settings
+┌─ Settings · DLL policy ────────┬─ Refresh interval ──────────────────────────────────────────────────────────────────┐
+│ Display                        │ Refresh interval                                                                    │
+│ Startup                        │ 24                                                                                  │
+│ Paths                          │ Saved at once                                                                       │
+│ DLL policy                     │                                                                                     │
+│   Auto-refresh manifest        │ Hours before the cached DLL manifest counts as old.                                 │
+│ ▸ Refresh interval             │                                                                                     │
+│   DLL manifest URL             │ Choices: 1  6  12  [24]  48  168                                                    │
+│ Logging                        │                                                                                     │
+│                                │ Default: 24                                                                         │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+└────────────────────────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
+ ✓ Saved: Refresh interval 24                                                                                     Saved
+ 0 Actions  Space Next value  Tab Pane  Esc List  ? Help

@@ -313,7 +313,14 @@ pub fn title(state: &AppState, pane: Pane) -> String {
 /// Then only its own bindings and Ctrl-C work, and letters and digits
 /// type (terminal-ux.md, option B).
 pub fn editing(state: &AppState, pane: Pane) -> bool {
-    by_owner!(owner(state.dest, pane), editing(state, pane))
+    deny_editing(state, pane) || by_owner!(owner(state.dest, pane), editing(state, pane))
+}
+
+/// The deny list's reason editor is open over Library's Detail. It lives
+/// in the game's DLLs section, so it takes that pane's keys and draws
+/// there.
+fn deny_editing(state: &AppState, pane: Pane) -> bool {
+    owner(state.dest, pane) == PaneOwner::Profile && denylist::editing(state, pane)
 }
 
 /// Whether the UI is in Browse: no popup and no editor. Digits show in the
@@ -324,6 +331,9 @@ pub fn browsing(state: &AppState) -> bool {
 
 /// The bindings of the focused pane's screen.
 pub fn screen_bindings(state: &AppState, pane: Pane) -> Vec<Binding> {
+    if deny_editing(state, pane) {
+        return denylist::bindings(state, pane);
+    }
     by_owner!(owner(state.dest, pane), bindings(state, pane))
 }
 
@@ -533,7 +543,10 @@ pub fn render_pane(state: &AppState, frame: &mut Frame, area: PaneArea, hits: &m
     by_owner!(
         owner(state.dest, area.pane),
         render(state, frame, area, hits)
-    )
+    );
+    if deny_editing(state, area.pane) {
+        denylist::render(state, frame, area, hits);
+    }
 }
 
 /// Draws the open popup over the dimmed workspace.

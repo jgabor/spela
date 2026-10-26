@@ -116,23 +116,7 @@ pub fn run(state: &mut AppState, action: Action) -> Vec<Cmd> {
             Vec::new()
         }
         Action::Help => {
-            let keys = match &state.popup {
-                // From the Actions popup, Help describes the context behind it.
-                Some(Popup::Actions(_)) | None => {
-                    let popup = state.popup.take();
-                    let keys = screens::bindings(state);
-                    state.popup = popup;
-                    keys
-                }
-                Some(_) => screens::bindings(state),
-            };
-            let context = format!(
-                "{} {} {}",
-                state.dest.name(),
-                state.glyphs.dot,
-                state.focus.word()
-            );
-            state.open(Popup::Help(help::State::new(context, &keys)));
+            help::open(state);
             Vec::new()
         }
         Action::Palette => {

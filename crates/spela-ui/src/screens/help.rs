@@ -1,27 +1,35 @@
 //! Help (`?`, or the Help row in Actions): "Keys here" for the context it
-//! was opened from, then a reference per mode, all from the keymap.
+//! was opened from, the Actions rows of that context, then a reference per
+//! mode, all built from the keymap.
 //!
 //! "Keys here" is the composed binding list of that context, the same one
 //! the hint bar shows and dispatch reads, so every key in it works there.
-//! A reason shows only for a key that cannot run, which fixes Go's Help
-//! printing a reason for keys that work (TUI conflicts).
+//! A key bound twice shows the binding dispatch would run: the first one
+//! that can run. A reason shows only for a key that cannot run, which
+//! fixes Go's Help printing a reason for keys that work (TUI conflicts).
+//! The reference tables come from the bindings of Browse, of the popups
+//! and of the editors and pickers, so they cannot drift from the keys
+//! either (Go's four "Reference: <mode> controls" tables, TUI 6).
 
 use ratatui::Frame;
 use ratatui::layout::Rect;
 
-use super::{Action as AnyAction, Popup, PopupAction};
+use super::{Action as AnyAction, Popup, PopupAction, Row, actions, confirm};
+use crate::editor::Editor;
 use crate::event::Cmd as AnyCmd;
 use crate::hit::{HitMap, HitTarget};
 use crate::keymap::{Binding, Key};
 use crate::layout::Layout;
 use crate::paint::Painter;
+use crate::picker::Picker;
 use crate::state::AppState;
 use crate::theme::Role;
 
 /// The popup's widest width.
 pub const WIDTH: u16 = 100;
 
-/// One Help line: a heading, a key with its label, or plain text.
+/// One Help line: a heading, a key with its label, an Actions row, or
+/// plain text.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum HelpLine {
     /// A section heading.
@@ -31,6 +39,16 @@ pub enum HelpLine {
         /// The key text, such as `Up/Down` or `Enter`.
         keys: String,
         /// What it does.
+        label: String,
+        /// Why it cannot run now.
+        unavailable: Option<String>,
+    },
+    /// An Actions row: its label, its own key if it has one, and why it
+    /// cannot run now.
+    Row {
+        /// The row's key outside the popup, such as `/`.
+        key: Option<String>,
+        /// The label.
         label: String,
         /// Why it cannot run now.
         unavailable: Option<String>,
@@ -52,45 +70,6 @@ pub struct State {
     pub on_close: bool,
 }
 
-/// The reference sections after "Keys here".
-const REFERENCE: &[(&str, &[(&str, &str)])] = &[
-    (
-        "Everywhere",
-        &[
-            ("0", "Actions for this context"),
-            ("1 to 4", "Library, DLL Catalog, Monitor, Settings"),
-            ("Tab", "Next pane"),
-            ("Shift-Tab", "Previous pane"),
-            ("?", "Help"),
-            (": or Ctrl-K", "Commands: every action, game and setting"),
-            ("/", "Find in the current list"),
-            ("Esc", "Back one level"),
-            ("q", "Back one level, then quit"),
-            ("Q", "Quit now, after pending saves"),
-            ("Ctrl-C", "Quit at once"),
-            ("Ctrl-Z", "Suspend to the shell"),
-        ],
-    ),
-    (
-        "In popups",
-        &[
-            ("Up/Down", "Choose"),
-            ("Enter", "Run or activate"),
-            ("Tab", "Next control"),
-            ("Esc", "Close or cancel"),
-        ],
-    ),
-    (
-        "In editors, pickers and Find",
-        &[
-            ("Type", "Enter text, or jump to a choice"),
-            ("Enter", "Apply"),
-            ("Tab", "Next control"),
-            ("Esc", "Cancel"),
-        ],
-    ),
-];
-
 const MOUSE: &[&str] = &[
     "Click a row to move there; double click opens it, like Enter.",
     "Click a destination, a section, a hint or a button to run it.",
@@ -99,43 +78,135 @@ const MOUSE: &[&str] = &[
     "Hold Shift to select text in most terminals.",
 ];
 
-impl State {
-    /// Help for a context, from its composed bindings.
-    pub fn new(context: String, keys: &[Binding]) -> State {
-        let mut lines = vec![HelpLine::Heading(format!("Keys here: {context}"))];
-        let mut seen: Vec<String> = Vec::new();
-        for b in keys {
-            let text = b.key_text();
-            if b.label.is_empty() || seen.contains(&text) {
-                continue;
-            }
-            seen.push(text.clone());
-            lines.push(HelpLine::Key {
-                keys: text,
-                label: b.label.clone(),
-                unavailable: b.unavailable.clone(),
-            });
+fn capital(label: &str) -> String {
+    let mut c = label.chars();
+    match c.next() {
+        Some(first) => first.to_uppercase().chain(c).collect(),
+        None => String::new(),
+    }
+}
+
+/// Key lines for `bindings`, one per key text, in first-appearance order.
+/// Each shows the binding dispatch runs for it: the first available one,
+/// or the first one with its reason when none can run. `reasons` off
+/// leaves the reasons out, for the reference tables.
+pub fn key_lines(bindings: &[Binding], reasons: bool) -> Vec<HelpLine> {
+    let mut order: Vec<String> = Vec::new();
+    for b in bindings {
+        let text = b.key_text();
+        if b.label.is_empty() || text.is_empty() || order.contains(&text) {
+            continue;
         }
-        for (heading, rows) in REFERENCE {
-            lines.push(HelpLine::Blank);
-            lines.push(HelpLine::Heading((*heading).to_owned()));
-            for (k, l) in *rows {
-                lines.push(HelpLine::Key {
-                    keys: (*k).to_owned(),
-                    label: (*l).to_owned(),
-                    unavailable: None,
-                });
+        order.push(text);
+    }
+    order
+        .into_iter()
+        .map(|text| {
+            let same: Vec<&Binding> = bindings
+                .iter()
+                .filter(|b| !b.label.is_empty() && b.key_text() == text)
+                .collect();
+            let shown = same
+                .iter()
+                .find(|b| b.available())
+                .or_else(|| same.first())
+                .expect("the key text came from these bindings");
+            HelpLine::Key {
+                keys: text,
+                label: capital(&shown.label),
+                unavailable: if reasons {
+                    shown.unavailable.clone()
+                } else {
+                    None
+                },
             }
+        })
+        .collect()
+}
+
+fn reference_popups(state: &AppState) -> Vec<Binding> {
+    let menu = actions::State::new(String::new(), Vec::new());
+    let mut out = actions::bindings(state, &menu);
+    let ask = confirm::State::new(String::new(), Vec::new(), AnyAction::Back);
+    out.extend(confirm::bindings(state, &ask));
+    out
+}
+
+fn reference_editors() -> Vec<Binding> {
+    let picker = Picker::new(String::new(), None, Vec::new());
+    let mut out = picker.bindings(|_| AnyAction::Back, |_| AnyAction::Back);
+    let editor = Editor::new(String::new(), None, "");
+    out.extend(editor.bindings(|_| AnyAction::Back, |_| AnyAction::Back));
+    out
+}
+
+impl State {
+    /// Help for a context: its composed bindings and its Actions rows,
+    /// then the reference tables for every mode.
+    pub fn new(state: &AppState, context: &str, keys: &[Binding], rows: &[Row]) -> State {
+        let mut lines = vec![HelpLine::Heading(format!("Keys here: {context}"))];
+        lines.extend(key_lines(keys, true));
+        if !rows.is_empty() {
+            lines.push(HelpLine::Blank);
+            lines.push(HelpLine::Heading(
+                "Actions here: open them with 0 after closing Help".into(),
+            ));
+            lines.extend(rows.iter().map(|r| HelpLine::Row {
+                key: r.key.map(|k| k.to_string()),
+                label: r.label.clone(),
+                unavailable: r.unavailable.clone(),
+            }));
+        }
+        let (lead, tail) = super::global_bindings(state);
+        let browse: Vec<Binding> = lead.into_iter().chain(tail).collect();
+        for (heading, bindings) in [
+            ("Reference: Browse controls", browse),
+            ("Reference: popup controls", reference_popups(state)),
+            ("Reference: editor and picker controls", reference_editors()),
+        ] {
+            lines.push(HelpLine::Blank);
+            lines.push(HelpLine::Heading(heading.to_owned()));
+            lines.extend(key_lines(&bindings, false));
         }
         lines.push(HelpLine::Blank);
         lines.push(HelpLine::Heading("Mouse".into()));
-        lines.extend(MOUSE.iter().map(|t| HelpLine::Text((*t).to_owned())));
+        if state.config.ui.mouse {
+            lines.extend(MOUSE.iter().map(|t| HelpLine::Text((*t).to_owned())));
+        } else {
+            lines.push(HelpLine::Text(
+                "The mouse is off. Turn it on in Settings, Display, Mouse.".into(),
+            ));
+        }
         State {
             lines,
             scroll: 0,
             on_close: false,
         }
     }
+}
+
+/// Opens Help for the current context. From the Actions popup, Help
+/// describes the context behind it.
+pub fn open(state: &mut AppState) {
+    let behind = matches!(state.popup, Some(Popup::Actions(_)));
+    let popup = if behind { state.popup.take() } else { None };
+    let keys = super::bindings(state);
+    let rows = if state.popup.is_none() {
+        super::actions(state, state.focus)
+    } else {
+        Vec::new()
+    };
+    let context = format!(
+        "{} {} {}",
+        state.dest.name(),
+        state.glyphs.dot,
+        state.focus.word()
+    );
+    let help = State::new(state, &context, &keys, &rows);
+    if behind {
+        state.popup = popup;
+    }
+    state.open(Popup::Help(help));
 }
 
 /// What the popup's keys run.
@@ -251,6 +322,20 @@ pub fn render(
                 };
                 p.text(x + key_w + 1, y, w.saturating_sub(key_w + 1), &text, role);
             }
+            HelpLine::Row {
+                key,
+                label,
+                unavailable,
+            } => {
+                if let Some(k) = key {
+                    p.text(x, y, key_w, k, Role::Key);
+                }
+                let (text, role) = match unavailable {
+                    Some(r) => (format!("{label} {} {r}", state.glyphs.dot), Role::Muted),
+                    None => (label.clone(), Role::Text),
+                };
+                p.text(x + key_w + 1, y, w.saturating_sub(key_w + 1), &text, role);
+            }
             HelpLine::Text(t) => {
                 p.text(x, y, w, t, Role::Text);
             }
@@ -273,4 +358,75 @@ pub fn render(
         p.cursor_row(close);
     }
     hits.push(close, HitTarget::Action(act(Action::Close)));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::screens::Action;
+    use crate::testing::{key, state_with_games};
+    use crate::update::update as step;
+
+    #[test]
+    fn a_key_bound_twice_shows_the_binding_that_runs() {
+        let b = vec![
+            Binding::new(Key::ESC, Action::Back, "Back").unavailable("nothing to close"),
+            Binding::new(Key::ESC, Action::Help, "Clear search"),
+            Binding::new(Key::char('/'), Action::Find, "Find").unavailable("Library only"),
+        ];
+        assert_eq!(
+            key_lines(&b, true),
+            [
+                HelpLine::Key {
+                    keys: "Esc".into(),
+                    label: "Clear search".into(),
+                    unavailable: None
+                },
+                HelpLine::Key {
+                    keys: "/".into(),
+                    label: "Find".into(),
+                    unavailable: Some("Library only".into())
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn help_lists_the_actions_rows_and_the_reference_from_the_keymap() {
+        let mut s = state_with_games(120, 40, 3);
+        step(&mut s, key("0"));
+        // The Help row of the Actions popup.
+        crate::update::run(&mut s, Action::Help);
+        let Some(Popup::Help(h)) = &s.popup else {
+            panic!("the Help row opens Help")
+        };
+        assert_eq!(
+            h.lines[0],
+            HelpLine::Heading("Keys here: Library · list".into())
+        );
+        assert!(
+            h.lines
+                .iter()
+                .any(|l| matches!(l, HelpLine::Row { label, .. } if label == "Rescan games"))
+        );
+        let headings: Vec<&str> = h
+            .lines
+            .iter()
+            .filter_map(|l| match l {
+                HelpLine::Heading(t) => Some(t.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            headings[1..],
+            [
+                "Actions here: open them with 0 after closing Help",
+                "Reference: Browse controls",
+                "Reference: popup controls",
+                "Reference: editor and picker controls",
+                "Mouse",
+            ]
+        );
+        assert!(h.lines.iter().any(|l| matches!(l, HelpLine::Key { keys, label, .. } if keys == "Type" && label == "To jump")));
+    }
 }
