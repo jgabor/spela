@@ -3,6 +3,7 @@
 
 pub mod backup;
 pub mod detect;
+mod go_json;
 pub mod manifest;
 pub mod stale;
 pub mod version;
