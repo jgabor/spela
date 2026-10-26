@@ -7,16 +7,14 @@
 //!
 //! Every command in the architecture's Commands table is registered here,
 //! and each group's arguments and code live in its own file under
-//! [`crate::commands`]. The ones a later phase fills return a "not yet
-//! implemented in this build" error (exit 1). `overlay` and `gui` are reserved: they say the
+//! [`crate::commands`]. `overlay` and `gui` are reserved: they say the
 //! command was removed in 0.7.0 and exit 2, and a program on PATH with
 //! either name is never launched for them (decision 45). Their arguments,
 //! like the hidden `apply-profile` helper's, never reach clap, so no form
 //! of them prints a help page or a clap usage error.
 //!
-//! Most commands still take a placeholder [`Rest`] until their phase
-//! declares their arguments. A `Rest` would swallow a global flag that
-//! comes after a positional, so [`hoist_globals`] moves `--json`, `--demo`
+//! The reserved commands take a catch-all [`Rest`]. A `Rest` would swallow
+//! a global flag that comes after a positional, so [`hoist_globals`] moves `--json`, `--demo`
 //! and `--log-level` to the front before clap parses.
 //!
 //! Exit codes are in [`crate::error::exit`]: 0, 1, 2, 3 and 5, plus the
@@ -114,8 +112,8 @@ pub struct Cli {
     pub command: Option<Command>,
 }
 
-/// Arguments a later phase defines. Caught here so the command runs and
-/// says it is not built yet, instead of failing on an unknown argument.
+/// Any arguments of a reserved command. Caught here so the command runs and
+/// says it was removed, instead of failing on an unknown argument.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
 pub struct Rest {
     /// Anything.

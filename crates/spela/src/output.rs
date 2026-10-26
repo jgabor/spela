@@ -125,7 +125,11 @@ mod tests {
     #[test]
     fn json_error_has_the_schema_version_first() {
         let mut buf = Vec::new();
-        write_json_error(&mut buf, &CliError::not_implemented("scan")).unwrap();
+        write_json_error(
+            &mut buf,
+            &CliError::new(exit::FAILURE, "x").with_kind("game_not_found"),
+        )
+        .unwrap();
         let text = String::from_utf8(buf).unwrap();
         assert!(
             text.starts_with("{\n  \"schema_version\": 1,\n  \"error\": {"),
@@ -133,6 +137,6 @@ mod tests {
         );
         assert!(text.ends_with("}\n"));
         let v: serde_json::Value = serde_json::from_str(&text).unwrap();
-        assert_eq!(v["error"]["code"], "not_implemented");
+        assert_eq!(v["error"]["code"], "game_not_found");
     }
 }

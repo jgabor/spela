@@ -72,15 +72,6 @@ impl CliError {
         self
     }
 
-    /// A command a later phase fills.
-    pub fn not_implemented(command: &str) -> Self {
-        CliError::new(
-            exit::FAILURE,
-            format!("'spela {command}' is not yet implemented in this build"),
-        )
-        .with_kind("not_implemented")
-    }
-
     /// stdout was closed, as in `spela list --json | head`. This is a quiet
     /// exit 0, never a panic.
     pub fn broken_pipe() -> Self {
@@ -145,12 +136,8 @@ mod tests {
         assert_eq!(CliError::new(exit::USAGE, "x").kind, "usage");
         assert_eq!(CliError::new(exit::CONFIG, "x").kind, "config_invalid");
         assert_eq!(CliError::new(exit::LOCKED, "x").kind, "locked");
-        let e = CliError::not_implemented("scan");
-        assert_eq!((e.code, e.kind), (exit::FAILURE, "not_implemented"));
-        assert_eq!(
-            e.message,
-            "'spela scan' is not yet implemented in this build"
-        );
+        let e = CliError::new(exit::FAILURE, "x").with_kind("game_not_found");
+        assert_eq!((e.code, e.kind), (exit::FAILURE, "game_not_found"));
     }
 
     #[test]

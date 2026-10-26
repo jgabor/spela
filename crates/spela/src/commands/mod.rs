@@ -1,10 +1,7 @@
 //! One file per command group, so each can be owned and filled on its own.
 //!
 //! [`crate::cli`] parses the arguments and dispatches to the `run` function
-//! here. A command a later phase fills returns
-//! [`crate::error::CliError::not_implemented`] until then. Each file owns
-//! its own argument types: replacing a placeholder [`crate::cli::Rest`]
-//! touches only that file.
+//! here. Each file owns its own argument types.
 //!
 //! | File | Commands |
 //! |---|---|
