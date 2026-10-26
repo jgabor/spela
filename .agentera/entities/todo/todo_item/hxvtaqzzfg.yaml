@@ -34,12 +34,16 @@ record:
       recovery: Fold into the implementation plan for the chosen alternative.
     queue_rank: 4
     order_reason: Needs the audited metadata before writing descriptions.
-  status: open
+  status: resolved
   reconciliation:
     schema_version: agentera.todoReconciliation.v1
     public:
       present: true
       description: "[task] Describe profile fields with units, ranges, and effects"
+      status: resolved
+      order: 29
       severity: normal
-      status: open
-      order: 24
+  lifecycle:
+    operation: resolve
+    reason: "Ranges now enforced: fan speed 0 to 100 and power limit at least 0 are refused in TUI, GUI and CLI with a message naming the range (profile.Set). Descriptions, units and hints come from descriptors (done earlier). Clock and memory offsets keep no range: none holds on every GPU. Tests: profile, cmd, mage test; TUI checked at 120x40 and 80x24."
+    date: 2026-10-26

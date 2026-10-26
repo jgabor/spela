@@ -101,7 +101,7 @@ func TestNumberEditorReplacesPrefilledValueAndShowsBackspace(t *testing.T) {
 		t.Fatal("editor did not open")
 	}
 	view := stripANSI(detail.View())
-	for _, want := range []string{"Whole number in %", "shown range 0 to 100", "Typing replaces the value", "Backspace delete"} {
+	for _, want := range []string{"Whole number in %", "range 0 to 100", "Typing replaces the value", "Backspace delete"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("editor is missing %q:\n%s", want, view)
 		}

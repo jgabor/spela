@@ -2,6 +2,7 @@ package profile
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"slices"
 	"strconv"
@@ -29,10 +30,27 @@ const (
 	EditorText    EditorKind = "text"
 )
 
-// ValueRange is the display range of a numeric field. It is shown to users and
-// never enforced: a stored value outside it still loads and still saves.
+// NoMaximum is the Max of a ValueRange that has only a lower bound.
+const NoMaximum = math.MaxInt
+
+// ValueRange is the range of a numeric field. It is shown to users and
+// enforced when a value is set. A stored value outside it still loads, so a
+// profile written by an older version is never lost.
 type ValueRange struct {
 	Min, Max int
+}
+
+// Contains reports whether value lies inside the range.
+func (valueRange ValueRange) Contains(value int) bool {
+	return value >= valueRange.Min && value <= valueRange.Max
+}
+
+// String names the range for people: "0 to 100" or "at least 0".
+func (valueRange ValueRange) String() string {
+	if valueRange.Max == NoMaximum {
+		return fmt.Sprintf("at least %d", valueRange.Min)
+	}
+	return fmt.Sprintf("%d to %d", valueRange.Min, valueRange.Max)
 }
 
 // FieldDescriptor is the domain-owned contract for one persisted profile leaf,
@@ -52,9 +70,9 @@ type FieldDescriptor struct {
 	Editor        EditorKind
 	// Unit is the unit of a numeric field, such as "MHz", or empty.
 	Unit string
-	// Range is the display range of a numeric field, or nil when no reliable
-	// range is known. Hardware limits differ per GPU, so only ranges that hold
-	// for every device are listed.
+	// Range is the range of a numeric field, or nil when no reliable range is
+	// known. Hardware limits differ per GPU, so only ranges that hold for every
+	// device are listed.
 	Range *ValueRange
 }
 
@@ -79,7 +97,7 @@ var fieldDescriptors = []FieldDescriptor{
 	{FieldGPUClockOffset, "gpu", PrimitiveInt, "Clock offset", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "Limits the GPU clock to at most 2100 MHz plus this offset while the game runs. Clocks return to the driver default at exit. 0 leaves clocks unchanged.", "", "MHz", nil},
 	{FieldGPUVRR, "gpu", PrimitiveString, "KDE VRR", []string{"", "unset", "automatic", "always", "never"}, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "KDE Wayland primary display only: unset leaves KDE unchanged; automatic uses fullscreen VRR; always includes the desktop; never disables VRR. Restored after a tracked launch.", EditorChoice, "", nil},
 	{FieldGPUMemoryOffset, "gpu", PrimitiveInt, "Memory offset", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "Limits the GPU memory clock to at most this value while the game runs. Clocks return to the driver default at exit. 0 leaves the memory clock unchanged.", "", "MHz", nil},
-	{FieldGPUPowerLimit, "gpu", PrimitiveInt, "Power limit", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "Sets the GPU power limit while the game runs. The previous limit returns at exit when it could be read. 0 leaves the limit unchanged.", "", "W", nil},
+	{FieldGPUPowerLimit, "gpu", PrimitiveInt, "Power limit", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "Sets the GPU power limit while the game runs. The previous limit returns at exit when it could be read. 0 leaves the limit unchanged.", "", "W", &ValueRange{Min: 0, Max: NoMaximum}},
 	{FieldGPUFanSpeed, "gpu", PrimitiveInt, "Fan speed", nil, LaunchImpactSystemState, RestoreCoverageRestorableMutation, "Sets every GPU fan to this speed while the game runs. Fans return to automatic at exit. 0 leaves fan control unchanged.", "", "%", &ValueRange{Min: 0, Max: 100}},
 	{FieldGPUPowerMizer, "gpu", PrimitiveString, "Power mode", []string{"", "adaptive", "max", "prefer_max_performance", "prefer_maximum_performance"}, LaunchImpactSystemState, RestoreCoverageNotApplicable, "Not used yet: Spela does not apply this setting when a game launches.", "", "", nil},
 	{FieldGPUShaderCache, "gpu", PrimitiveBool, "Shader cache", nil, LaunchImpactEnvironment, RestoreCoverageEphemeralLaunch, "Turns on the NVIDIA shader disk cache (__GL_SHADER_DISK_CACHE=1) when the game starts. Off leaves the driver setting alone.", "", "", nil},
@@ -241,6 +259,9 @@ func convertFieldValue(descriptor FieldDescriptor, input any, target reflect.Typ
 		default:
 			return reflect.Value{}, fmt.Errorf("expected integer")
 		}
+		if descriptor.Range != nil && !descriptor.Range.Contains(int(integer)) {
+			return reflect.Value{}, fmt.Errorf("must be %s%s, got %d", descriptor.Range, unitSuffix(descriptor), integer)
+		}
 		result = reflect.ValueOf(int(integer))
 	case PrimitiveString:
 		text, ok := input.(string)
@@ -258,6 +279,26 @@ func convertFieldValue(descriptor FieldDescriptor, input any, target reflect.Typ
 		result = result.Convert(target)
 	}
 	return result, nil
+}
+
+func unitSuffix(descriptor FieldDescriptor) string {
+	if descriptor.Unit == "" {
+		return ""
+	}
+	return " " + descriptor.Unit
+}
+
+// LeavesUnchanged reports whether launch skips the hardware field at value:
+// clock and memory offsets at 0, power limit and fan speed at 0 or less. A game
+// that saves such a value opts out of the inherited hardware setting.
+func LeavesUnchanged(key string, value int) bool {
+	switch key {
+	case FieldGPUClockOffset, FieldGPUMemoryOffset:
+		return value == 0
+	case FieldGPUPowerLimit, FieldGPUFanSpeed:
+		return value <= 0
+	}
+	return false
 }
 
 // Set writes value and marks the leaf as explicitly overridden.

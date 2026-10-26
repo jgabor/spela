@@ -103,11 +103,11 @@ func TestCollectOwnValueGamesSortsByNameAndSkipsMissingProfiles(t *testing.T) {
 	}
 }
 
-func TestNumberHintNamesUnitAndShownRangeOfFreeNumbersOnly(t *testing.T) {
+func TestNumberHintNamesUnitAndRangeOfFreeNumbersOnly(t *testing.T) {
 	for field, want := range map[string]string{
-		FieldGPUFanSpeed:        "Whole number in %, shown range 0 to 100.",
+		FieldGPUFanSpeed:        "Whole number in %, range 0 to 100.",
 		FieldGPUClockOffset:     "Whole number in MHz.",
-		FieldGPUPowerLimit:      "Whole number in W.",
+		FieldGPUPowerLimit:      "Whole number in W, range at least 0.",
 		FieldDLSSMultiFrame:     "",
 		FieldProtonEnableHDR:    "",
 		FieldGPUShaderCachePath: "",

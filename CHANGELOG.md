@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A fan speed above 100 or below 0, and a negative power limit, are refused in the TUI, the graphical interface, and `spela gpu set`, with a message that names the range. Clock offset, memory offset, power limit, and fan speed read `left unchanged` when a game saves 0, `launch --dry-run` agrees that nothing is applied for them, and the `gpu set` help says what 0 does.
 - The graphical interface asks before updating or restoring a game's DLLs. Confirm destructive actions, now also in the TUI Settings, turns off the question for updates in both interfaces; restore and install always ask.
 - Compact mode, now also in the TUI Settings, starts the TUI in the Compact layout and tightens the graphical interface.
 - With Auto-update DLLs on, the TUI and the graphical interface update outdated game DLLs at startup. Running and deny-listed games and DLLs of unknown version are skipped, and a notice says what changed. The option is now in the TUI Settings.

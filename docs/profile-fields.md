@@ -30,8 +30,8 @@ GPU accepts `threaded-opt`. Set-command flags and the deprecated
 | `gpu.clock_offset` | int | Clock offset | unbounded, MHz | system state | restorable mutation | CLI/TUI/GUI |
 | `gpu.vrr` | string | KDE VRR | unset, automatic, always, never | system state | restorable mutation | CLI show only/TUI/GUI |
 | `gpu.memory_offset` | int | Memory offset | unbounded, MHz | system state | restorable mutation | CLI/TUI/GUI |
-| `gpu.power_limit` | int | Power limit | unbounded, W | system state | restorable mutation | CLI/TUI/GUI |
-| `gpu.fan_speed` | int | Fan speed | 0-100 %, shown and not enforced | system state | restorable mutation | CLI/TUI/GUI |
+| `gpu.power_limit` | int | Power limit | at least 0, W | system state | restorable mutation | CLI/TUI/GUI |
+| `gpu.fan_speed` | int | Fan speed | 0-100 % | system state | restorable mutation | CLI/TUI/GUI |
 | `gpu.power_mizer` | string | Power mode | unset, adaptive, max, legacy prefer-max spellings | system state | not applicable | CLI/TUI/GUI |
 | `gpu.shader_cache` | bool | Shader cache | true, false | environment | ephemeral launch | CLI/TUI/GUI |
 | `gpu.shader_cache_path` | string | Shader cache path | unbounded | environment | ephemeral launch | CLI/TUI/GUI |
@@ -64,8 +64,16 @@ display range. A surface formats layout; it does not invent its own words.
 | Booleans, empty values | `On`, `Off`, `none`; stored as `true`, `false`, and empty |
 | Clear every setting of a game | **Follow All games for all settings** (`spela profile reset`) |
 
-Display ranges (fan speed 0 to 100%) are shown, never enforced: a stored value
-outside the range still loads and saves. Retired wording: `(default)`,
+Ranges (fan speed 0 to 100%, power limit at least 0 W) are shown and enforced
+when a value is set in the TUI, the graphical interface, or the CLI; the save is
+refused and the message names the range. A stored value outside the range still
+loads. Clock and memory offsets have no range because none holds on every GPU.
+
+For clock offset, memory offset, power limit, and fan speed, a saved 0 means
+"leave this setting unchanged". A game that saves 0 opts out of the value All
+games sets: launch applies nothing for that field. The TUI and graphical
+interface show `0 MHz, left unchanged` (`0%, left unchanged` for fan speed),
+and `launch --dry-run` lists the field with `nothing applied`. Retired wording: `(default)`,
 "Override for this game", "Inherited from defaults", "Default for all games",
 "defaults profile", "root profile".
 
@@ -115,7 +123,7 @@ live configuration before the write succeeds.
   does not offer is shown as it is stored. Frame generation treats `fg_enabled`
   and `fg_override` as one inheritance action sent in one batch. Number fields
   (clock offset, memory offset, power limit, fan speed) take a whole number; the
-  range is shown and not enforced.
+  range is shown and a value outside it is refused.
 - Saves for one page run one after the other, and only the newest response
   replaces the controls. A failed save returns the controls to the last saved
   copy and shows `Not saved` with the reason. The target scope and AppID are

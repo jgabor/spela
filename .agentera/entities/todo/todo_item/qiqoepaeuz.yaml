@@ -24,4 +24,4 @@ record:
       description: "[task] Build the profile and settings redesign (alternative B) in three steps"
       severity: normal
       status: open
-      order: 25
+      order: 23

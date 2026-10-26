@@ -35,8 +35,6 @@
 - [ ] [id:pydqjhmxiz] [task] Update compatible Go and frontend dependencies
 - [ ] [id:gpezszcmet] [task] Phase 4: Interactivity — input and GPU tuning
 - [ ] [id:qgfdabsknk] [task] Phase 5: Polish and compatibility
-- [ ] [id:bdnaynbvan] [bug] Show what a zero fan speed means
-- [ ] [id:hxvtaqzzfg] [task] Describe profile fields with units, ranges, and effects
 - [ ] [id:qiqoepaeuz] [task] Build the profile and settings redesign (alternative B) in three steps
 
 ## ⇢ Annoying
@@ -75,3 +73,5 @@
 - [x] [id:vhhnfltntn] [task] Settings wiring 6: confirmations and compact mode
 - [x] [id:hpuwnhwspr] [bug] Remove empty Settings groups from the terminal interface
 - [x] [id:bttuaytclk] [task] Settings wiring 7: docs and close-out
+- [x] [id:hxvtaqzzfg] [task] Describe profile fields with units, ranges, and effects
+- [x] [id:bdnaynbvan] [bug] Show what a zero fan speed means

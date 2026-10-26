@@ -35,12 +35,16 @@ record:
       recovery: Fold into the implementation plan for the chosen alternative.
     queue_rank: 5
     order_reason: Related numeric fields must be audited first.
-  status: open
+  status: resolved
   reconciliation:
     schema_version: agentera.todoReconciliation.v1
     public:
       present: true
       description: "[bug] Show what a zero fan speed means"
+      status: resolved
+      order: 30
       severity: normal
-      status: open
-      order: 23
+  lifecycle:
+    operation: resolve
+    reason: "A saved 0 reads 'left unchanged' in TUI and GUI value text; launch --dry-run Profile impacts shows restore=not_applicable and nothing applied for it, agreeing with Hardware; gpu set help states what 0 does; negative and over-100 input refused. Tests: profile, cmd, mage test; TUI checked."
+    date: 2026-10-26

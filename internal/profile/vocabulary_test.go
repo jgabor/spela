@@ -216,7 +216,7 @@ func TestDescriptors_DescriptionsUnitsAndRanges(t *testing.T) {
 		if descriptor.Kind == profile.PrimitiveInt && len(descriptor.AllowedValues) == 0 && descriptor.Unit == "" {
 			t.Errorf("%s: free numeric field has no unit", descriptor.Key)
 		}
-		if descriptor.Range != nil && descriptor.Key != profile.FieldGPUFanSpeed {
+		if descriptor.Range != nil && descriptor.Key != profile.FieldGPUFanSpeed && descriptor.Key != profile.FieldGPUPowerLimit {
 			t.Errorf("%s: range %+v has no source that holds for every device", descriptor.Key, *descriptor.Range)
 		}
 	}
@@ -234,22 +234,45 @@ func TestDescriptor_RangeIsACopy(t *testing.T) {
 	}
 }
 
-// Ranges are display only: an out-of-range stored value still loads and saves.
-func TestRanges_AreNotEnforced(t *testing.T) {
+// A value outside a range is refused by every surface, since they all write
+// through Set, and the message names the range. A stored value outside it still
+// loads, so an older profile is never lost.
+func TestRanges_AreEnforcedOnSet(t *testing.T) {
 	withTempXDG(t)
-	game := &profile.Profile{}
-	if err := game.Set(profile.FieldGPUFanSpeed, 150); err != nil {
-		t.Fatalf("Set refused an out-of-range value: %v", err)
+	for _, test := range []struct {
+		field string
+		value int
+		want  string
+	}{
+		{profile.FieldGPUFanSpeed, 150, "must be 0 to 100 %, got 150"},
+		{profile.FieldGPUFanSpeed, -1, "must be 0 to 100 %, got -1"},
+		{profile.FieldGPUPowerLimit, -10, "must be at least 0 W, got -10"},
+	} {
+		game := &profile.Profile{}
+		err := game.Set(test.field, test.value)
+		if err == nil || !strings.Contains(err.Error(), test.want) {
+			t.Errorf("Set(%s, %d) error = %v, want %q", test.field, test.value, err, test.want)
+		}
+		if game.IsOverridden(test.field) {
+			t.Errorf("Set(%s, %d) marked an override after refusing", test.field, test.value)
+		}
 	}
+	game := &profile.Profile{}
+	for _, accepted := range []struct {
+		field string
+		value int
+	}{{profile.FieldGPUFanSpeed, 0}, {profile.FieldGPUFanSpeed, 100}, {profile.FieldGPUPowerLimit, 250}, {profile.FieldGPUClockOffset, -500}} {
+		if err := game.Set(accepted.field, accepted.value); err != nil {
+			t.Errorf("Set(%s, %d) = %v", accepted.field, accepted.value, err)
+		}
+	}
+	game.GPU.FanSpeed = 150
 	if err := profile.Save(1091500, game); err != nil {
 		t.Fatal(err)
 	}
 	loaded, err := profile.Load(1091500)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if loaded.GPU.FanSpeed != 150 || !loaded.IsOverridden(profile.FieldGPUFanSpeed) {
-		t.Fatalf("out-of-range value lost: %+v", loaded.GPU)
+	if err != nil || loaded.GPU.FanSpeed != 150 {
+		t.Fatalf("a stored out-of-range value must still load: %+v, %v", loaded, err)
 	}
 }
 
@@ -270,8 +293,8 @@ func TestValueText_UnsetNumberReadsNone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := profile.ValueText(clock, pinned); got != "0 MHz" {
-		t.Errorf("explicit zero = %q, want 0 MHz", got)
+	if got := profile.ValueText(clock, pinned); got != "0 MHz, left unchanged" {
+		t.Errorf("explicit zero = %q, want 0 MHz, left unchanged", got)
 	}
 }
 

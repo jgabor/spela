@@ -936,7 +936,7 @@ func wrapIndented(text string, width int, indent string) []string {
 	return wrapped
 }
 
-// editorHint names the unit and shown range of a numeric field and says how a
+// editorHint names the unit and range of a numeric field and says how a
 // typed value is entered.
 func editorHint(descriptor profile.FieldDescriptor) string {
 	hint := profile.NumberHint(descriptor)

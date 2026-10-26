@@ -38,10 +38,10 @@ var gpuShowCmd = &cobra.Command{
 }
 
 func init() {
-	gpuSetCmd.Flags().IntVar(&gpuSetClockOffset, "clock-offset", 0, "GPU core clock offset in MHz")
-	gpuSetCmd.Flags().IntVar(&gpuSetMemoryOffset, "memory-offset", 0, "GPU memory clock offset in MHz")
-	gpuSetCmd.Flags().IntVar(&gpuSetPowerLimit, "power-limit", 0, "GPU power limit in watts")
-	gpuSetCmd.Flags().IntVar(&gpuSetFanSpeed, "fan-speed", 0, "GPU fan speed percentage (0 to clear)")
+	gpuSetCmd.Flags().IntVar(&gpuSetClockOffset, "clock-offset", 0, "GPU core clock offset in MHz (0 leaves clocks unchanged; use gpu profile-reset to follow All games)")
+	gpuSetCmd.Flags().IntVar(&gpuSetMemoryOffset, "memory-offset", 0, "GPU memory clock offset in MHz (0 leaves the memory clock unchanged)")
+	gpuSetCmd.Flags().IntVar(&gpuSetPowerLimit, "power-limit", 0, "GPU power limit in watts, at least 0 (0 leaves the limit unchanged)")
+	gpuSetCmd.Flags().IntVar(&gpuSetFanSpeed, "fan-speed", 0, "GPU fan speed percentage, 0 to 100 (0 leaves fans unchanged for this game; use gpu profile-reset to follow All games)")
 	gpuSetCmd.Flags().StringVar(&gpuSetPowerMizer, "power-mizer", "", "GPU power mode (adaptive, max)")
 	gpuSetCmd.Flags().StringVar(&gpuSetShaderCache, "shader-cache", "", "Enable shader caching (true/false)")
 	gpuSetCmd.Flags().StringVar(&gpuSetCachePath, "shader-cache-path", "", "Custom shader cache path (use 'default' to clear)")

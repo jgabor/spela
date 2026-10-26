@@ -271,6 +271,10 @@ func printImpactSummary(rawProfile, defaults *profile.Profile) {
 		}
 		fmt.Printf("  %s\n", tui.CLIDim(string(impact)+":"))
 		for _, item := range items {
+			if number, ok := item.Value.(int); ok && profile.LeavesUnchanged(item.Field, number) {
+				fmt.Printf("    %s=%s source=%s restore=%s (nothing applied: 0 leaves it unchanged)\n", item.Field, summaryValue(item.Value), item.Source, profile.RestoreCoverageNotApplicable)
+				continue
+			}
 			fmt.Printf("    %s=%s source=%s restore=%s\n", item.Field, summaryValue(item.Value), item.Source, item.Restore)
 		}
 	}

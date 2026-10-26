@@ -42,9 +42,9 @@ func TestGUIProjectionCarriesValueTextAndNumberHints(t *testing.T) {
 		}
 	}
 	for field, want := range map[string]string{
-		profile.FieldGPUFanSpeed:     "Whole number in %, shown range 0 to 100.",
+		profile.FieldGPUFanSpeed:     "Whole number in %, range 0 to 100.",
 		profile.FieldGPUClockOffset:  "Whole number in MHz.",
-		profile.FieldGPUPowerLimit:   "Whole number in W.",
+		profile.FieldGPUPowerLimit:   "Whole number in W, range at least 0.",
 		profile.FieldProtonVKD3DHeap: "",
 		profile.FieldDLSSSRMode:      "",
 	} {

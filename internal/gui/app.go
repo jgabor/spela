@@ -293,7 +293,7 @@ type ProfileFieldSemantics struct {
 	Action string `json:"action"`
 	// ValueText is the effective value in the shared words (On, Off, none, 150 MHz).
 	ValueText string `json:"valueText"`
-	// Hint is the unit and shown range of a free number, or empty. Unit is the
+	// Hint is the unit and range of a free number, or empty. Unit is the
 	// unit alone, such as MHz.
 	Hint string `json:"hint"`
 	Unit string `json:"unit"`

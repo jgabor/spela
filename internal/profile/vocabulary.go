@@ -102,7 +102,18 @@ func ValueText(descriptor FieldDescriptor, explanation FieldExplanation) string 
 	if explanation.Origin == OriginSystemDefault && descriptor.Kind == PrimitiveInt {
 		return WordNone
 	}
-	return DisplayValue(descriptor, explanation.Value)
+	text := DisplayValue(descriptor, explanation.Value)
+	switch number := explanation.Value.(type) {
+	case int:
+		if LeavesUnchanged(descriptor.Key, number) {
+			text += ", left unchanged"
+		}
+	case int64:
+		if LeavesUnchanged(descriptor.Key, int(number)) {
+			text += ", left unchanged"
+		}
+	}
+	return text
 }
 
 // SourceText says where a value comes from. A game's own value also shows the
@@ -272,8 +283,8 @@ func FollowOutcomeText(label string, outcome FollowOutcome) string {
 	return text
 }
 
-// NumberHint names the unit and shown range of a numeric field. The range is
-// guidance; no value is refused for it. Empty for a field that is not a free number.
+// NumberHint names the unit and range of a numeric field. A value outside the
+// range is refused. Empty for a field that is not a free number.
 func NumberHint(descriptor FieldDescriptor) string {
 	if descriptor.Kind != PrimitiveInt || len(descriptor.AllowedValues) > 0 {
 		return ""
@@ -283,7 +294,7 @@ func NumberHint(descriptor FieldDescriptor) string {
 		hint += " in " + descriptor.Unit
 	}
 	if descriptor.Range != nil {
-		hint += fmt.Sprintf(", shown range %d to %d", descriptor.Range.Min, descriptor.Range.Max)
+		hint += ", range " + descriptor.Range.String()
 	}
 	return hint + "."
 }
