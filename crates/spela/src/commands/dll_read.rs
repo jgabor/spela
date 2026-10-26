@@ -123,11 +123,10 @@ pub fn check_updates(
     for game in games {
         let mut dlls = Vec::new();
         for dll in read::dlls_in_path_order(game) {
+            // Only stale DLLs, as the TUI marks them (decisions 38 and 70):
+            // a DLL of unknown version is not offered.
             let (current, latest) = match stale::of_dll(dll, source.manifest()) {
                 Freshness::Stale { latest } => (dll.version.clone(), latest),
-                Freshness::Unknown {
-                    latest: Some(latest),
-                } => (None, latest),
                 _ => continue,
             };
             dlls.push(UpdatesDll {

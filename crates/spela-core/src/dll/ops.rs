@@ -277,13 +277,11 @@ pub fn resolve<'m>(
         Some(v) => manifest.entries(dll_type).iter().find(|e| e.version == v),
     };
     found.ok_or_else(|| {
-        OpError::failed(
-            FailKind::Invalid,
-            format!(
-                "no {dll_type} version {:?} available in manifest",
-                version.unwrap_or_default()
-            ),
-        )
+        let message = match version.filter(|v| !v.is_empty() && *v != "latest") {
+            Some(v) => format!("no {dll_type} version {v:?} available in manifest"),
+            None => format!("the DLL manifest lists no {dll_type} versions"),
+        };
+        OpError::failed(FailKind::Invalid, message)
     })
 }
 
@@ -701,10 +699,15 @@ fn prepare_update(
         .ok_or_else(|| game_not_found(request.app_id))?;
     let installed = detected(game, request.dll_type, &request.path)?;
     item.from_version = installed.version.clone();
+    // `--cached-only` picks the newest cached version the manifest lists
+    // (decision 67); none means nothing usable is cached.
     if request.cached_only && request.version.is_none() {
         return Err(OpError::failed(
             FailKind::Invalid,
-            "cached DLL version is required",
+            format!(
+                "no cached {} version; run without --cached-only to download it",
+                request.dll_type
+            ),
         ));
     }
     progress(&ProgressEvent {
@@ -714,8 +717,10 @@ fn prepare_update(
     });
     let entry = resolve(manifest, request.dll_type, request.version.as_deref())?;
     item.to_version = Some(entry.version.clone());
+    // Go's order: the entry and its file name, the no-op rule, then the
+    // checksum (parity-inventory.md, DLL 2.6).
     entry
-        .check(request.dll_type)
+        .check_listing(request.dll_type)
         .map_err(|e| OpError::failed(FailKind::Invalid, e.to_string()))?;
     if !entry.filename.eq_ignore_ascii_case(&installed.name) {
         return Err(OpError::failed(
@@ -737,6 +742,9 @@ fn prepare_update(
         });
         return Ok(None);
     }
+    entry
+        .check_checksum(request.dll_type)
+        .map_err(|e| OpError::failed(FailKind::Invalid, e.to_string()))?;
     guard(cx.paths, request.app_id)?;
     let payload = acquire(
         cx,

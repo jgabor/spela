@@ -33,7 +33,17 @@ pub struct CliError {
     pub kind: &'static str,
     /// More about the failure for the `--json` error object, such as a DLL
     /// batch's items. Text output leaves it out.
-    pub details: Option<serde_json::Value>,
+    pub details: Option<Details>,
+}
+
+/// More about a failure for the `--json` error object. It is the typed
+/// object the command prints on success, so its keys come in the same fixed
+/// order (architecture.md, JSON output).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(untagged)]
+pub enum Details {
+    /// A DLL install or update report.
+    Dll(Box<crate::commands::dll_write::Report>),
 }
 
 impl CliError {
@@ -55,7 +65,7 @@ impl CliError {
     }
 
     /// Adds the `--json` details.
-    pub fn with_details(mut self, details: serde_json::Value) -> Self {
+    pub fn with_details(mut self, details: Details) -> Self {
         self.details = Some(details);
         self
     }

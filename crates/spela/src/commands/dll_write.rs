@@ -29,7 +29,7 @@ use spela_core::games::{DllType, Game, GameCache};
 
 use super::read::{self, Rescan};
 use crate::cli::{Context, Invocation};
-use crate::error::{CliError, exit};
+use crate::error::{CliError, Details, exit};
 use crate::json::SCHEMA_VERSION;
 
 /// Parses a DLL family name in any case, as Go lowercased it.
@@ -259,6 +259,17 @@ pub fn update(
         args.version.as_deref(),
         args.cached_only,
     );
+    if args.game.is_none() {
+        // `--all` leaves a DLL of unknown version alone, as the TUI's Update
+        // all and the startup auto-update do (decision 70). Naming the game,
+        // or `dll install`, still swaps it.
+        requests.retain(|r| {
+            cache
+                .get(r.app_id)
+                .and_then(|g| g.dlls.iter().find(|d| d.path == r.path))
+                .is_some_and(|d| d.version.as_deref().is_some_and(|v| !v.is_empty()))
+        });
+    }
     if args.game.is_some() && requests.is_empty() {
         let what = dll_type.map_or_else(|| "DLSS, XeSS or FSR".to_owned(), |t| t.to_string());
         return Err(
@@ -391,12 +402,29 @@ fn op_error(e: &OpError) -> CliError {
     CliError::new(exit::FAILURE, e.to_string()).with_kind(kind)
 }
 
-/// Go's error after a batch with failures.
+/// Go's error after a batch with failures. Each distinct error shows once,
+/// in first-seen order, with `(N DLLs)` when it repeats.
 fn batch_error(batch: &BatchResult) -> CliError {
-    let joined: Vec<String> = batch
+    let mut distinct: Vec<(String, usize)> = Vec::new();
+    for e in batch
         .items
         .iter()
         .filter_map(|i| i.result.as_ref().err().map(ToString::to_string))
+    {
+        match distinct.iter_mut().find(|(text, _)| *text == e) {
+            Some((_, n)) => *n += 1,
+            None => distinct.push((e, 1)),
+        }
+    }
+    let joined: Vec<String> = distinct
+        .into_iter()
+        .map(|(text, n)| {
+            if n > 1 {
+                format!("{text} ({n} DLLs)")
+            } else {
+                text
+            }
+        })
         .collect();
     CliError::new(
         exit::FAILURE,
@@ -484,12 +512,12 @@ fn block_text(report: &Report) -> String {
     text
 }
 
-fn details(report: &Report) -> serde_json::Value {
-    serde_json::to_value(report).unwrap_or(serde_json::Value::Null)
+fn details(report: &Report) -> Details {
+    Details::Dll(Box::new(report.clone()))
 }
 
 /// `dll install --json` and `dll update --json`.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Report {
     /// [`SCHEMA_VERSION`].
     pub schema_version: u32,
@@ -530,7 +558,7 @@ impl Report {
 }
 
 /// One DLL in a report.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ItemJson {
     /// The game.
     pub app_id: u64,
@@ -572,7 +600,7 @@ impl ItemJson {
 }
 
 /// An item's error.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ErrorJson {
     /// The code, as in the error object.
     pub code: &'static str,
@@ -593,7 +621,7 @@ impl ErrorJson {
 }
 
 /// A game `--all` left out.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SkippedJson {
     /// The game.
     pub app_id: u64,
@@ -743,6 +771,36 @@ mod tests {
     }
 
     #[test]
+    fn a_batch_error_names_each_distinct_error_once() {
+        use spela_core::dll::ops::{BatchItem, FailKind, OpError, UpdateRequest};
+        let item = |path: &str, message: &str| BatchItem {
+            request: UpdateRequest {
+                app_id: 1,
+                dll_type: DllType::Dlss,
+                path: path.into(),
+                version: None,
+                cached_only: true,
+            },
+            game_name: "Ashfall".into(),
+            from_version: None,
+            to_version: None,
+            result: Err(OpError::Failed {
+                kind: FailKind::Invalid,
+                message: message.into(),
+            }),
+        };
+        let batch = BatchResult {
+            items: vec![item("/a", "x"), item("/b", "y"), item("/c", "x")],
+            failed: 3,
+            ..BatchResult::default()
+        };
+        assert_eq!(
+            batch_error(&batch).message,
+            "3 DLL update(s) failed: x (2 DLLs)\ny"
+        );
+    }
+
+    #[test]
     fn install_json_reports_the_item() {
         let lab = lab();
         let (result, out, _) = run(&lab, &["dll", "install", "9100710", "XeSS", "--json"]);
@@ -773,6 +831,11 @@ mod tests {
         assert_eq!(e.kind, "dll_update_failed");
         let mut text = Vec::new();
         output::write_json_error(&mut text, &e).unwrap();
+        // The details keep the success object's fixed key order.
+        let shown = String::from_utf8(text.clone())
+            .unwrap()
+            .replace(lab.game.to_str().unwrap(), "<game>");
+        insta::assert_snapshot!(shown);
         let v: serde_json::Value = serde_json::from_slice(&text).unwrap();
         let item = &v["error"]["details"]["items"][0];
         assert_eq!(item["error"]["code"], "download_failed");

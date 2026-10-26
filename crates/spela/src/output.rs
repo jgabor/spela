@@ -66,7 +66,7 @@ struct JsonErrorBody<'a> {
     message: &'a str,
     /// Only for failures that carry more, such as a DLL batch's items.
     #[serde(skip_serializing_if = "Option::is_none")]
-    details: Option<&'a serde_json::Value>,
+    details: Option<&'a crate::error::Details>,
 }
 
 /// Writes the `--json` error object, schema version 1, with a newline.

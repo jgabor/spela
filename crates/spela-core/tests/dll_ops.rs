@@ -517,6 +517,31 @@ fn checksum_denylist_and_validation_failures_change_nothing() {
     assert_eq!(read(&dir.join("nvngx_dlss.dll")), pe_3_7_10());
 }
 
+/// Go's order: the no-op rule runs before the checksum check, so a DLL that
+/// is already current stays unchanged even when the manifest's SHA-256 is
+/// malformed. An older DLL still fails on it, before any download.
+#[test]
+fn a_current_dll_is_unchanged_even_with_a_malformed_checksum() {
+    let mut lab = Lab::new();
+    lab.game(9100509, "Current", &[("nvngx_dlss.dll", &pe_310_2_1())]);
+    let older = lab.game(9100510, "Older", &[("nvngx_dlss.dll", &pe_3_7_10())]);
+    let mut entry = lab.offer(DllType::Dlss, "310.2.1", "nvngx_dlss.dll", &pe_310_2_1());
+    entry.sha256 = "not a checksum".into();
+    lab.manifest.dlls.insert("dlss".into(), vec![entry]);
+    let batch = lab.update_game(9100509, None);
+    assert_eq!(
+        (batch.updated, batch.unchanged, batch.failed),
+        (0, 1, 0),
+        "{batch:#?}"
+    );
+    let batch = lab.update_game(9100510, None);
+    assert_eq!(batch.failed, 1);
+    let err = batch.items[0].result.as_ref().unwrap_err().to_string();
+    assert!(err.contains("310.2.1"), "{err}");
+    assert!(lab.http.requests().is_empty());
+    assert_eq!(read(&older.join("nvngx_dlss.dll")), pe_3_7_10());
+}
+
 #[test]
 fn an_fsr_payload_only_goes_to_the_file_it_was_made_for() {
     let mut lab = Lab::new();
@@ -551,7 +576,7 @@ fn cached_only_needs_a_version_and_never_downloads() {
     let batch = ops::update(&lab.cx(), &lab.manifest, vec![request(None)], &mut |_| {});
     assert_eq!(
         batch.items[0].result.as_ref().unwrap_err().to_string(),
-        "cached DLL version is required"
+        "no cached dlss version; run without --cached-only to download it"
     );
     let batch = ops::update(
         &lab.cx(),
@@ -628,7 +653,7 @@ fn a_batch_carries_on_after_a_failure() {
         errors,
         [
             "DLL swap denied for app 9100507: anti-cheat",
-            "no xess version \"\" available in manifest",
+            "the DLL manifest lists no xess versions",
             "game not found: 42",
         ]
     );

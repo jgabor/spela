@@ -104,6 +104,16 @@ impl Lab {
         self.s.root().join("xdg-cache/spela")
     }
 
+    /// Gives Amber Reach's and Birch Hollow's DLSS a readable version,
+    /// 3.7.10, so they are stale against 310.5.3, and rescans. Birch
+    /// Hollow's XeSS keeps an unknown version.
+    fn with_versions(&self) {
+        let pe = pe_3_7_10();
+        std::fs::write(self.common.join("Amber/bin/nvngx_dlss.dll"), &pe).unwrap();
+        std::fs::write(self.common.join("Birch/nvngx_dlss.dll"), &pe).unwrap();
+        self.s.run(&["scan"]).expect_code(0);
+    }
+
     fn tree(&self) -> BTreeMap<PathBuf, Vec<u8>> {
         let mut out = BTreeMap::new();
         walk(self.s.root(), &mut out);
@@ -134,6 +144,15 @@ impl Lab {
         }
         run
     }
+}
+
+/// Version 3.7.10 of `nvngx_dlss.dll`, a PE stub Go's goref wrote.
+fn pe_3_7_10() -> Vec<u8> {
+    std::fs::read(
+        common::fixtures()
+            .join("games/database/library/steamapps/common/Harbor Lights/nvngx_dlss.dll"),
+    )
+    .unwrap()
 }
 
 fn write(path: &Path, text: &str) {
@@ -268,6 +287,7 @@ fn install_creates_a_file_and_restore_removes_it() {
 #[test]
 fn update_all_skips_denied_games_and_prints_json() {
     let lab = Lab::new();
+    lab.with_versions();
     lab.s
         .run(&[
             "denylist",
@@ -293,7 +313,7 @@ fn update_all_skips_denied_games_and_prints_json() {
     assert_eq!(item["app_id"], 9100610);
     assert_eq!(item["type"], "dlss");
     assert_eq!(item["outcome"], "changed");
-    assert_eq!(item["from_version"], Value::Null);
+    assert_eq!(item["from_version"], "3.7.10");
     assert_eq!(item["to_version"], "310.5.3");
     assert_eq!(item["error"], Value::Null);
     assert_eq!(v["skipped"][0]["app_id"], 9100620);
@@ -303,16 +323,18 @@ fn update_all_skips_denied_games_and_prints_json() {
     );
     assert_eq!(
         std::fs::read(lab.common.join("Birch/nvngx_dlss.dll")).unwrap(),
-        ORIGINAL,
+        pe_3_7_10(),
         "the denied game is untouched"
     );
 
-    // Text, with a type filter.
+    // Text, with a type filter. The fixture payload has no version, so the
+    // updated DLL reads unknown and is put back to 3.7.10 first.
+    lab.with_versions();
     let run = lab.run(&["dll", "update", "--all", "--type", "dlss"]);
     run.expect_code(0);
     assert!(
         run.stdout()
-            .starts_with("Amber Reach (9100610)\n  nvngx_dlss.dll: unknown -> 310.5.3\n"),
+            .starts_with("Amber Reach (9100610)\n  nvngx_dlss.dll: 3.7.10 -> 310.5.3\n"),
         "{}",
         run.stdout()
     );
@@ -321,6 +343,39 @@ fn update_all_skips_denied_games_and_prints_json() {
             .contains("Skipped Birch Hollow (9100620): DLL swap denied: kernel anti-cheat\n"),
         "{}",
         run.stdout()
+    );
+}
+
+/// `--all` and `check-updates` leave a DLL of unknown version alone, as the
+/// TUI does (decision 70). Naming the game still swaps it.
+#[test]
+fn unknown_versions_are_left_to_an_explicit_update() {
+    let lab = Lab::new();
+    let run = lab.run(&["dll", "check-updates", "--json"]);
+    run.expect_code(0);
+    assert_eq!(json(&run)["games"], Value::Array(Vec::new()));
+    let before = lab.tree();
+    let run = lab.run(&["dll", "update", "--all", "--json"]);
+    run.expect_code(0);
+    let v = json(&run);
+    assert_eq!(v["items"], Value::Array(Vec::new()));
+    assert_eq!(v["updated"], 0);
+    assert_eq!(
+        std::fs::read(lab.common.join("Amber/bin/nvngx_dlss.dll")).unwrap(),
+        ORIGINAL
+    );
+    assert!(
+        lab.tree()
+            .keys()
+            .filter(|p| p.starts_with(&lab.common))
+            .all(|p| before.get(p) == lab.tree().get(p)),
+        "no game file changed"
+    );
+    let run = lab.run(&["dll", "update", "Amber Reach", "dlss"]);
+    run.expect_code(0);
+    assert_eq!(
+        std::fs::read(lab.common.join("Amber/bin/nvngx_dlss.dll")).unwrap(),
+        PAYLOAD
     );
 }
 
@@ -425,6 +480,7 @@ fn dll_cache_lists_versions_newest_first() {
 #[test]
 fn check_updates_prints_json_and_refresh_forces_a_fetch() {
     let lab = Lab::new();
+    lab.with_versions();
     let run = lab.run(&["dll", "check-updates", "--json"]);
     run.expect_code(0);
     let v = json(&run);
@@ -437,8 +493,13 @@ fn check_updates_prints_json_and_refresh_forces_a_fetch() {
         .map(|g| g["name"].as_str().unwrap())
         .collect();
     assert_eq!(names, ["Amber Reach", "Birch Hollow"]);
-    assert_eq!(v["games"][1]["dlls"][0]["type"], "dlss", "catalogue order");
-    assert_eq!(v["games"][1]["dlls"][1]["latest"], "1.3.1");
+    assert_eq!(v["games"][1]["dlls"][0]["type"], "dlss");
+    assert_eq!(v["games"][1]["dlls"][0]["version"], "3.7.10");
+    assert_eq!(
+        v["games"][1]["dlls"].as_array().unwrap().len(),
+        1,
+        "the XeSS of unknown version is not offered"
+    );
 
     // --refresh asks the fake network, which fails, so the cache stands in.
     let run = lab.run(&["dll", "check-updates", "--refresh"]);

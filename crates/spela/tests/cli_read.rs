@@ -658,7 +658,12 @@ fn dll_list_shows_every_family_and_one_game() {
 #[test]
 fn dll_check_updates_falls_back_to_the_cached_manifest() {
     let s = Sandbox::new();
-    three_games(&s);
+    let steam = three_games(&s);
+    // Readable versions, so the DLLs are stale; an unknown one is never
+    // listed (decision 70).
+    let stub = spela_core::fake::pe::stub;
+    std::fs::write(steam.common("Amber/bin/nvngx_dlss.dll"), stub("3.7.10.0")).unwrap();
+    std::fs::write(steam.common("Cobalt/libxess.dll"), stub("1.2.0.0")).unwrap();
     s.run(&["scan"]).expect_code(0);
     // The fake network has nothing, and there is no cache to fall back to.
     let run = s.run(&["dll", "check-updates"]);
@@ -681,8 +686,8 @@ fn dll_check_updates_falls_back_to_the_cached_manifest() {
     run.expect_code(0);
     assert_eq!(
         run.stdout(),
-        "Amber Reach (9100410)\n  nvngx_dlss.dll: unknown -> 310.5.3\n\
-         Cobalt Drift (9100420)\n  libxess.dll: unknown -> 1.3.1\n",
+        "Amber Reach (9100410)\n  nvngx_dlss.dll: 3.7.10 -> 310.5.3\n\
+         Cobalt Drift (9100420)\n  libxess.dll: 1.2 -> 1.3.1\n",
         "XeSS counts; FSR has no manifest entry"
     );
     assert!(

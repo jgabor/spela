@@ -199,6 +199,8 @@ enum Change {
     SortedBlocks,
     /// A clap usage error: exit 2 and clap's own text.
     ClapUsage,
+    /// These lines of Go's, joined by newlines, are not in spela's output.
+    Drop(&'static str),
     /// These lines, joined by newlines, follow Go's line `after`.
     Insert {
         after: &'static str,
@@ -381,6 +383,13 @@ const ALLOWED: &[Allowed] = &[
         cases: &["sandbox/main/config-show", "sandbox/empty/config-show"],
         change: Change::Toml,
         why: "decision 6: the config is TOML; theme and compact_mode are gone (decisions 3 and 46), and the new keys and [ui] are printed",
+    },
+    Allowed {
+        cases: &["sandbox/main/dll-check-updates"],
+        change: Change::Drop(
+            "Paper Comet: Director's Cut (9100060)\n  NVNGX_DLSS.DLL: unknown -> 310.5.3",
+        ),
+        why: "decision 70: a DLL of unknown version is not an update, as the TUI shows it",
     },
     Allowed {
         cases: &["sandbox/main/dll-list", "sandbox/main/dll-check-updates"],
@@ -655,6 +664,16 @@ fn compare(case: &Case, out: &Output) -> Vec<String> {
                 ));
             }
             expected = expected.replace(&go, &format!("{spela}\n"));
+        }
+        if let Change::Drop(lines) = change {
+            let lines = format!("{lines}\n");
+            if !expected.contains(&lines) {
+                problems.push(format!(
+                    "{}: the lines {lines:?} to drop are not in Go's output",
+                    case.id
+                ));
+            }
+            expected = expected.replace(&lines, "");
         }
     }
     for change in &changes {

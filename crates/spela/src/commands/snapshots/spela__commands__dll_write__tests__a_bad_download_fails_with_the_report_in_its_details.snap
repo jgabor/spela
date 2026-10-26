@@ -1,0 +1,34 @@
+---
+source: crates/spela/src/commands/dll_write.rs
+expression: shown
+---
+{
+  "schema_version": 1,
+  "error": {
+    "code": "dll_update_failed",
+    "message": "1 DLL update(s) failed: acquire dlss 310.5.3: cache DLL: checksum mismatch: expected ec8f1606fabbf70bef5e551da2792d97c6b9deafa5ea0db28310ba77d716c7af, got d121be3103007b41edf96f8262925f8c7d61894afe9a041843b631f69445bc57",
+    "details": {
+      "schema_version": 1,
+      "items": [
+        {
+          "app_id": 9100710,
+          "name": "Ashfall",
+          "type": "dlss",
+          "path": "<game>/nvngx_dlss.dll",
+          "from_version": null,
+          "to_version": "310.5.3",
+          "outcome": "failed",
+          "error": {
+            "code": "download_failed",
+            "message": "acquire dlss 310.5.3: cache DLL: checksum mismatch: expected ec8f1606fabbf70bef5e551da2792d97c6b9deafa5ea0db28310ba77d716c7af, got d121be3103007b41edf96f8262925f8c7d61894afe9a041843b631f69445bc57",
+            "files_changed": false
+          }
+        }
+      ],
+      "skipped": [],
+      "updated": 0,
+      "unchanged": 0,
+      "failed": 1
+    }
+  }
+}

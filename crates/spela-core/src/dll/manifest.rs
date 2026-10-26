@@ -195,6 +195,15 @@ impl ManifestEntry {
     /// Checks the entry before an install or update uses it: a valid
     /// version, a file name of its own family (any case), and a SHA-256.
     pub fn check(&self, dll_type: DllType) -> Result<(), EntryError> {
+        self.check_listing(dll_type)?;
+        self.check_checksum(dll_type)
+    }
+
+    /// The version and the file name half of [`ManifestEntry::check`]. An
+    /// update runs it before the no-op rule and the checksum after it, as
+    /// Go did, so a DLL that is already current is reported unchanged even
+    /// when the entry's SHA-256 is malformed.
+    pub fn check_listing(&self, dll_type: DllType) -> Result<(), EntryError> {
         if self.version.is_empty() {
             return Err(EntryError::NoVersion { dll_type });
         }
@@ -211,6 +220,11 @@ impl ManifestEntry {
                 filename: self.filename.clone(),
             });
         }
+        Ok(())
+    }
+
+    /// The SHA-256 half of [`ManifestEntry::check`].
+    pub fn check_checksum(&self, dll_type: DllType) -> Result<(), EntryError> {
         if crate::hex::parse_sha256(&self.sha256).is_none() {
             return Err(EntryError::BadChecksum {
                 dll_type,

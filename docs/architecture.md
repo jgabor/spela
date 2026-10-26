@@ -1027,7 +1027,7 @@ The DLL commands gained objects in Phase 5, as new commands under version 1 (as 
 | `dll install`, `dll update` | `{"schema_version": 1, "items": [item, ...], "skipped": [{"app_id", "name", "reason"}, ...], "updated": n, "unchanged": n, "failed": n}`. An item has `app_id`, `name`, `type`, `path`, `from_version`, `to_version`, `outcome` (`changed`, `unchanged` or `failed`) and `error` (`null`, or `code`, `message` and `files_changed`). Items sort by game name, then catalogue order, then path. `skipped` lists the deny-listed games `--all` left out |
 | `dll restore` | `{"schema_version": 1, "app_id", "name", "restored": [path, ...], "deleted": [path, ...], "kept": [path, ...]}`. `kept` lists files an install created that Steam has since replaced, which restore keeps (as built) |
 | `dll cache` | `{"schema_version": 1, "cache_dir", "types": [{"type", "versions": [newest first]}, ...]}` |
-| `dll check-updates` | `{"schema_version": 1, "manifest": {"source_url", "fetched_at", "fetched_now"}, "games": [{"app_id", "name", "dlls": [{"path", "name", "type", "version", "latest"}]}]}` with only the DLLs that need an update |
+| `dll check-updates` | `{"schema_version": 1, "manifest": {"source_url", "fetched_at", "fetched_now"}, "games": [{"app_id", "name", "dlls": [{"path", "name", "type", "version", "latest"}]}]}` with only the stale DLLs, so `version` is never `null` (decision 70) |
 
 A batch with a failed item still exits 1 and prints only the error object, code `dll_update_failed`. Its new `details` key holds the whole object above, so a script sees what changed before the failure. Other error objects have no `details` key (as built).
 
@@ -1327,7 +1327,7 @@ Each fixes an item in [parity-inventory.md](parity-inventory.md), DLL conflicts,
 | A manifest filename that is not a real DLL name, such as `dlss.dll` from `dll-release.yml`, is installed as is (DLL conflicts, "dll-release.yml filename") | Install and update require the entry's filename to be a known name for its type |
 | FSR maps two files to one manifest key, so a dx12 file could get vk bytes (DLL conflicts, "FSR maps two files") | A payload is only written to a file with the same name as the entry's filename |
 | `dll list` and `check-updates` skip XeSS-only and FSR-only games (corrections) | Both include every type |
-| Five meanings of "update available" (DLL 2.10) | One: a DLL is stale when its installed version is known and lower than the highest manifest version for its type. Library, Catalog, `dll check-updates` and auto-update call one function (decision 38). An unknown version shows as "unknown". An explicit update still swaps it, and auto-update skips it |
+| Five meanings of "update available" (DLL 2.10) | One: a DLL is stale when its installed version is known and lower than the highest manifest version for its type. Library, Catalog, `dll check-updates` and auto-update call one function (decision 38). An unknown version shows as "unknown" and is never "update available": `dll check-updates` does not list it, and `dll update --all`, the TUI's per-game Update, Update selected games, Catalog Update all and the startup auto-update all leave it alone. `dll update <game>` and `dll install` on the CLI, and Install in the TUI, are the explicit ways to swap it (decision 70) |
 | The manifest body is read with no size cap (DLL conflicts, "Manifest fetch has no body cap") | A cap, as the release check has. The size is (inferred), for example 4 MiB |
 
 ### Restore
