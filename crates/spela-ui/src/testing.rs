@@ -84,6 +84,7 @@ pub fn state_with_games(width: u16, height: u16, n: usize) -> AppState {
         config: Config::default(),
         games: cache,
         profiles,
+        broken_profiles: Default::default(),
         notice: Vec::new(),
         warnings: Vec::new(),
         no_color: false,

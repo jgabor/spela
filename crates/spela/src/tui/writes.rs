@@ -14,9 +14,10 @@ use std::collections::BTreeMap;
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 
+use spela_core::config::Config;
 use spela_core::denylist;
 use spela_core::paths::Paths;
-use spela_core::profile::{FieldKey, Value, store};
+use spela_core::profile::{FieldKey, Scope, Value, store};
 use spela_ui::Msg;
 use spela_ui::event::{DenyChange, Write};
 
@@ -30,8 +31,15 @@ pub struct WriteQueue {
 }
 
 impl WriteQueue {
-    /// Starts the writer thread.
-    pub fn spawn(paths: Paths, loop_tx: LoopSender<Msg>) -> std::io::Result<WriteQueue> {
+    /// Starts the writer thread. A profile write for a scope in `refused`
+    /// fails with that text: its Go file did not migrate, and a TOML file
+    /// written now would be adopted in its place, losing the Go values
+    /// (see [`crate::migration::refuse_profile`]).
+    pub fn spawn(
+        paths: Paths,
+        refused: BTreeMap<Scope, String>,
+        loop_tx: LoopSender<Msg>,
+    ) -> std::io::Result<WriteQueue> {
         let (tx, rx) = mpsc::channel::<(u64, Write)>();
         let thread = std::thread::Builder::new()
             .name("spela-writes".into())
@@ -41,7 +49,12 @@ impl WriteQueue {
                     let mut pending = vec![first];
                     pending.extend(rx.try_iter());
                     for (tokens, write) in merge(pending) {
-                        let result = apply(&paths, &write);
+                        let result = match &write {
+                            Write::Profile { scope, .. } if refused.contains_key(scope) => {
+                                Err(refused[scope].clone())
+                            }
+                            _ => apply(&paths, &write),
+                        };
                         if let Err(e) = &result {
                             tracing::warn!("not saved: {e}");
                             failures.push(e.clone());
@@ -146,6 +159,14 @@ pub fn apply(paths: &Paths, write: &Write) -> Result<(), String> {
                 .map_err(|e| e.to_string())
         }
         Write::Config { changes } => {
+            // Check every value on a copy first, so a bad value writes
+            // nothing and the UI's put-back matches the disk.
+            let mut check: Config = spela_core::config::load(&paths.config_file())
+                .map(|l| l.config)
+                .map_err(|e| e.to_string())?;
+            for (key, raw) in changes {
+                check.set(key, raw).map_err(|e| e.to_string())?;
+            }
             let ordered: BTreeMap<&String, &String> = changes.iter().collect();
             for (key, raw) in ordered {
                 spela_core::config::store::set(paths, key, raw).map_err(|e| e.to_string())?;
@@ -214,7 +235,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let paths = Paths::under(dir.path());
         let (tx, rx) = channel::<Msg>();
-        let queue = WriteQueue::spawn(paths.clone(), tx).unwrap();
+        let queue = WriteQueue::spawn(paths.clone(), BTreeMap::new(), tx).unwrap();
         queue.submit(1, config("check_updates", "false"));
         assert_eq!(wait_saved(&rx), (1, Ok(())));
         let text = std::fs::read_to_string(paths.config_file()).unwrap();

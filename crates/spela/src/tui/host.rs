@@ -13,6 +13,9 @@ pub trait Host {
     /// restored while stopped, and returns once resumed with the TUI
     /// entered again. The caller then redraws everything.
     fn suspend(&mut self) -> Result<(), String>;
+
+    /// Turns the terminal's mouse modes on or off.
+    fn set_mouse(&mut self, on: bool) -> Result<(), String>;
 }
 
 /// The real terminal.
@@ -23,6 +26,10 @@ impl Host for TerminalHost {
     fn suspend(&mut self) -> Result<(), String> {
         super::terminal::suspend_process().map_err(|e| format!("cannot suspend: {e}"))
     }
+
+    fn set_mouse(&mut self, on: bool) -> Result<(), String> {
+        super::terminal::set_mouse(on).map_err(|e| format!("cannot change the mouse modes: {e}"))
+    }
 }
 
 /// A host that counts what it was asked, for in-process tests.
@@ -30,12 +37,22 @@ impl Host for TerminalHost {
 pub struct RecordingHost {
     /// Times the loop asked to suspend.
     pub suspends: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    /// The mouse modes asked for, in order.
+    pub mouse: std::sync::Arc<std::sync::Mutex<Vec<bool>>>,
 }
 
 impl Host for RecordingHost {
     fn suspend(&mut self) -> Result<(), String> {
         self.suspends
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok(())
+    }
+
+    fn set_mouse(&mut self, on: bool) -> Result<(), String> {
+        self.mouse
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(on);
         Ok(())
     }
 }

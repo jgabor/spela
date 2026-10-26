@@ -199,11 +199,24 @@ impl<B: Backend + Markers> App<B> {
         }
     }
 
-    fn exec_cmd(&mut self, cmd: Cmd) {
+    /// Runs one command: quit, suspend and the mouse modes here, the rest
+    /// on the workers.
+    pub fn exec_cmd(&mut self, cmd: Cmd) {
         match cmd {
             Cmd::Quit => self.quit = true,
             Cmd::Suspend => {
                 if let Err(e) = self.suspend() {
+                    tracing::warn!("{e}");
+                }
+            }
+            Cmd::SetMouse(on) => {
+                // The frame bytes go first, so the mode bytes never land
+                // inside a frame.
+                let flushed = self.terminal.backend_mut().flush();
+                if let Err(e) = flushed
+                    .map_err(|e| e.to_string())
+                    .and_then(|()| self.host.set_mouse(on))
+                {
                     tracing::warn!("{e}");
                 }
             }
@@ -428,6 +441,8 @@ mod tests {
         }]);
         app.handle_batch(vec![ctrl_z]).unwrap();
         assert_eq!(host.suspends.load(std::sync::atomic::Ordering::SeqCst), 1);
+        app.exec_cmd(Cmd::SetMouse(false));
+        assert_eq!(*host.mouse.lock().unwrap(), vec![false]);
         app.handle_batch(vec![key('q')]).unwrap();
         assert!(!app.quitting(), "the startup scan still runs");
         app.state.jobs.scan = None;

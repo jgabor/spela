@@ -37,8 +37,8 @@ use super::writes::WriteSender;
 
 /// What runs the UI's commands. The loop's tests use a recording one.
 pub trait Exec {
-    /// Runs one command. `Suspend` and `Quit` never reach it: the loop
-    /// handles them.
+    /// Runs one command. `Suspend`, `Quit` and `SetMouse` never reach it:
+    /// the loop handles them.
     fn run(&mut self, cmd: Cmd);
 }
 
@@ -118,7 +118,7 @@ impl Exec for Workers {
                     result: Err("Preview launch is not yet implemented in this build".into()),
                 });
             }
-            Cmd::Suspend | Cmd::Quit => {}
+            Cmd::Suspend | Cmd::Quit | Cmd::SetMouse(_) => {}
             Cmd::Library(c) => library::run(self, c),
             Cmd::Profile(c) => profile::run(self, c),
             Cmd::Settings(c) => settings::run(self, c),

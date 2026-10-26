@@ -278,6 +278,9 @@ pub enum Cmd {
     },
     /// Stop to the shell, as Ctrl-Z does, and redraw on resume.
     Suspend,
+    /// Turn the terminal's mouse modes on or off, after `ui.mouse`
+    /// changed. Off gives the terminal's own text selection back.
+    SetMouse(bool),
     /// Leave the TUI.
     Quit,
     /// Work for the Library list.

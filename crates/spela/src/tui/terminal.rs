@@ -167,6 +167,27 @@ fn switch_off(options: TerminalOptions) -> io::Result<()> {
     first.map_or(Ok(()), Err)
 }
 
+/// Turns the mouse modes on or off while the TUI runs, after `ui.mouse`
+/// changed, and records it so [`restore`] undoes the right ones. Does
+/// nothing when the TUI is not active.
+pub fn set_mouse(on: bool) -> io::Result<()> {
+    let mut active = ACTIVE.lock().unwrap_or_else(PoisonError::into_inner);
+    let Some(options) = active.as_mut() else {
+        return Ok(());
+    };
+    if options.mouse == on {
+        return Ok(());
+    }
+    let mut out = io::stdout();
+    if on {
+        execute!(out, EnableMouseButtons)?;
+    } else {
+        execute!(out, DisableMouseCapture)?;
+    }
+    options.mouse = on;
+    out.flush()
+}
+
 /// Whether the TUI mode is on.
 pub fn is_active() -> bool {
     ACTIVE

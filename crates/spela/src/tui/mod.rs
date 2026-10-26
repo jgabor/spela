@@ -42,6 +42,7 @@ pub mod terminal;
 pub mod timer;
 pub mod writes;
 
+use std::collections::BTreeMap;
 use std::io::{self, BufWriter, IsTerminal, Write};
 
 use ratatui::Terminal;
@@ -50,8 +51,8 @@ use spela_core::backend::BackendKind;
 use spela_core::env::var;
 use spela_core::games::cache;
 use spela_core::lock::InstanceLock;
-use spela_core::migrate::CONFIG_HINT;
-use spela_core::profile::store;
+use spela_core::migrate::{CONFIG_HINT, Report, SourceKind};
+use spela_core::profile::{Scope, store};
 use spela_ui::{AppState, Startup};
 
 use crate::cli::Context;
@@ -68,6 +69,27 @@ use self::signals::SignalWatcher;
 use self::terminal::TerminalOptions;
 use self::timer::{METRICS_EVERY, Timer};
 use self::writes::WriteQueue;
+
+/// The scopes whose Go profile did not migrate, with the CLI's text for
+/// them. Neither the TUI nor its write queue edits them.
+pub fn broken_profiles(report: &Report) -> BTreeMap<Scope, String> {
+    let mut out = BTreeMap::new();
+    for h in report.failed() {
+        let scope = match h.kind {
+            SourceKind::Game(app_id) => Scope::Game(app_id),
+            SourceKind::AllGames => Scope::AllGames,
+            _ => continue,
+        };
+        if let Err(e) = crate::migration::refuse_profile(report, scope) {
+            let text = match &e.hint {
+                Some(hint) => format!("{} ({hint})", e.message),
+                None => e.message.clone(),
+            };
+            out.insert(scope, text);
+        }
+    }
+    out
+}
 
 /// The error when stdin or stdout is not a terminal.
 pub const NOT_A_TERMINAL: &str = "spela tui needs a terminal";
@@ -107,6 +129,7 @@ pub fn run(ctx: &mut Context, _lock: InstanceLock, err: &mut dyn Write) -> Resul
         tracing::warn!("{w}");
     }
     let config = loaded.config;
+    let broken = broken_profiles(&ctx.migration);
 
     // The demo scans its own fictional library.
     let steam = if ctx.demo {
@@ -165,8 +188,8 @@ pub fn run(ctx: &mut Context, _lock: InstanceLock, err: &mut dyn Write) -> Resul
     let metrics =
         MetricsThread::spawn(gpu, cpu, tx.clone()).map_err(|e| failure("metrics thread", e))?;
     let jobs = Pool::spawn(jobs::THREADS).map_err(|e| failure("job pool", e))?;
-    let writes =
-        WriteQueue::spawn(ctx.paths.clone(), tx.clone()).map_err(|e| failure("write queue", e))?;
+    let writes = WriteQueue::spawn(ctx.paths.clone(), broken.clone(), tx.clone())
+        .map_err(|e| failure("write queue", e))?;
     let timer = Timer::spawn(tx.clone(), METRICS_EVERY).map_err(|e| failure("timer", e))?;
     let workers = Workers {
         paths: ctx.paths.clone(),
@@ -184,6 +207,7 @@ pub fn run(ctx: &mut Context, _lock: InstanceLock, err: &mut dyn Write) -> Resul
         config,
         games,
         profiles,
+        broken_profiles: broken,
         notice,
         warnings,
         no_color: ctx.env.no_color(),
@@ -213,4 +237,26 @@ pub fn run(ctx: &mut Context, _lock: InstanceLock, err: &mut dyn Write) -> Resul
         tracing::info!("{note}");
     }
     result.map_err(|e| CliError::new(exit::FAILURE, format!("the terminal failed: {e}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use spela_core::clock::ManualClock;
+    use spela_core::paths::Paths;
+
+    #[test]
+    fn a_go_profile_that_did_not_migrate_is_broken() {
+        let base = tempfile::tempdir().unwrap();
+        let paths = Paths::under(base.path());
+        let go = paths.go().game_profile(9100030);
+        std::fs::create_dir_all(go.parent().unwrap()).unwrap();
+        std::fs::write(&go, "name: [\n").unwrap();
+        let clock = ManualClock::new("2026-10-26T17:04:11Z".parse().unwrap());
+        let report = crate::migration::run(&paths, &clock, &mut Vec::new(), false).unwrap();
+        let broken = broken_profiles(&report);
+        let text = &broken[&Scope::Game(9100030)];
+        assert!(text.contains("9100030.yaml"), "{text}");
+        assert!(!broken.contains_key(&Scope::AllGames));
+    }
 }

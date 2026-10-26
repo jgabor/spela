@@ -17,6 +17,7 @@ use spela_core::clock::Clock;
 use spela_core::config::Config;
 use spela_core::games::GameCache;
 use spela_core::metrics::CpuMetrics;
+use spela_core::profile::Scope;
 
 use crate::event::{Cmd, MetricsSample, Write};
 use crate::hit::{HitMap, HitTarget};
@@ -171,6 +172,10 @@ pub struct Startup {
     pub games: GameCache,
     /// Games with their own profile file.
     pub profiles: Vec<u64>,
+    /// Scopes whose Go profile did not migrate, with the error to show.
+    /// The TUI shows it on that scope and does not edit it; the write
+    /// queue refuses it too.
+    pub broken_profiles: BTreeMap<Scope, String>,
     /// The migration notice, when this run migrated Go files.
     pub notice: Vec<String>,
     /// Config warnings, such as unknown keys.
@@ -205,6 +210,9 @@ pub struct AppState {
     pub config: Config,
     /// The game cache.
     pub games: GameCache,
+    /// Scopes whose Go profile did not migrate, with the error to show.
+    /// Never edit them: the write queue refuses them.
+    pub broken_profiles: BTreeMap<Scope, String>,
     /// The live metrics.
     pub metrics: Metrics,
     /// Running jobs.
@@ -272,6 +280,7 @@ impl AppState {
             no_color: startup.no_color,
             config: startup.config,
             games: startup.games,
+            broken_profiles: startup.broken_profiles,
             metrics: Metrics::default(),
             jobs: Jobs::default(),
             saves: BTreeMap::new(),
@@ -394,12 +403,16 @@ impl AppState {
         self.status.as_ref().map(|m| m.until)
     }
 
-    /// Applies a changed config: theme, glyphs and the rest.
-    pub fn set_config(&mut self, config: Config) {
+    /// Applies a changed config: theme, glyphs and the rest. Returns
+    /// [`Cmd::SetMouse`] when `ui.mouse` changed, so the terminal's mouse
+    /// modes follow at once; run what it returns.
+    pub fn set_config(&mut self, config: Config) -> Vec<Cmd> {
+        let mouse = (config.ui.mouse != self.config.ui.mouse).then_some(config.ui.mouse);
         self.theme = Theme::new(config.ui.theme, self.no_color);
         self.glyphs = Glyphs::new(config.ui.ascii_glyphs);
         self.config = config;
         self.dirty = true;
+        mouse.map(Cmd::SetMouse).into_iter().collect()
     }
 
     /// Whether the focused pane shows: always in two-pane mode, and the

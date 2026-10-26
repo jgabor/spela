@@ -22,6 +22,7 @@
 //! | [`text`] | Display width, sanitising, truncation and wrapping |
 //! | [`input`] | [`input::LineInput`], one line of editable text |
 //! | [`fuzzy`] | The palette's matcher |
+//! | [`picker`] | The choice picker with type-to-jump, for editors and Settings |
 //! | [`perf`] | The key-to-flush ring |
 //! | [`testing`] | Test support: fictional games, a manual clock, frames as text |
 
@@ -35,6 +36,7 @@ pub mod keymap;
 pub mod layout;
 pub mod paint;
 pub mod perf;
+pub mod picker;
 pub mod screens;
 pub mod state;
 pub mod testing;
