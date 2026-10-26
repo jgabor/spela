@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/profile.rs
+expression: render_text(&mut s)
+---
+ spela   ▸ 1 Library  2 DLL Catalog  3 Monitor  4 Settings
+┌─ ▸ Detail ───────────────────────────────────────────────────────────────────┐
+│ Ashfall Courier · App ID 9100010 · DLLs: DLSS 310.4.0 · Saved at once        │
+│ Own settings (4): Super resolution quality · Resolution override On · Ray o⋯ │
+│ Proton  [DLSS]  GPU  CPU  DLLs                                               │
+│                                                                              │
+│ Proton                                                                       ┃
+│     HDR                    On            from All games                      ┃
+│     Wayland                Off           system default                      ┃
+│     NGX updater            Off           system default                      ┃
+│     VKD3D heap             Off           system default                      ┃
+│                                                                              ┃
+│ DLSS                                                                         │
+│   ⚑ Super resolution       quality       this game · All games: balanced     │
+│     Resolution preset      K             from All games                      │
+│   ⚑ Resolution override    On            this game · All games: Off          │
+│     Ray reconstruction     quality       from All games                      │
+│     Ray preset             none          system default                      │
+│ ▸ ⚑ Ray override           On            this game · All games: Off          │
+│     Turns on the DLSS ray reconstruction override. Mode and preset take      │
+│     effect only when this is On.                                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                                              Scanning games...
+ 0 Actions  Up/Down Field  Enter Edit value  Space Follow All games  Tab List

@@ -4,27 +4,27 @@ expression: render_text(&mut s)
 ---
  spela   ▸ Library  DLL Catalog  Monitor  Settings
 ┌─ Scope ────────────────────────┬─ Ashfall Courier ───────────────────────────────────────────────────────────────────┐
-│ / Find games                   │ Ashfall Courier · App ID 9100010                                                    │
+│ / Find games                   │ Ashfall Courier · App ID 9100010 · DLLs: DLSS 310.4.0 · Saved at once               │
 │   All games                    │    ┌─ Actions · Library · list ───────────────────────────────────────────────────┐ │
-│ ▸ Ashfall Courier          ▪ ⚑ │ The│                                                                              │ │
+│ ▸ Ashfall Courier          ▪ ⚑ │ [Pr│                                                                              │ │
 │   Brightwater Keep             │    │ ▸ Search games                                                            /  │ │
-│   Cinder Valley Racing     ▪   │    │   Rescan games                                                               │ │
-│   Deepline Salvage           ⚑ │    │   Help                                                                    ?  │ │
-│   Ember Tide               ▪   │    │   Quit                                                                    q  │ │
-│   Game 1 Remastered            │    │                                                                              │ │
-│   Glasshouse Detective     ▪ ⚑ │    ├──────────────────────────────────────────────────────────────────────────────┤ │
-│   Hollow Crown Tactics: D⋯     │    │   Close                                                                      │ │
-│   Ironleaf Expedition      ▪   │    └──────────────────────────────────────────────────────────────────────────────┘ │
-│   Lantern Drift              ⚑ │                                                                                     │
-│   Moonwell Farmstead       ▪   │                                                                                     │
-│   Nightglass Protocol          │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
-│                                │                                                                                     │
+│   Cinder Valley Racing     ▪   │ Loa│   Toggle DLL filter                                                          │ │
+│   Deepline Salvage           ⚑ │    │   Toggle profile filter                                                      │ │
+│   Ember Tide               ▪   │    │   Clear filters (reset sort to A-Z)                                          │ │
+│   Game 1 Remastered            │    │   Sort: A-Z                                                                  │ │
+│   Glasshouse Detective     ▪ ⚑ │    │   Sort: Z-A                                                                  │ │
+│   Hollow Crown Tactics: D⋯     │    │   Sort: DLLs first                                                           │ │
+│   Ironleaf Expedition      ▪   │    │   Sort: profiles first                                                       │ │
+│   Lantern Drift              ⚑ │    │   Select all filtered games                                                  │ │
+│   Moonwell Farmstead       ▪   │    │   Clear selected filtered games · no selected filtered games                 │ │
+│   Nightglass Protocol          │    │   Update selected games (0 visible) · no updates for selected filtered g⋯    │ │
+│                                │    │   Rescan games                                                               │ │
+│                                │    │   Help                                                                    ?  │ │
+│                                │    │   Quit                                                                    q  │ │
+│                                │    │                                                                              │ │
+│                                │    ├──────────────────────────────────────────────────────────────────────────────┤ │
+│                                │    │   Close                                                                      │ │
+│                                │    └──────────────────────────────────────────────────────────────────────────────┘ │
 │                                │                                                                                     │
 │                                │                                                                                     │
 │                                │                                                                                     │

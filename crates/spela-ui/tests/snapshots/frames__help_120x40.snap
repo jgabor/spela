@@ -13,15 +13,16 @@ expression: render_text(&mut s)
 │   Ember │  Up/Down        Game                                                                             ┃         │
 │   Game 1│  Down           Next game                                                                        ┃         │
 │   Glassh│  Enter          Open selection                                                                   ┃         │
-│   Hollow│  PgUp           Page up                                                                          ┃         │
-│   Ironle│  PgDn           Page down                                                                        ┃         │
-│   Lanter│  Home           First game                                                                       ┃         │
-│   Moonwe│  End            Last game                                                                        ┃         │
-│   Nightg│  1              Library                                                                          ┃         │
+│   Hollow│  Space          Select game                                                                      ┃         │
+│   Ironle│  PgUp           Page up                                                                          ┃         │
+│   Lanter│  PgDn           Page down                                                                        ┃         │
+│   Moonwe│  Home           First game                                                                       ┃         │
+│   Nightg│  End            Last game                                                                        ┃         │
+│         │  1              Library                                                                          ┃         │
 │         │  2              DLL Catalog                                                                      ┃         │
 │         │  3              Monitor                                                                          ┃         │
-│         │  4              Settings                                                                         ┃         │
-│         │  Tab            Pane                                                                             ┃         │
+│         │  4              Settings                                                                         │         │
+│         │  Tab            Pane                                                                             │         │
 │         │  Shift-Tab      Previous pane                                                                    │         │
 │         │  Esc            Back · nothing to close                                                          │         │
 │         │  ?              Help                                                                             │         │
@@ -35,7 +36,6 @@ expression: render_text(&mut s)
 │         │  0              Actions for this context                                                         │         │
 │         │  1 to 4         Library, DLL Catalog, Monitor, Settings                                          │         │
 │         │  Tab            Next pane                                                                        │         │
-│         │  Shift-Tab      Previous pane                                                                    │         │
 │         │                                                                                                  │         │
 │         │   Close                                                                                          │         │
 │         └──────────────────────────────────────────────────────────────────────────────────────────────────┘         │

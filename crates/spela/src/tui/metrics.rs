@@ -8,9 +8,9 @@
 //! the alerts with the metrics. NVML never runs on the UI thread.
 
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc;
+use std::sync::{Arc, OnceLock};
 
 use spela_core::alerts::{self, AlertInput, Thresholds};
 use spela_core::backend::{Gpu, GpuError, GpuInfo, GpuMetrics};
@@ -125,11 +125,34 @@ pub fn sweep(gpu: &mut dyn Gpu, cpu: &mut dyn CpuLoad) -> MetricsSample {
     }
 }
 
+/// The NVIDIA driver version for the descriptor heap check, read once by
+/// the metrics thread before its first poll: `Some("")` when there is no
+/// NVIDIA driver, `None` when the driver could not be asked, as
+/// `profile_read::heap_notice` maps it. A job waits on it off the UI path.
+pub type DriverSlot = Arc<OnceLock<Option<String>>>;
+
+/// The driver argument of [`spela_core::proton::check`] for a GPU info
+/// read.
+pub fn driver_of(info: Result<GpuInfo, GpuError>) -> Option<String> {
+    match info {
+        Ok(info) => Some(info.driver_version),
+        Err(GpuError::Unavailable(why)) => {
+            tracing::info!("no NVIDIA driver for the descriptor heap check: {why}");
+            Some(String::new())
+        }
+        Err(e) => {
+            tracing::info!("the NVIDIA driver could not be asked: {e}");
+            None
+        }
+    }
+}
+
 /// The running metrics thread. It lives until the process exits.
 #[derive(Debug)]
 pub struct MetricsThread {
     tx: mpsc::Sender<()>,
     polls: Arc<AtomicUsize>,
+    driver: DriverSlot,
 }
 
 impl MetricsThread {
@@ -142,9 +165,12 @@ impl MetricsThread {
         let (tx, rx) = mpsc::channel::<()>();
         let polls = Arc::new(AtomicUsize::new(0));
         let counter = polls.clone();
+        let driver: DriverSlot = Arc::new(OnceLock::new());
+        let slot = driver.clone();
         std::thread::Builder::new()
             .name("spela-metrics".into())
             .spawn(move || {
+                let _ = slot.set(driver_of(gpu.info()));
                 while rx.recv().is_ok() {
                     // At most one poll in flight: extra asks are one ask.
                     while rx.try_recv().is_ok() {}
@@ -155,7 +181,12 @@ impl MetricsThread {
                     }
                 }
             })?;
-        Ok(MetricsThread { tx, polls })
+        Ok(MetricsThread { tx, polls, driver })
+    }
+
+    /// The driver version slot, filled once the thread has asked the GPU.
+    pub fn driver(&self) -> DriverSlot {
+        self.driver.clone()
     }
 
     /// Asks for one sweep.

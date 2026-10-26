@@ -1,0 +1,44 @@
+---
+source: crates/spela-ui/tests/profile.rs
+expression: render_text(&mut s)
+---
+ spela   ▸ 1 Library  2 DLL Catalog  3 Monitor  4 Settings
+┌─ Scope ────────────────────────┬─ All games ─────────────────────────────────────────────────────────────────────────┐
+│ / Find games                   │ All games · Saved at once                                                           │
+│ ▸ All games                    │ Games follow these values unless they set their own.                                │
+│   Ashfall Courier          ▪ ⚑ │ Proton  [DLSS]  GPU  CPU                                                            │
+│   Brightwater Keep             │                                                                                     │
+│   Cinder Valley Racing     ▪   │ Proton                                                                              ┃
+│   Deepline Salvage           ⚑ │   ⚑ HDR                    On            set here                                   ┃
+│   Ember Tide               ▪   │     Wayland                Off           system default                             ┃
+│   Game 1 Remastered            │     NGX updater            Off           system default                             ┃
+│   Glasshouse Detective     ▪ ⚑ │     VKD3D heap             Off           system default                             ┃
+│   Hollow Crown Tactics: D⋯     │                                                                                     ┃
+│   Ironleaf Expedition      ▪   │ DLSS                                                                                ┃
+│   Lantern Drift              ⚑ │ ▸ ⚑ Super resolution       balanced      set here                                   ┃
+│   Moonwell Farmstead       ▪   │     DLSS super resolution quality mode. Applied only when Resolution override is    ┃
+│   Nightglass Protocol          │     On.                                                                             ┃
+│                                │     Actions (0): Apply to games with their own value (1 game)                       ┃
+│                                │   ⚑ Resolution preset      K             set here                                   ┃
+│                                │   ⚑ Resolution override    Off           set here                                   ┃
+│                                │   ⚑ Ray reconstruction     quality       set here                                   ┃
+│                                │     Ray preset             none          system default                             ┃
+│                                │   ⚑ Ray override           Off           set here                                   ┃
+│                                │   ⚑ Frame generation       On            set here                                   ┃
+│                                │   ⚑ Generation override    On            set here                                   ┃
+│                                │   ⚑ Multi-frame            1             set here                                   ┃
+│                                │     SR indicator           Off           system default                             ┃
+│                                │     FG indicator           Off           system default                             ┃
+│                                │                                                                                     ┃
+│                                │ GPU                                                                                 ┃
+│                                │     Clock offset           none          system default                             ┃
+│                                │   ⚑ KDE VRR                automatic     set here                                   ┃
+│                                │     Memory offset          none          system default                             ┃
+│                                │     Power limit            none          system default                             ┃
+│                                │     Fan speed              none          system default                             │
+│                                │   ⚑ Shader cache           On            set here                                   │
+│                                │     Shader cache path      none          system default                             │
+│                                │     Threaded optimization  Off           system default                             │
+└─ ▪ DLLs  ⚑ profile ────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
+                                                                                                      Scanning games...
+ 0 Actions  Up/Down Field  Left/Right Section  Enter Edit value  Space Use system default  Tab Pane  Esc List  ? Help

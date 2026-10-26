@@ -4,11 +4,11 @@ expression: render_text(&mut s)
 ---
  spela   ▸ 1 Library  2 DLL Catalog  3 Monitor  4 Settings
 ┌─ Scope ────────────────────────┬─ All games ─────────────────────────────────────────────────────────────────────────┐
-│ / Find games                   │ All games                                                                           │
-│ ▸ All games                    │                                                                                     │
-│                                │ The profile page comes here: Proton, DLSS, GPU, CPU and DLLs.                       │
+│ / Find games                   │ All games · Saved at once                                                           │
+│ ▸ All games                    │ Games follow these values unless they set their own.                                │
+│                                │ [Proton]  DLSS  GPU  CPU                                                            │
 │                                │                                                                                     │
-│                                │                                                                                     │
+│                                │ Loading profiles...                                                                 │
 │                                │                                                                                     │
 │                                │                                                                                     │
 │                                │                                                                                     │

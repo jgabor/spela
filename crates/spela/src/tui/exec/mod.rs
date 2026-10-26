@@ -91,6 +91,12 @@ pub struct Workers {
     pub clock: Arc<dyn Clock>,
     /// Where scans look.
     pub steam: SteamSource,
+    /// The CPU reader of this run's backends (the fake under `--demo` and
+    /// `SPELA_BACKEND=fake`), shared with jobs: the governor picker reads
+    /// the governors sysfs lists.
+    pub cpu: profile::CpuReader,
+    /// The NVIDIA driver version, for the VKD3D notice.
+    pub driver: super::metrics::DriverSlot,
 }
 
 impl Exec for Workers {

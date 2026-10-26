@@ -1,0 +1,44 @@
+---
+source: crates/spela-ui/tests/library.rs
+expression: render_text(&mut s)
+---
+ spela   ▸ 1 Library  2 DLL Catalog  3 Monitor  4 Settings
+┌─ Scope [Z-A] ▪DLLs ────────────┬─ Ashfall Courier ───────────────────────────────────────────────────────────────────┐
+│ / Find games                   │ Ashfall Courier · App ID 9100010 · DLLs: DLSS 310.4.0 · Saved at once               │
+│   Moonwell Farmstead       ▪   │ Own settings (4): Super resolution quality · Resolution override On · Ray override⋯ │
+│   Ironleaf Expedition      ▪   │ [Proton]  DLSS  GPU  CPU  DLLs                                                      │
+│   Glasshouse Detective     ▪ ⚑ │                                                                                     │
+│   Ember Tide               ▪   │ Proton                                                                              ┃
+│   Cinder Valley Racing     ▪   │ ▸   HDR                    On            from All games                             ┃
+│ ▸ Ashfall Courier          ▪ ⚑ │     Enables HDR output in Proton (PROTON_ENABLE_HDR=1) when the game starts. Off    ┃
+│                                │     leaves the variable unset.                                                      ┃
+│                                │     Wayland                Off           system default                             ┃
+│                                │     NGX updater            Off           system default                             ┃
+│                                │     VKD3D heap             Off           system default                             ┃
+│                                │                                                                                     ┃
+│                                │ DLSS                                                                                ┃
+│                                │   ⚑ Super resolution       quality       this game · All games: balanced            ┃
+│                                │     Resolution preset      K             from All games                             ┃
+│                                │   ⚑ Resolution override    On            this game · All games: Off                 ┃
+│                                │     Ray reconstruction     quality       from All games                             ┃
+│                                │     Ray preset             none          system default                             ┃
+│                                │   ⚑ Ray override           On            this game · All games: Off                 ┃
+│                                │     Frame generation       On            from All games                             ┃
+│                                │     Generation override    On            from All games                             ┃
+│                                │     Multi-frame            1             from All games                             ┃
+│                                │     SR indicator           Off           system default                             ┃
+│                                │     FG indicator           Off           system default                             ┃
+│                                │                                                                                     ┃
+│                                │ GPU                                                                                 ┃
+│                                │   ⚑ Clock offset           150 MHz       this game · All games: none                ┃
+│                                │     KDE VRR                automatic     from All games                             ┃
+│                                │     Memory offset          none          system default                             ┃
+│                                │     Power limit            none          system default                             ┃
+│                                │     Fan speed              none          system default                             ┃
+│                                │     Shader cache           On            from All games                             ┃
+│                                │     Shader cache path      none          system default                             │
+│                                │     Threaded optimization  Off           system default                             │
+│                                │                                                                                     │
+└─ ▪ DLLs  ⚑ profile ────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
+                                                                                                      Scanning games...
+ 0 Actions  Up/Down Game  Enter Open selection  Space Select game  Tab Pane  ? Help

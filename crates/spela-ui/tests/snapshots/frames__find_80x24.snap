@@ -5,8 +5,8 @@ expression: render_text(&mut s)
  spela   ▸ Library  DLL Catalog  Monitor  Settings
 ┌─ ▸ List ─────────────────────────────────────────────────────────────────────┐
 │ / ex                                                                         │
+│ Apply  Clear search  Cancel                                                  │
 │   Ironleaf Expedition                                                    ▪   │
-│                                                                              │
 │                                                                              │
 │                                                                              │
 │                                                                              │
@@ -25,4 +25,4 @@ expression: render_text(&mut s)
 │                                                                              │
 └─ ▪ DLLs  ⚑ profile ──────────────────────────────────────────────────────────┘
 
- Type Find games  Enter Show results  Esc Clear search  Tab Pane
+ Type Find games  Enter Apply search  Tab Next control  Esc Cancel search
