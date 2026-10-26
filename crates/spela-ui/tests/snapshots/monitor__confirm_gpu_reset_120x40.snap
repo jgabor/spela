@@ -1,0 +1,44 @@
+---
+source: crates/spela-ui/tests/monitor.rs
+expression: render_text(&mut s)
+---
+ spela   Library  DLL Catalog  ▸ Monitor  Settings                      GPU 71° 98% 318W ▅▅▅▅▅ CPU 34%  ⚠ Power limited
+┌─ Monitor ──────────────────────┬─ GPU ───────────────────────────────────────────────────────────────────────────────┐
+│ ▸ GPU                          │ Temp   71°C            ▄▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅                                         │
+│   CPU                          │ Util   98%             ▆▆▇▇████████████████                                         │
+│   Alerts                   ⚠ 1 │ Power  318W / 320W     ▆▇▇▇████████████████                                         │
+│                                │ VRAM   ███████████████░░░░░  11.8 / 16.0 GB                                         │
+│                                │ Clock  2745 MHz   Mem  11201 MHz                                                    │
+│                                │ Fan    █████████████░░░░░░░  64%                                                    │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│               ┌─ Reset GPU clocks ───────────────────────────────────────────────────────────────────┐               │
+│               │                                                                                      │               │
+│               │  Resets GPU 0's locked clocks and clock offsets to the driver defaults.              │               │
+│               │                                                                                      │               │
+│               │  This change stays until you change it again. spela does not undo it.                │               │
+│               │  Needs administrator approval through polkit.                                        │               │
+│               │                                                                                      │               │
+│               │                                                             [ Cancel ]  [ Confirm ]  │               │
+│               │                                                                                      │               │
+│               └──────────────────────────────────────────────────────────────────────────────────────┘               │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+└────────────────────────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
+
+ Left/Right Choose  Enter Activate  Tab Details  Esc Cancel

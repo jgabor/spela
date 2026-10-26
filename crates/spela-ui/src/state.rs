@@ -320,7 +320,8 @@ impl AppState {
 
     /// The first commands: the metrics poll, one background scan when
     /// `rescan_on_startup` is on or the cache is empty (decision 24), and
-    /// the profile page's read of every profile and the deny list load.
+    /// the profile page's read of every profile, the deny list load and
+    /// the DLL Catalog's read of the manifest and DLL caches.
     pub fn start(&mut self) -> Vec<Cmd> {
         let mut cmds = Vec::new();
         if self.wants_metrics() {
@@ -332,6 +333,7 @@ impl AppState {
         }
         cmds.extend(profile::start(self));
         cmds.extend(denylist::start(self));
+        cmds.extend(dlls::start(self));
         cmds
     }
 

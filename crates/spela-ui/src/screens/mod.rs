@@ -10,7 +10,8 @@
 //! | 4 Settings | [`settings`] | [`settings`] |
 //!
 //! The popups are [`actions`], [`confirm`], [`help`], [`palette`],
-//! [`notice`] (the migration notice) and [`preview`] (Preview launch).
+//! [`notice`] (the migration notice), [`preview`] (Preview launch) and
+//! [`monitor`]'s governor picker, which opens in the Actions popup's place.
 //!
 //! # The screen contract
 //!
@@ -158,6 +159,8 @@ pub enum PopupAction {
     Notice(notice::Action),
     /// [`preview`].
     Preview(preview::Action),
+    /// [`monitor`]'s governor picker.
+    Governor(monitor::GovernorAction),
 }
 
 /// The open popup. One at a time: Help and a confirmation replace the
@@ -176,6 +179,8 @@ pub enum Popup {
     Notice(notice::State),
     /// [`preview`].
     Preview(preview::State),
+    /// [`monitor`]'s governor picker, in the Actions popup's place.
+    Governor(monitor::GovernorPopup),
 }
 
 /// The screen that owns a save, so its result reaches it.
@@ -374,6 +379,7 @@ fn popup_bindings(state: &AppState, popup: &Popup) -> Vec<Binding> {
         Popup::Palette(p) => palette::bindings(state, p),
         Popup::Notice(p) => notice::bindings(state, p),
         Popup::Preview(p) => preview::bindings(state, p),
+        Popup::Governor(p) => monitor::governor_bindings(state, p),
     }
 }
 
@@ -505,6 +511,7 @@ pub fn run_popup(state: &mut AppState, action: PopupAction) -> Vec<Cmd> {
         PopupAction::Palette(a) => palette::update(state, a),
         PopupAction::Notice(a) => notice::update(state, a),
         PopupAction::Preview(a) => preview::update(state, a),
+        PopupAction::Governor(a) => monitor::governor_update(state, a),
     }
 }
 
@@ -559,6 +566,7 @@ pub fn render_popup(state: &AppState, frame: &mut Frame, layout: &Layout, hits: 
         Some(Popup::Palette(p)) => palette::render(state, p, frame, layout, hits),
         Some(Popup::Notice(p)) => notice::render(state, p, frame, layout, hits),
         Some(Popup::Preview(p)) => preview::render(state, p, frame, layout, hits),
+        Some(Popup::Governor(p)) => monitor::governor_render(state, p, frame, layout, hits),
         None => {}
     }
 }

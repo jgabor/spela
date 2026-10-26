@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/dlls.rs
+expression: render_text(&mut s)
+---
+ spela   1 Library  ▸ 2 DLL Catalog  3 Monitor  4 Settings
+┌─ ▸ Detail ───────────────────────────────────────────────────────────────────┐
+│ Deployment                                                                   │
+│ Ashfall Courier                                                              │
+│                                                                              │
+│ DLSS    310.4.0       stale    latest 310.5.3    nvngx_dlss.dll              │
+│ DLSS-G  310.5.3       current  bin/nvngx_dlssg.dll                           │
+│ XeSS    unknown       unknown  libxess.dll                                   │
+│                                                                              │
+│ 1 stale DLL target(s)                                                        │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                                              Scanning games...
+ 0 Actions  Tab List  Esc List  ? Help

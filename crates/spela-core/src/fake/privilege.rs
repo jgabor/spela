@@ -289,11 +289,19 @@ impl Machine {
             }
             (Step::Fan, SettingValue::Fan(FanSetting::Auto)) => gpu(self.control.set_fan_auto()),
             (Step::CpuGovernor, SettingValue::Governor(g)) => self.set_governor(g),
-            (Step::Smt, SettingValue::Smt(on)) => std::fs::write(
-                self.cpu_dir()?.join("smt/control"),
-                if *on { "on" } else { "off" },
-            )
-            .map_err(|e| e.to_string()),
+            (Step::Smt, SettingValue::Smt(on)) => {
+                let smt = self.cpu_dir()?.join("smt");
+                std::fs::write(smt.join("control"), if *on { "on" } else { "off" })
+                    .map_err(|e| e.to_string())?;
+                // The kernel updates `active` with `control`, so a reader of
+                // the same tree sees the change.
+                let active = smt.join("active");
+                if active.exists() {
+                    std::fs::write(active, if *on { "1" } else { "0" })
+                        .map_err(|e| e.to_string())?;
+                }
+                Ok(())
+            }
             (step, value) => Err(format!("{value} is not a value for {step}")),
         }
     }

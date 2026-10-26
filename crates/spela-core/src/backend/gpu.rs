@@ -43,8 +43,34 @@ pub struct GpuInfo {
     pub memory_total_mib: u64,
 }
 
+/// Why the driver holds the clocks back: NVML's four throttle reasons that
+/// the alert evaluator reads (Go's `ThrottleReasons`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ThrottleReasons {
+    /// Hardware thermal slowdown.
+    pub thermal_hardware: bool,
+    /// Software thermal slowdown.
+    pub thermal_software: bool,
+    /// The software power cap.
+    pub power_cap: bool,
+    /// The hardware power brake.
+    pub power_brake: bool,
+}
+
+impl ThrottleReasons {
+    /// A thermal reason: hardware or software thermal slowdown.
+    pub fn thermal(self) -> bool {
+        self.thermal_hardware || self.thermal_software
+    }
+
+    /// A power reason: the power cap or the power brake.
+    pub fn power(self) -> bool {
+        self.power_cap || self.power_brake
+    }
+}
+
 /// One metrics sample.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GpuMetrics {
     /// Core temperature in °C.
     pub temperature_c: u32,
@@ -56,6 +82,13 @@ pub struct GpuMetrics {
     pub memory_total_mib: u64,
     /// Board power draw in W.
     pub power_draw_w: u32,
+    /// The power limit in force in W, when the card reports one.
+    pub power_limit_w: Option<u32>,
+    /// The highest power limit the card accepts in W, when it reports one.
+    pub power_max_limit_w: Option<u32>,
+    /// The throttle reasons. All false when the driver does not report
+    /// them.
+    pub throttle: ThrottleReasons,
     /// Graphics clock in MHz.
     pub graphics_clock_mhz: u32,
     /// Memory clock in MHz.

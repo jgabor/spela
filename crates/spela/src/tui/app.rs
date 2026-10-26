@@ -351,6 +351,7 @@ mod tests {
                 graphics_clock_mhz: 1800,
                 memory_clock_mhz: 10501,
                 fan_percent: Some(40),
+                ..GpuMetrics::default()
             }),
             cpu: Ok(CpuMetrics {
                 utilization_percent: Some(12),

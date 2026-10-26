@@ -22,7 +22,9 @@ use std::sync::Arc;
 
 pub use cpu::{Cpu, CpuError, SysfsCpu};
 pub use display::{Display, DisplayError, Output, VrrPolicy};
-pub use gpu::{FanSetting, Gpu, GpuControl, GpuError, GpuInfo, GpuMetrics, GpuPrior, Prior};
+pub use gpu::{
+    FanSetting, Gpu, GpuControl, GpuError, GpuInfo, GpuMetrics, GpuPrior, Prior, ThrottleReasons,
+};
 pub use http::{Http, HttpError, HttpRequest, HttpResponse, USER_AGENT};
 pub use privilege::{
     ApplyReport, HardwareRequest, Privilege, PrivilegeError, PrivilegedSession, RestorePlan,

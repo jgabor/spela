@@ -4,7 +4,7 @@
 //! back as `Msg::Profile`. Saves go through the write queue as
 //! `Cmd::Save`, like every other screen's.
 
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
 use spela_core::backend::{Cpu, CpuError};
@@ -20,7 +20,7 @@ use crate::tui::metrics::DriverSlot;
 /// How long a notice job waits for the metrics thread's driver read.
 const DRIVER_WAIT: Duration = Duration::from_secs(5);
 
-/// This run's CPU reader, shared by the jobs that read it.
+/// This run's CPU reader, shared by the metrics thread and the jobs.
 #[derive(Clone)]
 pub struct CpuReader(Arc<Mutex<Box<dyn Cpu>>>);
 
@@ -32,10 +32,11 @@ impl CpuReader {
 
     /// The governors the system lists.
     pub fn available_governors(&self) -> Result<Vec<String>, CpuError> {
-        self.0
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .available_governors()
+        self.lock().available_governors()
+    }
+
+    fn lock(&self) -> MutexGuard<'_, Box<dyn Cpu>> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
@@ -45,30 +46,18 @@ impl std::fmt::Debug for CpuReader {
     }
 }
 
-/// The CPU reader left behind when the workers take this run's reader.
-#[derive(Debug)]
-pub struct NoCpu;
-
-impl NoCpu {
-    fn error() -> CpuError {
-        CpuError {
-            path: String::new(),
-            reason: "the TUI's workers own the CPU reader".into(),
-        }
-    }
-}
-
-impl Cpu for NoCpu {
+/// The metrics thread reads governor and SMT through the same reader.
+impl Cpu for CpuReader {
     fn governor(&mut self) -> Result<String, CpuError> {
-        Err(Self::error())
+        self.lock().governor()
     }
 
     fn available_governors(&mut self) -> Result<Vec<String>, CpuError> {
-        Err(Self::error())
+        self.lock().available_governors()
     }
 
     fn smt_active(&mut self) -> Result<bool, CpuError> {
-        Err(Self::error())
+        self.lock().smt_active()
     }
 }
 
@@ -221,6 +210,5 @@ mod tests {
         let slot: DriverSlot = Arc::new(OnceLock::new());
         slot.set(Some("580.95.05".into())).unwrap();
         assert_eq!(wait_driver(&slot).as_deref(), Some("580.95.05"));
-        assert!(NoCpu.available_governors().is_err());
     }
 }

@@ -1,0 +1,44 @@
+---
+source: crates/spela-ui/tests/monitor.rs
+expression: render_text(&mut s)
+---
+ spela   1 Library  2 DLL Catalog  ▸ 3 Monitor  4 Settings              GPU 71° 98% 318W ▅▅▅▅▅ CPU 34%  ⚠ Power limited
+┌─ Monitor ──────────────────────┬─ Alerts ────────────────────────────────────────────────────────────────────────────┐
+│   GPU                          │ ⚠ GPU power-limited at 318W/320W                                                    │
+│   CPU                          │   Recovery: Increase power limit to 352W for potential FPS gain                     │
+│ ▸ Alerts                   ⚠ 1 │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+└────────────────────────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
+
+ 0 Actions  Up/Down Item  Enter Open  Tab Pane  ? Help

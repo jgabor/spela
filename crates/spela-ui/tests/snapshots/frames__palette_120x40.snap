@@ -17,7 +17,8 @@ expression: render_text(&mut s)
 │   Ironleaf Exped│   Allow DLL swaps: Ashfall Courier · wait for th⋯           action               │                 │
 │   Lantern Drift │   Toggle DLL filter                                         action               │                 │
 │   Moonwell Farms│   Auto-update DLLs                                          setting              │                 │
-│   Nightglass Pro├──────────────────────────────────────────────────────────────────────────────────┤                 │
+│   Nightglass Pro│   Update all stale deployments (0 DLLs) · no sta⋯           action               │                 │
+│                 ├──────────────────────────────────────────────────────────────────────────────────┤                 │
 │                 │ Type to filter. Enter runs, Esc closes.                                          │                 │
 │                 │ A row shows its key when it has one. Actions rows are reached with 0.            │                 │
 │                 │                                                                                  │                 │
@@ -38,7 +39,6 @@ expression: render_text(&mut s)
 │                                │                                                                                     │
 │                                │                                                                                     │
 │                                │                                                                                     │
-│                                │                                                                                     │
 └─ ▪ DLLs  ⚑ profile ────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
- 8 best matches for "dl"
+ 9 best matches for "dl"
  Up/Down Move  Enter Run  Esc Close

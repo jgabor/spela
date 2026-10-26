@@ -24,12 +24,14 @@ fn sample(temp: u32, alerts: Vec<Alert>) -> Event {
             graphics_clock_mhz: 1800,
             memory_clock_mhz: 10501,
             fan_percent: Some(40),
+            ..GpuMetrics::default()
         }),
         cpu: Ok(CpuMetrics {
             utilization_percent: Some(12),
             mhz: Some(3900),
             memory_used_mib: Some(8000),
             memory_total_mib: Some(32000),
+            ..CpuMetrics::default()
         }),
         alerts,
     })))

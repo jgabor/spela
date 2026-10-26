@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/monitor.rs
+expression: render_text(&mut s)
+---
+ spela   1 Library  2 DLL Catalog  ▸ 3 Monitor  4 Settings  71° ⚠ Power limited
+┌─ ▸ Detail ───────────────────────────────────────────────────────────────────┐
+│ GPU                                                                          │
+│                                                                              │
+│ Temp   71°C            ▄▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅                                  │
+│ Util   98%             ▆▆▇▇████████████████                                  │
+│ Power  318W / 320W     ▆▇▇▇████████████████                                  │
+│ VRAM   ███████████████░░░░░  11.8 / 16.0 GB                                  │
+│ Clock  2745 MHz   Mem  11201 MHz                                             │
+│ Fan    █████████████░░░░░░░  64%                                             │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+ 0 Actions  Tab List  Esc List  ? Help

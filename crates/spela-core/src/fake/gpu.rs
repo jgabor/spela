@@ -3,7 +3,7 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use crate::backend::gpu::{
-    FanSetting, Gpu, GpuControl, GpuError, GpuInfo, GpuMetrics, GpuPrior, Prior,
+    FanSetting, Gpu, GpuControl, GpuError, GpuInfo, GpuMetrics, GpuPrior, Prior, ThrottleReasons,
 };
 
 /// A fault the fake GPU can show.
@@ -55,8 +55,11 @@ impl FakeGpu {
         }
     }
 
-    /// The demo GPU. Its samples walk from idle through warm and hot to
-    /// critical and back, so the alert states show up in turn.
+    /// The demo GPU, with a 320 W limit of at most 360 W. Its samples walk
+    /// from idle through warm and hot to critical and back, so the alert
+    /// states show up in turn: "Power limited" at 312 W, "High temp" at
+    /// 86 °C with no throttle reason, and "Throttling" at 93 °C, where the
+    /// driver reports thermal slowdown.
     pub fn demo() -> Self {
         let sample = |temperature_c, utilization_percent, power_draw_w, fan| GpuMetrics {
             temperature_c,
@@ -64,6 +67,12 @@ impl FakeGpu {
             memory_used_mib: 2_048 + u64::from(utilization_percent) * 100,
             memory_total_mib: 16_376,
             power_draw_w,
+            power_limit_w: Some(320),
+            power_max_limit_w: Some(360),
+            throttle: ThrottleReasons {
+                thermal_software: temperature_c >= 90,
+                ..ThrottleReasons::default()
+            },
             graphics_clock_mhz: 210 + utilization_percent * 25,
             memory_clock_mhz: 10_501,
             fan_percent: Some(fan),
@@ -299,6 +308,31 @@ mod tests {
             .max()
             .unwrap();
         assert!(hottest >= 90, "{hottest}");
+    }
+
+    #[test]
+    fn demo_walks_through_every_alert_label() {
+        use crate::alerts::{AlertInput, Thresholds, evaluate, highest};
+        let mut gpu = FakeGpu::demo();
+        let labels: Vec<&str> = (0..6)
+            .map(|_| {
+                let m = gpu.metrics().unwrap();
+                let input = AlertInput {
+                    temperature_c: m.temperature_c,
+                    power_draw_w: f64::from(m.power_draw_w),
+                    power_limit_w: f64::from(m.power_limit_w.unwrap()),
+                    power_max_limit_w: f64::from(m.power_max_limit_w.unwrap()),
+                    fan_percent: m.fan_percent.unwrap_or(0),
+                    throttle_thermal: m.throttle.thermal(),
+                    throttle_power: m.throttle.power(),
+                };
+                highest(&evaluate(&input, &Thresholds::default())).map_or("", |a| a.label())
+            })
+            .collect();
+        assert_eq!(
+            labels,
+            ["", "", "Power limited", "High temp", "Throttling", ""]
+        );
     }
 
     #[test]
