@@ -13,7 +13,8 @@
 //! 4. Apply KDE VRR in the user session and register its restore, even
 //!    when the apply fails. Skipped when a stop signal already came.
 //! 5. Register the hardware restore, then start the root helper with the
-//!    batch. A dismissed prompt or a failed step only warns. Skipped when
+//!    batch. A dismissed prompt or a failed step only warns, and a step the
+//!    helper skipped is logged as skipped with its reason. Skipped when
 //!    a stop signal already came, so no prompt shows for a launch that is
 //!    already stopping.
 //! 6. A stop signal before this point: run the restores and exit 128 plus
@@ -581,11 +582,12 @@ fn apply_hardware(l: &mut Launch<'_>, plan: &LaunchPlan, cleanup: &mut Cleanup) 
                     }
                 }
             }
-            if !report.all_applied() {
-                tracing::warn!(
-                    error = "some steps did not apply",
-                    "failed to apply hardware settings"
-                );
+            // A skipped step, such as a value the machine does not offer,
+            // is reported above as skipped with its reason, not as a
+            // failure: the other steps applied and restore after the game.
+            let failed = failed_steps(&report.steps);
+            if !failed.is_empty() {
+                tracing::warn!(error = %failed, "failed to apply hardware settings");
             }
             if let Some(Restore::Hardware(slot)) = cleanup.steps.last_mut() {
                 *slot = Some(session);
@@ -593,6 +595,19 @@ fn apply_hardware(l: &mut Launch<'_>, plan: &LaunchPlan, cleanup: &mut Cleanup) 
         }
         Err(e) => tracing::warn!(error = %e, "failed to apply hardware settings"),
     }
+}
+
+/// The steps that failed, as `step: error; step: error`. Skipped steps are
+/// not failures.
+fn failed_steps(steps: &[spela_core::backend::StepReport]) -> String {
+    steps
+        .iter()
+        .filter_map(|s| match &s.outcome {
+            StepOutcome::Failed(error) => Some(format!("{}: {error}", s.step)),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
 }
 
 /// The game's command: inherited streams, the plan's variables, then the
@@ -881,6 +896,46 @@ mod tests {
         assert_eq!(w.privilege.log().prompts, 1);
         assert_eq!(w.privilege.log().restores, 0);
         assert_eq!(w.display.sets().len(), 2, "VRR is still restored");
+    }
+
+    #[test]
+    fn only_failed_steps_count_as_a_failure() {
+        use spela_core::backend::{SettingValue, Step, StepReport};
+        let report = |step, outcome| StepReport {
+            step,
+            target: SettingValue::Watts(250),
+            outcome,
+        };
+        let skipped = [
+            report(Step::PowerLimit, StepOutcome::Skipped("not offered".into())),
+            report(Step::Fan, StepOutcome::AppliedNoRestore),
+        ];
+        assert_eq!(failed_steps(&skipped), "", "a skipped step is no failure");
+        let mixed = [
+            report(Step::PowerLimit, StepOutcome::Failed("refused".into())),
+            report(Step::Smt, StepOutcome::Skipped("not supported".into())),
+            report(Step::Fan, StepOutcome::Failed("busy".into())),
+        ];
+        assert_eq!(
+            failed_steps(&mixed),
+            format!("{}: refused; {}: busy", Step::PowerLimit, Step::Fan)
+        );
+    }
+
+    #[test]
+    fn a_skipped_step_still_launches_and_restores_the_applied_ones() {
+        // The power limit cannot be read, so the helper skips that step;
+        // the fan has a safe prior and applies.
+        let mut w = world();
+        let control = FakeGpuControl::new();
+        control.set_prior_unreadable(true);
+        w.privilege = FakePrivilege::new(control, None);
+        let mut own = OwnValues::new();
+        own.set(FieldKey::GpuFanSpeed, Value::Int(70)).unwrap();
+        save(&w.paths, Scope::Game(APP_ID), &own);
+        let ran = run(&w, &[], &StopSlot::new());
+        assert_eq!(ran.code.unwrap(), 0, "{}", ran.err);
+        assert_eq!(w.privilege.log().restores, 1, "the applied steps restore");
     }
 
     #[test]

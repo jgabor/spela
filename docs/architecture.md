@@ -1197,7 +1197,7 @@ These are (inferred), each fixing a behaviour listed in [parity-inventory.md](pa
 - Restore touches only what was applied. Today every restore resets locked clocks first, even for a governor-only profile (bug: same conflict; [rust-crates.md](rust-crates.md), conflicts).
 - SMT is restored before the governor, so re-onlined CPUs get the restored governor. Today the governor comes first (domain conflicts, "Governor writes assume contiguous online CPUs"; the effect needs a live test).
 - The fan returns to its prior state when NVML can report it, otherwise to automatic. Today a prior manual fan speed is lost (bug: CLI 7.2). Whether NVML reports the fan control mode is (unverified).
-- A dismissed prompt or a failed apply lets the game launch, with `failed to apply hardware settings` logged, as today (verified: CLI 6.1).
+- A dismissed prompt or a failed apply lets the game launch, with `failed to apply hardware settings` logged, as today (verified: CLI 6.1). The line names only the steps that failed. A step the helper skips, such as an invalid value (decision 67), is logged as `hardware step skipped` with its reason and is not a failure: the other steps apply and restore.
 - The privileged apply runs only for `clock_offset` other than 0, `memory_offset` other than 0, `power_limit` above 0, `fan_speed` above 0, a governor, or a set SMT, as today (verified: [parity-inventory.md](parity-inventory.md), domain 4; `internal/profile/apply.go:65-72`). An own `fan_speed` of 0 adds no privileged step. It only stops All games' fan speed from applying, so the fan stays as it is, usually automatic (inferred).
 
 ### Restore at game exit: the long-lived helper
