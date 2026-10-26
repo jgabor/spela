@@ -1,5 +1,7 @@
 # Canonical coverage measurement
 
+This describes the Go tree's measurement. The Rust rewrite has no coverage gate in v1 (decision 71): its gate is `just check`. This file goes with the Go tree (decision 62).
+
 Run the complete headless measurement from the repository root:
 
 ```bash

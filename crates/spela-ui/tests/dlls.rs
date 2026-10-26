@@ -258,3 +258,108 @@ fn library_detail_lists_every_manifest_version() {
     let text = render_text(&mut s);
     assert!(text.contains("Manifest: 310.5.3, 310.4.0"), "{text}");
 }
+
+/// `Update all from the DLL cache` is `dll update --all --cached-only`:
+/// each DLL of a known version goes to the newest cached version the
+/// manifest lists, and nothing downloads. `Refresh the DLL manifest` is
+/// `--refresh` (decision 71).
+#[test]
+fn the_cache_only_update_and_the_manifest_refresh() {
+    let mut s = state(120, 40, Some(catalog()));
+    s.jobs.scan = None;
+    let cmds = spela_ui::screens::denylist::start(&mut s);
+    spela_ui::testing::empty_denylist(&mut s, &cmds);
+    let rows = spela_ui::screens::actions(&s, Pane::List);
+    assert!(rows.iter().any(|r| r.label == "Refresh the DLL manifest"));
+    update(&mut s, key("right"));
+    let rows = spela_ui::screens::actions(&s, Pane::List);
+    let labels: Vec<&str> = rows.iter().map(|r| r.label.as_str()).collect();
+    let cached = "Update all from the DLL cache (6 DLLs)";
+    assert!(labels.contains(&cached), "{labels:?}");
+    let row = rows.iter().find(|r| r.label == cached).unwrap();
+    assert_eq!(row.unavailable, None);
+    let palette = dlls::palette(&s);
+    assert!(palette.iter().any(|r| r.label == cached));
+
+    // The cached-only job: every request pins the cached version.
+    s.config.confirm_destructive = false;
+    let cmds = spela_ui::update::run(&mut s, row.action.clone());
+    let op = cmds
+        .iter()
+        .find_map(|c| match c {
+            Cmd::Dll { op, .. } => Some(op.clone()),
+            _ => None,
+        })
+        .expect("a DLL job");
+    let spela_ui::dll_jobs::DllOp::Update { requests } = op else {
+        panic!("an update")
+    };
+    assert_eq!(requests.len(), 6);
+    assert!(
+        requests
+            .iter()
+            .all(|r| r.cached_only && r.version.as_deref() == Some("310.5.3"))
+    );
+
+    // With nothing newer in the cache, there is nothing to do.
+    let mut s = state(
+        120,
+        40,
+        Some(Catalog {
+            cached: BTreeMap::from([(DllType::Dlss, Ok(vec!["310.4.0".to_owned()]))]),
+            ..catalog()
+        }),
+    );
+    s.jobs.scan = None;
+    let cmds = spela_ui::screens::denylist::start(&mut s);
+    spela_ui::testing::empty_denylist(&mut s, &cmds);
+    update(&mut s, key("right"));
+    let rows = spela_ui::screens::actions(&s, Pane::List);
+    let row = rows
+        .iter()
+        .find(|r| r.label == "Update all from the DLL cache (0 DLLs)")
+        .unwrap();
+    assert_eq!(
+        row.unavailable.as_deref(),
+        Some("no stale cached deployments")
+    );
+
+    // Refresh forces a fetch and reports it, once the startup fetch is
+    // done.
+    let row = rows
+        .iter()
+        .find(|r| r.label == "Refresh the DLL manifest")
+        .unwrap();
+    assert_eq!(row.unavailable.as_deref(), Some("fetching the manifest"));
+    s.dlls.refresh = None;
+    let rows = spela_ui::screens::actions(&s, Pane::List);
+    let row = rows
+        .iter()
+        .find(|r| r.label == "Refresh the DLL manifest")
+        .unwrap();
+    let cmds = spela_ui::update::run(&mut s, row.action.clone());
+    let request = cmds
+        .iter()
+        .find_map(|c| match c {
+            Cmd::Dlls(dlls::Cmd::Refresh {
+                request,
+                force: true,
+            }) => Some(*request),
+            _ => None,
+        })
+        .expect("a forced refresh");
+    let rows = spela_ui::screens::actions(&s, Pane::List);
+    let row = rows
+        .iter()
+        .find(|r| r.label == "Refresh the DLL manifest")
+        .unwrap();
+    assert_eq!(row.unavailable.as_deref(), Some("fetching the manifest"));
+    update(
+        &mut s,
+        Event::Msg(Msg::Dlls(dlls::Msg::Refreshed {
+            request,
+            result: Ok(catalog()),
+        })),
+    );
+    assert_eq!(s.status.as_ref().unwrap().text, "DLL manifest refreshed");
+}

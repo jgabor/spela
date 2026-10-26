@@ -58,6 +58,16 @@ fn unknown_commands_are_usage_errors() {
         .args(["--log-level", "loud", "scan"])
         .assert()
         .code(2);
+    // An unknown child of a parent is a usage error too; Go printed the
+    // parent's help with exit 0 (decision 71).
+    for parent in ["dll", "profile"] {
+        s.spela()
+            .args([parent, "bogus"])
+            .assert()
+            .code(2)
+            .stdout("")
+            .stderr(predicate::str::contains("unrecognized subcommand 'bogus'"));
+    }
 }
 
 #[test]

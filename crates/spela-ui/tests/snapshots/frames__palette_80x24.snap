@@ -16,8 +16,8 @@ expression: render_text(&mut s)
 │ │   Allow DLL swaps: Ashfall Courier · wai⋯           action               │ │
 │ │   Toggle DLL filter                                 action               │ │
 │ │   Install DLL: Ashfall Courier · wait fo⋯           action               │ │
+│ │   Refresh the DLL manifest                          action               │ │
 │ │   Auto-update DLLs                                  setting              │ │
-│ │   Update stale DLLs: Ashfall Courier (0)⋯           action               │ │
 │ ├──────────────────────────────────────────────────────────────────────────┤ │
 │ │ Type to filter. Enter runs, Esc closes.                                  │ │
 │ │ A row shows its key when it has one. Actions rows are reached with 0.    │ │

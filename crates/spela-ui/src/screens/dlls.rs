@@ -29,8 +29,15 @@
 //! stale DLL of every game no deny list names, to the manifest's latest,
 //! downloading as needed, as `dll update --all` does. Go updated only to
 //! the newest cached version, because its stale test compared with the DLL
-//! cache; stale now compares with the manifest (decision 38). The job is
-//! [`crate::dll_jobs`]'s; Detail shows its last result.
+//! cache; stale now compares with the manifest (decision 38). Next to it,
+//! `Update all from the DLL cache (N DLLs)` is `dll update --all
+//! --cached-only`: each DLL of a known version goes to the newest cached
+//! version the manifest lists when that is newer, and nothing is
+//! downloaded (decision 71). The job is [`crate::dll_jobs`]'s; Detail shows
+//! its last result.
+//!
+//! Both groups have `Refresh the DLL manifest`, which fetches it now
+//! whatever the refresh policy says, as `dll check-updates --refresh` does.
 //!
 //! The Catalog's jobs also read a game's backup index for the DLLs section
 //! ([`Cmd::Backup`]).
@@ -114,6 +121,8 @@ pub struct State {
     pub request: Option<u64>,
     /// The manifest fetch in flight.
     pub refresh: Option<u64>,
+    /// Whether the fetch in flight is the user's Refresh, which reports.
+    pub forced: bool,
 }
 
 /// What the Catalog's keys and rows run.
@@ -135,6 +144,10 @@ pub enum Action {
     ScrollDown,
     /// `Update all stale deployments`: asks, then updates.
     UpdateAll,
+    /// `Update all from the DLL cache`: asks, then updates from the cache.
+    UpdateAllCached,
+    /// `Refresh the DLL manifest`: fetches it now.
+    RefreshManifest,
 }
 
 /// The Catalog's worker results.
@@ -174,11 +187,13 @@ pub enum Cmd {
         /// The id the result carries.
         request: u64,
     },
-    /// Fetch the manifest under its refresh policy, then read the DLL
-    /// cache folder.
+    /// Fetch the manifest under its refresh policy, or at once when
+    /// `force`, then read the DLL cache folder.
     Refresh {
         /// The id the result carries.
         request: u64,
+        /// Fetch whatever the policy says, as `--refresh` does.
+        force: bool,
     },
     /// Read a game's backup index.
     Backup {
@@ -211,7 +226,34 @@ pub fn reload(state: &mut AppState) -> Vec<AnyCmd> {
 pub fn refresh(state: &mut AppState) -> Vec<AnyCmd> {
     let request = state.request();
     state.dlls.refresh = Some(request);
-    vec![AnyCmd::Dlls(Cmd::Refresh { request })]
+    state.dlls.forced = false;
+    vec![AnyCmd::Dlls(Cmd::Refresh {
+        request,
+        force: false,
+    })]
+}
+
+fn refresh_row(state: &AppState) -> Row {
+    let available = if state.dlls.refresh.is_some() {
+        Err("fetching the manifest".to_owned())
+    } else {
+        dll_jobs::can_start(state)
+    };
+    Row::new("Refresh the DLL manifest", act(Action::RefreshManifest)).when(available)
+}
+
+fn force_refresh(state: &mut AppState) -> Vec<AnyCmd> {
+    if refresh_row(state).unavailable.is_some() {
+        return Vec::new();
+    }
+    let request = state.request();
+    state.dlls.refresh = Some(request);
+    state.dlls.forced = true;
+    state.say(Level::Info, "Fetching the DLL manifest...");
+    vec![AnyCmd::Dlls(Cmd::Refresh {
+        request,
+        force: true,
+    })]
 }
 
 /// The cached manifest, when the load found one.
@@ -352,6 +394,103 @@ fn update_all_row(state: &AppState) -> Row {
     .when(available)
 }
 
+/// The newest version of a family in the DLL cache that the manifest
+/// lists, as `--cached-only` picks it (decision 67).
+fn newest_cached(state: &AppState, dll_type: DllType) -> Option<String> {
+    let listed = manifest(state)?.entries(dll_type);
+    let cached = state
+        .dlls
+        .catalog
+        .as_ref()?
+        .cached
+        .get(&dll_type)?
+        .as_ref()
+        .ok()?;
+    cached
+        .iter()
+        .find(|v| listed.iter().any(|e| &e.version == *v))
+        .cloned()
+}
+
+/// The DLLs update-all from the cache changes: each DLL of a known version,
+/// of a game no deny list names, whose newest cached and listed version is
+/// newer than it.
+fn cached_targets(state: &AppState) -> (Vec<dll_jobs::Target>, Result<(), String>) {
+    let mut lists = Ok(());
+    let mut out = Vec::new();
+    for i in deployments(state) {
+        let game = &state.games.games[i];
+        match super::denylist::swap_allowed(state, game.app_id) {
+            Ok(()) => {}
+            Err(_) if super::denylist::is_denied(state, game.app_id) => continue,
+            Err(e) => lists = Err(e),
+        }
+        let mut found: Vec<_> = game.dlls.iter().collect();
+        found.sort_by(|a, b| (a.dll_type, &a.path).cmp(&(b.dll_type, &b.path)));
+        for dll in found {
+            let Some(from) = dll.version.clone().filter(|v| !v.is_empty()) else {
+                continue;
+            };
+            let Some(to) = newest_cached(state, dll.dll_type) else {
+                continue;
+            };
+            if spela_core::dll::version::is_newer(&from, &to) {
+                out.push(dll_jobs::Target {
+                    app_id: game.app_id,
+                    game: game.name.clone(),
+                    dll_type: dll.dll_type,
+                    path: dll.path.clone(),
+                    from: Some(from),
+                    to,
+                });
+            }
+        }
+    }
+    (out, lists)
+}
+
+fn update_all_cached_row(state: &AppState) -> Row {
+    let (targets, lists) = cached_targets(state);
+    let n = targets.len();
+    let unit = if n == 1 { "DLL" } else { "DLLs" };
+    let available = dll_jobs::can_start(state).and(lists).and_then(|()| {
+        if targets.is_empty() {
+            Err("no stale cached deployments".to_owned())
+        } else {
+            Ok(())
+        }
+    });
+    Row::new(
+        format!("Update all from the DLL cache ({n} {unit})"),
+        act(Action::UpdateAllCached),
+    )
+    .when(available)
+}
+
+fn update_all_cached(state: &mut AppState) -> Vec<AnyCmd> {
+    if update_all_cached_row(state).unavailable.is_some() {
+        return Vec::new();
+    }
+    let (targets, _) = cached_targets(state);
+    let items = dll_jobs::update_items(state, &targets);
+    let mut requests = dll_jobs::update_requests(&targets);
+    for r in &mut requests {
+        r.cached_only = true;
+    }
+    dll_jobs::ask(
+        state,
+        confirm::Guard::DllUpdate,
+        "Confirm DLL updates from the cache",
+        dll_jobs::body(
+            &items,
+            "each current DLL is backed up before replacement; nothing is downloaded",
+        ),
+        "DLL update",
+        DllOp::Update { requests },
+        Origin::Catalog,
+    )
+}
+
 fn update_all(state: &mut AppState) -> Vec<AnyCmd> {
     if update_all_row(state).unavailable.is_some() {
         return Vec::new();
@@ -451,14 +590,22 @@ pub fn bindings(state: &AppState, pane: Pane) -> Vec<Binding> {
 /// Go; nothing of its own in Library.
 pub fn actions(state: &AppState, _pane: Pane) -> Vec<Row> {
     match state.dlls.group {
-        Group::Library => Vec::new(),
-        Group::Deployment => vec![update_all_row(state)],
+        Group::Library => vec![refresh_row(state)],
+        Group::Deployment => vec![
+            update_all_row(state),
+            update_all_cached_row(state),
+            refresh_row(state),
+        ],
     }
 }
 
-/// The palette's Catalog row.
+/// The palette's Catalog rows.
 pub fn palette(state: &AppState) -> Vec<Row> {
-    vec![update_all_row(state)]
+    vec![
+        update_all_row(state),
+        update_all_cached_row(state),
+        refresh_row(state),
+    ]
 }
 
 /// Runs an action.
@@ -501,6 +648,8 @@ pub fn update(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
             state.dlls.scroll = (state.dlls.scroll + 1).min(max);
         }
         Action::UpdateAll => return update_all(state),
+        Action::UpdateAllCached => return update_all_cached(state),
+        Action::RefreshManifest => return force_refresh(state),
     }
     keep_cursor_visible(state, list_h);
     Vec::new()
@@ -550,6 +699,17 @@ pub fn on_msg(state: &mut AppState, msg: Msg) -> Vec<AnyCmd> {
                 return Vec::new();
             }
             state.dlls.refresh = None;
+            if std::mem::take(&mut state.dlls.forced) {
+                let (level, text) = match &result {
+                    Ok(Catalog {
+                        manifest: Err(e), ..
+                    })
+                    | Err(e) => (Level::Error, format!("Not refreshed: {e}")),
+                    Ok(Catalog { note: Some(n), .. }) => (Level::Error, n.clone()),
+                    Ok(_) => (Level::Ok, "DLL manifest refreshed".to_owned()),
+                };
+                state.say(level, text);
+            }
             match result {
                 Ok(c) => {
                     // A failed fetch with a cache already shown keeps it.

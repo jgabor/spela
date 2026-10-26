@@ -67,17 +67,18 @@ pub fn read_catalog(paths: &Paths) -> Catalog {
     }
 }
 
-/// Fetches the manifest under the config's refresh policy, then reads the
-/// cached versions. A fetch that fails falls back to the cache, with a
-/// note; with no cache, the manifest is the error.
+/// Fetches the manifest under the config's refresh policy, or at once when
+/// `force`, then reads the cached versions. A fetch that fails falls back
+/// to the cache, with a note; with no cache, the manifest is the error.
 pub fn refresh_catalog(
     paths: &Paths,
     http: &dyn spela_core::backend::Http,
     clock: &dyn spela_core::clock::Clock,
+    force: bool,
 ) -> Catalog {
     let config = config(paths);
     let policy = RefreshPolicy::from_config(&config);
-    let (manifest, note) = match fetch::get_manifest(paths, &policy, http, clock, false) {
+    let (manifest, note) = match fetch::get_manifest(paths, &policy, http, clock, force) {
         Ok(source) => (Ok(Some(source.cached)), source.warning),
         Err(e) => (Err(e.to_string()), None),
     };
@@ -120,7 +121,7 @@ pub fn run(w: &mut Workers, cmd: Cmd) {
                 })
             },
         ),
-        Cmd::Refresh { request } => {
+        Cmd::Refresh { request, force } => {
             let http = w.http.clone();
             let clock = w.clock.clone();
             w.jobs.submit(
@@ -128,7 +129,12 @@ pub fn run(w: &mut Workers, cmd: Cmd) {
                 move || {
                     Msg::Dlls(DllsMsg::Refreshed {
                         request,
-                        result: Ok(refresh_catalog(&paths, http.as_ref(), clock.as_ref())),
+                        result: Ok(refresh_catalog(
+                            &paths,
+                            http.as_ref(),
+                            clock.as_ref(),
+                            force,
+                        )),
                     })
                 },
                 move |e| {
@@ -367,7 +373,7 @@ mod tests {
         let paths = Paths::under(base.path());
         let clock = spela_core::clock::ManualClock::new("2026-10-26T17:00:00Z".parse().unwrap());
         let none = spela_core::fake::FakeHttp::new();
-        let c = refresh_catalog(&paths, &none, &clock);
+        let c = refresh_catalog(&paths, &none, &clock, false);
         assert!(
             c.manifest
                 .as_ref()
@@ -377,13 +383,13 @@ mod tests {
             c.manifest
         );
         let demo = spela_core::fake::dlls::http(manifest::DEFAULT_MANIFEST_URL);
-        let c = refresh_catalog(&paths, &demo, &clock);
+        let c = refresh_catalog(&paths, &demo, &clock, false);
         let m = c.manifest.unwrap().unwrap();
         assert_eq!(m.manifest.latest(DllType::Dlss).unwrap().version, "310.5.3");
         assert!(paths.manifest_cache().is_file(), "saved for the next start");
         // Stale and unreachable: the cache stands in, with a note.
         clock.advance(jiff::SignedDuration::from_hours(48));
-        let c = refresh_catalog(&paths, &none, &clock);
+        let c = refresh_catalog(&paths, &none, &clock, false);
         assert!(c.manifest.unwrap().is_some());
         assert!(c.note.unwrap().starts_with("using the cached DLL manifest"));
     }

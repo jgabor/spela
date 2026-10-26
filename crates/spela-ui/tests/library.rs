@@ -136,3 +136,33 @@ fn an_empty_library_shows_the_recovery_state() {
         }
     }
 }
+
+/// A rescan result applies at once, in any mode: an open editor stays while
+/// its game is still listed and closes when the game is gone
+/// (terminal-ux.md, Rescan results).
+#[test]
+fn a_rescan_applies_at_once_and_closes_an_editor_only_when_its_game_goes() {
+    use spela_ui::screens::profile;
+    let mut s = loaded(120, 40);
+    s.focus = spela_ui::layout::Pane::Detail;
+    let game = library::selected_game(&s).unwrap().app_id;
+    spela_ui::update::run(
+        &mut s,
+        AnyAction::Screen(ScreenAction::Profile(profile::Action::Edit)),
+    );
+    assert!(s.profile.editor.is_some(), "the picker is open");
+    let profiles: Vec<u64> = s.library.profiles.iter().copied().collect();
+    library::start_scan(&mut s);
+    let request = s.jobs.scan.unwrap();
+    let same = s.games.clone();
+    library::scan_done(&mut s, request, Ok(same), profiles.clone());
+    assert!(s.profile.editor.is_some(), "the game is still listed");
+    assert_eq!(library::selected_game(&s).unwrap().app_id, game);
+
+    library::start_scan(&mut s);
+    let request = s.jobs.scan.unwrap();
+    let mut gone = s.games.clone();
+    gone.games.retain(|g| g.app_id != game);
+    library::scan_done(&mut s, request, Ok(gone), profiles);
+    assert!(s.profile.editor.is_none(), "its game is gone");
+}
