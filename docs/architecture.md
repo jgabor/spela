@@ -777,15 +777,23 @@ The migration says what it dropped in three places (decision 10 asks for a note;
    sha256 = "9f2c..."
    target = "/home/me/.config/spela/profiles/1091500.toml"
    result = "migrated"                 # migrated, skipped or failed
-   at = 2026-10-26T18:04:11+01:00
+   at = 2026-10-26T17:04:11Z
    by = "spela 0.7.0"
-   dropped = [
-     "overlay.enabled = true",
-     "gpu.clock_offset = 150",         # Go's clock lock, not copied (decision 31)
-   ]
+
+   [[source.dropped]]
+   key = "overlay.enabled"
+   value = "true"
+   why = "retired"
+   default = false
+
+   [[source.dropped]]
+   key = "gpu.clock_offset"
+   value = "150"
+   why = "offset_meaning_changed"    # Go's clock lock, not copied (decision 31)
+   default = false
    ```
 
-   The record keeps every dropped key and value, defaults included. Comments in a TOML file can be lost when the file is edited by hand, and log files roll over, so the record is the one copy that lasts.
+   The record keeps every dropped key and value, defaults included. Comments in a TOML file can be lost when the file is edited by hand, and log files roll over, so the record is the one copy that lasts. Each dropped value says why (`retired`, `offset_meaning_changed`, `gui_only`, `retired_key`, `unknown_key`, `no_marker`, `unknown_marker`, `ignored_by_go`, `default`, `not_supported`, `all_games_name` or `allowed_and_denied`) and whether it is Go's default or zero, which the notice leaves out. A skipped source has a `note`, and a failed one an `error`. `at` is in UTC (as built: `crates/spela-core/src/migrate/record.rs`).
 2. Each new TOML file starts with a short comment that names its Go source and the values it did not carry over, as in the game profile example above.
 3. On the run that migrates, the CLI prints one line to stderr and the TUI shows one status line message: `Migrated 14 files from Go spela, kept as backups only. Dropped 3 settings. See ~/.local/share/spela/migration.toml`. When a Go profile set a clock or memory offset, a second line says that those values were not carried over because the fields now mean real offsets (decision 31), for example `GPU clock and memory offsets from Go spela were not carried over. See ~/.local/share/spela/migration.toml`. The log gets one line per file. The notice counts only dropped values that differ from Go's defaults, so a user who never touched the overlay or `compact_mode` is not told about them.
 
