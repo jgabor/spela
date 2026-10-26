@@ -1,0 +1,28 @@
+---
+source: crates/spela-ui/tests/dlls.rs
+expression: render_text(&mut s)
+---
+ spela   1 Library  ▸ 2 DLL Catalog  3 Monitor  4 Settings
+┌─ ▸ List ─────────────────────────────────────────────────────────────────────┐
+│ Library  [Deployment]                                                        │
+│ ▸ Ashfall Courier                                                      stale │
+│   Cinder Valley Racing                                                 stale │
+│   Ember Tide                                                           stale │
+│   Glasshouse Detective                                                 stale │
+│   Ironleaf Expedition                                                  stale │
+│   Moonwell Farmstead                                                   stale │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                                              Scanning games...
+ 0 Actions  Up/Down Item  Left/Right Group  Enter Open  Tab Detail  ? Help

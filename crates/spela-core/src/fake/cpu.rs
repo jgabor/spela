@@ -85,9 +85,57 @@ impl Cpu for FakeCpu {
     }
 }
 
+/// The governors the demo sysfs tree offers, as acpi-cpufreq lists them.
+pub const DEMO_GOVERNORS: &str = "conservative ondemand userspace powersave performance schedutil";
+
+/// Writes a demo sysfs tree under `root`, the folder that stands for
+/// `/sys`: four CPUs on `powersave` and SMT on. `spela --demo` reads it
+/// with [`crate::backend::SysfsCpu`] and the fake privilege runner writes
+/// it, so a governor or SMT change shows at the next metrics tick. Only
+/// ever called on a temp dir.
+pub fn write_sysfs(root: &std::path::Path) -> std::io::Result<()> {
+    let cpu = root.join(crate::backend::cpu::CPU_DIR);
+    for n in 0..4 {
+        let dir = cpu.join(format!("cpu{n}/cpufreq"));
+        std::fs::create_dir_all(&dir)?;
+        std::fs::write(dir.join("scaling_governor"), "powersave\n")?;
+        std::fs::write(
+            dir.join("scaling_available_governors"),
+            format!("{DEMO_GOVERNORS}\n"),
+        )?;
+    }
+    std::fs::create_dir_all(cpu.join("smt"))?;
+    std::fs::write(cpu.join("smt/control"), "on\n")?;
+    std::fs::write(cpu.join("smt/active"), "1\n")?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_demo_tree_reads_back_and_follows_the_fake_runner() {
+        use crate::backend::{HardwareRequest, Privilege, SysfsCpu};
+        use crate::fake::{FakeGpuControl, FakePrivilege};
+        let root = tempfile::tempdir().unwrap();
+        write_sysfs(root.path()).unwrap();
+        let mut cpu = SysfsCpu::new(root.path());
+        assert_eq!(cpu.governor().unwrap(), "powersave");
+        assert_eq!(cpu.available_governors().unwrap().len(), 6);
+        assert!(cpu.smt_active().unwrap());
+        let mut runner = FakePrivilege::new(FakeGpuControl::new(), Some(root.path().to_owned()));
+        let report = runner
+            .apply_once(&HardwareRequest {
+                cpu_governor: Some("performance".into()),
+                smt: Some(false),
+                ..HardwareRequest::default()
+            })
+            .unwrap();
+        assert!(report.all_applied(), "{report:?}");
+        assert_eq!(cpu.governor().unwrap(), "performance");
+        assert!(!cpu.smt_active().unwrap());
+    }
 
     #[test]
     fn answers_and_faults() {

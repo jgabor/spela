@@ -1,0 +1,44 @@
+---
+source: crates/spela-ui/tests/dlls.rs
+expression: render_text(&mut s)
+---
+ spela   1 Library  ▸ 2 DLL Catalog  3 Monitor  4 Settings
+┌─ DLL Catalog · Library ────────┬─ DLSS ──────────────────────────────────────────────────────────────────────────────┐
+│ ▸ DLSS                 6 stale │ DLSS                                                                                │
+│   DLSS-G                1 game │ File: nvngx_dlss.dll                                                                │
+│   DLSS-D                       │ Latest: 310.5.3                                                                     │
+│   XeSS                  1 game │ Cached: 310.5.3, 310.4.0                                                            │
+│   FSR                          │                                                                                     │
+│                                │ Deployments: 6                                                                      │
+│                                │ Ashfall Courier                                            310.4.0       stale      │
+│                                │ Cinder Valley Racing                                       310.4.0       stale      │
+│                                │ Ember Tide                                                 310.4.0       stale      │
+│                                │ Glasshouse Detective                                       310.4.0       stale      │
+│                                │ Ironleaf Expedition                                        310.4.0       stale      │
+│                                │ Moonwell Farmstead                                         310.4.0       stale      │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+│                                │                                                                                     │
+└────────────────────────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
+                                                                                                      Scanning games...
+ 0 Actions  Up/Down Item  Left/Right Group  Enter Open  Tab Pane  ? Help

@@ -3,7 +3,10 @@
 //! The TUI's metrics thread reads `/proc/stat`, `/proc/cpuinfo` and
 //! `/proc/meminfo` under an injected root and passes the text here. Nothing
 //! in this module touches a file, so tests feed it fixture text. The fields
-//! are the ones the Go header shows: CPU use, the average clock and RAM.
+//! are the ones the Go header and Monitor show: CPU use, the average clock,
+//! RAM and the governor. The governor list and SMT come along from the
+//! sysfs reader, so Monitor's hardware actions know what they can offer and
+//! show a change at the next tick.
 
 /// One CPU sample, as the TUI's top bar and Monitor show it. Every field
 /// can be missing on its own, because each comes from a different file.
@@ -18,6 +21,13 @@ pub struct CpuMetrics {
     pub memory_used_mib: Option<u64>,
     /// Total RAM, in MiB.
     pub memory_total_mib: Option<u64>,
+    /// cpu0's frequency governor, from sysfs.
+    pub governor: Option<String>,
+    /// The governors cpu0 offers, in sysfs order. Empty when there is no
+    /// cpufreq.
+    pub governors: Vec<String>,
+    /// Whether SMT is active, or `None` when sysfs has no SMT control.
+    pub smt_active: Option<bool>,
 }
 
 /// The `cpu` line of `/proc/stat`: busy and total jiffies since boot.

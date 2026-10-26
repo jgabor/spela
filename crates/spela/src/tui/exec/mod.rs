@@ -4,6 +4,7 @@
 //! | File | Commands |
 //! |---|---|
 //! | this file | the shell's: metrics polls, saves, and the Phase 5 and 6 placeholders |
+//! | [`monitor`] | also `Cmd::Hardware`, the hardware jobs |
 //! | [`library`] | `Cmd::Scan` and `library::Cmd` |
 //! | [`profile`] | `profile::Cmd` |
 //! | [`settings`] | `settings::Cmd` |
@@ -24,7 +25,6 @@ pub mod settings;
 
 use std::sync::Arc;
 
-use spela_core::backend::PrivilegeError;
 use spela_core::clock::Clock;
 use spela_core::paths::Paths;
 use spela_core::steam::library::SteamInstall;
@@ -91,6 +91,8 @@ pub struct Workers {
     pub clock: Arc<dyn Clock>,
     /// Where scans look.
     pub steam: SteamSource,
+    /// The privilege backend, for the hardware jobs.
+    pub privilege: monitor::SharedPrivilege,
 }
 
 impl Exec for Workers {
@@ -102,16 +104,7 @@ impl Exec for Workers {
             // The release check and the startup auto-update come with
             // Phase 5.
             Cmd::CheckRelease | Cmd::AutoUpdate => {}
-            // Phase 6 runs these on the pool. Until then they say so, and
-            // nothing ever reaches the privilege backend.
-            Cmd::Hardware { token, .. } => {
-                let _ = self.tx.done(Msg::HardwareDone {
-                    token,
-                    result: Err(PrivilegeError::Unavailable(
-                        "hardware actions are not yet implemented in this build".into(),
-                    )),
-                });
-            }
+            Cmd::Hardware { token, op } => monitor::hardware(self, token, op),
             Cmd::Preview { request, .. } => {
                 let _ = self.tx.done(Msg::PreviewReady {
                     request,

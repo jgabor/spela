@@ -63,7 +63,7 @@ use self::events::{LoopEvent, channel};
 use self::exec::{SteamSource, Workers};
 use self::host::TerminalHost;
 use self::jobs::Pool;
-use self::metrics::{CpuLoad, FakeCpuLoad, MetricsThread, NoGpu, ProcCpu};
+use self::metrics::{CpuLoad, FakeCpuLoad, MetricsThread, NoCpu, NoGpu, ProcCpu};
 use self::probe::Support;
 use self::signals::SignalWatcher;
 use self::terminal::TerminalOptions;
@@ -140,6 +140,16 @@ pub fn run(ctx: &mut Context, _lock: InstanceLock, err: &mut dyn Write) -> Resul
                 format!("cannot set up the demo library: {e}"),
             )
         })?;
+        // A fictional sysfs tree, so the hardware actions change only it.
+        let (cpu, privilege) = exec::monitor::demo_hardware(&ctx.paths.cache_dir.join("demo-sys"))
+            .map_err(|e| {
+                CliError::new(
+                    exit::FAILURE,
+                    format!("cannot set up the demo hardware: {e}"),
+                )
+            })?;
+        ctx.backends.cpu = cpu;
+        ctx.backends.privilege = privilege;
         SteamSource::Demo(root.join("SteamLibrary"))
     } else {
         SteamSource::System {
@@ -185,8 +195,13 @@ pub fn run(ctx: &mut Context, _lock: InstanceLock, err: &mut dyn Write) -> Resul
         BackendKind::Fake => Box::new(FakeCpuLoad::default()),
         BackendKind::Real => Box::new(ProcCpu::new("/proc")),
     };
-    let metrics =
-        MetricsThread::spawn(gpu, cpu, tx.clone()).map_err(|e| failure("metrics thread", e))?;
+    let cpu_state = std::mem::replace(&mut ctx.backends.cpu, Box::new(NoCpu));
+    let metrics = MetricsThread::spawn(gpu, cpu, cpu_state, tx.clone())
+        .map_err(|e| failure("metrics thread", e))?;
+    let privilege = std::mem::replace(
+        &mut ctx.backends.privilege,
+        Box::new(exec::monitor::NoPrivilege),
+    );
     let jobs = Pool::spawn(jobs::THREADS).map_err(|e| failure("job pool", e))?;
     let writes = WriteQueue::spawn(ctx.paths.clone(), broken.clone(), tx.clone())
         .map_err(|e| failure("write queue", e))?;
@@ -199,6 +214,7 @@ pub fn run(ctx: &mut Context, _lock: InstanceLock, err: &mut dyn Write) -> Resul
         writes: writes.sender(),
         clock: ctx.clock.clone(),
         steam,
+        privilege: exec::monitor::SharedPrivilege::new(privilege),
     };
     drop(tx);
 

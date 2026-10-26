@@ -129,14 +129,14 @@ fn top_bar(state: &AppState, frame: &mut Frame, layout: &Layout, hits: &mut HitM
 pub fn metrics_parts(state: &AppState, room: usize) -> Vec<(String, Role)> {
     let g = &state.glyphs;
     let m = &state.metrics;
-    let alert = alerts::highest(&m.alerts).map(|a| {
-        let (glyph, role) = match a.severity {
-            Severity::Critical => (g.error, Role::Error),
-            Severity::Warning => (g.warn, Role::Warn),
-            Severity::Info => (g.warn, Role::Muted),
-        };
-        (format!("{glyph} {}", a.label()), role)
-    });
+    // An info alert (Fan max) shows on Monitor only, as Go's header shows
+    // no icon for it.
+    let alert = alerts::highest(&m.alerts)
+        .filter(|a| a.severity > Severity::Info)
+        .map(|a| {
+            let (glyph, role) = screens::monitor::severity_look(a.severity, g);
+            (format!("{glyph} {}", a.label()), role)
+        });
     let mut temp = None;
     let mut util = None;
     let mut power = None;

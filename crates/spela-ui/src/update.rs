@@ -290,12 +290,8 @@ fn on_msg(state: &mut AppState, msg: Msg) -> Vec<Cmd> {
             state.say(Level::Info, text);
             Vec::new()
         }
-        Msg::HardwareDone { token, .. } => {
-            if state.jobs.hardware == Some(token) {
-                state.jobs.hardware = None;
-                state.dirty = true;
-            }
-            Vec::new()
+        Msg::HardwareDone { token, result } => {
+            screens::monitor::hardware_done(state, token, result)
         }
         Msg::PreviewReady { request, result } => {
             screens::preview::ready(state, request, result);
