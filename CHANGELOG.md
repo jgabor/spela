@@ -5,59 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.0] - Unreleased
 
-### Added
+spela is rewritten in Rust. One binary keeps the command line and the terminal UI, with the same commands and flags except those listed under Removed. The graphical interface is gone. The Go changes made after 0.6.2 were never released; this release replaces them.
 
-- The graphical interface asks before updating or restoring a game's DLLs. Confirm destructive actions, now also in the TUI Settings, turns off the question for updates in both interfaces; restore and install always ask.
-- Compact mode, now also in the TUI Settings, starts the TUI in the Compact layout and tightens the graphical interface.
-- With Auto-update DLLs on, the TUI and the graphical interface update outdated game DLLs at startup. Running and deny-listed games and DLLs of unknown version are skipped, and a notice says what changed. The option is now in the TUI Settings.
-- With Check for updates on, the TUI header and the graphical interface say when a newer Spela release is tagged on GitHub. Spela asks at most once a day, at startup, and never from a development build.
-- Configure `gpu.vrr` with explicit unset, inheritance, TUI/GUI editing, and restoration of the KDE primary display after tracked game launches.
-- `spela profile reset <game>` makes a game follow All games for every setting, and the TUI List has a Find row (Up from the first item, then type or press Enter) that opens Search.
-- On the All games page, **Apply to games with their own value** (the TUI Actions menu and a button in the graphical interface) makes the games that set their own value for the focused setting follow All games. It names the games and the value first, and a failed game is named while the rest still change.
-- Left and Right jump between the sections of a TUI profile page (Proton, DLSS, GPU, CPU, Overlay) and reach the game's DLLs section, which starts with the install directory, Proton prefix, and Steam launch option.
-- The TUI profile page has a three-line header with the game, its save state, the settings the game sets itself, and the section strip.
-- The graphical interface has fan speed, power limit, and affinity controls, and clock offset and memory offset are number inputs with their unit. A stored value that a list does not offer is shown as it is stored.
-- The graphical interface has a Follow All games for all settings button (Use system default for all settings on All games). It confirms first and says how many settings it clears.
-- A game page in the graphical interface says what the game sets itself (`Own settings (3): HDR On · ...`), lists its DLLs, and shows whether it is saved. The All games page counts the games that have their own value for each setting.
-- Enter on a boolean or a setting with fixed values opens a picker in the TUI. Typing a letter or digit jumps to a choice, the first choice follows All games, and Esc cancels.
+### Before you upgrade
+
+- Exit every game that the Go spela launched. When such a game exits, Go restores GPU and CPU settings with `pkexec /usr/bin/spela apply-profile --reset`, which 0.7.0 refuses, so the settings would stay as the game had them. If that happens, `spela gpu reset`, `spela cpu governor` and `spela cpu smt`, or a reboot, put them back.
+
+### Migration
+
+- The first time 0.7.0 reads a Go file, it writes a TOML file in its place: `config.yaml` becomes `config.toml`, `profiles/<app id>.yaml` becomes `profiles/<app id>.toml`, `profiles/default.yaml` becomes `profiles/all-games.toml`, `lists/denylist.yaml` and `lists/overrides.yaml` become `.toml` files, and `games.yaml` becomes `~/.cache/spela/games.json`.
+- The Go files stay where they are, unchanged, as backups. spela does not read them again, so a change made later with the Go binary is not picked up.
+- Each new file starts with a comment naming its Go source and the values it did not carry over. `~/.local/share/spela/migration.toml` lists every one of them with the reason, and spela says once what it dropped.
+- The config keeps only values that differ from Go's defaults.
+- `gpu.clock_offset` and `gpu.memory_offset` are now real NVML clock offsets. Go used them as a clock lock and a maximum memory clock, so their values are not carried over; the migration record keeps them.
+- DLL backups made by Go stay where they are and restore as before. The DLL cache folder is shared, and the cached manifest and the release check move to `manifest-v1.json` and `release-check.json`.
 
 ### Changed
 
-- The terminal, graphical, and command-line interfaces share one vocabulary. Every value shows where it comes from (`from All games`, `this game · All games: 150 MHz`, `this game · same as All games`, `set here`, `system default`), booleans read On and Off, numbers carry units, and the actions are Follow All games, Set for this game, and Use system default. `spela profile show` and the `show` commands print every setting with its value and source, also for a game without a profile.
-- Typing in a numeric field editor replaces the prefilled value, the editor shows Backspace, and the focused setting's description wraps instead of being cut. The Effect line is gone: it said the same words on almost every setting, and the descriptions already say what happens at exit.
-- On the All games page, the graphical interface says `4 games have their own value` on the setting, and the TUI points to the action under the focused row (`Actions (0): Apply to games with their own value (4 games)`). The long note that listed the games and said the change did not reach them is gone; the action's question names them.
-- Settings lists only groups that have options, and the Actions menu starts with the reset rows.
-- The TUI saves every change as it is made, for profiles and Settings. The message line says what was saved, a failed write returns the row to the stored value, and Quit waits for a write in flight. Moving between games, filtering, searching, and rescanning never ask a question.
-- A game opens on its Profile in the TUI. The page and the field under the cursor stay when the game changes.
-- Space in the TUI switches a profile row between following All games and its own value, and the same key undoes it. A boolean takes the opposite of the value it follows; other settings put back their earlier value or open their editor.
-- The TUI number and text editors have Input, Apply, and Cancel controls, and Enter or Apply saves. Esc cancels an editor or picker.
-- The graphical interface saves every control as it changes, with `Saving…`, `Saved at once`, and `Saved: HDR On` in the game header. A failed save returns the control to the stored value and says `Not saved`. Follow All games and Set for this game undo each other, and on All games Use system default and Set here do.
-- A game opens on its Profile tab in the graphical interface and keeps its tab when the game changes. The install directory, Proton prefix, and Steam launch option moved to the DLLs tab.
+- `--json` output has a new schema: one object per command, snake_case keys, and `schema_version: 1` first.
+- Exit codes: 0 success, 1 failure, 2 usage error, 3 a config or profile file that does not load, 5 another spela holds the lock. Wrapper mode (`spela %command%`) exits with the game's own code.
+- `spela launch <game>` without `--dry-run` exits 2 and says to put `spela %command%` in the game's Steam launch options.
+- Wrapper mode parses spela's own commands first, so `spela <command>` never launches a program of the same name.
+- Hardware settings around a launch take one polkit prompt. A root helper applies them, and puts back the values they had before when the game exits, when the wrapper is stopped or killed, or when an apply fails part way. Go reset clocks to the driver defaults instead.
+- The polkit policy is now installed by `just install` for source builds, as the AUR package does.
+- GPU features use NVML only. Without NVML they say so, instead of falling back to `nvidia-smi`.
+- The DLL latest version is the highest one in the manifest, not the first. A deny list that does not load blocks DLL swaps instead of allowing them, your deny list adds to the built-in one, and allowing or denying a game clears the other. Install writes over a detected DLL whatever its case, restore removes the files install created, and a DLL that Steam updated is backed up again before a swap.
+- The command line and the TUI offer the same operations: DLL install, version pinning and update all in the CLI, `profile follow` and `denylist clear`, and denylist management, GPU reset, CPU governor and SMT in the TUI.
+- The TUI keeps its digit, arrow, Tab, Enter and Space keys, and adds `?` for help, `:` for a palette of actions, games and settings, `/` to find, and `q` to quit. Esc goes back one level and never quits. The mouse works, and `ui.mouse = false` turns it off. Themes are `terminal`, `neon` and `mono`, and `NO_COLOR` forces `mono`. ⚑ marks a setting a game sets itself.
+- Logs go to a daily file in `~/.local/state/spela/log/` for TUI and wrapper runs, with seven kept. CLI warnings stay on stderr. `SPELA_LOG` and `--log-level` set the level.
+- `spela --demo` runs on built-in fictional games and never touches your GPU, Steam library or files.
+- Building from source needs Rust 1.89 or newer: `just build-release`, then `sudo just install`.
 
 ### Removed
 
-- The DLL source option, which had only one working source. A `preferred_dll_source` key in an existing `config.yaml` is ignored.
-- The Show hints option, which changed nothing visible. A `show_hints` key in an existing `config.yaml` is ignored.
-- The TUI Overview view, Ctrl+S, the Save and Discard rows, and the unsaved-changes dialog. The install directory, Proton prefix, and launch option moved to the DLLs section.
-- The graphical interface Overview tab and the Save button on game and All games pages.
-
-### Fixed
-
-- Log level takes effect: Spela applies it at startup and after a TUI or GUI Settings save. It is in the TUI Settings.
-- DLL cache path, Backup path, and Default shader cache path take effect, and they and Additional library paths can be edited in the TUI and GUI Settings. Folder settings reject a relative path, and backups made before a Backup path change stay restorable.
-- Every Settings option except Theme is in both the TUI and the graphical interface; Theme stays in the graphical interface because the TUI uses the terminal's colours.
-- The graphical interface shows the installed version instead of `dev`.
-- The graphical interface game list reloads after a game page changes the game, such as a DLL update, instead of keeping the old DLL versions.
-- The cached DLL manifest is refreshed by the time it was fetched, not by the date it was published, so Spela no longer fetches it on every use once the published manifest is a day old. Auto-refresh manifest, Refresh interval, and DLL manifest URL now take effect and are in the TUI and GUI Settings.
-- Keep game profiles inheriting after the last override is reset. Saved profiles now always carry an `overrides` key, so a profile reset to all-inherited no longer reloads as a legacy file that pins every field differing from the defaults. Profiles already saved without the key stay as they are, and a mutation that changes nothing no longer rewrites a profile.
-- DLL types in the graphical DLL catalog and the game DLL lists read the right field, so they are no longer blank.
-- Refresh AUR preview and submission versions from the GitHub source and remote tags in temporary storage, generating matching `.SRCINFO` without modifying local package files.
-
-### Security
-
-- Update Echo to 4.15.3 and Vitest with its coverage provider to 4.1.11 to fix static-file access-control and development-server file-read vulnerabilities.
+- The graphical interface and `spela gui`.
+- The overlay: `spela overlay`, the Overlay profile section and its settings (`enabled`, `position`, `show_fps`, `show_frametime`, `show_cpu`, `show_gpu`, `show_vram`, `toggle_key`), and the overlay data file. Nothing read them.
+- The `gpu.power_mizer` and `cpu.affinity` profile settings.
+- The config keys `theme`, `compact_mode`, `show_hints` and `preferred_dll_source`, and the Standard, Compact and Focused TUI layouts.
+- `spela gui` and `spela overlay` now say that the command was removed in 0.7.0 and exit 2.
 
 ## [0.6.2] - 2026-09-13
 
@@ -468,7 +455,7 @@ This release introduces a new vkd3d_heap toggle that enables the PROTON_VKD3D_HE
 - Restore interactive redo flow
 - Change summary model
 
-[unreleased]: https://github.com/jgabor/spela/compare/v0.6.2..HEAD
+[0.7.0]: https://github.com/jgabor/spela/compare/v0.6.2..v0.7.0
 [0.6.2]: https://github.com/jgabor/spela/compare/v0.6.1..v0.6.2
 [0.6.1]: https://github.com/jgabor/spela/compare/v0.6.0..v0.6.1
 [0.6.0]: https://github.com/jgabor/spela/compare/v0.5.1..v0.6.0
