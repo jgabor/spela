@@ -28,7 +28,7 @@ expression: render_text(&mut s)
 │                                │     │   quality  ✓                                         │                        ┃
 │                                │     │   dlaa                                               │                        ┃
 │                                │     │                                                      │                        ┃
-│                                │     │   [ Apply ]  [ Cancel ]                              │                        │
+│                                │     │   [ Apply ]  [ Cancel ]                              │                        ┃
 │                                │     └──────────────────────────────────────────────────────┘                        │
 │                                │     Resolution preset      K             from All games                             │
 │                                │   ⚑ Resolution override    On            this game · All games: Off                 │

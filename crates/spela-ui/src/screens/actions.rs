@@ -154,7 +154,14 @@ pub fn render(
     if inner.height < 4 || inner.width < 10 {
         return;
     }
-    let visible = usize::from(inner.height - 4);
+    // The blank row above the rule goes first when the rows do not fit,
+    // and a thumb on the border shows the rest.
+    let spaced = usize::from(inner.height - 4);
+    let visible = if popup.rows.len() > spaced {
+        spaced + 1
+    } else {
+        spaced
+    };
     let offset = popup.cursor.saturating_sub(visible.saturating_sub(1));
     let key_x = inner.right().saturating_sub(3);
     for (n, (i, row)) in popup
@@ -171,19 +178,29 @@ pub fn render(
         if cursor {
             p.text(inner.x + 1, y, 2, state.glyphs.cursor, Role::Key);
         }
-        let label_w = key_x.saturating_sub(inner.x + 4);
+        // The label runs to the key, one cell before it, or to the inner
+        // edge, one cell before the border, when there is no key.
+        let label_x = inner.x + 3;
+        let key_text = row.key.map(|k| k.to_string());
+        let label_end = match &key_text {
+            Some(text) => {
+                let w = u16::try_from(width(text)).unwrap_or(1);
+                (key_x + 1).saturating_sub(w + 1)
+            }
+            None => inner.right().saturating_sub(1),
+        };
+        let label_w = label_end.saturating_sub(label_x);
         match &row.unavailable {
             Some(reason) => {
                 let text = format!("{} {} {reason}", row.label, state.glyphs.dot);
-                p.text(inner.x + 3, y, label_w, &text, Role::Muted);
+                p.text(label_x, y, label_w, &text, Role::Muted);
             }
             None => {
                 let role = if cursor { Role::Key } else { Role::Text };
-                p.text(inner.x + 3, y, label_w, &row.label, role);
+                p.text(label_x, y, label_w, &row.label, role);
             }
         }
-        if let Some(key) = row.key {
-            let text = key.to_string();
+        if let Some(text) = key_text {
             let w = u16::try_from(width(&text)).unwrap_or(1);
             p.text(key_x + 1 - w, y, w, &text, Role::Key);
         }
@@ -192,6 +209,13 @@ pub fn render(
         }
         hits.push(line, HitTarget::Action(act(Action::RunRow(i))));
     }
+    let track = Rect::new(
+        area.right() - 1,
+        inner.y + 1,
+        1,
+        u16::try_from(visible).unwrap_or(0),
+    );
+    p.thumb(track.x, track, offset, visible, popup.rows.len());
     let rule = inner.bottom() - 2;
     p.rule(area, rule, Role::Focus);
     let close_y = inner.bottom() - 1;
@@ -209,4 +233,25 @@ pub fn render(
         p.cursor_row(close);
     }
     hits.push(close, HitTarget::Action(act(Action::Close)));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testing::{render_text, state_with_games};
+
+    #[test]
+    fn rows_that_do_not_fit_scroll_with_a_thumb() {
+        let mut s = state_with_games(80, 24, 3);
+        let rows = (0..30)
+            .map(|i| Row::new(format!("Row {i}"), AnyAction::Help))
+            .collect();
+        s.open(Popup::Actions(State::new("Actions".into(), rows)));
+        let text = render_text(&mut s);
+        assert!(text.contains('\u{2503}'), "a thumb on the border:\n{text}");
+        // No blank row is kept above the rule while rows are cut.
+        let lines: Vec<&str> = text.lines().collect();
+        let rule = lines.iter().position(|l| l.contains('\u{251c}')).unwrap();
+        assert!(lines[rule - 1].contains("Row "), "{text}");
+    }
 }

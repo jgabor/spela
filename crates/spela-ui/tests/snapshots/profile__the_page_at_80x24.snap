@@ -14,7 +14,7 @@ expression: render_text(&mut s)
 │     NGX updater            Off           system default                      ┃
 │     VKD3D heap             Off           system default                      ┃
 │                                                                              ┃
-│ DLSS                                                                         │
+│ DLSS                                                                         ┃
 │   ⚑ Super resolution       quality       this game · All games: balanced     │
 │     Resolution preset      K             from All games                      │
 │   ⚑ Resolution override    On            this game · All games: Off          │

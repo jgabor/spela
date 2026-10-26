@@ -151,14 +151,13 @@ impl<'a> Painter<'a> {
 
     /// The scroll thumb on a border column, for `visible` of `total` rows
     /// starting at `offset`, over the rows of `track`. Nothing when it all
-    /// fits.
+    /// fits. Size and place round as the mockups do, and at the end of the
+    /// content the thumb reaches the last track row.
     pub fn thumb(&mut self, x: u16, track: Rect, offset: usize, visible: usize, total: usize) {
-        if total <= visible || track.height == 0 {
+        let Some((from, size)) = thumb_span(usize::from(track.height), offset, visible, total)
+        else {
             return;
-        }
-        let h = usize::from(track.height);
-        let size = (visible * h / total).clamp(1, h);
-        let from = (offset * h / total).min(h - size);
+        };
         let style = self.style(Role::Muted);
         for i in from..from + size {
             let y = track.y + u16::try_from(i).unwrap_or(0);
@@ -216,7 +215,49 @@ impl<'a> Painter<'a> {
     }
 }
 
+/// The first row and the length of a scroll thumb on a track of `h` rows,
+/// or `None` when everything fits.
+pub fn thumb_span(h: usize, offset: usize, visible: usize, total: usize) -> Option<(usize, usize)> {
+    if total <= visible || h == 0 {
+        return None;
+    }
+    let round = |n: usize| (n + total / 2) / total;
+    let size = round(visible * h).clamp(1, h);
+    let from = if offset + visible >= total {
+        h - size
+    } else {
+        round(offset * h).min(h - size)
+    };
+    Some((from, size))
+}
+
 /// Pads or cuts `text` to exactly `cols` cells with the ellipsis.
 pub fn fit(text: &str, cols: usize, glyphs: &Glyphs) -> String {
     crate::text::fit(&sanitize(text), cols, glyphs.ellipsis)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_thumb_reaches_the_last_row_at_the_end() {
+        // 16 rows of 37 on a 16-row track: the floor would stop one short.
+        let (from, size) = thumb_span(16, 21, 16, 37).unwrap();
+        assert_eq!(from + size, 16);
+        assert_eq!(thumb_span(16, 0, 16, 37), Some((0, 7)));
+        assert_eq!(thumb_span(16, 0, 16, 16), None, "it all fits");
+        for total in 17..80 {
+            for offset in 0..=total - 16 {
+                let (from, size) = thumb_span(16, offset, 16, total).unwrap();
+                assert!(from + size <= 16 && size >= 1);
+                if offset + 16 == total {
+                    assert_eq!(from + size, 16, "total {total}");
+                }
+                if offset == 0 {
+                    assert_eq!(from, 0);
+                }
+            }
+        }
+    }
 }

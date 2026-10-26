@@ -16,10 +16,10 @@ expression: render_text(&mut s)
 │ │   Sort: profiles first                                                   │ │
 │ │   Select all filtered games                                              │ │
 │ │   Clear selected filtered games · no selected filtered games             │ │
-│ │   Update selected games (0 visible) · no updates for selected filter⋯    │ │
+│ │   Update selected games (0 visible) · no updates for selected filtered ⋯ │ │
 │ │   Rescan games                                                           │ │
 │ │   Help                                                                ?  │ │
-│ │                                                                          │ │
+│ │   Quit                                                                q  │ │
 │ ├──────────────────────────────────────────────────────────────────────────┤ │
 │ │   Close                                                                  │ │
 │ └──────────────────────────────────────────────────────────────────────────┘ │
