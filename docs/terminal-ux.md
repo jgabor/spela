@@ -94,7 +94,7 @@ Everything in option A, plus mejl's habits:
 | Key | Where | Action |
 |---|---|---|
 | `?` | Browse | Help for this context |
-| `:` / `Ctrl-K` | Browse | A fuzzy command palette over every Actions row, game and setting. Each row shows its key. While it is open the status line counts the rows that match, such as `58 commands` |
+| `:` / `Ctrl-K` | Browse | A fuzzy command palette over every Actions row, game and setting. Each row shows its key. While it is open the status line counts its rows, such as `58 commands`, and once something is typed, the best matches shown, such as `3 best matches for "dl"` |
 | `/` | Browse | Find in the current list |
 | `q` | Browse | Back one level, then quit at the top level. It waits for pending saves, as Quit does today |
 | `Q` | Browse, and the Actions popup | Quit now, after pending saves |
@@ -122,7 +122,7 @@ These fill gaps the Go TUI leaves, or fix its bugs (decisions 8 and 20):
 
 ## Denylist
 
-The deny list gets a TUI surface, so the CLI and the TUI can do the same things (decision 20). It lives in the game's DLLs section, where the swaps it guards are. Entries for games outside the library have no TUI surface and stay with the CLI: `denylist show` lists every built-in and user entry, and `denylist check`, `allow`, `deny` and `clear` take any AppID (decision 71).
+The deny list gets a TUI surface, so the CLI and the TUI can do the same things (decision 20). It lives in the game's DLLs section, where the swaps it guards are. The user's own entries for games outside the library, such as one denied by AppID from the CLI or a Go-era allow for an uninstalled game, each get a row in the DLL Catalog's Actions, in both groups, and in the palette: `Clear denylist override: <name> (App ID N)`, or `Clear denylist override: App ID N` when the entry has no name of its own. It saves at once, like Clear. Listing every built-in and user entry (`denylist show`), and checking, allowing or denying a game outside the library, stay with the CLI (decision 71).
 
 - **State line.** Under "DLL versions", one line shows the game's state, but only when a list names the game. Most games show nothing.
 

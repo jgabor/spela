@@ -292,11 +292,57 @@ pub fn actions(state: &AppState, pane: Pane) -> Vec<Row> {
     }
 }
 
-/// The rows for the game selected in Library.
+/// The rows for the game selected in Library, and the Clear rows of the
+/// user's entries for games outside the library.
 pub fn palette(state: &AppState) -> Vec<Row> {
-    library::selected_game(state)
+    let mut out = library::selected_game(state)
         .map(|g| rows(state, g))
-        .unwrap_or_default()
+        .unwrap_or_default();
+    out.extend(outside_rows(state));
+    out
+}
+
+/// A Clear row for each of the user's own entries, an allow or a deny,
+/// whose game the library does not list, such as one denied by AppID from
+/// the CLI. A listed game's rows are on its DLLs section. The DLL Catalog's
+/// Actions and the palette list them, so an entry is never left for the
+/// CLI to remove (decision 20).
+pub fn outside_rows(state: &AppState) -> Vec<Row> {
+    let Ok(l) = lists(state) else {
+        return Vec::new();
+    };
+    let mut entries: Vec<(u64, String)> = Vec::new();
+    for e in &l.overrides().denied {
+        entries.push((e.app_id, e.name.clone()));
+    }
+    for &app_id in &l.overrides().allowed {
+        let name = match l.check(app_id) {
+            Status::ForceAllowed { over: Some(listed) } => listed.entry.name.clone(),
+            _ => String::new(),
+        };
+        entries.push((app_id, name));
+    }
+    entries.retain(|(app_id, _)| state.games.get(*app_id).is_none());
+    entries.sort_by_key(|(app_id, _)| *app_id);
+    entries.dedup_by_key(|(app_id, _)| *app_id);
+    entries
+        .into_iter()
+        .map(|(app_id, name)| {
+            let name = if name.is_empty() || name == app_id.to_string() {
+                format!("App ID {app_id}")
+            } else {
+                format!("{name} (App ID {app_id})")
+            };
+            Row::new(
+                format!("Clear denylist override: {name}"),
+                act(Action::Apply {
+                    app_id,
+                    name,
+                    change: DenyChange::Clear,
+                }),
+            )
+        })
+        .collect()
 }
 
 /// Runs an action.
@@ -349,7 +395,8 @@ pub fn update(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
             if library::selected_game(state).is_some_and(|g| g.app_id == app_id) {
                 state.profile.aspect = super::profile::Aspect::Dlls;
             }
-            Vec::new()
+            // The section reads the game's backup when it first shows.
+            crate::dll_jobs::want_backup(state)
         }
         Action::Apply {
             app_id,
@@ -529,6 +576,52 @@ mod tests {
     fn reasons(s: &AppState) -> Vec<Option<String>> {
         let game = library::selected_game(s).unwrap();
         rows(s, game).into_iter().map(|r| r.unavailable).collect()
+    }
+
+    #[test]
+    fn entries_for_games_outside_the_library_can_be_cleared() {
+        let mut s = state_with_games(120, 40, 3);
+        assert!(outside_rows(&s).is_empty(), "nothing while loading");
+        let listed = library::selected_game(&s).unwrap().app_id;
+        let entry = |app_id: u64, name: &str| DenyEntry {
+            app_id,
+            name: name.into(),
+            reason: "test".into(),
+        };
+        loaded(
+            &mut s,
+            Overrides {
+                allowed: vec![4343],
+                denied: vec![entry(4242, "4242"), entry(listed, "Listed")],
+            },
+        );
+        let rows = outside_rows(&s);
+        let labels: Vec<&str> = rows.iter().map(|r| r.label.as_str()).collect();
+        assert_eq!(
+            labels,
+            [
+                "Clear denylist override: App ID 4242",
+                "Clear denylist override: App ID 4343",
+            ],
+            "a listed game's entry is on its DLLs section"
+        );
+        assert!(
+            palette(&s)
+                .iter()
+                .any(|r| r.label == "Clear denylist override: App ID 4242")
+        );
+        let cmds = crate::update::run(&mut s, rows[0].action.clone());
+        let Some(AnyCmd::Save { write, .. }) = cmds.first() else {
+            panic!("{cmds:?}")
+        };
+        assert_eq!(
+            write,
+            &Write::Deny {
+                app_id: 4242,
+                name: "App ID 4242".into(),
+                change: DenyChange::Clear,
+            }
+        );
     }
 
     #[test]

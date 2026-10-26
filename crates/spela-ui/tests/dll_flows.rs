@@ -826,3 +826,33 @@ fn the_deny_editor_opens_under_the_dll_versions() {
         insta::assert_snapshot!(format!("deny_editor_{w}x{h}"), text);
     }
 }
+
+/// Deny from the profile page, as the palette runs it, opens the DLLs
+/// section and asks for the game's backup, so its Restore row reads true.
+#[test]
+fn deny_from_the_profile_page_reads_the_backup() {
+    let mut s = ready(120, 40);
+    let game = spela_ui::screens::library::selected_game(&s)
+        .unwrap()
+        .clone();
+    let cmds = spela_ui::update::run(
+        &mut s,
+        spela_ui::screens::Action::Screen(spela_ui::screens::ScreenAction::Denylist(
+            denylist::Action::Deny {
+                app_id: game.app_id,
+                name: game.name.clone(),
+            },
+        )),
+    );
+    assert_eq!(
+        spela_ui::screens::profile::aspect(&s),
+        spela_ui::screens::profile::Aspect::Dlls
+    );
+    assert!(
+        cmds.iter().any(|c| matches!(
+            c,
+            Cmd::Dlls(dlls::Cmd::Backup { app_id, .. }) if *app_id == game.app_id
+        )),
+        "{cmds:?}"
+    );
+}

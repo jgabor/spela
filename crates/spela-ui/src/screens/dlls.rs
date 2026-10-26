@@ -590,12 +590,20 @@ pub fn bindings(state: &AppState, pane: Pane) -> Vec<Binding> {
 /// Go; nothing of its own in Library.
 pub fn actions(state: &AppState, _pane: Pane) -> Vec<Row> {
     match state.dlls.group {
-        Group::Library => vec![refresh_row(state)],
-        Group::Deployment => vec![
-            update_all_row(state),
-            update_all_cached_row(state),
-            refresh_row(state),
-        ],
+        Group::Library => {
+            let mut rows = vec![refresh_row(state)];
+            rows.extend(super::denylist::outside_rows(state));
+            rows
+        }
+        Group::Deployment => {
+            let mut rows = vec![
+                update_all_row(state),
+                update_all_cached_row(state),
+                refresh_row(state),
+            ];
+            rows.extend(super::denylist::outside_rows(state));
+            rows
+        }
     }
 }
 
