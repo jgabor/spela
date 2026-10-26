@@ -376,6 +376,15 @@ pub fn start(state: &mut AppState, start: Start) -> Vec<Cmd> {
         Origin::Catalog => state.dll_jobs.catalog_result = None,
         Origin::Batch { .. } | Origin::Auto => {}
     }
+    // A Catalog or Library batch changes other games' DLLs: their last
+    // per-game result no longer describes the files.
+    if !matches!(start.origin, Origin::Game(_))
+        && let DllOp::Update { requests } = &start.op
+    {
+        for request in requests {
+            state.dll_jobs.results.remove(&request.app_id);
+        }
+    }
     state.dll_jobs.running = Some(Running {
         token,
         origin: start.origin,
@@ -560,6 +569,23 @@ fn result_words(origin: &Origin, result: &DllResult) -> Option<((Level, String),
     Some((out, Some(line)))
 }
 
+/// Drops the per-game result of every game a Catalog, Library or startup
+/// batch went through, so no DLLs section names an earlier operation that
+/// no longer describes its files.
+fn forget_touched(state: &mut AppState, origin: &Origin, result: &DllResult) {
+    if matches!(origin, Origin::Game(_)) {
+        return;
+    }
+    let batch = match result {
+        DllResult::Updated(Ok(b)) => b,
+        DllResult::Auto(a) => &a.batch,
+        _ => return,
+    };
+    for item in &batch.items {
+        state.dll_jobs.results.remove(&item.request.app_id);
+    }
+}
+
 /// A job finished. A stale answer is dropped. The game cache it sends
 /// replaces the shown one, the backups and the Catalog are read again, and
 /// a quit that waited for it goes ahead.
@@ -574,6 +600,7 @@ pub fn done(state: &mut AppState, token: u64, done: DllDone) -> Vec<Cmd> {
         library::replace_games(state, games);
         cmds.extend(profile::follow_selection(state));
     }
+    forget_touched(state, &running.origin, &done.result);
     if let (Origin::Game(app_id), DllResult::BackupChanged(changed)) =
         (&running.origin, &done.result)
     {

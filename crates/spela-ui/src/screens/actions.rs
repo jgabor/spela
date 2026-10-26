@@ -77,10 +77,18 @@ fn act(a: Action) -> AnyAction {
 /// The popup's keys.
 pub fn bindings(_state: &AppState, popup: &State) -> Vec<Binding> {
     let run_label = if popup.on_close { "Close" } else { "Run" };
+    // An unavailable cursor row drops Enter from the hint: its reason is
+    // already on the row (tui-testing.md).
+    let runnable = match popup.rows.get(popup.cursor) {
+        Some(row) if !popup.on_close => row.unavailable.clone().map_or(Ok(()), Err),
+        _ => Ok(()),
+    };
     vec![
         Binding::new(Key::UP, act(Action::Up), "Choose").hint_as("Up/Down", 100),
         Binding::new(Key::DOWN, act(Action::Down), "Next row"),
-        Binding::new(Key::ENTER, act(Action::Run), run_label).hint(90),
+        Binding::new(Key::ENTER, act(Action::Run), run_label)
+            .hint(90)
+            .when(runnable),
         Binding::new(Key::TAB, act(Action::Tab), "Next control")
             .also(Key::BACK_TAB)
             .hint(50),
@@ -239,6 +247,31 @@ pub fn render(
 mod tests {
     use super::*;
     use crate::testing::{render_text, state_with_games};
+
+    #[test]
+    fn an_unavailable_cursor_row_drops_the_enter_hint() {
+        let enter_shown = |s: &AppState| {
+            crate::screens::bindings(s)
+                .iter()
+                .any(|b| b.label == "Run" && b.available())
+        };
+        let mut s = state_with_games(120, 40, 3);
+        let rows = vec![Row::new("Only row", AnyAction::Help).when(Err("not now".into()))];
+        s.open(Popup::Actions(State::new("Actions".into(), rows)));
+        assert!(!enter_shown(&s), "the row cannot run");
+        let text = render_text(&mut s);
+        assert!(!text.contains("Enter Run"), "{text}");
+        crate::update::update(&mut s, crate::testing::key("tab"));
+        assert!(
+            crate::screens::bindings(&s)
+                .iter()
+                .any(|b| b.label == "Close" && b.keys.contains(&Key::ENTER) && b.available()),
+            "Enter still closes from Close"
+        );
+        let rows = vec![Row::new("Runs", AnyAction::Help)];
+        s.open(Popup::Actions(State::new("Actions".into(), rows)));
+        assert!(enter_shown(&s));
+    }
 
     #[test]
     fn rows_that_do_not_fit_scroll_with_a_thumb() {

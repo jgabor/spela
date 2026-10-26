@@ -16,7 +16,7 @@ expression: render_text(&mut s)
 │ │   Sort: profiles first                                                   │ │
 │ │   Select all filtered games                                              │ │
 │ │   Clear selected filtered games · no selected filtered games             │ │
-│ │   Update selected games (0 visible) · no updates for selected filtered ⋯ │ │
+│ │   Update selected games (0 DLLs) · no updates for selected filtered gam⋯ │ │
 │ │   Rescan games                                                           │ │
 │ │   Help                                                                ?  │ │
 │ │   Quit                                                                Q  │ │

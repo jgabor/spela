@@ -532,19 +532,49 @@ fn the_batch_updates_the_listed_selected_games() {
     let Some(Popup::Actions(a)) = &s.popup else {
         panic!("the batch actions")
     };
-    assert_eq!(a.rows[0].label, "Update selected games (2 visible)");
+    assert_eq!(a.rows[0].label, "Update selected games (2 DLLs)");
     assert_eq!(a.rows[0].unavailable, None);
     update(&mut s, key("enter"));
     let Some(Popup::Confirm(c)) = &s.popup else {
         panic!("a confirmation")
     };
-    assert_eq!(c.title, "Confirm DLL update");
+    assert_eq!(c.title, "Confirm batch DLL update");
     let cmds = confirm_now(&mut s);
     let (token, op) = dll_cmd(&cmds);
     let batch = batch_of(&s, &op);
     assert_eq!(batch.items.len(), 2);
     finish(&mut s, token, DllResult::Updated(Ok(batch)), None);
     assert_eq!(status(&s), "Updated DLLs for 2/2 games");
+}
+
+#[test]
+fn a_batch_drops_the_stale_results_of_the_games_it_touched() {
+    let mut s = ready(120, 40);
+    // Each game's DLLs section remembers an earlier install.
+    let ids: Vec<u64> = s.games.games.iter().map(|g| g.app_id).collect();
+    for id in &ids {
+        s.dll_jobs.results.insert(
+            *id,
+            ("DLL install completed".into(), spela_ui::state::Level::Ok),
+        );
+    }
+    update(&mut s, key("2"));
+    update(&mut s, key("right"));
+    update(&mut s, key("0"));
+    update(&mut s, key("enter"));
+    let cmds = confirm_now(&mut s);
+    let (token, op) = dll_cmd(&cmds);
+    let batch = batch_of(&s, &op);
+    let touched: Vec<u64> = batch.items.iter().map(|i| i.request.app_id).collect();
+    assert!(!touched.is_empty());
+    finish(&mut s, token, DllResult::Updated(Ok(batch)), None);
+    for id in &ids {
+        assert_eq!(
+            s.dll_jobs.results.contains_key(id),
+            !touched.contains(id),
+            "game {id}: only the games the batch went through lose their line"
+        );
+    }
 }
 
 #[test]

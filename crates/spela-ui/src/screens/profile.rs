@@ -1154,12 +1154,9 @@ fn preview(state: &mut AppState) -> Vec<AnyCmd> {
         .or_else(|| broken(state, Scope::Game(app_id)))
         .map(str::to_owned);
     let ask = failed.is_none();
-    state.open(Popup::Preview(preview::State {
-        request,
-        name,
-        summary: failed.map(Err),
-        scroll: 0,
-    }));
+    let mut popup = preview::State::new(request, name);
+    popup.summary = failed.map(Err);
+    state.open(Popup::Preview(popup));
     if ask {
         vec![AnyCmd::Preview { request, app_id }]
     } else {

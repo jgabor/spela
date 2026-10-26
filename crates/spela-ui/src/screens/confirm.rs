@@ -170,6 +170,12 @@ fn visible_rows(state: &AppState, popup: &State) -> usize {
     usize::from(area.height.saturating_sub(6))
 }
 
+/// The last first-line the body can scroll to: the body's end stays at
+/// the bottom of the box.
+fn max_scroll(state: &AppState, popup: &State) -> usize {
+    popup.body.len().saturating_sub(visible_rows(state, popup))
+}
+
 /// Whether Up and Down have anything to scroll, or why not.
 fn can_scroll(state: &AppState, popup: &State) -> Result<(), String> {
     if popup.body.len() > visible_rows(state, popup) {
@@ -207,6 +213,10 @@ pub fn bindings(state: &AppState, popup: &State) -> Vec<Binding> {
 
 /// Runs a popup action.
 pub fn update(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
+    let max = match &state.popup {
+        Some(Popup::Confirm(popup)) => max_scroll(state, popup),
+        _ => return Vec::new(),
+    };
     let Some(Popup::Confirm(popup)) = &mut state.popup else {
         return Vec::new();
     };
@@ -224,8 +234,8 @@ pub fn update(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
                 Focus::Cancel | Focus::Confirm => Focus::Body,
             };
         }
-        Action::Up => popup.scroll = popup.scroll.saturating_sub(1),
-        Action::Down => popup.scroll = (popup.scroll + 1).min(popup.body.len().saturating_sub(1)),
+        Action::Up => popup.scroll = popup.scroll.min(max).saturating_sub(1),
+        Action::Down => popup.scroll = (popup.scroll + 1).min(max),
         Action::Activate => match popup.focus {
             Focus::Confirm => return confirm(state),
             Focus::Cancel => return cancel(state),
@@ -278,22 +288,20 @@ pub fn render(
     let x = inner.x + 2;
     let w = inner.width.saturating_sub(4);
     let visible = visible_rows(state, popup);
-    for (n, line) in popup
-        .body
-        .iter()
-        .skip(popup.scroll)
-        .take(visible)
-        .enumerate()
-    {
+    // A resize can shrink the room below the scroll position.
+    let scroll = popup.scroll.min(max_scroll(state, popup));
+    for (n, line) in popup.body.iter().skip(scroll).take(visible).enumerate() {
         let y = inner.y + 1 + u16::try_from(n).unwrap_or(0);
         let spans: Vec<(&str, Role)> = line.iter().map(|(t, r)| (t.as_str(), *r)).collect();
         p.spans(x, y, w, &spans);
     }
-    if popup.focus == Focus::Body {
+    // The thumb shows whenever the body overflows, so the first frame
+    // already says there is more below.
+    if can_scroll(state, popup).is_ok() {
         p.thumb(
             area.right() - 1,
             Rect::new(0, inner.y + 1, 1, inner.height - 4),
-            popup.scroll,
+            scroll,
             visible,
             popup.body.len(),
         );
@@ -396,5 +404,32 @@ mod tests {
         ));
         step(&mut s, key("tab"));
         assert!(scroll_shown(&s), "80 lines do not");
+    }
+
+    #[test]
+    fn down_stops_with_the_last_line_at_the_bottom() {
+        let mut s = state_with_games(80, 24, 1);
+        let long: Vec<String> = (0..80).map(|i| format!("line {i}")).collect();
+        let long: Vec<&str> = long.iter().map(String::as_str).collect();
+        s.confirm(State::new(
+            "Long",
+            lines(&long, Role::Text),
+            AnyAction::Help,
+        ));
+        step(&mut s, key("tab"));
+        for _ in 0..200 {
+            step(&mut s, key("down"));
+        }
+        let Some(Popup::Confirm(popup)) = &s.popup else {
+            panic!("the popup is open");
+        };
+        let visible = visible_rows(&s, popup);
+        assert!(visible > 0 && visible < 80, "{visible}");
+        assert_eq!(popup.scroll, 80 - visible, "never past len - visible");
+        step(&mut s, key("up"));
+        let Some(Popup::Confirm(popup)) = &s.popup else {
+            panic!("the popup is open");
+        };
+        assert_eq!(popup.scroll, 80 - visible - 1, "one Up moves at once");
     }
 }

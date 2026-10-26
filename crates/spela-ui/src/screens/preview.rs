@@ -5,12 +5,17 @@
 //! worker as [`crate::Cmd::Preview`] and answered with
 //! [`crate::Msg::PreviewReady`]. While it builds, the body reads `Building
 //! the launch plan...`. It never takes a lock and never runs pkexec.
+//!
+//! Up and Down scroll, Esc closes, and a Close control under the body
+//! stays for Tab and the mouse (terminal-ux.md, popups): Tab moves to it,
+//! Enter on it closes, and a click on it closes.
 
 use ratatui::Frame;
+use ratatui::layout::Rect;
 
 use super::{Action as AnyAction, Popup, PopupAction};
 use crate::event::Cmd as AnyCmd;
-use crate::hit::HitMap;
+use crate::hit::{HitMap, HitTarget};
 use crate::keymap::{Binding, Key};
 use crate::layout::Layout;
 use crate::paint::Painter;
@@ -31,6 +36,21 @@ pub struct State {
     pub summary: Option<Result<String, String>>,
     /// The first line shown.
     pub scroll: usize,
+    /// The Close control has focus.
+    pub on_close: bool,
+}
+
+impl State {
+    /// A popup waiting for the summary of `request`.
+    pub fn new(request: u64, name: impl Into<String>) -> State {
+        State {
+            request,
+            name: name.into(),
+            summary: None,
+            scroll: 0,
+            on_close: false,
+        }
+    }
 }
 
 /// What the popup's keys run.
@@ -40,6 +60,10 @@ pub enum Action {
     Up,
     /// Scroll down.
     Down,
+    /// Between the body and Close.
+    Tab,
+    /// Enter: closes on Close.
+    Activate,
     /// Close the popup.
     Close,
 }
@@ -100,11 +124,12 @@ fn body_cols(state: &AppState) -> usize {
     usize::from(area.width.saturating_sub(6))
 }
 
-/// The body rows the popup shows: it fills the workspace.
+/// The body rows the popup shows: it fills the workspace, less the rule
+/// and the Close row.
 fn visible_rows(state: &AppState) -> usize {
     let ws = state.layout().workspace();
     let area = state.layout().centered(ws.width, ws.height);
-    usize::from(area.height.saturating_sub(4))
+    usize::from(area.height.saturating_sub(6))
 }
 
 /// How far the body can scroll: zero when it all fits.
@@ -122,11 +147,22 @@ pub fn bindings(state: &AppState, popup: &State) -> Vec<Binding> {
     } else {
         Err("nothing to scroll".to_owned())
     };
+    let close = if popup.on_close {
+        Ok(())
+    } else {
+        Err("Tab to Close first".to_owned())
+    };
     vec![
         Binding::new(Key::UP, act(Action::Up), "Scroll")
             .hint_as("Up/Down", 100)
             .when(scroll.clone()),
         Binding::new(Key::DOWN, act(Action::Down), "Scroll down").when(scroll),
+        Binding::new(Key::ENTER, act(Action::Activate), "Close")
+            .hint(90)
+            .when(close),
+        Binding::new(Key::TAB, act(Action::Tab), "Next control")
+            .also(Key::BACK_TAB)
+            .hint(50),
         Binding::new(Key::ESC, act(Action::Close), "Close").hint(80),
     ]
 }
@@ -146,6 +182,9 @@ pub fn update(state: &mut AppState, action: Action) -> Vec<AnyCmd> {
     match action {
         Action::Up => popup.scroll = popup.scroll.saturating_sub(1),
         Action::Down => popup.scroll = (popup.scroll + 1).min(max),
+        Action::Tab => popup.on_close = !popup.on_close,
+        Action::Activate if popup.on_close => state.close_popup(),
+        Action::Activate => {}
         Action::Close => state.close_popup(),
     }
     Vec::new()
@@ -164,7 +203,7 @@ pub fn render(
     let mut p = Painter::new(frame.buffer_mut(), state.theme, state.glyphs);
     let title = format!("Preview launch {} {}", state.glyphs.dot, popup.name);
     let inner = p.popup(area, &title, hits);
-    if inner.height < 3 || inner.width < 10 {
+    if inner.height < 5 || inner.width < 10 {
         return;
     }
     let (lines, role) = wrapped(popup, usize::from(inner.width.saturating_sub(4)));
@@ -179,6 +218,21 @@ pub fn render(
         let y = inner.y + 1 + u16::try_from(n).unwrap_or(0);
         p.text(inner.x + 2, y, inner.width - 4, line, role);
     }
+    // The Close control under a rule, as the Actions popup draws it.
+    p.rule(area, inner.bottom() - 2, Role::Focus);
+    let close_y = inner.bottom() - 1;
+    let role = if popup.on_close {
+        p.text(inner.x + 1, close_y, 2, state.glyphs.cursor, Role::Key);
+        Role::Key
+    } else {
+        Role::Text
+    };
+    p.text(inner.x + 3, close_y, 5, "Close", role);
+    let close = Rect::new(inner.x, close_y, inner.width, 1);
+    if popup.on_close {
+        p.cursor_row(close);
+    }
+    hits.push(close, HitTarget::Action(act(Action::Close)));
 }
 
 #[cfg(test)]
@@ -194,6 +248,7 @@ mod tests {
                 "Environment\n  DXVK_NVAPI_DRS_NGX_DLSS_SR_OVERRIDE_RENDER_PRESET_SELECTION=render_preset_k\n  short".into(),
             )),
             scroll: 0,
+            on_close: false,
         };
         let (lines, role) = wrapped(&popup, 40);
         assert_eq!(role, Role::Text);
@@ -212,5 +267,25 @@ mod tests {
             joined,
             "DXVK_NVAPI_DRS_NGX_DLSS_SR_OVERRIDE_RENDER_PRESET_SELECTION=render_preset_k"
         );
+    }
+
+    #[test]
+    fn tab_reaches_close_and_enter_closes() {
+        use crate::testing::{key, render_text, state_with_games};
+        use crate::update::update as step;
+        let mut s = state_with_games(80, 24, 1);
+        let mut popup = State::new(1, "Glimmer Run");
+        popup.summary = Some(Ok("Game: Glimmer Run".into()));
+        s.open(Popup::Preview(popup));
+        let text = render_text(&mut s);
+        assert!(text.contains("Close"), "{text}");
+        assert!(text.contains("Tab Next control"), "{text}");
+        step(&mut s, key("enter"));
+        assert!(s.popup.is_some(), "Enter on the body does nothing");
+        step(&mut s, key("tab"));
+        let text = render_text(&mut s);
+        assert!(text.contains("Enter Close"), "{text}");
+        step(&mut s, key("enter"));
+        assert!(s.popup.is_none(), "Enter on Close closes");
     }
 }

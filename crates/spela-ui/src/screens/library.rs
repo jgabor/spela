@@ -659,7 +659,7 @@ fn list_rows(state: &AppState) -> Vec<Row> {
             },
         ),
     );
-    rows.push(update_selected_row(state, visible));
+    rows.push(update_selected_row(state));
     let _ = lib;
     rows.push(rescan_row(state));
     rows
@@ -675,7 +675,7 @@ fn visible_selected_games(state: &AppState) -> Vec<&Game> {
         .collect()
 }
 
-fn update_selected_row(state: &AppState, visible: usize) -> Row {
+fn update_selected_row(state: &AppState) -> Row {
     let targets = crate::dll_jobs::stale_targets(state, visible_selected_games(state));
     let available = if crate::dll_jobs::can_start(state).is_err() {
         Err("wait for pending work".to_owned())
@@ -685,7 +685,7 @@ fn update_selected_row(state: &AppState, visible: usize) -> Row {
         Ok(())
     };
     Row::new(
-        format!("Update selected games ({visible} visible)"),
+        format!("Update selected games ({} DLLs)", targets.len()),
         act(Action::UpdateSelected),
     )
     .when(available)
@@ -693,7 +693,7 @@ fn update_selected_row(state: &AppState, visible: usize) -> Row {
 
 fn update_selected(state: &mut AppState) -> Vec<AnyCmd> {
     let visible = visible_selected(state);
-    if update_selected_row(state, visible).unavailable.is_some() {
+    if update_selected_row(state).unavailable.is_some() {
         return Vec::new();
     }
     let targets = crate::dll_jobs::stale_targets(state, visible_selected_games(state));
@@ -701,8 +701,8 @@ fn update_selected(state: &mut AppState) -> Vec<AnyCmd> {
     crate::dll_jobs::ask(
         state,
         super::confirm::Guard::DllUpdate,
-        "Confirm DLL update",
-        crate::dll_jobs::body(&items, "current DLL is backed up before replacement"),
+        "Confirm batch DLL update",
+        crate::dll_jobs::body(&items, "each current DLL is backed up before replacement"),
         "DLL update",
         crate::dll_jobs::DllOp::Update {
             requests: crate::dll_jobs::update_requests(&targets),
@@ -984,7 +984,7 @@ fn open_batch(state: &mut AppState) {
         visible,
         if visible == 1 { "game" } else { "games" }
     );
-    let rows = vec![update_selected_row(state, visible)];
+    let rows = vec![update_selected_row(state)];
     state.open(Popup::Actions(actions_popup::State::new(title, rows)));
 }
 
