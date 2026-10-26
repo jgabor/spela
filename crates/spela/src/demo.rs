@@ -12,10 +12,11 @@
 //! match it and a tag list, so DLL flows run end to end and no request
 //! leaves the process.
 //!
-//! The session also writes the fictional Steam library and a fictional
-//! sysfs tree into the temp dir, so the TUI and every CLI command (`scan`,
-//! `list`, `show`, `launch --dry-run`, the `dll` commands and the live CPU
-//! commands) run on the same built-in games and the same fake hardware.
+//! The session also writes the fictional Steam library and fictional
+//! sysfs and procfs files into the temp dir, so the TUI and every CLI
+//! command (`scan`, `list`, `show`, `launch --dry-run`, the `dll` commands,
+//! `cpu info` and the live CPU commands) run on the same built-in games and
+//! the same fake hardware.
 //!
 //! The temp dir goes on every exit the process controls: the session's
 //! drop on a normal quit or a main-thread panic, and [`remove_now`] on the
@@ -106,7 +107,7 @@ fn sweep_stale(tmp: &Path, own: &Path) {
     }
 }
 
-use spela_core::backend::{Backends, Cpu, Http, Privilege, SysfsCpu};
+use spela_core::backend::{Backends, Cpu, Http, Privilege, SysfsCpu, SystemRoots};
 use spela_core::dll::manifest::RefreshPolicy;
 use spela_core::fake::{FakeGpuControl, FakePrivilege};
 use spela_core::paths::Paths;
@@ -145,6 +146,7 @@ impl DemoSession {
         }
         spela_core::fake::library::write(&paths.cache_dir.join("demo-steam"))?;
         spela_core::fake::cpu::write_sysfs(&sys_dir(&paths))?;
+        spela_core::fake::cpu::write_procfs(&proc_dir(&paths))?;
         *live() = Some(dir.path().to_owned());
         Ok(DemoSession { dir, paths })
     }
@@ -190,21 +192,31 @@ pub fn sys_dir(paths: &Paths) -> PathBuf {
     paths.cache_dir.join("demo-sys")
 }
 
+/// The demo's fictional procfs files under its paths.
+pub fn proc_dir(paths: &Paths) -> PathBuf {
+    paths.cache_dir.join("demo-proc")
+}
+
 /// Points `backends` at the demo: its network, and a CPU reader and
 /// privilege runner over the fictional sysfs tree, so a governor or SMT
-/// change shows at the next read and nothing on the machine changes.
+/// change shows at the next read and nothing on the machine changes. The
+/// reader's `cpu info` comes from the fictional procfs files.
 pub fn use_demo_backends(backends: &mut Backends, paths: &Paths) {
-    let (cpu, privilege) = hardware(&sys_dir(paths));
+    let (cpu, privilege) = hardware(&sys_dir(paths), &proc_dir(paths));
     backends.cpu = cpu;
     backends.privilege = privilege;
     backends.http = http(paths);
 }
 
 /// The CPU reader and privilege runner over the sysfs tree at `root`: the
-/// real sysfs reader, and the fake runner that writes the tree.
-fn hardware(root: &Path) -> (Box<dyn Cpu>, Box<dyn Privilege>) {
+/// real sysfs and procfs reader, and the fake runner that writes the tree.
+fn hardware(root: &Path, proc: &Path) -> (Box<dyn Cpu>, Box<dyn Privilege>) {
+    let roots = SystemRoots {
+        sys: root.to_owned(),
+        proc: proc.to_owned(),
+    };
     (
-        Box::new(SysfsCpu::new(root)),
+        Box::new(SysfsCpu::with_roots(&roots)),
         Box::new(FakePrivilege::new(
             FakeGpuControl::new(),
             Some(root.to_owned()),
@@ -286,8 +298,10 @@ mod tests {
         assert!(library.starts_with(session.root()));
         assert!(library.join("steamapps").is_dir(), "{}", library.display());
 
-        let (mut cpu, mut privilege) = hardware(&sys_dir(session.paths()));
+        let (mut cpu, mut privilege) =
+            hardware(&sys_dir(session.paths()), &proc_dir(session.paths()));
         assert_eq!(cpu.governor().unwrap(), "powersave");
+        assert_eq!(cpu.info().unwrap().cores, 4, "cpu info reads the demo too");
         let report = privilege
             .apply_once(&HardwareRequest {
                 cpu_governor: Some("performance".into()),

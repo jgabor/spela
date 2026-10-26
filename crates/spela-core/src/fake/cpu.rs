@@ -125,10 +125,28 @@ pub fn write_sysfs(root: &std::path::Path) -> std::io::Result<()> {
             dir.join("scaling_available_governors"),
             format!("{DEMO_GOVERNORS}\n"),
         )?;
+        std::fs::write(dir.join("scaling_cur_freq"), "3420000\n")?;
     }
     std::fs::create_dir_all(cpu.join("smt"))?;
     std::fs::write(cpu.join("smt/control"), "on\n")?;
     std::fs::write(cpu.join("smt/active"), "1\n")?;
+    Ok(())
+}
+
+/// Writes the demo's procfs files under `root`, the folder that stands
+/// for `/proc`: what `cpu info` reads besides sysfs, for the four CPUs of
+/// [`write_sysfs`]. Only ever called on a temp dir.
+pub fn write_procfs(root: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(root)?;
+    let cpuinfo: String = (0..4)
+        .map(|n| format!("processor\t: {n}\nmodel name\t: {DEMO_MODEL}\n\n"))
+        .collect();
+    std::fs::write(root.join("cpuinfo"), cpuinfo)?;
+    std::fs::write(root.join("loadavg"), "0.48 0.52 0.50 1/321 4242\n")?;
+    std::fs::write(
+        root.join("meminfo"),
+        "MemTotal:       32768000 kB\nMemFree:         8192000 kB\nMemAvailable:   22732800 kB\n",
+    )?;
     Ok(())
 }
 
@@ -157,6 +175,21 @@ mod tests {
         assert!(report.all_applied(), "{report:?}");
         assert_eq!(cpu.governor().unwrap(), "performance");
         assert!(!cpu.smt_active().unwrap());
+    }
+
+    #[test]
+    fn the_demo_trees_answer_cpu_info() {
+        use crate::backend::{SysfsCpu, SystemRoots};
+        let root = tempfile::tempdir().unwrap();
+        let roots = SystemRoots::under(root.path());
+        write_sysfs(&roots.sys).unwrap();
+        write_procfs(&roots.proc).unwrap();
+        let info = SysfsCpu::with_roots(&roots).info().unwrap();
+        assert_eq!(info.model.as_deref(), Some(DEMO_MODEL));
+        assert_eq!(info.cores, 4);
+        assert_eq!(info.average_mhz, Some(3_420));
+        assert_eq!(info.load_percent, Some(12));
+        assert_eq!(info.memory_mib, Some((9_800, 32_000)));
     }
 
     #[test]

@@ -554,6 +554,18 @@ fn demo_cli_commands_run_on_the_built_in_games_and_hardware() {
         "{}",
         run.stdout()
     );
+    let run = s.run(&["--demo", "cpu", "smt", "off"]);
+    run.expect_code(0);
+    assert!(run.stdout().contains("SMT disabled"), "{}", run.stdout());
+    // `cpu info` reads the demo's fictional procfs and sysfs files.
+    let run = s.run(&["--demo", "cpu", "info"]);
+    run.expect_code(0);
+    assert!(
+        run.stdout().contains("Demo CPU 8-Core Processor"),
+        "{}",
+        run.stdout()
+    );
+    assert!(run.stdout().contains("powersave"), "{}", run.stdout());
 }
 
 #[test]
