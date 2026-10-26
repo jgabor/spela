@@ -265,28 +265,31 @@ func TestReleaseBuildInputsContract(t *testing.T) {
 	goModule := read("go.mod")
 	for _, pin := range []string{
 		"github.com/magefile/mage v1.17.2",
-		"github.com/wailsapp/wails/v2 v2.16.0",
-		"tool (",
-		"github.com/wailsapp/wails/v2/cmd/wails",
+		"tool github.com/magefile/mage",
 	} {
 		if !strings.Contains(goModule, pin) {
 			t.Errorf("go.mod does not pin %q", pin)
 		}
 	}
-	if !strings.Contains(read("internal/gui/frontend/package.json"), `"packageManager": "bun@1.3.14"`) {
-		t.Error("package.json does not pin Bun 1.3.14")
+	// The Go GUI is deleted, so no build input may still need Wails or Bun.
+	if strings.Contains(goModule, "github.com/wailsapp/wails/v2/cmd/wails") {
+		t.Error("go.mod still declares the Wails tool")
+	}
+	for _, removed := range []string{"internal/gui", "cmd/spela/wails.json", "tools/gen-nav-js"} {
+		if _, err := os.Stat(filepath.Join(repositoryRoot, removed)); !os.IsNotExist(err) {
+			t.Errorf("GUI build input %s still exists (stat error %v)", removed, err)
+		}
 	}
 	for _, workflowPath := range []string{".github/workflows/ci.yml", ".github/workflows/release.yml"} {
 		workflow := read(workflowPath)
-		if strings.Contains(workflow, "@latest") || strings.Contains(workflow, "bun-version: latest") {
+		if strings.Contains(workflow, "@latest") {
 			t.Errorf("%s contains an unpinned tool", workflowPath)
 		}
-		if strings.Contains(workflow, "hashFiles('**/bun.lock") || !strings.Contains(workflow, "hashFiles('internal/gui/frontend/bun.lock')") {
-			t.Errorf("%s does not use the tracked Bun lockfile cache key", workflowPath)
+		for _, removed := range []string{"setup-bun", "bun-version", "bun install", "bunx", "webkit", "playwright", "internal/gui"} {
+			if strings.Contains(strings.ToLower(workflow), removed) {
+				t.Errorf("%s still references the removed GUI build (%q)", workflowPath, removed)
+			}
 		}
-	}
-	if !strings.Contains(read("cmd/spela/wails.json"), `"frontend:install": "bun install --frozen-lockfile"`) {
-		t.Error("Wails frontend install is not frozen")
 	}
 
 	magefile := read("magefile.go")
@@ -295,11 +298,10 @@ func TestReleaseBuildInputsContract(t *testing.T) {
 			t.Errorf("magefile retains removed release publisher %q", removed)
 		}
 	}
-	if got := strings.Count(magefile, `"go", "tool", "wails", "build"`); got != 2 {
-		t.Errorf("pinned Wails build calls = %d, want 2 (frontend and coverage)", got)
-	}
-	if strings.Contains(magefile, `environment, "wails", "build"`) {
-		t.Error("coverage requires an unpinned Wails executable on PATH")
+	for _, removed := range []string{"wails", "bun", "frontend", "webkit2_41", "gen-nav-js"} {
+		if strings.Contains(magefile, removed) {
+			t.Errorf("magefile retains removed GUI build step %q", removed)
+		}
 	}
 	pkgbuild := read("pkg/aur/PKGBUILD")
 	if !strings.Contains(pkgbuild, "pkgname=spela-git") || !strings.Contains(pkgbuild, "git+$url.git") {
@@ -320,6 +322,11 @@ func TestReleaseBuildInputsContract(t *testing.T) {
 	srcinfo := read("pkg/aur/.SRCINFO")
 	if !strings.Contains(srcinfo, "pkgbase = spela-git") || !strings.Contains(srcinfo, "pkgname = spela-git") {
 		t.Error("AUR .SRCINFO does not describe spela-git")
+	}
+	for _, removed := range []string{"bun", "webkit2gtk", "gtk3"} {
+		if strings.Contains(pkgbuild, removed) || strings.Contains(srcinfo, removed) {
+			t.Errorf("AUR package still depends on the removed GUI (%q)", removed)
+		}
 	}
 	aurSubmit := read("scripts/aur-submit.sh")
 	if !strings.Contains(aurSubmit, "expected_account=jgabor") || !strings.Contains(aurSubmit, "Welcome to AUR, ${expected_account}!") {
@@ -523,10 +530,6 @@ func equalStrings(left, right []string) bool {
 
 func isolatedBuildEnvironment(t *testing.T) []string {
 	t.Helper()
-	realHome, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
 	values := map[string]string{}
 	for _, variable := range []string{"GOCACHE", "GOMODCACHE", "GOPATH"} {
 		value, err := exec.Command("go", "env", variable).Output()
@@ -542,7 +545,6 @@ func isolatedBuildEnvironment(t *testing.T) []string {
 	values["XDG_DATA_HOME"] = filepath.Join(state, "data")
 	values["XDG_STATE_HOME"] = filepath.Join(state, "state")
 	values["XDG_RUNTIME_DIR"] = filepath.Join(state, "runtime")
-	values["BUN_INSTALL_CACHE_DIR"] = filepath.Join(realHome, ".bun", "install", "cache")
 	for _, directory := range values {
 		if filepath.IsAbs(directory) {
 			_ = os.MkdirAll(directory, 0o755)

@@ -49,7 +49,7 @@ func yesNo(value bool) string {
 func TestConfigurationDocsMatchTheOptionCatalog(t *testing.T) {
 	documented := map[string][]string{}
 	for _, cells := range docsTableRows(t, "") {
-		if len(cells) == 10 {
+		if len(cells) == 8 {
 			documented[strings.Trim(cells[1], "`")] = cells
 		}
 	}
@@ -60,7 +60,7 @@ func TestConfigurationDocsMatchTheOptionCatalog(t *testing.T) {
 			continue
 		}
 		delete(documented, option.Key)
-		for column, visibility := range map[int]Visibility{6: VisibilityCLI, 7: VisibilityTUI, 8: VisibilityGUI} {
+		for column, visibility := range map[int]Visibility{5: VisibilityCLI, 6: VisibilityTUI} {
 			if want := yesNo(option.Visibility.Includes(visibility)); cells[column] != want {
 				t.Errorf("%s column %d = %q, want %q", option.Key, column, cells[column], want)
 			}
@@ -68,50 +68,5 @@ func TestConfigurationDocsMatchTheOptionCatalog(t *testing.T) {
 	}
 	for key := range documented {
 		t.Errorf("docs/configuration.md documents %s, which is not an option", key)
-	}
-}
-
-// Every option is in both interfaces, or the parity table names it with the
-// reason it is in only one.
-func TestSettingsParityTableMatchesBothInterfaces(t *testing.T) {
-	rows := docsTableRows(t, "## Settings parity")
-	terminal, graphical := Sections(VisibilityTUI), Sections(VisibilityGUI)
-	if len(rows) != len(terminal) {
-		t.Fatalf("parity table has %d groups, catalog has %d", len(rows), len(terminal))
-	}
-	for index, cells := range rows {
-		if len(cells) != 3 {
-			t.Fatalf("parity row %v must have three cells", cells)
-		}
-		if cells[0] != terminal[index].Title {
-			t.Errorf("parity row %d is %q, want %q", index, cells[0], terminal[index].Title)
-		}
-		inTerminal := map[string]bool{}
-		var both []string
-		for _, option := range terminal[index].Options {
-			inTerminal[option.Key] = true
-			if !option.Visibility.Includes(VisibilityGUI) {
-				t.Errorf("%s is in the TUI only; the parity table has no reason for it", option.Key)
-			}
-			both = append(both, option.Label)
-		}
-		if got := strings.Join(both, ", "); cells[1] != got {
-			t.Errorf("%s in both = %q, want %q", cells[0], cells[1], got)
-		}
-		var graphicalOnly []string
-		for _, option := range graphical[index].Options {
-			if !inTerminal[option.Key] {
-				graphicalOnly = append(graphicalOnly, option.Label)
-			}
-		}
-		reasons := cells[2]
-		for _, label := range graphicalOnly {
-			if !strings.Contains(reasons, label+": ") {
-				t.Errorf("%s is in the GUI only; the parity table gives no reason", label)
-			}
-		}
-		if len(graphicalOnly) == 0 && reasons != "" {
-			t.Errorf("%s lists a GUI-only option the catalog does not have: %q", cells[0], reasons)
-		}
 	}
 }

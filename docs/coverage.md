@@ -13,9 +13,8 @@ command, run:
 mage coverageCheck
 ```
 
-The target starts from an empty `coverage/` directory, installs the locked
-frontend dependencies, runs the declared frontend `test:coverage` package
-script, and writes the aggregate LCOV artifact to `coverage/lcov.info`. The
+The target starts from an empty `coverage/` directory, runs the Go tests with
+coverage, and writes the aggregate LCOV artifact to `coverage/lcov.info`. The
 artifact contains `LF`/`LH` line totals and is directly consumable by the
 Code Crusher gate:
 
@@ -29,6 +28,12 @@ project coverage source of truth. `mage coverageCheck` runs the converter's
 regression suite before measuring coverage, so malformed span conversion cannot
 silently pass the gate.
 
+CI no longer runs this gate. While the Go tree stays as the parity reference
+for the Rust rewrite, CI only runs `go build ./...` and `go test ./...`
+(`docs/architecture.md`, CI step 8). The 90% minimum does not hold today:
+`tools/goref`, the untested fixture generator, is inside the `./tools/...`
+denominator. The gate and this file go with the Go tree in the final step.
+
 ## Scope and classification
 
 - **Go production:** working-tree `.go` files in `cmd/`, `internal/`, and `tools/`.
@@ -38,36 +43,25 @@ silently pass the gate.
   `tests/contracts/`. The tagged TUI tests in `tests/e2e/` remain end-to-end
   verification and are not production code or part of the headless unit
   coverage run.
-- **Build tags:** five package graphs are measured and merged by source line:
-  default; `dev,webkit2_41`; `e2e`; `wails,production,webkit2_41`; and
-  `wails,production,embed_assets,webkit2_41`. Together they include the normal
-  CLI graph, tagged E2E hooks, Wails process startup, development GUI code,
-  non-embedded production assets, and embedded production assets in the
-  maintained-source denominator. The embedded graph runs after a locked
-  frontend build so the
-  `go:embed` input exists in clean checkouts. A Go AST inventory scans every
-  non-test source under the production roots and fails if a file containing an
-  executable function body is absent from all five raw profiles. Declaration-only
-  files are allowed to be absent because Go cannot instrument them. There are
-  currently no generated or non-runtime Go source exclusions.
-- **Frontend production:** every tracked `src/**/*.js` and `src/**/*.svelte`
-  file is included, including files not imported by a test. `*.test.js` is
-  classified as test code.
-- **Generated/external/build files:** generated Wails bindings (`wailsjs/`) and
-  `navContract.generated.js`, vendored dependencies (`vendor/` and
-  `node_modules/`), frontend `dist/`, Playwright output, coverage output,
-  binaries, fixtures, and other build output are excluded. They are generated
-  adapters, third-party code, or test data rather than maintained production
+- **Build tags:** two package graphs are measured and merged by source line:
+  the default graph and the `e2e` graph of `internal/tui`, which holds the
+  tagged E2E hooks. A Go AST inventory scans every non-test source under the
+  production roots and fails if a file containing an executable function body
+  is absent from both raw profiles. Declaration-only files are allowed to be
+  absent because Go cannot instrument them. There are currently no generated
+  or non-runtime Go source exclusions.
+- **Generated/external/build files:** vendored dependencies (`vendor/`),
+  coverage output, binaries, fixtures, and other build output are excluded.
+  They are third-party code or test data rather than maintained production
   logic.
 
 Go's coverprofile associates executable blocks with UTF-8 byte-column source
 spans. The merger slices source as bytes, decodes complete spans, expands them
 over executable source lines, excludes blank, comment-only, and delimiter-only
 lines, and takes the maximum hit state for each source line across duplicate
-records and build-tag runs. Frontend line data comes from Vitest's V8 LCOV
-report. Serialized `DA` hit counts are normalized to `0` or `1`, paths and
+records and build-tag runs. Serialized `DA` hit counts are normalized to `0` or `1`, paths and
 records are sorted, and isolated equivalent runs therefore produce identical
-artifacts. The final percentage is `sum(LH) / sum(LF)` across both ecosystems.
+artifacts. The final percentage is `sum(LH) / sum(LF)`.
 
 ## Simplification behavior baselines
 
@@ -98,15 +92,12 @@ than the duplicated implementation that those epics will remove.
   exercise `DetailModel` formatting rather than the deleted widget helpers.
   The DLSS preset modal and generic dialog compatibility were removed because
   no compiled input path opened them. Preset behavior remains covered through
-  profile field mutation, CLI/GUI patches, YAML round trips, and launch apply.
+  profile field mutation, CLI patches, YAML round trips, and launch apply.
 - **Unify global configuration operations:** `TestConfigYAMLContract`,
-  `TestRoundtrip`, `TestConfigCLITextAndErrorContract`, and the `config` case of
-  `TestWailsJSONKeyContracts` preserve YAML, CLI, and Wails keys.
-- **Centralize DLL mutation operations:**
-  `TestGUIBoundaryDLLPassInstallsThroughBoundary`,
-  `TestGUIBoundaryDLLPassUpdatesThroughBoundary`, and
-  `TestGUIBoundaryDLLPartialOutcomesAfterMutation` preserve successful and
-  post-mutation scan/save failure outcomes.
+  `TestRoundtrip` and `TestConfigCLITextAndErrorContract` preserve YAML and CLI
+  keys.
+- **Centralize DLL mutation operations:** the GUI boundary tests that covered
+  this were deleted with the GUI in Phase 1 of the Rust rewrite.
 - **Make GitHub Actions the sole release publisher:**
   `TestReleaseWorkflowArtifactContract` parses the actual release workflow and
   pins its `v*` tag trigger, `contents: write` permission, canonical build,
@@ -114,17 +105,16 @@ than the duplicated implementation that those epics will remove.
   inputs, and both stable and development AUR publications.
   `TestReleaseArtifactContractBuildsFromCleanArchiveAndVerifiesChecksum`
   complements it by executing the artifact path from a clean tracked-source
-  snapshot. `TestReleaseBuildInputsContract` keeps tool pins, frozen Bun
-  installs, PKGBUILD outputs, and the absence of local publishing helpers in
+  snapshot. `TestReleaseBuildInputsContract` keeps tool pins, the absence of
+  the GUI build inputs, PKGBUILD outputs, and the absence of local publishing helpers in
   the same nonpublishing contract.
 - **Unify profile fields and field-level mutations:** `TestProfileYAMLContract`,
   `TestOverrides_YAMLRoundTrip`, `TestMigration_LegacyProfileRoundTrip`,
-  `TestProfileCLITextJSONAndErrorContract`, and the remaining
-  `TestWailsJSONKeyContracts` cases preserve profile persistence and interface
-  projections.
+  and `TestProfileCLITextJSONAndErrorContract` preserve profile persistence
+  and the CLI projection.
 - **Serialize raw profile mutation:** `TestMutateConcurrentDistinctSurfaceFieldsAndRollback`
   verifies that distinct concurrent field edits survive and callback failures
   leave the original YAML unchanged. `TestCreateAndDeleteShareMutationTransaction`
   covers create/delete serialization, while the TUI profile save serialization
-  tests preserve the latest state across back-to-back inputs. CLI, TUI, and GUI
+  tests preserve the latest state across back-to-back inputs. CLI and TUI
   writers use this profile-owned transaction.

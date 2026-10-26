@@ -10,8 +10,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# While the Go tree stays as the parity reference, CI only checks that it
+# still builds and its tests pass (docs/architecture.md, CI step 8). The
+# Rust gate is in rust.yml. The Go lint, coverage and e2e jobs are gone:
+# the Go code is frozen, and decision 54 drops the Go e2e oracle. This file
+# goes with the Go tree in the final step (decision 62).
 jobs:
-  lint:
+  go:
+    name: Go reference build and tests
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -23,99 +29,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-
-      - name: Install webview dependencies
-        uses: awalsh128/cache-apt-pkgs-action@acb598e5ddbc6f68a970c5da0688d2f3a9f04d05 # v1.6.0
-        with:
-          packages: libgtk-3-dev libwebkit2gtk-4.1-dev
-          version: 1.0
-
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa # v7.0.1
-        with:
-          version: v2.1.2
-          install-mode: goinstall
-          args: ./cmd/... ./internal/... ./tools/...
-
-  build:
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Set up bun
-        uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2.1.2
-        with:
-          bun-version: 1.3.14
-
-      - name: Cache bun dependencies
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-1.3.14-${{ hashFiles('internal/gui/frontend/bun.lock') }}
-
-      - name: Install webview dependencies
-        uses: awalsh128/cache-apt-pkgs-action@acb598e5ddbc6f68a970c5da0688d2f3a9f04d05 # v1.6.0
-        with:
-          packages: libgtk-3-dev libwebkit2gtk-4.1-dev
-          version: 1.0
 
       - name: Build
-        run: go tool mage build
+        run: go build ./...
 
-      - name: Enforce canonical coverage
-        run: go tool mage coverageCheck
-
-      - name: Upload aggregate coverage
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: aggregate-line-coverage
-          path: coverage/lcov.info
-
-  e2e:
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-    needs: build
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Install Terminal Control
-        run: cargo install --locked terminal-control --version 0.3.1
-
-      - name: Set up bun
-        uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2.1.2
-        with:
-          bun-version: 1.3.14
-
-      - name: Install dependencies
-        working-directory: internal/gui/frontend
-        run: bun install --frozen-lockfile
-
-      - name: Install Playwright browsers
-        working-directory: internal/gui/frontend
-        run: bunx playwright install --with-deps chromium
-
-      - name: Run e2e tests
-        run: go tool mage TestE2E
-
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: ${{ !cancelled() }}
-        with:
-          name: playwright-report
-          path: internal/gui/frontend/playwright-report/
-          retention-days: 30
+      - name: Test
+        run: go test ./...

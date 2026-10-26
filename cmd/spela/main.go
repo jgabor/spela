@@ -1,5 +1,3 @@
-//go:build !wails
-
 package main
 
 import (
@@ -42,7 +40,6 @@ func init() {
 	rootCmd.AddCommand(commands.ProtonCmd)
 	rootCmd.AddCommand(commands.OverlayCmd)
 	rootCmd.AddCommand(commands.TUICmd)
-	rootCmd.AddCommand(commands.GUICmd)
 	rootCmd.AddCommand(commands.DenylistCmd)
 	rootCmd.AddCommand(commands.ApplyProfileCmd)
 }

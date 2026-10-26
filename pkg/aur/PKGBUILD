@@ -7,8 +7,8 @@ pkgdesc="Linux gaming optimization tool for NVIDIA GPUs with DLSS/DLL management
 arch=('x86_64')
 url="https://github.com/jgabor/spela"
 license=('MIT')
-depends=('nvidia-utils' 'webkit2gtk-4.1' 'gtk3')
-makedepends=('git' 'go>=1.25.5' 'bun')
+depends=('nvidia-utils')
+makedepends=('git' 'go>=1.25.5')
 optdepends=(
     'nvidia-settings: GPU settings control'
     'polkit: Privileged operations support'

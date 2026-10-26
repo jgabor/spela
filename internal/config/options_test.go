@@ -1,7 +1,6 @@
 package config
 
 import (
-	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -11,40 +10,39 @@ import (
 func TestOptionsClassifyEveryConfigField(t *testing.T) {
 	want := []struct {
 		key        string
-		jsonKey    string
 		section    nav.SettingsSection
 		kind       Kind
 		visibility Visibility
 	}{
-		{"log_level", "logLevel", nav.SettingsLogging, KindEnum, VisibilityCLI | VisibilityTUI | VisibilityGUI | VisibilityWails},
-		{"shader_cache", "shaderCache", nav.SettingsPaths, KindPath, VisibilityCLI | VisibilityTUI | VisibilityGUI | VisibilityWails},
-		{"check_updates", "checkUpdates", nav.SettingsStartup, KindBool, VisibilityCLI | VisibilityTUI | VisibilityGUI | VisibilityWails},
-		{"rescan_on_startup", "rescanOnStartup", nav.SettingsStartup, KindBool, VisibilityTUI | VisibilityGUI | VisibilityWails},
-		{"auto_update_dlls", "autoUpdateDLLs", nav.SettingsStartup, KindBool, VisibilityTUI | VisibilityGUI | VisibilityWails},
-		{"steam_path", "steamPath", nav.SettingsPaths, KindPath, VisibilityTUI | VisibilityGUI | VisibilityWails},
-		{"additional_library_paths", "additionalLibraryPaths", nav.SettingsPaths, KindStringList, VisibilityTUI | VisibilityGUI | VisibilityWails},
-		{"dll_cache_path", "dllCachePath", nav.SettingsPaths, KindPath, VisibilityTUI | VisibilityGUI | VisibilityWails},
-		{"backup_path", "backupPath", nav.SettingsPaths, KindPath, VisibilityTUI | VisibilityGUI | VisibilityWails},
-		{"dll_manifest_url", "dllManifestURL", nav.SettingsDLLPolicy, KindPath, VisibilityTUI | VisibilityGUI | VisibilityWails},
-		{"auto_refresh_manifest", "autoRefreshManifest", nav.SettingsDLLPolicy, KindBool, VisibilityTUI | VisibilityGUI | VisibilityWails},
-		{"manifest_refresh_hours", "manifestRefreshHours", nav.SettingsDLLPolicy, KindInt, VisibilityTUI | VisibilityGUI | VisibilityWails},
-		{"theme", "theme", nav.SettingsDisplay, KindEnum, VisibilityGUI | VisibilityWails},
-		{"compact_mode", "compactMode", nav.SettingsDisplay, KindBool, VisibilityTUI | VisibilityGUI | VisibilityWails},
-		{"confirm_destructive", "confirmDestructive", nav.SettingsDisplay, KindBool, VisibilityTUI | VisibilityGUI | VisibilityWails},
+		{"log_level", nav.SettingsLogging, KindEnum, VisibilityCLI | VisibilityTUI},
+		{"shader_cache", nav.SettingsPaths, KindPath, VisibilityCLI | VisibilityTUI},
+		{"check_updates", nav.SettingsStartup, KindBool, VisibilityCLI | VisibilityTUI},
+		{"rescan_on_startup", nav.SettingsStartup, KindBool, VisibilityTUI},
+		{"auto_update_dlls", nav.SettingsStartup, KindBool, VisibilityTUI},
+		{"steam_path", nav.SettingsPaths, KindPath, VisibilityTUI},
+		{"additional_library_paths", nav.SettingsPaths, KindStringList, VisibilityTUI},
+		{"dll_cache_path", nav.SettingsPaths, KindPath, VisibilityTUI},
+		{"backup_path", nav.SettingsPaths, KindPath, VisibilityTUI},
+		{"dll_manifest_url", nav.SettingsDLLPolicy, KindPath, VisibilityTUI},
+		{"auto_refresh_manifest", nav.SettingsDLLPolicy, KindBool, VisibilityTUI},
+		{"manifest_refresh_hours", nav.SettingsDLLPolicy, KindInt, VisibilityTUI},
+		{"theme", nav.SettingsDisplay, KindEnum, 0},
+		{"compact_mode", nav.SettingsDisplay, KindBool, VisibilityTUI},
+		{"confirm_destructive", nav.SettingsDisplay, KindBool, VisibilityTUI},
 	}
 	if reflect.TypeOf(Config{}).NumField() != len(want) || len(Options()) != len(want) {
 		t.Fatalf("Config fields = %d, options = %d, want %d", reflect.TypeOf(Config{}).NumField(), len(Options()), len(want))
 	}
 	for index, expected := range want {
 		option := Options()[index]
-		if option.Key != expected.key || option.JSONKey != expected.jsonKey || option.Section != expected.section || option.Kind != expected.kind || option.Visibility != expected.visibility {
-			t.Errorf("option[%d] = {%q %q %d %d %d}, want %+v", index, option.Key, option.JSONKey, option.Section, option.Kind, option.Visibility, expected)
+		if option.Key != expected.key || option.Section != expected.section || option.Kind != expected.kind || option.Visibility != expected.visibility {
+			t.Errorf("option[%d] = {%q %d %d %d}, want %+v", index, option.Key, option.Section, option.Kind, option.Visibility, expected)
 		}
-		if option.Label == "" || option.Description == "" || OptionByKey(option.Key) != &Options()[index] || OptionByJSONKey(option.JSONKey) == nil {
+		if option.Label == "" || option.Description == "" || OptionByKey(option.Key) != &Options()[index] {
 			t.Errorf("option[%d] has incomplete operations or presentation metadata", index)
 		}
 	}
-	if OptionByKey("missing") != nil || OptionByJSONKey("missing") != nil {
+	if OptionByKey("missing") != nil {
 		t.Fatal("unknown option unexpectedly resolved")
 	}
 }
@@ -98,38 +96,8 @@ func TestOptionValidationAndCatalogParity(t *testing.T) {
 			t.Errorf("catalogued theme %q rejected: %v", choice, err)
 		}
 	}
-	if len(Sections(VisibilityTUI)) != len(nav.SettingsSectionLabels) || len(Sections(VisibilityGUI)) != len(nav.SettingsSectionLabels) {
+	if len(Sections(VisibilityTUI)) != len(nav.SettingsSectionLabels) {
 		t.Fatal("visible catalogs do not preserve navigation sections")
-	}
-}
-
-func TestConfigJSONKeysComeFromPublicTags(t *testing.T) {
-	data, err := json.Marshal(Config{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var got map[string]any
-	if err := json.Unmarshal(data, &got); err != nil {
-		t.Fatal(err)
-	}
-	for _, option := range Options() {
-		if _, ok := got[option.JSONKey]; !ok {
-			t.Errorf("JSON key %q missing", option.JSONKey)
-		}
-	}
-}
-
-func TestWailsCatalogOnlyExposesGUIOptions(t *testing.T) {
-	seen := map[string]bool{}
-	for _, section := range WailsCatalog() {
-		for _, option := range section.Options {
-			seen[option.Key] = true
-		}
-	}
-	for _, visible := range []string{"theme", "manifestRefreshHours", "logLevel", "additionalLibraryPaths", "shaderCache", "dllCachePath", "backupPath", "dllManifestURL", "autoRefreshManifest"} {
-		if !seen[visible] {
-			t.Errorf("GUI option %q missing", visible)
-		}
 	}
 }
 

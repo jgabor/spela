@@ -27,10 +27,8 @@ yay -S spela-git
 
 ### Build from source
 
-Build prerequisites are Git, Go 1.25.5 or newer, Bun 1.3.14 (the pinned package
-manager version), a C toolchain, `pkg-config`, and the GTK 3 and WebKit2GTK 4.1
-development headers. These dependencies are needed for the integrated binary,
-even when you only use its CLI or TUI. Installation also uses `sudo`.
+Build prerequisites are Git, Go 1.25.5 or newer, and a C toolchain.
+Installation also uses `sudo`.
 
 ```bash
 git clone https://github.com/jgabor/spela.git

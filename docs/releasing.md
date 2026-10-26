@@ -17,9 +17,8 @@ For a tag `vX.Y.Z`:
   `checksums.txt` with its SHA-256 checksum.
 - The release body is exactly the matching changelog section body (not the
   heading and not an adjacent release).
-- CI, the tag workflow, source builds, and the AUR PKGBUILD use the `Build` Mage
-  target as the canonical generation, frozen frontend install, frontend build,
-  and embedded Go binary path. Build tags and linker flags live only there.
+- The tag workflow, source builds, and the AUR PKGBUILD use the `Build` Mage
+  target as the canonical Go binary build. Linker flags live only there.
 
 The resulting binary remains named `spela` for source and package builds. Only
 the GitHub release copy is renamed to `spela-linux-amd64`.
@@ -34,7 +33,6 @@ VERSION=X.Y.Z
 git cliff --tag "v$VERSION" -o CHANGELOG.md
 git diff --check
 git diff -- CHANGELOG.md
-go tool mage coverageCheck
 go tool mage test
 go tool mage lint
 go tool mage build

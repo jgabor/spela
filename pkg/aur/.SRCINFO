@@ -7,10 +7,7 @@ pkgbase = spela-git
 	license = MIT
 	makedepends = git
 	makedepends = go>=1.25.5
-	makedepends = bun
 	depends = nvidia-utils
-	depends = webkit2gtk-4.1
-	depends = gtk3
 	optdepends = nvidia-settings: GPU settings control
 	optdepends = polkit: Privileged operations support
 	provides = spela
