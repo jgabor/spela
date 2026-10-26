@@ -33,6 +33,9 @@ build() {
     cd "$srcdir/$_pkgname"
     export RUSTUP_TOOLCHAIN=stable
     export CARGO_TARGET_DIR=target
+    # The version spela reports, which turns on the TUI's release check, as
+    # Go's AUR build set it (decision 68).
+    export SPELA_VERSION="$pkgver"
     cargo build --frozen --release -p "$_pkgname"
 }
 

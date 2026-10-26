@@ -593,6 +593,7 @@ fn the_aur_package_builds_with_cargo_and_installs_binary_and_policy() {
         "git describe --long --abbrev=7 --tags --match 'v[0-9]*'",
         "makedepends=('cargo' 'git')",
         "cargo fetch --locked --target",
+        "export SPELA_VERSION=\"$pkgver\"",
         "cargo build --frozen --release -p \"$_pkgname\"",
         "install -Dm755 \"target/release/$_pkgname\" \"$pkgdir/usr/bin/$_pkgname\"",
         "install -Dm644 data/polkit/io.github.spela.policy \"$pkgdir/usr/share/polkit-1/actions/io.github.spela.policy\"",
@@ -611,6 +612,28 @@ fn the_aur_package_builds_with_cargo_and_installs_binary_and_policy() {
     ] {
         assert!(!pkgbuild.contains(gone), "PKGBUILD still has {gone:?}");
     }
+    // Decision 68: the pkgver that pkgver() makes from `git describe` is a
+    // version the release check accepts, compared by its release part.
+    let describe = pkgbuild
+        .lines()
+        .find(|l| l.contains("git describe"))
+        .unwrap();
+    let (_, sed) = describe.split_once("| ").unwrap();
+    let scratch = tempfile::tempdir().unwrap();
+    let out = bash(
+        &format!("echo v0.7.0-6-g087d1c4 | {sed}"),
+        scratch.path(),
+        scratch.path(),
+        &[],
+    );
+    assert!(out.status.success(), "{out:?}");
+    let pkgver = String::from_utf8(out.stdout).unwrap();
+    assert_eq!(pkgver.trim(), "0.7.0.r6.g087d1c4");
+    assert_eq!(
+        spela_core::release::release_base(pkgver.trim()),
+        Some("0.7.0")
+    );
+
     let srcinfo = read("pkg/aur/.SRCINFO");
     assert!(srcinfo.starts_with("pkgbase = spela-git\n"));
     assert!(srcinfo.contains("\npkgname = spela-git\n"));

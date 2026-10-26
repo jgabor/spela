@@ -91,8 +91,11 @@ stages the same files under `<dir>` instead.
 `pkg/aur/PKGBUILD` is the source of truth for `spela-git`, and
 `pkg/aur/.SRCINFO` is its generated form. The package builds with cargo:
 `prepare()` fetches the locked crates and `build()` runs
-`cargo build --frozen --release -p spela`. It installs the binary, the polkit
-policy and the licence. Submit the files only when the package metadata or
+`cargo build --frozen --release -p spela` with `SPELA_VERSION` set to the
+pkgver, such as `0.7.0.r6.g087d1c4`, as Go's AUR build did. spela reports that
+version, and the TUI's release check compares its release part, `0.7.0`, with
+the tags (decision 68). It installs the binary, the polkit policy and the
+licence. Submit the files only when the package metadata or
 build recipe changes, not for ordinary commits or tags. The AUR builds the
 upstream default branch, so submit the cargo recipe only once the Rust tree is
 on it.

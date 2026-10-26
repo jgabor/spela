@@ -12,9 +12,12 @@
 //!   future. Every attempt is recorded in `<cache>/release-check.json`; only
 //!   a success changes `latest`. A state file that cannot be read counts as
 //!   never checked.
-//! - Only a release build checks: one whose version came from release CI
-//!   through `SPELA_VERSION` at build time. Every other build reports
-//!   `<crate version>-dev` and never asks.
+//! - Only a release or packaged build checks: one whose version came
+//!   through `SPELA_VERSION` at build time, from release CI as `X.Y.Z` or
+//!   from the AUR `spela-git` package as its pkgver, such as
+//!   `0.7.0.r6.g087d1c4` (decision 68). A packaged build compares its
+//!   release part, `0.7.0`, with the tags. Every other build reports
+//!   `<crate version>-dev` and never asks. Go skipped `-git` builds.
 //! - Only the TUI checks, gated by `check_updates`; the CLI stays quiet
 //!   (decision 39). The URL is a parameter, so tests point it at the fake.
 
@@ -46,17 +49,41 @@ pub const MAX_PAGES: usize = 5;
 static RELEASE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^v?\d+\.\d+\.\d+$").expect("the release pattern compiles"));
 
+/// An AUR VCS pkgver: the tag's release, the commits since it and the
+/// commit, as `pkg/aur/PKGBUILD`'s `pkgver()` writes it.
+static PACKAGED: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^(v?\d+\.\d+\.\d+)\.r\d+\.g[0-9a-f]+$").expect("the pkgver pattern compiles")
+});
+
 /// Whether `version` is a plain release, `1.2.3` or `v1.2.3`. Development
 /// builds and `git describe` output are not.
 pub fn is_release(version: &str) -> bool {
     RELEASE.is_match(version)
 }
 
-/// The running version: the release version CI built in, or
-/// `<crate version>-dev`.
+/// The release a version is built from: a plain release as it is, and a
+/// `spela-git` pkgver such as `0.7.0.r6.g087d1c4` as `0.7.0` (decision 68).
+/// `None` for every other version, which never checks.
+pub fn release_base(version: &str) -> Option<&str> {
+    if is_release(version) {
+        return Some(version);
+    }
+    PACKAGED
+        .captures(version)
+        .and_then(|c| c.get(1))
+        .map(|m| m.as_str())
+}
+
+/// The running version: the version release CI or the AUR package built
+/// in, or `<crate version>-dev`.
 pub fn running_version() -> String {
-    match option_env!("SPELA_VERSION") {
-        Some(v) if is_release(v) => v.to_owned(),
+    version_from(option_env!("SPELA_VERSION"))
+}
+
+/// The running version for a build-time `SPELA_VERSION` of `built`.
+fn version_from(built: Option<&str>) -> String {
+    match built {
+        Some(v) if release_base(v).is_some() => v.to_owned(),
         _ => format!("{}-dev", crate::VERSION),
     }
 }
@@ -141,9 +168,9 @@ pub fn check(
     tags_url: &str,
 ) -> Checked {
     let mut out = Checked::default();
-    if !is_release(current) {
+    let Some(base) = release_base(current) else {
         return out;
-    }
+    };
     let mut state = load_state(paths);
     let now = clock.now();
     let due = match state.checked_at {
@@ -166,7 +193,7 @@ pub fn check(
             ));
         }
     }
-    if is_release(&state.latest) && version::is_newer(current, &state.latest) {
+    if is_release(&state.latest) && version::is_newer(base, &state.latest) {
         out.notice = Some(Notice {
             current: current.to_owned(),
             latest: state.latest,
@@ -291,7 +318,47 @@ mod tests {
         ] {
             assert!(!is_release(v), "{v}");
         }
-        assert!(running_version().ends_with("-dev") || is_release(&running_version()));
+        assert!(running_version().ends_with("-dev") || release_base(&running_version()).is_some());
+    }
+
+    #[test]
+    fn packaged_versions_report_themselves_and_compare_their_release() {
+        // pkg/aur's pkgver() turns `v0.7.0-6-g087d1c4` into this.
+        assert_eq!(release_base("0.7.0.r6.g087d1c4"), Some("0.7.0"));
+        assert_eq!(release_base("0.7.0.r0.gabcdef1"), Some("0.7.0"));
+        assert_eq!(release_base("v1.2.3"), Some("v1.2.3"));
+        for v in [
+            "0.7.0-dev",
+            "0.7.0.r6",
+            "0.7.0.r6.gXYZ",
+            "0.7.r6.g087d1c4",
+            "dev",
+        ] {
+            assert_eq!(release_base(v), None, "{v}");
+        }
+        assert_eq!(version_from(Some("0.7.0.r6.g087d1c4")), "0.7.0.r6.g087d1c4");
+        assert_eq!(version_from(Some("0.7.1")), "0.7.1");
+        let dev = format!("{}-dev", crate::VERSION);
+        assert_eq!(version_from(Some("0.7.0-6-g087d1c4")), dev);
+        assert_eq!(version_from(None), dev);
+    }
+
+    #[test]
+    fn a_packaged_build_checks_against_its_release() {
+        let (_base, paths, http, clock) = setup();
+        http.serve(URL, tags(&["v0.7.1", "v0.7.0"]));
+        let checked = check(&paths, &http, &clock, "0.7.0.r6.g087d1c4", URL);
+        assert!(checked.asked);
+        assert_eq!(
+            checked.notice,
+            Some(Notice {
+                current: "0.7.0.r6.g087d1c4".into(),
+                latest: "v0.7.1".into(),
+            })
+        );
+        // Built past the newest tag: nothing newer.
+        let checked = check(&paths, &http, &clock, "0.7.1.r2.g1234567", URL);
+        assert_eq!(checked.notice, None);
     }
 
     #[test]
