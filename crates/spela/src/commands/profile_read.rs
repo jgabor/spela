@@ -46,7 +46,7 @@ pub fn list(
     out: &mut dyn Write,
     _err: &mut dyn Write,
 ) -> Result<(), CliError> {
-    let listing = store::list(&ctx.paths).map_err(read::profile_error)?;
+    let listing = store::list(&ctx.paths).map_err(crate::commands::target::profile_error)?;
     for (app_id, e) in &listing.broken {
         tracing::warn!(app_id, "skipping a profile that does not load: {e}");
     }

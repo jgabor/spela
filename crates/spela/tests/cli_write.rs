@@ -661,8 +661,23 @@ fn denylist_writes_clear_each_other() {
         "Frostline Arena (9100070) has no allow or deny of yours\n"
     );
     assert_eq!(case.files(), before, "nothing to clear writes nothing");
+    // An AppID the cache does not know is named by its digits, as in Go and
+    // in `denylist check`, even when the built-in list names it.
     let out = case.ok(&["denylist", "allow", "252490"]);
-    assert!(out.starts_with("Force-allowed Rust (252490)\n"), "{out}");
+    assert!(out.starts_with("Force-allowed 252490 (252490)\n"), "{out}");
+    let out = case.ok(&["denylist", "deny", "252490"]);
+    assert_eq!(out, "Denied 252490 (252490): user-specified\n");
+    let out = case.ok(&["denylist", "check", "252490"]);
+    assert!(
+        out.starts_with("252490 is DENIED: user-specified\n"),
+        "{out}"
+    );
+    let run = case.run(&["denylist", "deny", "18446744073709551615"]);
+    run.expect_code(2);
+    assert_eq!(
+        run.stderr(),
+        "error: app id 18446744073709551615 is too large for TOML\n"
+    );
     let run = case.run(&["denylist", "allow", "nope"]);
     run.expect_code(1);
     assert!(run.stderr().starts_with("error: game not found: nope\n"));
@@ -738,13 +753,20 @@ fn a_go_overrides_file_that_does_not_migrate_blocks_deny_list_writes() {
         &["denylist", "allow", "9100010"][..],
         &["denylist", "deny", "9100010"][..],
         &["denylist", "clear", "9100010"][..],
+        &["denylist", "show"][..],
+        &["denylist", "check", "9100010"][..],
     ] {
         let run = case.run(args);
         run.expect_code(3);
         let err = run.stderr();
         assert!(
-            err.contains("error: cannot migrate Go spela's deny overrides "),
+            err.contains("error: cannot migrate Go spela's deny list "),
             "{err}"
+        );
+        assert!(
+            err.contains("hint: Fix the YAML or the folder's permissions")
+                && !err.contains("remove the file"),
+            "the hint never says to delete a deny list: {err}"
         );
     }
     assert!(!lists.join("overrides.toml").exists());

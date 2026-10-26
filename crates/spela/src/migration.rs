@@ -16,9 +16,9 @@
 //!   the notice itself.
 //! - A Go `config.yaml` that does not migrate exits 3 with Go's advice.
 //! - A write to a scope whose Go file failed is refused with exit 3
-//!   ([`refuse_profile`], [`refuse_overrides`]): the Go file is tried again
-//!   at the next start, and a TOML file written now would be adopted in its
-//!   place.
+//!   ([`refuse_profile`]): the Go file is tried again at the next start, and
+//!   a TOML file written now would be adopted in its place. The deny list
+//!   module refuses its own writes the same way.
 
 use std::io::Write;
 use std::path::Path;
@@ -33,8 +33,12 @@ use crate::commands::cpu::CpuCommand;
 use crate::commands::gpu::GpuCommand;
 use crate::error::{CliError, exit};
 
-/// The advice for a Go profile or list file that does not migrate.
+/// The advice for a Go profile that does not migrate.
 pub const SOURCE_HINT: &str = "Fix the YAML or remove the file; spela migrates it on the next run, and the Go file stays as a backup.";
+
+/// The advice for a Go deny list file that does not migrate. Removing it
+/// would throw away the user's allows and denials, so it never says to.
+pub const LIST_HINT: &str = "Fix the YAML or the folder's permissions; spela migrates the file on the next run. Removing it would lose the games it lists.";
 
 /// Whether a command reads or writes spela's config, profiles or lists, so
 /// the migration must run before it. Help, completions, the removed names,
@@ -109,11 +113,14 @@ fn failed(report: &Report, kind: SourceKind) -> Option<&Handled> {
     report.failed().find(|h| h.kind == kind)
 }
 
-fn refusal(path: &Path, what: &str, error: &str) -> CliError {
+/// The error for a Go profile that did not migrate: exit 3, naming the
+/// file. A Go deny list that did not migrate is the core's
+/// `ListError::NotMigrated`, with [`LIST_HINT`].
+pub fn not_migrated(path: &Path, error: &str) -> CliError {
     CliError::new(
         exit::CONFIG,
         format!(
-            "cannot migrate Go spela's {what} {}: {error}",
+            "cannot migrate Go spela's profile {}: {error}",
             path.display()
         ),
     )
@@ -128,16 +135,7 @@ pub fn refuse_profile(report: &Report, scope: Scope) -> Result<(), CliError> {
         Scope::Game(app_id) => SourceKind::Game(app_id),
     };
     match failed(report, kind) {
-        Some(h) => Err(refusal(&h.entry.path, "profile", &h.entry.error)),
-        None => Ok(()),
-    }
-}
-
-/// Refuses a write to `overrides.toml` while Go's `overrides.yaml` did not
-/// migrate. Exit 3, naming the file.
-pub fn refuse_overrides(report: &Report) -> Result<(), CliError> {
-    match failed(report, SourceKind::DenyOverrides) {
-        Some(h) => Err(refusal(&h.entry.path, "deny overrides", &h.entry.error)),
+        Some(h) => Err(not_migrated(&h.entry.path, &h.entry.error)),
         None => Ok(()),
     }
 }
@@ -200,14 +198,12 @@ mod tests {
         let base = tempfile::tempdir().unwrap();
         let paths = Paths::under(base.path());
         write(&paths.go().game_profile(9100030), "name: [\n");
-        write(&paths.go().deny_overrides(), "allowed: [\n");
         let report = run(&paths, &clock(), &mut Vec::new(), true).unwrap();
         let e = refuse_profile(&report, Scope::Game(9100030)).unwrap_err();
         assert_eq!(e.code, exit::CONFIG);
         assert!(e.message.contains("9100030.yaml"), "{}", e.message);
+        assert_eq!(e.hint.as_deref(), Some(SOURCE_HINT));
         assert!(refuse_profile(&report, Scope::Game(9100010)).is_ok());
         assert!(refuse_profile(&report, Scope::AllGames).is_ok());
-        let e = refuse_overrides(&report).unwrap_err();
-        assert!(e.message.contains("overrides.yaml"), "{}", e.message);
     }
 }

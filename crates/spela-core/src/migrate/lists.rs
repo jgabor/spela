@@ -104,18 +104,11 @@ pub fn overrides(text: &str) -> Result<Converted, YamlError> {
             denied.push(entry);
         }
     }
-    if let Some(id) = allowed
-        .iter()
-        .chain(denied.iter().map(|e| &e.app_id))
-        .find(|id| i64::try_from(**id).is_err())
-    {
-        return Err(yaml_like(format!("app id {id} is too large for TOML")));
-    }
-    // One writer for overrides.toml: the deny list module's.
-    Ok(Converted {
-        text: denylist::overrides_toml(&Overrides { allowed, denied }),
-        dropped,
-    })
+    // One writer for overrides.toml: the deny list module's. It refuses an
+    // app id TOML cannot hold.
+    let text = denylist::overrides_toml(&Overrides { allowed, denied })
+        .map_err(|e| yaml_like(e.to_string()))?;
+    Ok(Converted { text, dropped })
 }
 
 /// Converts Go's `denylist.yaml`.

@@ -1,30 +1,30 @@
 //! What the write commands share: the profile a command changes, the game a
-//! `<game>` argument names, and how store errors become exit codes.
+//! `<game>` argument names, and how store errors become exit codes, for the
+//! read commands too.
 //!
 //! A command that edits a profile takes `<game>` or `--all-games`, which
 //! edits All games (decision 20). A game resolves through the game cache as
 //! every command does: a numeric AppID first, then an exact name. When the
-//! cache is empty the CLI scans once first (decision 24).
+//! cache is empty the CLI tries one scan first ([`Rescan::IfEmptyQuietly`]).
 //!
-//! Exit codes for store errors: a file that does not load, or that a newer
-//! spela wrote, exits 3; a value a field or setting cannot hold exits 2; a
-//! file that cannot be read or written exits 1.
+//! Exit codes for store errors: a file that does not load, that a newer
+//! spela wrote, or whose Go file did not migrate exits 3; a value a field
+//! or setting cannot hold exits 2; a held `config.lock` exits 5; a file
+//! that cannot be read or written exits 1.
 
 use std::io::Write;
 
 use spela_core::config::store::ConfigStoreError;
 use spela_core::denylist::ListError;
-use spela_core::games::scan::rescan;
-use spela_core::games::{Game, GameCache, cache};
+use spela_core::games::Game;
 use spela_core::profile::store::ProfileError;
 use spela_core::profile::words::ALL_GAMES;
 use spela_core::profile::{FieldError, Scope};
 
-use super::read;
-pub use super::read::SCAN_HINT;
+use super::read::{self, Rescan};
 use crate::cli::Context;
 use crate::error::{CliError, exit};
-use crate::migration;
+use crate::migration::{self, LIST_HINT};
 
 /// The profile a write command changes.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -78,36 +78,15 @@ pub fn target(ctx: &Context, game: Option<&str>, all_games: bool) -> Result<Targ
     Ok(target)
 }
 
-/// The game cache, scanned first when it is empty (decision 24). A scan
-/// that cannot run leaves the cache empty; the lookup then says the game
-/// was not found. The Steam install is the read commands' one, so `--demo`
-/// never scans the user's Steam.
-pub fn games(ctx: &Context) -> Result<GameCache, CliError> {
-    let found = cache::load(&ctx.paths);
-    if !found.is_empty() {
-        return Ok(found);
-    }
-    let config = read::config(ctx)?;
-    let install = read::steam(ctx, &config);
-    match rescan(&ctx.paths, &install, ctx.clock.as_ref()) {
-        Ok(_) => Ok(cache::load(&ctx.paths)),
-        Err(e) => {
-            tracing::info!("no scan before the lookup: {e}");
-            Ok(found)
-        }
-    }
-}
-
 /// The game a `<game>` argument names, with Go's `game not found: <q>`.
 pub fn find_game(ctx: &Context, query: &str) -> Result<Game, CliError> {
-    let games = games(ctx)?;
-    games
-        .find(query)
-        .cloned()
-        .map_err(|e| CliError::from(e).with_hint(SCAN_HINT))
+    let games = read::games(ctx, Rescan::IfEmptyQuietly)?;
+    read::find_game(&games, query).cloned()
 }
 
-/// A profile store error with its exit code.
+/// A profile store error with its exit code. A load never gives a field
+/// error: a stored value a field refuses makes the file invalid (exit 3).
+/// Only a value typed for a write is a field error (exit 2).
 pub fn profile_error(e: ProfileError) -> CliError {
     let code = match &e {
         ProfileError::Invalid { .. } | ProfileError::ReadOnly { .. } => exit::CONFIG,
@@ -136,12 +115,17 @@ pub fn config_store_error(e: ConfigStoreError) -> CliError {
     }
 }
 
-/// A deny list error with its exit code.
+/// A deny list error with its exit code. A list that cannot be used is
+/// `list_invalid` in `--json`, because DLL swaps fail closed on it.
 pub fn list_error(e: ListError) -> CliError {
     match e {
         e @ (ListError::Invalid { .. } | ListError::Newer { .. }) => {
-            CliError::new(exit::CONFIG, e.to_string())
+            CliError::new(exit::CONFIG, e.to_string()).with_kind("list_invalid")
         }
+        e @ ListError::NotMigrated { .. } => CliError::new(exit::CONFIG, e.to_string())
+            .with_hint(LIST_HINT)
+            .with_kind("list_invalid"),
+        e @ ListError::AppIdTooLarge { .. } => CliError::new(exit::USAGE, e.to_string()),
         e @ (ListError::Read { .. } | ListError::Write { .. }) => {
             CliError::new(exit::FAILURE, e.to_string())
         }
@@ -215,7 +199,21 @@ mod tests {
             path: "/c/lists/overrides.toml".into(),
             message: "no".into(),
         };
-        assert_eq!(list_error(bad).code, exit::CONFIG);
+        let bad = list_error(bad);
+        assert_eq!((bad.code, bad.kind), (exit::CONFIG, "list_invalid"));
+        let pending = list_error(ListError::NotMigrated {
+            path: "/c/lists/overrides.yaml".into(),
+            error: "no".into(),
+        });
+        assert_eq!((pending.code, pending.kind), (exit::CONFIG, "list_invalid"));
+        assert_eq!(pending.hint.as_deref(), Some(LIST_HINT));
+        let huge = list_error(ListError::AppIdTooLarge { app_id: u64::MAX });
+        assert_eq!((huge.code, huge.kind), (exit::USAGE, "usage"));
+        let held = list_error(ListError::Lock(LockError::Held {
+            path: "/s/config.lock".into(),
+            pid: Some(7),
+        }));
+        assert_eq!(held.code, exit::LOCKED, "a held lock exits 5 everywhere");
         let set = ConfigStoreError::Set(config::ConfigSetError("unknown config key: x".into()));
         let e = config_store_error(set);
         assert_eq!(

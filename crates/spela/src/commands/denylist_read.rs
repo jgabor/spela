@@ -7,18 +7,19 @@
 //!
 //! The lists fail closed (decision 8): a list file that does not load, or a
 //! Go list that did not migrate, is an error that names the file and exits
-//! 3, never a quiet answer from the built-in list alone.
+//! 3, never a quiet answer from the built-in list alone. The core loader
+//! makes that check, so every caller gets it.
 
 use std::fmt::Write as _;
 use std::io::Write;
 
 use clap::Args;
-use spela_core::denylist::{self, DenyLists, ListError};
-use spela_core::migrate::SourceKind;
+use spela_core::denylist::{self, DenyLists};
 
 use super::read::{self, Rescan};
+use super::target::list_error;
 use crate::cli::{Context, Invocation};
-use crate::error::{CliError, exit};
+use crate::error::CliError;
 
 /// `denylist check` arguments.
 #[derive(Debug, Clone, PartialEq, Eq, Args)]
@@ -79,22 +80,5 @@ pub fn check(
 /// The lists, failing closed on a Go list that did not migrate or a list
 /// file that does not load.
 fn load(ctx: &Context) -> Result<DenyLists, CliError> {
-    for failed in ctx.migration.failed() {
-        if matches!(
-            failed.kind,
-            SourceKind::DenyOverrides | SourceKind::UserDenylist
-        ) {
-            return Err(read::not_migrated(&failed.entry.path, &failed.entry.error)
-                .with_kind("list_invalid"));
-        }
-    }
     denylist::load(&ctx.paths).map_err(list_error)
-}
-
-fn list_error(e: ListError) -> CliError {
-    let code = match e {
-        ListError::Invalid { .. } | ListError::Newer { .. } => exit::CONFIG,
-        ListError::Read { .. } | ListError::Write { .. } | ListError::Lock(_) => exit::FAILURE,
-    };
-    CliError::new(code, e.to_string()).with_kind("list_invalid")
 }

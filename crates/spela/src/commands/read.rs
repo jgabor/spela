@@ -2,9 +2,10 @@
 //! cache with its rescan rule, finding a game, and a scope's profile.
 //!
 //! The rescan rule is decision 24: the CLI rescans only on an empty cache or
-//! `spela scan`. `list` and `show` rescan an empty cache; every other read
-//! command takes the cache as it is, as in Go, where only `list`, `show` and
-//! the TUI refreshed it.
+//! `spela scan`. [`Rescan`] says which commands do: `list` and `show`
+//! rescan an empty cache, the commands that change a game's profile try to,
+//! and every other command takes the cache as it is, as in Go, where only
+//! `list`, `show` and the TUI refreshed it.
 //!
 //! A profile that does not load, or whose Go file did not migrate, exits 3
 //! and names the file (architecture, "Profiles and inheritance").
@@ -15,23 +16,32 @@ use spela_core::config::{self, Config};
 use spela_core::env::var;
 use spela_core::games::scan::{self, RescanError};
 use spela_core::games::{Game, GameCache, cache};
-use spela_core::migrate::CONFIG_HINT;
-use spela_core::profile::store::{self, ProfileError};
+use spela_core::profile::store;
 use spela_core::profile::{Effective, Scope};
 use spela_core::steam::library::SteamInstall;
 
 use crate::cli::Context;
+use crate::commands::target::profile_error;
 use crate::error::{CliError, exit};
+use crate::migration::not_migrated;
 
 /// The hint after a game that is not in the cache.
 pub const SCAN_HINT: &str = "run 'spela scan' to refresh the game list";
 
-/// Whether a command rescans an empty game cache before it reads it.
+/// Whether a command rescans an empty game cache before it reads it. This
+/// is the one place the rule is written.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Rescan {
-    /// `list` and `show`: an empty cache is scanned first.
+    /// `list` and `show`: an empty cache is scanned first, and a scan that
+    /// cannot run is Go's error.
     IfEmpty,
-    /// Every other read command: the cache as it is.
+    /// The commands that change a game's profile: an empty cache is scanned
+    /// first, but a scan that cannot run leaves it empty, and the lookup
+    /// then says the game was not found, as Go's writes did, which never
+    /// scanned.
+    IfEmptyQuietly,
+    /// Every other command, the deny list ones included: the cache as it
+    /// is, as Go loaded it.
     Never,
 }
 
@@ -62,25 +72,42 @@ pub fn steam(ctx: &Context, config: &Config) -> SteamInstall {
     install
 }
 
-/// The game cache. With [`Rescan::IfEmpty`], the config is loaded, as Go's
-/// `list` and `show` always loaded it, so a config that does not load exits
-/// 3, and an empty cache is rebuilt from Steam first; with no Steam to scan
-/// that is Go's error.
+/// The game cache, rescanned per [`Rescan`]. With [`Rescan::IfEmpty`] the
+/// config is loaded, as Go's `list` and `show` always loaded it, so a
+/// config that does not load exits 3, and an empty cache is rebuilt from
+/// Steam first; with no Steam to scan that is Go's error. With
+/// [`Rescan::IfEmptyQuietly`] the config is loaded only to scan. The Steam
+/// install is [`steam`]'s, so `--demo` never scans the user's Steam.
 pub fn games(ctx: &Context, rescan: Rescan) -> Result<GameCache, CliError> {
     if rescan == Rescan::Never {
         return Ok(cache::load(&ctx.paths));
     }
-    let config = config(ctx)?;
+    let loaded = if rescan == Rescan::IfEmpty {
+        Some(config(ctx)?)
+    } else {
+        None
+    };
     let cache = cache::load(&ctx.paths);
     if !cache.is_empty() {
         return Ok(cache);
     }
+    let config = match loaded {
+        Some(config) => config,
+        None => config(ctx)?,
+    };
     let install = steam(ctx, &config);
     tracing::info!("the game cache is empty, so spela scans Steam first");
-    match scan::rescan(&ctx.paths, &install, ctx.clock.as_ref()) {
-        Ok(_) => Ok(cache::load(&ctx.paths)),
-        Err(RescanError::NoSteam) => Err(no_steam(ctx, "failed to refresh game database")),
-        Err(e) => Err(CliError::new(
+    match (
+        scan::rescan(&ctx.paths, &install, ctx.clock.as_ref()),
+        rescan,
+    ) {
+        (Ok(_), _) => Ok(cache::load(&ctx.paths)),
+        (Err(e), Rescan::IfEmptyQuietly) => {
+            tracing::info!("no scan before the lookup: {e}");
+            Ok(cache)
+        }
+        (Err(RescanError::NoSteam), _) => Err(no_steam(ctx, "failed to refresh game database")),
+        (Err(e), _) => Err(CliError::new(
             exit::FAILURE,
             format!("failed to refresh game database: {e}"),
         )),
@@ -181,27 +208,6 @@ fn warn_profile<'a>(path: &Path, warnings: impl Iterator<Item = &'a config::Diag
     for warning in warnings {
         tracing::warn!("{}: {warning}", path.display());
     }
-}
-
-/// The error for a Go file that did not migrate: exit 3, with Go's advice.
-pub fn not_migrated(path: &Path, error: &str) -> CliError {
-    CliError::new(
-        exit::CONFIG,
-        format!("cannot migrate Go spela's file {}: {error}", path.display()),
-    )
-    .with_hint(CONFIG_HINT)
-}
-
-/// A profile that does not load: exit 3 when the file is invalid, 1 when
-/// it cannot be read.
-pub fn profile_error(e: ProfileError) -> CliError {
-    let code = match e {
-        ProfileError::Io { .. } | ProfileError::Lock(_) => exit::FAILURE,
-        ProfileError::Invalid { .. } | ProfileError::ReadOnly { .. } | ProfileError::Field(_) => {
-            exit::CONFIG
-        }
-    };
-    CliError::new(code, e.to_string())
 }
 
 /// Writes text to stdout, mapping a closed pipe to a quiet exit.

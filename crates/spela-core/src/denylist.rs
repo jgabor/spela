@@ -26,6 +26,10 @@
 //!   update are refused with an error naming the file (decision 8). Go
 //!   ignored it, so every swap was allowed. An unknown key is an error too,
 //!   so a misspelt `[[denid]]` cannot drop a denial unnoticed.
+//! - So does a Go list, `lists/overrides.yaml` or `lists/denylist.yaml`,
+//!   that the migration record does not list as migrated or skipped: its
+//!   TOML file is missing or not yet the user's, so the Go denials would be
+//!   lost. [`load`] and every write refuse until it migrates.
 //!
 //! A game is matched by AppID only, in this order: `allowed`, then
 //! `denied`, then the user list, then the built-in list.
@@ -183,6 +187,22 @@ pub enum ListError {
         /// The cause.
         source: io::Error,
     },
+    /// A Go list file has not migrated, so the lists are not known. Its
+    /// TOML file is missing or would be adopted in its place.
+    #[error("cannot migrate Go spela's deny list {}: {error}", path.display())]
+    NotMigrated {
+        /// The Go list file.
+        path: PathBuf,
+        /// Why, from the migration record.
+        error: String,
+    },
+    /// An AppID TOML cannot hold: above `i64::MAX`. The input is wrong, not
+    /// a file.
+    #[error("app id {app_id} is too large for TOML")]
+    AppIdTooLarge {
+        /// The AppID.
+        app_id: u64,
+    },
     /// `config.lock` cannot be taken.
     #[error(transparent)]
     Lock(#[from] LockError),
@@ -317,8 +337,11 @@ impl DenyLists {
 }
 
 /// Loads the lists. A missing file is an empty one. A file that cannot be
-/// read or does not parse is an error that names it.
+/// read or does not parse is an error that names it, and so is a Go list
+/// file that has not migrated.
 pub fn load(paths: &Paths) -> Result<DenyLists, ListError> {
+    let go = paths.go();
+    check_migrated(paths, &[go.deny_overrides(), go.user_denylist()])?;
     let overrides = match read(&paths.deny_overrides())? {
         Some((path, text)) => parse_overrides(&path, &text)?.overrides,
         None => Overrides::default(),
@@ -331,7 +354,7 @@ pub fn load(paths: &Paths) -> Result<DenyLists, ListError> {
 }
 
 /// Refuses a DLL install or update into `app_id` when a list denies it, or
-/// when a list does not load.
+/// when a list does not load or a Go list has not migrated.
 pub fn guard_swap(paths: &Paths, app_id: u64) -> Result<(), SwapRefused> {
     load(paths)?.guard(app_id)
 }
@@ -339,7 +362,7 @@ pub fn guard_swap(paths: &Paths, app_id: u64) -> Result<(), SwapRefused> {
 /// `denylist allow`: adds the game to `allowed` and removes it from
 /// `denied`. Returns whether the file changed.
 pub fn allow(paths: &Paths, app_id: u64) -> Result<bool, ListError> {
-    let id = toml_app_id(paths, app_id)?;
+    let id = toml_app_id(app_id)?;
     edit_overrides(paths, |doc| {
         let removed = remove_denied(doc, id);
         let allowed = allowed_array(doc);
@@ -355,7 +378,7 @@ pub fn allow(paths: &Paths, app_id: u64) -> Result<bool, ListError> {
 /// reason in place, and removes it from `allowed`. Returns whether the file
 /// changed.
 pub fn deny(paths: &Paths, app_id: u64, name: &str, reason: &str) -> Result<bool, ListError> {
-    let id = toml_app_id(paths, app_id)?;
+    let id = toml_app_id(app_id)?;
     edit_overrides(paths, |doc| {
         let removed = remove_allowed(doc, id);
         removed | upsert_denied(doc, id, name, reason)
@@ -365,7 +388,7 @@ pub fn deny(paths: &Paths, app_id: u64, name: &str, reason: &str) -> Result<bool
 /// `denylist clear` (decision 51): removes the game from both `allowed`
 /// and `denied`. Returns whether the file changed.
 pub fn clear(paths: &Paths, app_id: u64) -> Result<bool, ListError> {
-    let id = toml_app_id(paths, app_id)?;
+    let id = toml_app_id(app_id)?;
     edit_overrides(paths, |doc| {
         remove_allowed(doc, id) | remove_denied(doc, id)
     })
@@ -373,20 +396,56 @@ pub fn clear(paths: &Paths, app_id: u64) -> Result<bool, ListError> {
 
 /// The overrides file as spela writes it, for the migration from Go. It
 /// writes the lists as given: the migration first keeps an app that Go
-/// listed in both only in `allowed`, and records its `denied` entry.
-pub fn overrides_toml(overrides: &Overrides) -> String {
+/// listed in both only in `allowed`, and records its `denied` entry. An
+/// AppID TOML cannot hold is refused, never clamped.
+pub fn overrides_toml(overrides: &Overrides) -> Result<String, ListError> {
     let mut doc = DocumentMut::new();
     doc.insert("version", value(LIST_VERSION));
     let mut allowed = toml_edit::Array::new();
     for id in &overrides.allowed {
-        allowed.push(i64::try_from(*id).unwrap_or(i64::MAX));
+        allowed.push(toml_app_id(*id)?);
     }
     doc.insert("allowed", value(allowed));
     for entry in &overrides.denied {
-        let id = i64::try_from(entry.app_id).unwrap_or(i64::MAX);
+        let id = toml_app_id(entry.app_id)?;
         upsert_denied(&mut doc, id, &entry.name, &entry.reason);
     }
-    doc.to_string()
+    Ok(doc.to_string())
+}
+
+/// Refuses while one of these Go list files exists and is not settled in
+/// the migration record: not migrated yet, or failed. A record that does
+/// not load fails closed too.
+fn check_migrated(paths: &Paths, sources: &[PathBuf]) -> Result<(), ListError> {
+    let pending: Vec<&PathBuf> = sources.iter().filter(|p| p.is_file()).collect();
+    if pending.is_empty() {
+        return Ok(());
+    }
+    let record = crate::migrate::Record::load(&paths.migration_record()).map_err(|e| {
+        ListError::NotMigrated {
+            path: pending[0].clone(),
+            error: e.to_string(),
+        }
+    })?;
+    for path in pending {
+        let path = path.clone();
+        match record.get(&path) {
+            Some(entry) if entry.is_done() => {}
+            Some(entry) => {
+                return Err(ListError::NotMigrated {
+                    path,
+                    error: entry.error.clone(),
+                });
+            }
+            None => {
+                return Err(ListError::NotMigrated {
+                    path,
+                    error: "it has not been migrated yet".to_owned(),
+                });
+            }
+        }
+    }
+    Ok(())
 }
 
 fn read(path: &Path) -> Result<Option<(PathBuf, String)>, ListError> {
@@ -504,23 +563,23 @@ fn invalid(path: &Path, error: impl std::fmt::Display) -> ListError {
     }
 }
 
-fn toml_app_id(paths: &Paths, app_id: u64) -> Result<i64, ListError> {
-    i64::try_from(app_id).map_err(|_| ListError::Invalid {
-        path: paths.deny_overrides(),
-        message: format!("app id {app_id} is too large for TOML"),
-    })
+fn toml_app_id(app_id: u64) -> Result<i64, ListError> {
+    i64::try_from(app_id).map_err(|_| ListError::AppIdTooLarge { app_id })
 }
 
 /// One locked edit of `overrides.toml`: read fresh, refuse a file that does
 /// not load or that a newer spela wrote, change only what `change` changes
 /// with toml_edit so comments and order stay, check the new text, and
-/// replace the file. Writes nothing when `change` changes nothing.
+/// replace the file. Writes nothing when `change` changes nothing. While
+/// Go's `overrides.yaml` has not migrated nothing is written, because the
+/// migration would then adopt this file and lose the Go values.
 fn edit_overrides(
     paths: &Paths,
     change: impl FnOnce(&mut DocumentMut) -> bool,
 ) -> Result<bool, ListError> {
     let path = paths.deny_overrides();
     let _lock = StoreLock::acquire(&paths.config_lock())?;
+    check_migrated(paths, &[paths.go().deny_overrides()])?;
     let text = read(&path)?.map(|(_, text)| text).unwrap_or_default();
     if let Some(version) = parse_overrides(&path, &text)?.newer {
         return Err(ListError::Newer { path, version });
@@ -907,12 +966,76 @@ mod tests {
                 entry(9100202, "9100202", "user-specified"),
             ],
         };
-        let text = overrides_toml(&overrides);
+        let text = overrides_toml(&overrides).unwrap();
         assert!(
             text.starts_with("version = 1\nallowed = [1172470, 9100203]\n\n[[denied]]\n"),
             "{text}"
         );
         let parsed = parse_overrides(Path::new("overrides.toml"), &text).unwrap();
         assert_eq!(parsed.overrides, overrides);
+        let huge = Overrides {
+            allowed: vec![u64::MAX],
+            denied: Vec::new(),
+        };
+        assert!(matches!(
+            overrides_toml(&huge),
+            Err(ListError::AppIdTooLarge { app_id: u64::MAX })
+        ));
+    }
+
+    #[test]
+    fn an_app_id_toml_cannot_hold_is_bad_input_not_a_bad_file() {
+        let (_base, paths) = setup();
+        for result in [
+            allow(&paths, u64::MAX),
+            deny(&paths, u64::MAX, "x", "y"),
+            clear(&paths, u64::MAX),
+        ] {
+            let e = result.unwrap_err();
+            assert!(matches!(e, ListError::AppIdTooLarge { .. }), "{e}");
+            assert!(!e.to_string().contains("overrides.toml"), "{e}");
+        }
+        assert!(!paths.deny_overrides().exists());
+    }
+
+    #[test]
+    fn a_go_list_that_has_not_migrated_fails_closed() {
+        let (_base, paths) = setup();
+        write(
+            &paths.go().deny_overrides(),
+            "denied:\n  - app_id: 9100201\n",
+        );
+        let e = guard_swap(&paths, 9100201).unwrap_err();
+        assert!(
+            matches!(e, SwapRefused::Unreadable(ListError::NotMigrated { .. })),
+            "{e}"
+        );
+        assert!(
+            guard_swap(&paths, 9100010).is_err(),
+            "every game is refused"
+        );
+        assert!(e.to_string().contains("overrides.yaml"), "{e}");
+        assert!(
+            matches!(allow(&paths, 5), Err(ListError::NotMigrated { .. })),
+            "a write now would be adopted in place of the Go file"
+        );
+        assert!(!paths.deny_overrides().exists());
+
+        // A failed migration names its error; a settled one loads.
+        let clock = crate::clock::ManualClock::new("2026-10-26T17:04:11Z".parse().unwrap());
+        write(&paths.go().user_denylist(), "entries: [\n");
+        crate::migrate::run(&paths, &clock).unwrap();
+        let e = load(&paths).unwrap_err();
+        match &e {
+            ListError::NotMigrated { path, error } => {
+                assert!(path.ends_with("denylist.yaml"), "{e}");
+                assert!(!error.is_empty(), "{e}");
+            }
+            other => panic!("{other}"),
+        }
+        assert!(allow(&paths, 5).unwrap(), "overrides.yaml migrated");
+        std::fs::remove_file(paths.go().user_denylist()).unwrap();
+        let lists = load(&paths).unwrap();
+        assert!(lists.check(9100201).is_denied());
     }
 }

@@ -250,7 +250,7 @@ const ALLOWED: &[Allowed] = &[
             "sandbox/errors/proton-show-broken-yaml",
         ],
         change: Change::Error(
-            "error: cannot migrate Go spela's file /fixture-root/config/spela/profiles/9100030.yaml: line 2 column 7: expected mapping start",
+            "error: cannot migrate Go spela's profile /fixture-root/config/spela/profiles/9100030.yaml: line 2 column 7: expected mapping start",
         ),
         why: "architecture, Failure handling and Profiles and inheritance: a Go profile that does not migrate is a broken profile; the error names the file, and the YAML reader is serde-saphyr, not yaml.v3 (Reading YAML)",
     },
@@ -260,7 +260,7 @@ const ALLOWED: &[Allowed] = &[
             "sandbox/errors/dlss-show-invalid-vrr",
         ],
         change: Change::Error(
-            "error: cannot migrate Go spela's file /fixture-root/config/spela/profiles/9100060.yaml: gpu.vrr: unsupported value \"sometimes\" (valid: , unset, automatic, always, never)",
+            "error: cannot migrate Go spela's profile /fixture-root/config/spela/profiles/9100060.yaml: gpu.vrr: unsupported value \"sometimes\" (valid: , unset, automatic, always, never)",
         ),
         why: "architecture, Failure handling: the error names the file and keeps Go's value message",
     },

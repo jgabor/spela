@@ -23,8 +23,9 @@ use spela_core::profile::words::{ALL_GAMES, follow_outcome_text};
 use spela_core::profile::{FieldError, FieldKey, Scope, Section};
 
 use crate::cli::Context;
+use crate::commands::read::{self, Rescan};
 use crate::commands::target::{
-    clear_all_message, field_error, find_game, games, line, profile_error, target,
+    clear_all_message, field_error, find_game, line, profile_error, target,
 };
 use crate::error::{CliError, exit};
 use crate::migration;
@@ -172,7 +173,7 @@ fn follow_games(ctx: &Context, queries: &[String]) -> Result<Vec<(u64, String)>,
         return Ok(out);
     }
     let listing = store::list(&ctx.paths).map_err(profile_error)?;
-    let cache = games(ctx).unwrap_or_default();
+    let cache = read::games(ctx, Rescan::IfEmptyQuietly).unwrap_or_default();
     let name = |app_id: u64, stored: &str| -> String {
         cache
             .get(app_id)

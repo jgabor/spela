@@ -79,6 +79,16 @@ fn case(name: &str) -> Case {
     }
 }
 
+/// Removes Go's list files from the copy, for a test that writes the TOML
+/// lists itself in the migration's place.
+fn forget_go_lists(c: &Case) {
+    for path in [c.paths.go().deny_overrides(), c.paths.go().user_denylist()] {
+        if path.exists() {
+            std::fs::remove_file(path).unwrap();
+        }
+    }
+}
+
 /// Runs the migration, which copies Go's caches once as seeds.
 fn seed(c: &Case) {
     let clock = ManualClock::new("2026-10-26T17:04:11Z".parse().unwrap());
@@ -316,10 +326,13 @@ fn go_lists_read_into_the_shared_types_and_check_as_decision_36_says() {
         }
 
         // The same lists as the migration writes them read back the same.
+        // The test stands in for the migration, so the Go files go: a Go
+        // list the record does not settle fails closed.
+        forget_go_lists(&c);
         std::fs::create_dir_all(c.paths.lists_dir()).unwrap();
         std::fs::write(
             c.paths.deny_overrides(),
-            denylist::overrides_toml(&overrides),
+            denylist::overrides_toml(&overrides).unwrap(),
         )
         .unwrap();
         let loaded = denylist::load(&c.paths).unwrap();
@@ -350,10 +363,11 @@ fn a_game_in_both_go_lists_is_allowed_until_the_next_write() {
     let overrides: Overrides =
         serde_saphyr::from_str(&std::fs::read_to_string(c.paths.go().deny_overrides()).unwrap())
             .unwrap();
+    forget_go_lists(&c);
     std::fs::create_dir_all(c.paths.lists_dir()).unwrap();
     std::fs::write(
         c.paths.deny_overrides(),
-        denylist::overrides_toml(&overrides),
+        denylist::overrides_toml(&overrides).unwrap(),
     )
     .unwrap();
     assert!(!denylist::load(&c.paths).unwrap().check(9100203).is_denied());
