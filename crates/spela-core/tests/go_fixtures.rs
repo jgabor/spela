@@ -693,9 +693,11 @@ fn every_list_case_matches_its_oracle() {
             .map(|v| v.as_u64().unwrap())
             .collect();
         assert_eq!(allowed, want_allowed, "{name}");
-        let denied: Vec<(u64, String, String)> = toml["denied"]
-            .as_array()
-            .unwrap()
+        // An empty `denied` is left out of the file.
+        let denied: Vec<(u64, String, String)> = toml
+            .get("denied")
+            .map(|d| d.as_array().unwrap().as_slice())
+            .unwrap_or_default()
             .iter()
             .map(|e| {
                 (

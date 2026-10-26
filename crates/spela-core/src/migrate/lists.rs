@@ -23,6 +23,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::denylist::{self, DenyEntry, Overrides};
+
 use super::go::quote;
 use super::record::{Dropped, Why};
 use super::yaml::{self, YamlError};
@@ -48,16 +50,9 @@ struct DenyListYaml {
     entries: Option<Vec<EntryYaml>>,
 }
 
-#[derive(Debug, Serialize)]
-struct Entry {
-    app_id: u64,
-    name: String,
-    reason: String,
-}
-
-impl From<EntryYaml> for Entry {
-    fn from(e: EntryYaml) -> Entry {
-        Entry {
+impl From<EntryYaml> for DenyEntry {
+    fn from(e: EntryYaml) -> DenyEntry {
+        DenyEntry {
             app_id: e.app_id.unwrap_or(0),
             name: e.name.unwrap_or_default(),
             reason: e.reason.unwrap_or_default(),
@@ -65,17 +60,11 @@ impl From<EntryYaml> for Entry {
     }
 }
 
-#[derive(Debug, Serialize)]
-struct OverridesToml {
-    version: i64,
-    allowed: Vec<u64>,
-    denied: Vec<Entry>,
-}
-
+/// `denylist.toml`. The deny list module has no writer for it yet.
 #[derive(Debug, Serialize)]
 struct DenyListToml {
     version: i64,
-    entries: Vec<Entry>,
+    entries: Vec<DenyEntry>,
 }
 
 /// A converted list file: its TOML text without the header, and what was
@@ -94,7 +83,12 @@ pub fn overrides(text: &str) -> Result<Converted, YamlError> {
     let allowed = go.allowed.unwrap_or_default();
     let mut denied = Vec::new();
     let mut dropped = Vec::new();
-    for entry in go.denied.unwrap_or_default().into_iter().map(Entry::from) {
+    for entry in go
+        .denied
+        .unwrap_or_default()
+        .into_iter()
+        .map(DenyEntry::from)
+    {
         if allowed.contains(&entry.app_id) {
             dropped.push(Dropped::new(
                 format!("denied.{}", entry.app_id),
@@ -110,13 +104,16 @@ pub fn overrides(text: &str) -> Result<Converted, YamlError> {
             denied.push(entry);
         }
     }
-    let out = OverridesToml {
-        version: 1,
-        allowed,
-        denied,
-    };
+    if let Some(id) = allowed
+        .iter()
+        .chain(denied.iter().map(|e| &e.app_id))
+        .find(|id| i64::try_from(**id).is_err())
+    {
+        return Err(yaml_like(format!("app id {id} is too large for TOML")));
+    }
+    // One writer for overrides.toml: the deny list module's.
     Ok(Converted {
-        text: toml::to_string(&out).map_err(|e| yaml_like(e.to_string()))?,
+        text: denylist::overrides_toml(&Overrides { allowed, denied }),
         dropped,
     })
 }
@@ -130,7 +127,7 @@ pub fn denylist(text: &str) -> Result<Converted, YamlError> {
             .entries
             .unwrap_or_default()
             .into_iter()
-            .map(Entry::from)
+            .map(DenyEntry::from)
             .collect(),
     };
     Ok(Converted {
@@ -139,8 +136,8 @@ pub fn denylist(text: &str) -> Result<Converted, YamlError> {
     })
 }
 
-/// A TOML encoding failure, which only an app id above `i64::MAX` causes,
-/// reported like a bad source file.
+/// An app id above `i64::MAX`, which TOML cannot hold, reported like a bad
+/// source file.
 fn yaml_like(message: String) -> YamlError {
     yaml::error(message)
 }
@@ -193,7 +190,7 @@ mod tests {
     #[test]
     fn empty_lists_stay_empty() {
         let c = overrides("allowed: []\ndenied: []\n").unwrap();
-        assert_eq!(c.text, "version = 1\nallowed = []\ndenied = []\n");
+        assert_eq!(c.text, "version = 1\nallowed = []\n");
         let d = denylist(&lines(&[
             "entries:",
             "    - app_id: 9100201",
