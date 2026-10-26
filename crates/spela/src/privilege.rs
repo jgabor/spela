@@ -337,6 +337,50 @@ mod tests {
         }
     }
 
+    /// Runs `sh -c script` with the pipes the real backend uses, and reads
+    /// it as a one-shot helper.
+    fn run_shell(script: &str, request: &HardwareRequest) -> Result<ApplyReport, PrivilegeError> {
+        let mut child = Command::new("sh")
+            .args(["-c", script])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let output = child.stdout.take().unwrap();
+        client::read_once(request, &mut BufReader::new(output), finish(child))
+            .map_err(StartError::into_privilege_error)
+    }
+
+    #[test]
+    fn a_real_child_s_exit_and_stderr_map_like_pkexec_s() {
+        let request = HardwareRequest {
+            smt: Some(false),
+            ..HardwareRequest::default()
+        };
+        assert_eq!(
+            run_shell(
+                "echo 'Error executing command as another user: Request dismissed' >&2; exit 126",
+                &request
+            ),
+            Err(PrivilegeError::Dismissed)
+        );
+        assert_eq!(
+            run_shell(
+                "echo 'Error executing command as another user: Not authorized' >&2; exit 127",
+                &request
+            ),
+            Err(PrivilegeError::Helper(
+                "Error executing command as another user: Not authorized".into()
+            ))
+        );
+        let line =
+            r#"{"type":"step","step":"smt","target":false,"outcome":"failed","error":"busy"}"#;
+        let report = run_shell(&format!("echo '{line}'; exit 1"), &request).unwrap();
+        assert_eq!(report.steps.len(), 1);
+        assert!(!report.all_applied());
+    }
+
     #[test]
     fn an_empty_request_runs_nothing() {
         // No pkexec is spawned for nothing: the empty paths return first.
