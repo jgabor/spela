@@ -35,10 +35,10 @@ use super::manifest::{self, COMMON, STEAMAPPS};
 use super::tools;
 
 /// The variable Steam sets to the game's AppID.
-pub const STEAM_APP_ID: &str = "SteamAppId";
+pub const STEAM_APP_ID: &str = crate::env::var::STEAM_APP_ID;
 /// The variable Steam sets to the game's ID, which is the AppID for a
 /// Steam game.
-pub const STEAM_GAME_ID: &str = "SteamGameId";
+pub const STEAM_GAME_ID: &str = crate::env::var::STEAM_GAME_ID;
 
 /// What found the game.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

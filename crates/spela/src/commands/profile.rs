@@ -1,12 +1,14 @@
 //! `spela profile`: manage per-game profiles and All games.
 //!
-//! Each subcommand still takes a placeholder [`Rest`] and says it is not
-//! built yet until its phase declares its arguments here.
+//! The read subcommands are in [`super::profile_read`]. The others still
+//! take a placeholder [`Rest`] and say they are not built yet until their
+//! phase declares their arguments here.
 
 use std::io::Write;
 
 use clap::Subcommand;
 
+use super::profile_read::{self, ShowArgs};
 use crate::cli::{Context, Invocation, Rest};
 use crate::error::CliError;
 
@@ -14,11 +16,11 @@ use crate::error::CliError;
 #[derive(Debug, Clone, Subcommand)]
 pub enum ProfileCommand {
     /// List games with their own profile.
-    List(Rest),
+    List,
     /// Create a profile for a game.
     Create(Rest),
     /// Show a game's or All games' settings.
-    Show(Rest),
+    Show(ShowArgs),
     /// Make every setting follow All games, or reset All games.
     Reset(Rest),
     /// Delete a game's profile.
@@ -31,14 +33,14 @@ pub enum ProfileCommand {
 pub fn run(
     command: &ProfileCommand,
     inv: &Invocation,
-    _ctx: &mut Context,
-    _out: &mut dyn Write,
-    _err: &mut dyn Write,
+    ctx: &mut Context,
+    out: &mut dyn Write,
+    err: &mut dyn Write,
 ) -> Result<(), CliError> {
     match command {
-        ProfileCommand::List(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
+        ProfileCommand::List => profile_read::list(inv, ctx, out, err),
         ProfileCommand::Create(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
-        ProfileCommand::Show(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
+        ProfileCommand::Show(args) => profile_read::show(args, inv, ctx, out, err),
         ProfileCommand::Reset(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
         ProfileCommand::Delete(_) => Err(CliError::not_implemented(&inv.path.join(" "))),
         ProfileCommand::Follow(_) => Err(CliError::not_implemented(&inv.path.join(" "))),

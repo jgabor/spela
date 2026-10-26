@@ -1,0 +1,263 @@
+---
+source: crates/spela/tests/cli_read.rs
+expression: "run.stdout().replace(&root, \"[ROOT]\")"
+---
+{
+  "schema_version": 1,
+  "scope": "all_games",
+  "app_id": null,
+  "name": null,
+  "has_profile": true,
+  "fields": [
+    {
+      "key": "proton.enable_hdr",
+      "section": "proton",
+      "kind": "bool",
+      "unit": null,
+      "value": false,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "proton.enable_wayland",
+      "section": "proton",
+      "kind": "bool",
+      "unit": null,
+      "value": true,
+      "own_value": true,
+      "all_games_value": null,
+      "origin": "set_here"
+    },
+    {
+      "key": "proton.enable_ngx_updater",
+      "section": "proton",
+      "kind": "bool",
+      "unit": null,
+      "value": false,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "proton.vkd3d_heap",
+      "section": "proton",
+      "kind": "bool",
+      "unit": null,
+      "value": false,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "dlss.sr_mode",
+      "section": "dlss",
+      "kind": "string",
+      "unit": null,
+      "value": "",
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "dlss.sr_preset",
+      "section": "dlss",
+      "kind": "string",
+      "unit": null,
+      "value": "",
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "dlss.sr_override",
+      "section": "dlss",
+      "kind": "bool",
+      "unit": null,
+      "value": false,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "dlss.rr_mode",
+      "section": "dlss",
+      "kind": "string",
+      "unit": null,
+      "value": "",
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "dlss.rr_preset",
+      "section": "dlss",
+      "kind": "string",
+      "unit": null,
+      "value": "",
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "dlss.rr_override",
+      "section": "dlss",
+      "kind": "bool",
+      "unit": null,
+      "value": false,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "dlss.fg_enabled",
+      "section": "dlss",
+      "kind": "bool",
+      "unit": null,
+      "value": false,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "dlss.fg_override",
+      "section": "dlss",
+      "kind": "bool",
+      "unit": null,
+      "value": false,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "dlss.multi_frame",
+      "section": "dlss",
+      "kind": "int",
+      "unit": null,
+      "value": 0,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "dlss.indicator",
+      "section": "dlss",
+      "kind": "bool",
+      "unit": null,
+      "value": false,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "dlss.fg_indicator",
+      "section": "dlss",
+      "kind": "bool",
+      "unit": null,
+      "value": false,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "gpu.clock_offset",
+      "section": "gpu",
+      "kind": "int",
+      "unit": "MHz",
+      "value": 0,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "gpu.vrr",
+      "section": "gpu",
+      "kind": "string",
+      "unit": null,
+      "value": "",
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "gpu.memory_offset",
+      "section": "gpu",
+      "kind": "int",
+      "unit": "MHz",
+      "value": 0,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "gpu.power_limit",
+      "section": "gpu",
+      "kind": "int",
+      "unit": "W",
+      "value": 0,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "gpu.fan_speed",
+      "section": "gpu",
+      "kind": "int",
+      "unit": "%",
+      "value": 0,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "gpu.shader_cache",
+      "section": "gpu",
+      "kind": "bool",
+      "unit": null,
+      "value": false,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "gpu.shader_cache_path",
+      "section": "gpu",
+      "kind": "string",
+      "unit": null,
+      "value": "",
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "gpu.threaded_optimization",
+      "section": "gpu",
+      "kind": "bool",
+      "unit": null,
+      "value": false,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    },
+    {
+      "key": "cpu.governor",
+      "section": "cpu",
+      "kind": "string",
+      "unit": null,
+      "value": "performance",
+      "own_value": "performance",
+      "all_games_value": null,
+      "origin": "set_here"
+    },
+    {
+      "key": "cpu.smt",
+      "section": "cpu",
+      "kind": "optional_bool",
+      "unit": null,
+      "value": null,
+      "own_value": null,
+      "all_games_value": null,
+      "origin": "system_default"
+    }
+  ]
+}

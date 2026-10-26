@@ -10,7 +10,7 @@
 //! | [`fs`] | Writing a file atomically, with fsync for user intent |
 //! | [`lock`] | flock instance locks and store locks |
 //! | [`hex`] | SHA-256 and hex helpers |
-//! | [`backend`] | The traits for GPU, display, privilege and HTTP |
+//! | [`backend`] | The traits for GPU, CPU reads, display, privilege and HTTP |
 //! | [`fake`] | The fake behind every trait, shared by tests and `--demo` |
 //!
 //! The domain:

@@ -4,12 +4,15 @@
 //! network sits behind a trait with two implementations: the real one in the
 //! `spela` binary and the fake in [`crate::fake`]. Tests and `spela --demo`
 //! share the fake (decision 18). Backends that are only files have no trait:
-//! their seam is a root path that tests point at a temp dir.
+//! their seam is a root path that tests point at a temp dir. CPU state is
+//! the exception: its reads are files under a sysfs root, and they also sit
+//! behind [`Cpu`], so the fake answers for `--demo` and the binary tests.
 //!
 //! [`BackendKind::from_env`] reads the hidden `SPELA_BACKEND` selector.
 //! `fake` swaps these backends for the fake and changes nothing else, so the
 //! [`crate::paths::Paths`] a test injected stay.
 
+pub mod cpu;
 pub mod display;
 pub mod gpu;
 pub mod http;
@@ -17,6 +20,7 @@ pub mod privilege;
 
 use std::sync::Arc;
 
+pub use cpu::{Cpu, CpuError, SysfsCpu};
 pub use display::{Display, DisplayError, Output, VrrPolicy};
 pub use gpu::{FanSetting, Gpu, GpuControl, GpuError, GpuInfo, GpuMetrics, GpuPrior, Prior};
 pub use http::{Http, HttpError, HttpRequest, HttpResponse, USER_AGENT};
@@ -58,6 +62,8 @@ pub struct Backends {
     pub kind: BackendKind,
     /// GPU 0 reads.
     pub gpu: Box<dyn Gpu>,
+    /// CPU governor and SMT reads.
+    pub cpu: Box<dyn Cpu>,
     /// KDE VRR.
     pub display: Box<dyn Display>,
     /// The one privileged round trip.

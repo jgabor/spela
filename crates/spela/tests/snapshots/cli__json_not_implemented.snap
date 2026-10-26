@@ -6,6 +6,6 @@ expression: run.stdout()
   "schema_version": 1,
   "error": {
     "code": "not_implemented",
-    "message": "'spela scan' is not yet implemented in this build"
+    "message": "'spela gpu info' is not yet implemented in this build"
   }
 }

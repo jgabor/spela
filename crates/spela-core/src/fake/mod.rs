@@ -9,6 +9,7 @@
 //!
 //! Demo data is fictional (decision 43).
 
+pub mod cpu;
 pub mod display;
 pub mod gpu;
 pub mod http;
@@ -16,6 +17,7 @@ pub mod privilege;
 
 use std::sync::Arc;
 
+pub use cpu::{CpuFault, FakeCpu};
 pub use display::{DisplayFault, FakeDisplay};
 pub use gpu::{FakeGpu, FakeGpuControl, GpuCall, GpuFault};
 pub use http::{FakeHttp, FakeRoute};
@@ -29,6 +31,7 @@ pub fn backends() -> Backends {
     Backends {
         kind: BackendKind::Fake,
         gpu: Box::new(FakeGpu::demo()),
+        cpu: Box::new(FakeCpu::demo()),
         display: Box::new(FakeDisplay::demo()),
         privilege: Box::new(FakePrivilege::new(FakeGpuControl::new(), None)),
         http: Arc::new(FakeHttp::new()),

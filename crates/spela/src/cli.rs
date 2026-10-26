@@ -28,8 +28,12 @@ use std::process::ExitCode;
 
 use clap::{ArgAction, ArgMatches, Args, CommandFactory, FromArgMatches, Parser, Subcommand};
 use clap_complete::Shell;
+use std::sync::Arc;
+
 use spela_core::backend::Backends;
+use spela_core::clock::{Clock, SystemClock};
 use spela_core::env::{Env, var};
+use spela_core::migrate::Report;
 use spela_core::paths::{Paths, PathsError};
 
 use crate::commands::config::ConfigCommand;
@@ -48,7 +52,7 @@ use crate::helper::{self, HelperArgs};
 use crate::logging::{self, LogMode};
 use crate::output::{self, Colors};
 use crate::router::{self, Route, WrapperInvocation};
-use crate::{backends, locks};
+use crate::{backends, locks, startup};
 
 const ABOUT: &str = "Linux gaming optimization tool";
 
@@ -240,6 +244,13 @@ pub struct Context {
     pub backends: Backends,
     /// Colour for stdout and stderr.
     pub colors: Colors,
+    /// The clock: the system clock, a manual one in tests.
+    pub clock: Arc<dyn Clock>,
+    /// What the migration from Go spela did at startup. Empty under
+    /// `--demo` and for commands that never read the store.
+    pub migration: Report,
+    /// Whether this run is `--demo`, which never reads the user's Steam.
+    pub demo: bool,
 }
 
 /// Every subcommand name and alias clap knows, hidden ones and `help`
@@ -511,8 +522,11 @@ fn setup_and_run(
         paths,
         backends,
         colors,
+        clock: Arc::new(SystemClock),
+        migration: Report::default(),
+        demo: inv.cli.demo,
     };
-    let result = run(inv, &mut ctx, out, err);
+    let result = startup::migrate(inv, &mut ctx, err).and_then(|()| run(inv, &mut ctx, out, err));
     if let Err(e) = &result
         && !e.is_broken_pipe()
     {
