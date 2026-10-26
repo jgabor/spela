@@ -577,6 +577,10 @@ struct Running {
 
 impl Running {
     fn start(scenario: &str) -> Running {
+        Running::start_with(scenario, &[])
+    }
+
+    fn start_with(scenario: &str, env: &[(&str, &std::path::Path)]) -> Running {
         let mut pty = open_pty(ROWS, COLS);
         let output = Output::read_from(&pty.master);
         let slave = pty.slave.take().unwrap();
@@ -584,6 +588,7 @@ impl Running {
         let mut cmd = Command::new(std::env::current_exe().unwrap());
         cmd.args(["--exact", "pty_child", "--nocapture", "--test-threads=1"])
             .env(SCENARIO, scenario)
+            .envs(env.iter().copied())
             .stdin(stdio())
             .stdout(stdio())
             .stderr(stdio());
@@ -716,6 +721,24 @@ fn a_panic_in_render_restores_the_terminal_and_exits_101() {
     assert!(!run.raw_mode(), "the shell gets a cooked terminal back");
 }
 
+#[test]
+fn a_fatal_panic_off_the_main_thread_removes_the_demo_dir() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut run = Running::start_with("demo_panic", &[("TMPDIR", tmp.path())]);
+    let mut child = run.child.take().unwrap();
+    let code = wait(&mut child);
+    run.wait_for("<demo started>");
+    run.wait_for("a worker failed on purpose");
+    assert_eq!(code, Some(101));
+    let left: Vec<String> = std::fs::read_dir(tmp.path())
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| n.starts_with("spela-demo-"))
+        .collect();
+    assert!(left.is_empty(), "the demo dir went: {left:?}");
+}
+
 /// Runs the scenario the parent named; does nothing in a normal run.
 #[test]
 fn pty_child() {
@@ -807,6 +830,25 @@ fn pty_child() {
                 .unwrap();
             assert!(loop_thread.join().is_err());
             std::process::exit(101);
+        }
+        "demo_panic" => {
+            use spela::tui::terminal;
+
+            // The exit after a fatal panic off the main thread skips every
+            // drop; the hook removes the demo dir first.
+            terminal::install_panic_hook();
+            let real = tempfile::tempdir().unwrap();
+            let session =
+                spela::demo::DemoSession::start(&spela_core::paths::Paths::under(real.path()))
+                    .unwrap();
+            assert!(session.root().is_dir());
+            say("<demo started>");
+            let worker = std::thread::Builder::new()
+                .name("worker".into())
+                .spawn(|| panic!("a worker failed on purpose"))
+                .unwrap();
+            let _ = worker.join();
+            unreachable!("the panic hook exits with 101");
         }
         other => panic!("unknown scenario {other:?}"),
     }

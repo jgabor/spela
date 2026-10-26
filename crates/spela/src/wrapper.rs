@@ -672,7 +672,7 @@ pub fn main(
     );
     let mut backends = crate::backends::select(&env, false)?;
     tracing::info!(
-        version = spela_core::VERSION,
+        version = spela_core::release::shown_version(),
         command = ?invocation.command,
         backend = ?backends.kind,
         "spela wrapping a game"

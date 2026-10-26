@@ -79,7 +79,7 @@ Environment:
 #[derive(Debug, Clone, Parser)]
 #[command(
     name = "spela",
-    version,
+    version = spela_core::release::shown_version(),
     about = ABOUT,
     long_about = LONG_ABOUT,
     after_help = EXIT_HELP,
@@ -582,7 +582,7 @@ fn setup_and_run(
         }
     }
     tracing::info!(
-        version = spela_core::VERSION,
+        version = spela_core::release::shown_version(),
         command = inv.path.join(" "),
         demo = inv.cli.demo,
         backend = ?backends.kind,
@@ -822,7 +822,11 @@ mod tests {
             let (code, text, to_stdout) = exit_of(&[flag]);
             assert_eq!(code, exit::OK);
             assert!(to_stdout);
-            assert_eq!(text, format!("spela {}\n", spela_core::VERSION), "{flag}");
+            assert_eq!(
+                text,
+                format!("spela {}\n", spela_core::release::shown_version()),
+                "{flag}"
+            );
         }
     }
 

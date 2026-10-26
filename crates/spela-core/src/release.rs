@@ -15,7 +15,8 @@
 //! - Only a release or packaged build checks: one whose version came
 //!   through `SPELA_VERSION` at build time, from release CI as `X.Y.Z` or
 //!   from the AUR `spela-git` package as its pkgver, such as
-//!   `0.7.0.r6.g087d1c4` (decision 68). A packaged build compares its
+//!   `0.7.0.r6.g087d1c4` (decision 68), which `--version` then shows
+//!   ([`shown_version`]). A packaged build compares its
 //!   release part, `0.7.0`, with the tags. Every other build reports
 //!   `<crate version>-dev` and never asks. Go skipped `-git` builds.
 //! - Only the TUI checks, gated by `check_updates`; the CLI stays quiet
@@ -78,6 +79,22 @@ pub fn release_base(version: &str) -> Option<&str> {
 /// in, or `<crate version>-dev`.
 pub fn running_version() -> String {
     version_from(option_env!("SPELA_VERSION"))
+}
+
+/// The version `spela --version` and the logs show: the build's
+/// `SPELA_VERSION` when it is a release or an AUR pkgver, else the crate
+/// version (decisions 48 and 68). Release CI sets it to the crate version,
+/// so only AUR builds show something else.
+pub fn shown_version() -> &'static str {
+    shown_from(option_env!("SPELA_VERSION"))
+}
+
+/// The shown version for a build-time `SPELA_VERSION` of `built`.
+fn shown_from(built: Option<&'static str>) -> &'static str {
+    match built {
+        Some(v) if release_base(v).is_some() => v,
+        _ => crate::VERSION,
+    }
 }
 
 /// The running version for a build-time `SPELA_VERSION` of `built`.
@@ -341,6 +358,10 @@ mod tests {
         let dev = format!("{}-dev", crate::VERSION);
         assert_eq!(version_from(Some("0.7.0-6-g087d1c4")), dev);
         assert_eq!(version_from(None), dev);
+        assert_eq!(shown_from(Some("0.7.0.r6.g087d1c4")), "0.7.0.r6.g087d1c4");
+        assert_eq!(shown_from(Some("0.7.0")), "0.7.0");
+        assert_eq!(shown_from(Some("0.7.0-6-g087d1c4")), crate::VERSION);
+        assert_eq!(shown_from(None), crate::VERSION);
     }
 
     #[test]

@@ -23,7 +23,7 @@ pub fn run(shell: Shell, out: &mut dyn Write) -> Result<(), CliError> {
 fn visible_command() -> clap::Command {
     let root = Cli::command();
     clap::Command::new("spela")
-        .version(spela_core::VERSION)
+        .version(spela_core::release::shown_version())
         .disable_version_flag(true)
         .args(root.get_arguments().cloned())
         .subcommands(root.get_subcommands().filter(|c| !c.is_hide_set()).cloned())
